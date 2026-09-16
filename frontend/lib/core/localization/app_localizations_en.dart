@@ -219,11 +219,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get createNewCurrency => 'Add New Currency';
   @override String get createNewExchangeRate => 'Update Exchange Rate';
   @override String get interactiveOperationsBoardTitle => 'Interactive 6-Phase Operations Board';
-  @override String get interactiveOperationsBoardDesc => 'Comprehensive visual board (6 Major Phases — 21 Operational Steps) supporting live multi-phase tracking and instant shipment movement.';
+  @override String get interactiveOperationsBoardDesc => 'Comprehensive visual board (6 Major Phases — 25 Operational Steps) supporting live multi-phase tracking and instant shipment movement.';
   @override String get openInteractiveBoard => 'Open Interactive Board';
-  @override String get lifecycleBoardSummaryTitle => 'Shipment Operations Lifecycle Summary (21 Steps)';
-  @override String get lifecycleBoardSummaryDesc => 'Live tracking of shipment files across 6 major phases and 21 detailed operational steps.';
-  @override String get fullOperationsBoardButton => 'Full Operations Board (21 Steps) ↗️';
+  @override String get lifecycleBoardSummaryTitle => 'Shipment Operations Lifecycle Summary (25 Steps)';
+  @override String get lifecycleBoardSummaryDesc => 'Live tracking of shipment files across 6 major phases and 25 detailed operational steps.';
+  @override String get fullOperationsBoardButton => 'Full Operations Board (25 Steps) ↗️';
   @override String get shipmentCountUnit => 'Shipments';
   @override String get tasksCountUnit => 'Tasks';
   @override String get kpiTodaysTasks => "Today's Tasks";
@@ -451,6 +451,15 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get scenarioAllStackableTitle => 'Scenario 1: All Stackable Cargo';
   @override String get scenarioAllNonStackableTitle => 'Scenario 2: All Non-Stackable Cargo';
   @override String get scenarioMixedStackingTitle => 'Scenario 3: Mixed Stacking Cargo';
+  @override String get saveContainerImageTooltip => 'Save Container Image (PNG)';
+  @override String get exportContainerExcelTooltip => 'Export Planner Table (Excel)';
+  @override String get exportContainerPdfTooltip => 'Export Simulation Report (PDF)';
+  @override String get saveContainerImageDialogTitle => 'Save Container Plan Image PNG';
+  @override String get exportContainerExcelDialogTitle => 'Export Container Simulation Excel';
+  @override String get exportContainerPdfDialogTitle => 'Export Container Simulation Report PDF';
+  @override String get containerImageCaptureError => 'Could not capture container plan from screen.';
+  @override String get containerExportError => 'Error exporting file: ';
+  @override String get closePlannerBtn => 'Close Planner';
   @override String get savedShippingStudiesTitle => 'Saved Shipping Evaluation Studies';
   @override String get date => 'Date';
   @override String get shipmentCategoryLabel => 'Shipment Category';
@@ -920,6 +929,35 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get selectBrokerRequired => 'Please select a customs broker';
   @override String get priceListUpdatedSuccess => 'Price list updated successfully!';
   @override String get priceListCreatedSuccess => 'Broker price list created successfully!';
+  @override String get customsExpenseCodingTitle => 'Reference Customs Expense Coding';
+  @override String get linkAsAliasTab => '🔗 Link as Alias to Approved Code';
+  @override String get registerNewCatalogCodeTab => '➕ Register New Code in Catalog';
+  @override String get approvedCatalogItemLabel => 'Approved Catalog Item *';
+  @override String get searchApprovedCatalogHint => 'Search approved catalog items...';
+  @override String get documentAliasLabel => 'Name or Alias in Document *';
+  @override String get documentAliasHint => 'e.g. Port discharge fees / Tolls / Exceptional fees';
+  @override String get referenceItemCodeLabel => 'Reference Item Code *';
+  @override String get searchReferenceCodeHint => 'Search or select reference code...';
+  @override String get officialCategoryLabel => 'Official Category *';
+  @override String get canonicalArabicNameLabel => 'Official Arabic Name *';
+  @override String get canonicalEnglishNameOptionalLabel => 'English Name (Optional)';
+  @override String get unitTypeLabel => 'Unit Type *';
+  @override String get approvedPriceLabel => 'Approved Rate *';
+  @override String get itemNotesAndConditionsLabel => 'Item Notes & Conditions';
+  @override String get saveAndMapAliasBtn => 'Save & Map Alias';
+  @override String get registerCodeInCatalogBtn => 'Register Code in Catalog';
+  @override String itemCodedSuccessfullyToast(dynamic alias, dynamic code) => '✨ "$alias" successfully mapped to reference code $code';
+  @override String itemRegisteredInCatalogToast(dynamic code) => '✨ New reference code $code registered in catalog successfully';
+  @override String get needsCodingBadge => 'Needs Coding';
+  @override String get customItemBadge => 'Custom Item';
+  @override String get deleteCustomItemTooltip => 'Delete Custom Item';
+  @override String get addCustomItemOrAliasBtn => '➕ Code New Item or Link Alias';
+  @override String get smartFileExtractionBtn => '✨ Smart File Extraction';
+  @override String get fillApprovedArabicNameRequired => 'Please enter the official Arabic item name';
+  @override String get selectReferenceCodeRequired => 'Please select or enter the reference item code';
+  @override String get pleaseEnterItemPrice => 'Please enter a rate';
+  @override String get invalidItemPrice => 'Invalid price rate';
+  @override String get selectDateTooltip => 'Select Date';
   @override String get showArchivedChip => 'Show Archived';
   @override String get hideArchivedChip => 'Hide Archived';
   @override String get restoreConsultationTitle => 'Restore Customs Consultation';
@@ -1138,7 +1176,23 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get originalDocsRegistryTsvHeaderStatus => 'Status';
   @override String get originalDocsRegistryTsvHeaderUpdatedAt => 'Updated At';
   @override String get originalDocsRegistryCopiedSuccess => 'Sessions registry dossier copied to clipboard successfully';
-  @override String get originalDocsLoadSessionTooltip => 'Open and load session';
+  @override String get originalDocsLoadSessionTooltip => 'Open & Load Session';
+  @override String get courierAlertsHeader => 'Courier SLA Alerts & Receipt Tracking';
+  @override String courierAlertCriticalCount(dynamic count) => '$count delayed couriers exceeded SLA limit';
+  @override String courierAlertWarningCount(dynamic count) => '$count couriers approaching SLA deadline';
+  @override String get courierTrackingRegistryTab => 'Courier Tracking & Delivery Proof Registry';
+  @override String get sessionsRegistryTab => 'Sessions & Documents Registry';
+  @override String get confirmCourierDeliveryBtn => 'Confirm & Record Delivery Receipt';
+  @override String get courierDeliveryProofDialogTitle => 'Record Courier Delivery Proof (POD)';
+  @override String get courierReceiptDateLabel => 'Actual Receipt Date';
+  @override String get courierReceiptTimeLabel => 'Receipt Time (HH:mm)';
+  @override String get courierReceivedByLabel => 'Received By';
+  @override String get courierPodRefLabel => 'POD Reference / Delivery Note';
+  @override String get markAssociatedDocsReceivedLabel => 'Auto-mark associated documents as "Received"';
+  @override String get courierReceiptRecordedSuccess => 'Courier receipt proof recorded successfully';
+  @override String daysInTransitLabel(dynamic days) => '$days days in transit';
+  @override String get filterStatusInTransit => 'In Transit';
+  @override String get filterStatusDelivered => 'Delivered';
 
   // ── Screen 59: Production Sync Screen & Hub ───────────────────────────────
   @override String get prodSyncScreenTitle => 'Production Sync Hub';
@@ -1549,6 +1603,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   // ── Screen 11: Nafeza ACID Operations ───────────────────────────────────
   @override String get nafezaAcidTitle => 'Nafeza Advance Cargo Information (ACID)';
+  @override String get searchAndCloneAcidBtn => 'Search & Clone ACID';
+  @override String get searchAndCloneAcidDialogTitle => 'Search & Clone Previous ACID Request';
+  @override String get searchAcidHint => 'Search by ACID number, file, supplier, or invoice...';
+  @override String get noAcidsFound => 'No matching ACID requests found';
+  @override String get cloneAcidSuccess => 'ACID request cloned successfully and ready for review';
+  @override String get acidClonedResetNotice => 'Notice: ACID number and release status were reset automatically';
+  @override String get importFromPreviousAcidSessionBtn => 'Import from Previous Session';
+  @override String get rawTextImportedSuccess => 'Nafeza notice text successfully imported from previous session';
+  @override String get cloneAcidRecordTooltip => 'Clone ACID record into new draft';
+  @override String get copyDiscrepancyReportBtn => 'Copy Discrepancy Report';
+  @override String get discrepancyReportCopiedSuccess => 'Customs discrepancy report copied to clipboard successfully';
+  @override String get emptyComparisonHint => 'Select an import file and click "Run Comparison & Verification" to check ACID data against PO and invoice.';
   @override String get acidRequestTab => 'ACID Request Form';
   @override String get smartMtsParserTab => 'MTS Smart AI Parser';
   @override String get discrepancyMatrixTab => 'Discrepancy Matrix';
@@ -1706,6 +1772,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get bankProcessingStatusBadge => 'Under Bank Processing';
   @override String get form4SavedSuccess => 'Bank Form 4 saved successfully';
   @override String get form4SaveError => 'Error saving Bank Form 4';
+  @override String get searchAndCloneBankForm4Btn => 'Clone From Previous Form 4';
+  @override String get searchAndCloneBankForm4DialogTitle => 'Search & Clone Previous Bank Form 4';
+  @override String get searchBankForm4Hint => 'Search by doc code, bank, shipment code, or amount...';
+  @override String get noBankForm4Found => 'No matching bank form 4 records found';
+  @override String get cloneBankForm4Success => 'Bank Form 4 data cloned successfully with mandatory reset invariants';
+  @override String get bankForm4ClonedResetNotice => 'Form code will be reset to draft, request date reset, and unlinked from previous record';
+  @override String get cloneBankForm4RecordTooltip => 'Clone Bank Form 4 Record';
 
   // ── Screen 18: Draft B/L Review ──────────────────────────────────────────
   @override String get draftBlStage0ReviewSheet => '1. Review Sheet & Checklist';
@@ -1856,6 +1929,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get draftBlNoLetterGeneratedYet => 'No letter generated currently.';
   @override String get draftBlRegistryUpdatedSuccess => 'Final approved registry updated successfully';
   @override String draftBlPreviewSessionSnack(int id, String blNo) => 'Previewing Session #$id: $blNo';
+  @override String get searchAndCloneDraftBlBtn => 'Clone Previous Draft B/L';
+  @override String get searchAndCloneDraftBlDialogTitle => 'Search & Clone Draft B/L Review';
+  @override String get searchDraftBlHint => 'Search by B/L number, shipping line, vessel, or review code...';
+  @override String get noDraftBlFound => 'No matching draft B/L reviews found';
+  @override String get cloneDraftBlSuccess => 'Draft B/L data cloned and reset successfully';
+  @override String get draftBlClonedResetNotice => 'Notice: B/L number was reset, session ID unlinked, and dual approvals reset to Pending.';
+  @override String get cloneDraftBlRecordTooltip => 'Clone this draft B/L';
 
   // ── Screen 19: Draft COO / EUR.1 Review ──────────────────────────────────
   @override String get cooStage1Requirements => '1. COO & EUR.1 Requirements';
@@ -1969,6 +2049,14 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String cooExcelSavedSuccess(String path) => '✅ Excel file saved successfully at: $path';
   @override String get cooDetailsExporterLabel => 'Exporter';
   @override String get cooDetailsImporterLabel => 'Importer';
+  @override String get searchAndCloneCooBtn => 'Search & Clone Draft COO';
+  @override String get searchAndCloneCooDialogTitle => 'Search & Clone Draft Certificate of Origin & EUR.1';
+  @override String get searchCooHint => 'Search by cert number, exporter, importer, or type...';
+  @override String get noCooReviewsFound => 'No certificate of origin reviews match search';
+  @override String get cloneCooSuccess => 'Draft certificate of origin cloned successfully';
+  @override String get cooClonedResetNotice => 'COO cloned with reset certificate number and refreshed system snapshot';
+  @override String get cloneCooRecordTooltip => 'Clone Draft COO';
+  @override String get cooRegistrySearchHint => 'Search COO registry...';
 
   // ── Screen 20: Customs Docs Approval (CustomsDocumentApprovalTab) ─────────
   @override String get customsApprovalSelectFileForMatrixWarning => 'Please select an import file first to run matrix check.';
@@ -2090,6 +2178,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get customsApprovalDefaultLegalOfficer => 'Legal Officer';
   @override String get customsApprovalDefaultComplianceOfficer => 'Compliance Specialist';
 
+  // Screen 20: Search & Clone Customs Document Approvals
+  @override String get searchAndCloneCustomsApprovalBtn => 'Search & Clone Previous Customs Approval';
+  @override String get searchAndCloneCustomsApprovalDialogTitle => 'Search & Clone Customs Document Approval';
+  @override String get searchCustomsApprovalHint => 'Search by file code, doc type, company, or status...';
+  @override String get noCustomsApprovalsFound => 'No matching customs document approvals found';
+  @override String get cloneCustomsApprovalSuccess => 'Document approval checklist cloned and reset successfully';
+  @override String get customsApprovalClonedResetNotice => 'Notice: All commercial and customs approvals were reset to Pending Review with notes cleared.';
+  @override String get cloneApprovalRecordTooltip => 'Clone this document requirement';
+  @override String get cloneTicketRecordTooltip => 'Clone this discrepancy ticket';
+
   // ── Screen 21: PO & Packing Reconciliation ───────────────────────────────
   @override String get poRecSampleLoadedSuccess => 'Sample demo data loaded successfully';
   @override String poRecFileSelected(String name, String sizeKb) => 'File selected: $name ($sizeKb KB)';
@@ -2128,9 +2226,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get poRecSelectFileRequired => 'Please select an import file';
   @override String get poRecFinalInvoiceNoLabel => 'Final Commercial Invoice No. *';
   @override String get poRecFinalInvoiceNoHint => 'e.g. V1/2562';
-  @override String get poRecFinalPackingListNoLabel => 'Final Packing List No. *';
+  @override String get poRecFinalPackingListNoLabel => 'Final Packing List No. (Optional)';
   @override String get poRecFinalPackingListNoHint => 'e.g. M26 413 / PL-2562';
   @override String get poRecRequired => 'Required';
+  @override String get poRecTotalSummaryRow => 'Totals';
 
   @override String get poRecKpiTotalInvoice => 'Total Final Invoice';
   @override String get poRecKpiTotalPackages => 'Total Actual Packages';
@@ -2241,6 +2340,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get poRecHistoryCopyReportButton => 'Copy Session Report for Printing';
   @override String poRecHistoryDetailsModalTitle(String code) => 'Reconciliation Session Report: $code';
   @override String get poRecHistoryDetailsCertifiedItemsTitle => 'Certified Invoice Line Items in Session:';
+  @override String get poRecHistoryDetailsCertifiedPackingTitle => 'Certified Packing List & Physical Measurements in Session:';
   @override String get poRecHistoryLoadInEditorButton => 'Load in Editor';
   @override String get poRecDiff => 'Diff';
   @override String get poRecMissingInPacking => 'Missing in Packing';
@@ -2275,6 +2375,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get poRecReportCertifiedBy => 'Certified By';
   @override String get poRecReportCsvHeader => 'Item Code,Description,HS Code,Quantity,Unit Price,Total Amount,Packages,Gross Wt,Net Wt,CBM';
   @override String get poRecReportPreviewTitle => 'Reconciliation Report Preview';
+
+  // Screen 21: Search & Clone PO Reconciliation Sessions
+  @override String get searchAndClonePoReconBtn => 'Search & Clone Previous Session';
+  @override String get searchAndClonePoReconDialogTitle => 'Search & Clone PO & Packing Reconciliation Session';
+  @override String get searchPoReconHint => 'Search by session code, invoice number, import file, or importer...';
+  @override String get noPoReconFound => 'No reconciliation sessions matched your search query';
+  @override String get clonePoReconSuccess => 'Reconciliation session cloned successfully and loaded into editor';
+  @override String get poReconClonedResetNotice => 'Notice: New draft session code generated and certification data reset for independent review';
+  @override String get clonePoReconRecordTooltip => 'Clone this reconciliation session as a new draft';
+  @override String get copyPoReconBtn => 'Copy Reconciliation Table (TSV)';
+  @override String get exportPoReconExcelBtn => 'Export Reconciliation Table to Excel';
+  @override String get exportPoReconPdfBtn => 'Export Reconciliation Report to PDF';
 
   // ── Screen 23: Customs Declaration 46 ──────────────────────────────────────
   @override String get customsDeclStageTitle => 'Initial Customs Declaration 46 Registration';
@@ -4841,7 +4953,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get rowHistoryCopySummarySuccess => 'Change summary copied to clipboard';
 
   // ── Screen 48: Lifecycle Kanban Board ───────────────────────────────────────
-  @override String get lifecycleBoardTitle => 'Shipment Lifecycle Operations Board (6 Phases / 21 Steps)';
+  @override String get lifecycleBoardTitle => 'Shipment Lifecycle Operations Board (6 Phases / 25 Steps)';
   @override String get lifecycleBoardSubtitle => 'Live Interactive Shipment Stage Tracker — Select a stage to view and update file registry';
   @override String get refreshLiveBoardTooltip => 'Refresh Live Data';
   @override String lifecycleBoardError(dynamic error) => 'An error occurred while loading board data:\n$error';
@@ -4884,6 +4996,16 @@ class AppLocalizationsEn extends AppLocalizations {
         return 'Freight Allocations';
       case 'STEP_08':
         return 'Draft Docs Review';
+      case 'STEP_08_PO':
+        return 'PO & Packing Reconciliation';
+      case 'STEP_08_BL':
+        return 'Draft B/L Review';
+      case 'STEP_08_MATCH':
+        return 'Smart Invoice vs B/L Match';
+      case 'STEP_08_COO':
+        return 'Draft COO & EUR.1';
+      case 'STEP_08_COC':
+        return 'Inspection Review COC';
       case 'STEP_09':
         return 'Docs Customs Approval';
       case 'STEP_10':
@@ -7947,6 +8069,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get swiftColVarianceStatus => 'Variance & Match Status';
   @override
+  String get swiftChargesLabel => 'Bank Charges (71A)';
+  @override
   String get swiftColSwiftRef => 'SWIFT Reference No';
   @override
   String get swiftColActions => 'Actions';
@@ -10088,7 +10212,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get stepConfigDemoSwitchBtn => 'Switch to Manager Role (Demo)';
   @override String get stepConfigRefreshTooltip => 'Refresh Data';
   @override String get stepConfigSearchHint => 'Search by step code, name, or policy...';
-  @override String get stepConfigPhaseAll => 'All (21 Steps)';
+  @override String get stepConfigPhaseAll => 'All (25 Steps)';
   @override String stepConfigPhaseLabel(int phase) => 'Phase $phase';
   @override String get stepConfigEmptySearch => 'No steps match the current search criteria.';
   @override String get stepConfigColPhaseCode => 'Phase & Code';
@@ -10122,7 +10246,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get stepConfigPdfSubtitle => 'Risk criteria and preliminary approval registry for import workflow';
   @override String get stepConfigDossierHeader => '=== Lifecycle Steps Governance & Skip Policies Dossier ===';
   @override String get stepConfigDossierKpiSummary => '--- Governance KPI Summary ---';
-  @override String get stepConfigDossierRecordsDetails => '--- 21 Steps Detailed Configuration ---';
+  @override String get stepConfigDossierRecordsDetails => '--- 25 Steps Detailed Configuration ---';
   @override String get stepConfigDossierFooter => '=== End of Approved Governance Report ===';
   @override String stepConfigEditDialogTitle(String code) => 'Edit Step Policy: $code';
   @override String get stepConfigSkipPolicyLabel => 'Skip Policy:';
@@ -10331,6 +10455,126 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get cloneConsultationDialogTitle => 'Clone Customs Consultation Study';
   @override String get clonePriceListActionTooltip => 'Clone Entire Price List';
   @override String get cloneRowActionTooltip => 'Clone Current Row';
+  @override String get clonePurchaseOrderDialogTitle => 'Clone Purchase Order';
+  @override String get searchAndClonePoBtn => 'Search & Clone PO';
+  @override String get searchAndClonePoDialogTitle => 'Search & Clone Purchase Order';
+  @override String get searchAndClonePoSubtitle => 'Select a purchase order to duplicate with reset of shipments and allocations';
+  @override String get searchByPoOrSupplierOrItemHint => 'Search by PO number, title, PI, supplier, company, project...';
+  @override String get noMatchingPosFound => 'No matching purchase orders found';
+  @override String clonePoSuccess(dynamic code) => 'Purchase Order $code cloned successfully';
+  @override String clonePoError(dynamic error) => 'Failed to clone Purchase Order: $error';
+  @override String get cloneRowItemTooltip => 'Duplicate Line Item (Ctrl + D)';
+  @override String get clonePackingItemTooltip => 'Duplicate Package / Carton Item';
+  @override String get lineItemClonedSuccess => 'Line item duplicated successfully';
+  @override String get packingItemClonedSuccess => 'Package item duplicated successfully';
+  @override String get cloneFieldAllocationsReset => 'Reset partial shipment allocations';
+  @override String get cloneFieldShipmentUnlinked => 'Unlink from previous import file';
+  @override String get searchAndCloneCbmBtn => 'Search & Clone Study';
+  @override String get cloneCbmDialogTitle => 'Clone CBM Calculation Study';
+  @override String get searchAndCloneCbmDialogTitle => 'Search & Clone Calculation Session';
+  @override String get searchAndCloneCbmSubtitle => 'Find an existing calculation study and clone its cargo specifications as a new template';
+  @override String get searchByCalcCodeOrTitleHint => 'Search by calculation code, title, or notes...';
+  @override String get noMatchingCalcsFound => 'No matching calculation studies found';
+  @override String cloneCbmSuccess(dynamic code) => 'CBM Study [$code] cloned successfully';
+  @override String cloneCbmError(dynamic error) => 'Failed to clone CBM Study: $error';
+  @override String get cloneQuickItemTooltip => 'Duplicate Cargo Package (Ctrl + D)';
+  @override String get cargoItemClonedSuccess => 'Cargo package duplicated with live recalculation';
+  @override String get cloneFieldCalcCodeGenerated => 'Generate new unique calculation code';
+  @override String get cloneFieldImportFileReset => 'Unlink from previous import file';
+  @override String get cloneFieldPoReset => 'Unlink from previous purchase order';
+
+  // ── Screen 4 Shipping Scenarios Clone & Responsive Keys ─────────────────────
+  @override String get searchAndCloneStudyBtn => 'Search & Clone Study';
+  @override String get cloneStudyDialogTitle => 'Clone Shipping Evaluation Study';
+  @override String get searchAndCloneStudyDialogTitle => 'Search & Clone Freight Evaluation';
+  @override String get searchAndCloneStudySubtitle => 'Find an existing study and clone carrier quotations as a new draft';
+  @override String get searchByStudyCodeOrTitleHint => 'Search by study code, title, carrier, or project...';
+  @override String get noMatchingStudiesFound => 'No matching freight studies found';
+  @override String cloneStudySuccess(dynamic code) => 'Freight Study [$code] cloned successfully';
+  @override String cloneStudyError(dynamic error) => 'Failed to clone Freight Study: $error';
+  @override String get cloneCarrierOptionTooltip => 'Duplicate Carrier Option (Ctrl + D)';
+  @override String get carrierOptionClonedSuccess => 'Carrier option duplicated with live recalculation';
+  @override String get cloneFieldStudyCodeGenerated => 'Generate new unique study code';
+  @override String get cloneFieldSelectionReset => 'Reset carrier selection to evaluate anew';
+  @override String get carrierOptionHeader => 'Carrier Option';
+
+  // ── Screen 6 Customs Consultation Clone & Responsive Keys ─────────────────────
+  @override String get searchAndCloneConsultationBtn => 'Search & Clone Consultation';
+  @override String get searchAndCloneConsultationDialogTitle => 'Search & Clone Previous Customs Consultation';
+  @override String get searchAndCloneConsultationSubtitle => 'Select an existing consultation to clone tariff lines and documents into a new draft';
+  @override String get searchByConsultationCodeOrTitleHint => 'Search by consultation code, title, or broker...';
+  @override String get noMatchingConsultationsFound => 'No matching customs consultations found';
+  @override String cloneConsultationSuccess(dynamic code) => 'Customs Consultation [$code] cloned successfully';
+  @override String cloneConsultationError(dynamic error) => 'Failed to clone customs consultation: $error';
+  @override String get cloneChecklistItemTooltip => 'Duplicate Checklist Document Item (Ctrl + D)';
+  @override String get checklistItemClonedSuccess => 'Checklist document item cloned successfully';
+  @override String get cloneFieldConsultationCodeGenerated => 'Generate new unique consultation code';
+  @override String get cloneFieldChecklistReset => 'Reset regulatory documents status to Pending';
+  @override String get cloneConsultationTooltip => 'Clone this customs consultation as a new draft';
+  @override String get searchAndCloneConsultationTooltip => 'Search previous consultations and clone as a new draft';
+
+  // ── Screen 8 Financial Approval (Payment Requests) Clone & Responsive Keys ───
+  @override String get searchAndClonePaymentRequestBtn => 'Search & Clone Payment Request';
+  @override String get searchAndClonePaymentRequestDialogTitle => 'Search & Clone from Past Payment Requests';
+  @override String get searchAndClonePaymentRequestSubtitle => 'Select an existing payment request to clone beneficiary and banking data';
+  @override String get searchByPaymentCodeOrSupplierHint => 'Search by payment code, supplier, or import file...';
+  @override String get noMatchingPaymentRequestsFound => 'No matching payment requests found';
+  @override String clonePaymentRequestSuccess(dynamic code) => 'Payment request cloned successfully ($code) as a new draft';
+  @override String clonePaymentRequestError(dynamic error) => 'Failed to clone payment request: $error';
+  @override String get clonePaymentRequestTooltip => 'Clone this payment request as a new draft';
+  @override String get searchAndClonePaymentTooltip => 'Search and clone from past payment requests';
+  @override String get clonePaymentRequestDialogTitle => 'Clone Payment Request';
+  @override String get cloneFieldPaymentCodeGenerated => 'Generate new unique payment code';
+  @override String get cloneFieldBankingDetailsCopied => 'Copy supplier banking and SWIFT details';
+  @override String get cloneFieldPaymentStatusReset => 'Reset status automatically to Draft';
+  @override String get cloneFieldSwiftReceiptReset => 'Clear payment receipts and executed transfer data';
+  @override String get clonePoAllocationTooltip => 'Clone PO Allocation';
+  @override String get poAllocationClonedSuccess => 'PO allocation cloned successfully';
+
+  // ── Screen 9 Financial Approval (Import Budget) Clone & Responsive Keys ───
+  @override String get searchAndCloneBudgetBtn => 'Search & Clone Import Budget';
+  @override String get searchAndCloneBudgetDialogTitle => 'Search & Clone from Past Import Budgets';
+  @override String get searchAndCloneBudgetSubtitle => 'Select an existing approved budget to clone cost breakdown and exchange rates';
+  @override String get searchByBudgetCodeOrTitleHint => 'Search by budget code, title, or import file...';
+  @override String get noMatchingBudgetsFound => 'No matching budgets found';
+  @override String cloneBudgetSuccess(dynamic code) => 'Import budget cloned successfully ($code) as a new draft';
+  @override String cloneBudgetError(dynamic error) => 'Failed to clone import budget: $error';
+  @override String get cloneBudgetTooltip => 'Clone Import Budget';
+  @override String get searchAndCloneBudgetTooltip => 'Search and clone import budget';
+  @override String get cloneBudgetDialogTitle => 'Clone Import Budget';
+  @override String get cloneFieldBudgetCodeGenerated => 'Generate new unique budget code';
+  @override String get cloneFieldBudgetStatusReset => 'Reset status automatically to Pending Review / Draft';
+  @override String get cloneFieldCertificationsReset => 'Clear approval and certification records';
+  @override String get cloneFieldExchangeRatesCopied => 'Copy cost breakdown structure and exchange rates';
+
+  // ── Import Files Search, Clone & Dialogs Hardening ─────────────────────────
+  @override String get searchAndCloneImportFileBtn => 'Search & Clone Shipment';
+  @override String get searchAndCloneImportFileDialogTitle => 'Search & Clone Import File';
+  @override String get searchAndCloneImportFileSubtitle => 'Select a shipment to duplicate with automatic reset of ACID & clearance';
+  @override String get searchAndCloneImportFileHint => 'Search by file code, company, supplier, or PO...';
+  @override String resultsWithCount(dynamic count) => 'Results ($count)';
+  @override String get noMatchingShipmentsFound => 'No matching shipments found';
+  @override String get cloneFieldAcidReset => 'Reset ACID number and filing date';
+  @override String get portsOfLoadingAndDischarge => 'Ports (POL → POD)';
+  @override String get smartChecklistTooltip => 'Smart Shipment Operational Checklist';
+  @override String get moreToolsTooltip => 'More Tools';
+  @override String confirmDeleteImportFilePrompt(dynamic code) => 'Are you sure you want to delete import file $code?';
+  @override String get cloneBtn => 'Clone';
+  @override String get selectCompanyValidation => 'Please select the Egyptian importing company';
+  @override String get selectSupplierValidation => 'Please select the foreign supplier';
+  @override String get ownerFieldRequired => 'Project in-charge / Owner is required';
+  @override String get ownerFieldHint => 'Person in charge or project coordinator name';
+  @override String get containerStackableTab => '📦 1. Stackable';
+  @override String get containerNonStackableTab => '🚫 2. Non-Stackable';
+  @override String get containerMixedTab => '🔀 3. Mixed';
+  @override String get woodenFloorPallets => '🪵 Wooden Floor Pallets';
+  @override String get internalDimensionsPrefix => 'Internal Dimensions:';
+  @override String get containerOptionsAnalysisTitle => 'Container Options Analysis & Load Scenarios';
+  @override String get closeDiagramBtn => 'Close Diagram';
+  @override String get approvedRecommendationPrefix => 'Approved Recommendation:';
+  @override String get oversizedItemsWarning => 'The following items exceed container capacity:';
+  @override String get failedToFetchRfqData => 'Failed to fetch freight RFQ data from server.';
+  @override String get generatingRfqTemplatesLoading => 'Aggregating shipment details and generating freight RFQ templates...';
 
   // ── KB-GUIDE-012 Smart Shipment Experience Guide & Reference Card ───────────
   @override String get experienceGuideTitle => 'Smart Shipment Experience Guide';
@@ -10507,6 +10751,54 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get darkMode => 'Dark Mode';
   @override String get lightMode => 'Light Mode';
   @override String get systemMode => 'System Default';
+
+  // ── Desktop Command Palette (Ctrl + K) ──
+  @override String get commandPaletteTitle => 'Command Palette & Global Search';
+  @override String get commandPaletteSearchHint => 'Search screens, quick actions, shipments, suppliers...';
+  @override String get commandPaletteCategoryScreens => 'Screens & Workflow Stages';
+  @override String get commandPaletteCategoryActions => 'Quick Actions & Utilities';
+  @override String get commandPaletteCategoryRecords => 'Records & Master Data';
+  @override String get commandPaletteNoResults => 'No results found matching your query';
+  @override String get commandPaletteKeyboardNavHint => 'Use ↑ ↓ arrows to navigate, Enter to select, Esc to close';
+  @override String get commandPaletteShortcutTooltip => 'Command Palette & Global Search (Ctrl + K)';
+  @override String get commandPaletteOpenScreenAction => 'Open screen in workspace';
+  @override String get commandPaletteQuickAction => 'Execute Quick Action';
+
+  // ── Desktop Shortcuts & Power-User Suite ──
+  @override String get keyboardShortcutsTitle => 'Keyboard Shortcuts Guide';
+  @override String get keyboardShortcutsSubtitle => 'Power-user keyboard cheat-sheet for rapid operations';
+  @override String get shortcutsCategoryNavigation => 'Navigation & Workspace';
+  @override String get shortcutsCategoryOperations => 'Operations & Data';
+  @override String get shortcutsCategoryProductivity => 'Productivity & Help';
+  @override String get shortcutCommandPalette => 'Open Command Palette & Global Search';
+  @override String get shortcutNextTab => 'Switch to Next Workspace Tab';
+  @override String get shortcutPreviousTab => 'Switch to Previous Workspace Tab';
+  @override String get shortcutCloseTab => 'Close Active Workspace Tab';
+  @override String get shortcutToggleFullscreen => 'Toggle Fullscreen Mode';
+  @override String get shortcutEscape => 'Dismiss Modals and Popups';
+  @override String get shortcutSave => 'Quick Save Active Form / Session';
+  @override String get shortcutNewRecord => 'Open Add New Record Modal';
+  @override String get shortcutCloneRow => 'Clone Selected Row or Item';
+  @override String get shortcutSearchTable => 'Focus Table Search Field';
+  @override String get shortcutShowHelp => 'Display Keyboard Shortcuts Guide';
+  @override String get fullscreenEnabledToast => 'Entered Fullscreen Mode';
+  @override String get fullscreenDisabledToast => 'Exited Fullscreen Mode';
+
+  // ── Unsaved Changes Guard ──
+  @override String get unsavedChangesTitle => 'Unsaved Changes Warning';
+  @override String get unsavedChangesMessage => 'You have unsaved changes on this screen. Do you want to discard your edits or stay to save?';
+  @override String get unsavedChangesDiscardBtn => 'Discard Changes';
+  @override String get unsavedChangesSaveBtn => 'Save Changes';
+  @override String get unsavedChangesCancelBtn => 'Stay on Screen';
+  @override String get unsavedChangesBadgeTooltip => 'This tab contains unsaved changes';
+
+  // ── Enterprise Multi-Pane Layout ──
+  @override String get multiPaneSelectPrompt => 'Select an item from the sidebar to inspect full details and related documents';
+  @override String get multiPaneCollapseSidebar => 'Collapse Sidebar';
+  @override String get multiPaneExpandSidebar => 'Expand Sidebar';
+  @override String get multiPaneBackToList => 'Back to List';
+  @override String get multiPaneSidebarTitle => 'Item List';
+  @override String get multiPaneDetailsTitle => 'Detail View';
 }
 
 

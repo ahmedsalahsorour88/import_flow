@@ -11,8 +11,10 @@ import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/financial_settlement_model.dart';
 import '../providers/financial_settlement_provider.dart';
+import '../../../core/widgets/recalculate_button.dart';
 import 'landed_cost_comparison_screen.dart';
 import 'odoo_journal_entry_dialog.dart';
+
 
 class FinancialSettlementScreen extends ConsumerStatefulWidget {
   final int initialSubTab;
@@ -585,42 +587,8 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
 
                               const SizedBox(height: 12),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
+                                mainAxisAlignment: MainAxisAlignment.start,
                                 children: [
-                                  ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppTheme.charcoal,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                    ),
-                                    icon: const Icon(Icons.receipt_long, size: 16, color: Colors.amber),
-                                    label: Text(context.l10n.financialSettlementExportOdooBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                                    onPressed: () => _showOdooDialog(r.settlementId, r.settlementCode),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  OutlinedButton.icon(
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: AppTheme.emerald,
-                                      side: const BorderSide(color: AppTheme.emerald),
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                    ),
-                                    icon: const Icon(Icons.copy_all, size: 16, color: AppTheme.emerald),
-                                    label: Text(context.l10n.financialSettlementCopyBreakdownTsvBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                    onPressed: () => _copySettlementBreakdownTsv(context, r, importFilesMap),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                                    icon: const Icon(Icons.autorenew, size: 16, color: Colors.white),
-                                    label: Text(context.l10n.financialSettlementRecalculateBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                                    onPressed: () {
-                                      ref.read(financialSettlementProvider.notifier).recalculateSettlement(r.settlementId);
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text(context.l10n.financialSettlementRecalculateSuccessSnack(r.settlementCode)), backgroundColor: AppTheme.cobalt),
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(width: 8),
                                   RowActionsPill(
                                     onView: () => _showOdooDialog(r.settlementId, r.settlementCode),
                                     onEdit: () {
@@ -651,6 +619,38 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                                     editTooltip: context.l10n.financialSettlementEditTooltip,
                                     printTooltip: context.l10n.financialSettlementPrintTooltip,
                                     deleteTooltip: context.l10n.financialSettlementDeleteTooltip,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  RecalculateButton(
+                                    entityType: 'financial_settlement',
+                                    entityId: r.settlementId,
+                                    sourcePage: 'FinancialSettlementRegistry',
+                                    label: context.l10n.financialSettlementRecalculateBtn,
+                                    onSuccess: (result) {
+                                      ref.invalidate(financialSettlementProvider);
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppTheme.emerald,
+                                      side: const BorderSide(color: AppTheme.emerald),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    ),
+                                    icon: const Icon(Icons.copy_all, size: 16, color: AppTheme.emerald),
+                                    label: Text(context.l10n.financialSettlementCopyBreakdownTsvBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                    onPressed: () => _copySettlementBreakdownTsv(context, r, importFilesMap),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.charcoal,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    ),
+                                    icon: const Icon(Icons.receipt_long, size: 16, color: Colors.amber),
+                                    label: Text(context.l10n.financialSettlementExportOdooBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                    onPressed: () => _showOdooDialog(r.settlementId, r.settlementCode),
                                   ),
                                 ],
                               ),

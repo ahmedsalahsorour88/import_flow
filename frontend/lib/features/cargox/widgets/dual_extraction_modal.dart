@@ -4,10 +4,13 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/document_export/packaging_detail_toggle.dart';
+import '../../../core/widgets/document_export/grouping_selector.dart';
 import '../models/cargox_model.dart';
+import '../models/export_configs.dart';
 import '../providers/cargox_provider.dart';
 
-/// CGX-004: واجهة الاستخلاص المزدوج — فاتورة + باكينج ليست مستقلان
+/// CGX-004: واجهة الاستخلاص المزدوج — فاتورة + باكينج ليست مستقلان (Task K Independent Dimensions)
 class DualExtractionModal extends ConsumerStatefulWidget {
   final int importFileId;
   final String importFileCode;
@@ -25,16 +28,11 @@ class DualExtractionModal extends ConsumerStatefulWidget {
 }
 
 class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
-  // ── Invoice Settings ──────────────────────────────────────────────────────
-  String _invoiceMode = 'all_consolidated';
-  String _invoiceGrouping = 'by_hs_code';
-
-  // ── Packing List Settings ─────────────────────────────────────────────────
-  String _plMode = 'all_consolidated';
-  String _plStructure = 'by_hs_code';
+  // ── Document Export Configurations (Task K Independent Dimensions) ────────
+  InvoiceExportConfig _invoiceConfig = const InvoiceExportConfig();
+  PackingListExportConfig _plConfig = const PackingListExportConfig();
 
   // ── Pallets ───────────────────────────────────────────────────────────────
-  bool _includePallets = false;
   final List<PalletInputModel> _pallets = [];
 
   // ── State ─────────────────────────────────────────────────────────────────
@@ -42,69 +40,15 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
   String? _errorMessage;
   DualExtractionResponseModel? _previewResult;
 
-  List<(String, String, String)> _getInvoiceModes(bool isAr) => isAr
-      ? const [
-          ('all_consolidated', 'بيان مجمع واحد', 'جميع الفواتير في جدول بيانات واحد مجمع حسب بند التعريفة'),
-          ('all_detailed', 'بيان مفصل واحد', 'جميع الفواتير في جدول بيانات واحد كل بند منفصل'),
-          ('per_invoice_consolidated', 'ملف مضغوط لكل فاتورة مجمع', 'جدول بيانات مجمع لكل فاتورة داخل ملف مضغوط'),
-          ('per_invoice_detailed', 'ملف مضغوط لكل فاتورة مفصل', 'جدول بيانات مفصل لكل فاتورة داخل ملف مضغوط'),
-        ]
-      : const [
-          ('all_consolidated', 'Single Consolidated Sheet', 'All invoices in one Excel file consolidated by HS code'),
-          ('all_detailed', 'Single Detailed Sheet', 'All invoices in one Excel file with every item separate'),
-          ('per_invoice_consolidated', 'ZIP per Invoice (Consolidated)', 'Consolidated Excel per invoice inside a ZIP archive'),
-          ('per_invoice_detailed', 'ZIP per Invoice (Detailed)', 'Detailed Excel per invoice inside a ZIP archive'),
-        ];
-
-  List<(String, String, String)> _getPlModes(bool isAr) => isAr
-      ? const [
-          ('all_consolidated', 'بيان تعبئة مجمع واحد', 'جميع بنود التعبئة في ملف واحد مجمع'),
-          ('all_detailed', 'بيان تعبئة مفصل واحد', 'جميع بنود التعبئة في ملف واحد مفصل'),
-          ('per_invoice_consolidated', 'ملف مضغوط لكل فاتورة مجمع', 'ملف تعبئة مجمع لكل فاتورة داخل ملف مضغوط'),
-          ('per_invoice_detailed', 'ملف مضغوط لكل فاتورة مفصل', 'ملف تعبئة مفصل لكل فاتورة داخل ملف مضغوط'),
-        ]
-      : const [
-          ('all_consolidated', 'Single Consolidated Packing List', 'All packing list items in one consolidated file'),
-          ('all_detailed', 'Single Detailed Packing List', 'All packing list items in one detailed file'),
-          ('per_invoice_consolidated', 'ZIP per Invoice (Consolidated)', 'Consolidated packing list per invoice inside ZIP'),
-          ('per_invoice_detailed', 'ZIP per Invoice (Detailed)', 'Detailed packing list per invoice inside ZIP'),
-        ];
-
-  List<(String, String, String)> _getPlStructures(bool isAr) => isAr
-      ? const [
-          ('by_hs_code', 'حسب بند التعريفة', 'سطر واحد لكل بند تعريفة جمركية وهو الأكثر شيوعا'),
-          ('flat', 'مفصل بالكامل', 'كل بند استيراد في سطر مستقل'),
-          ('by_pallet', 'بالبالتات والطرود', 'تنظيم بالبالتات يتطلب إدخال بيانات البالتات'),
-          ('by_carton', 'بالكراتين والطرود', 'كل طرد أو كرتونة في سطر مستقل'),
-        ]
-      : const [
-          ('by_hs_code', 'By HS Code', 'One line per customs tariff HS code (Most common)'),
-          ('flat', 'Fully Detailed', 'Each import item on an independent line'),
-          ('by_pallet', 'By Pallets', 'Organized by pallets - requires entering pallet details'),
-          ('by_carton', 'By Cartons & Packages', 'Each carton or package on an independent line'),
-        ];
-
-  List<(String, String, String)> _getInvoiceGroupings(bool isAr) => isAr
-      ? const [
-          ('by_hs_code', 'حسب بند التعريفة', 'متوسط سعر موزون لكل بند تعريفة وهو الافتراضي جمركيا'),
-          ('by_price_group', 'حسب بند التعريفة والسعر', 'أسعار مختلفة تعني سطورا مختلفة'),
-          ('flat', 'بدون تجميع', 'كل سطر مستقل كما هو'),
-        ]
-      : const [
-          ('by_hs_code', 'By HS Code', 'Weighted average price per HS code (Customs default)'),
-          ('by_price_group', 'By HS Code & Price', 'Different prices yield different lines'),
-          ('flat', 'Without Grouping', 'Each line independent as-is'),
-        ];
-
   Map<String, dynamic> _buildRequest() {
     final Map<String, dynamic> req = {
-      'invoice_mode': _invoiceMode,
-      'invoice_grouping': _invoiceGrouping,
-      'packing_list_mode': _plMode,
-      'packing_list_structure': _plStructure,
-      'include_pallets': _includePallets,
+      'invoice_mode': _invoiceConfig.toApiInvoiceMode(),
+      'invoice_grouping': _invoiceConfig.toApiInvoiceGrouping(),
+      'packing_list_mode': _plConfig.toApiPackingListMode(),
+      'packing_list_structure': _plConfig.toApiPackingListStructure(),
+      'include_pallets': _plConfig.effectiveIncludePalletDetails,
     };
-    if (_includePallets && _pallets.isNotEmpty) {
+    if (_plConfig.effectiveIncludePalletDetails && _pallets.isNotEmpty) {
       req['pallet_details'] = _pallets.map((p) => p.toJson()).toList();
     }
     return req;
@@ -200,7 +144,7 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
 
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.isDark(context) ? AppTheme.darkCardBackground : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: SelectionArea(
         child: ConstrainedBox(
@@ -214,7 +158,7 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
                   child: Column(
                     children: [
                       _buildDualEnginePanel(l, isAr),
-                      if (_includePallets) ...[
+                      if (_plConfig.effectiveIncludePalletDetails) ...[ 
                         const SizedBox(height: 16),
                         _buildPalletsPanel(l, isAr),
                       ],
@@ -282,178 +226,140 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
       children: [
         // ── Invoice Engine ────────────────────────────────────────────────────
         Expanded(
-          child: _buildEngineCard(
-            icon: Icons.receipt_long,
-            color: AppTheme.cobalt,
-            title: l.dualExtractionCommercialInvoice,
-            subtitle: isAr ? 'الفاتورة الجمركية المستقلة' : 'Independent Customs Invoice',
-            modeValue: _invoiceMode,
-            modeItems: _getInvoiceModes(isAr),
-            onModeChanged: (v) => setState(() => _invoiceMode = v),
-            extraWidget: _buildGroupingSelector(l, isAr),
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+              borderRadius: BorderRadius.circular(12),
+              color: AppTheme.cobalt.withOpacity(0.03),
+            ),
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    const Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(l.dualExtractionCommercialInvoice,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
+                          Text(
+                            isAr ? 'الفاتورة الجمركية المستقلة' : 'Independent Customs Invoice',
+                            style: const TextStyle(fontSize: 10, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 16),
+                // Dim 1 + Dim 2
+                PackagingDetailToggle(
+                  packaging: _invoiceConfig.packaging,
+                  detail: _invoiceConfig.detail,
+                  onPackagingChanged: (v) => setState(() => _invoiceConfig = _invoiceConfig.copyWith(packaging: v)),
+                  onDetailChanged: (v) => setState(() => _invoiceConfig = _invoiceConfig.copyWith(detail: v)),
+                  activeColor: AppTheme.cobalt,
+                ),
+                const SizedBox(height: 12),
+                // Dim 3 — Invoice Line Grouping
+                GroupingSelector<InvoiceGroupingMode>(
+                  title: isAr ? '٣. أسلوب تجميع بنود الفاتورة:' : '3. Invoice Line Grouping:',
+                  value: _invoiceConfig.grouping,
+                  options: InvoiceGroupingMode.values
+                      .map((m) => GroupingOption(
+                            value: m,
+                            label: isAr ? m.labelAr : m.labelEn,
+                            description: isAr ? m.descAr : m.descEn,
+                          ))
+                      .toList(),
+                  onChanged: (v) => setState(() => _invoiceConfig = _invoiceConfig.copyWith(grouping: v)),
+                  activeColor: AppTheme.cobalt,
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 16),
-        // ── PL Engine ─────────────────────────────────────────────────────────
+        // ── Packing List Engine ───────────────────────────────────────────────
         Expanded(
-          child: _buildEngineCard(
-            icon: Icons.inventory_2_outlined,
-            color: AppTheme.emerald,
-            title: l.dualExtractionPackingList,
-            subtitle: isAr ? 'قائمة التعبئة المستقلة' : 'Independent Packing List',
-            modeValue: _plMode,
-            modeItems: _getPlModes(isAr),
-            onModeChanged: (v) => setState(() => _plMode = v),
-            extraWidget: _buildStructureSelector(l, isAr),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEngineCard({
-    required IconData icon,
-    required Color color,
-    required String title,
-    required String subtitle,
-    required String modeValue,
-    required List<(String, String, String)> modeItems,
-    required ValueChanged<String> onModeChanged,
-    required Widget extraWidget,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: color.withOpacity(0.3)),
-        borderRadius: BorderRadius.circular(12),
-        color: color.withOpacity(0.03),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+              borderRadius: BorderRadius.circular(12),
+              color: AppTheme.emerald.withOpacity(0.03),
+            ),
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
                   children: [
-                    Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color)),
-                    Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                    const Icon(Icons.inventory_2_outlined, color: AppTheme.emerald, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(l.dualExtractionPackingList,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.emerald)),
+                          Text(
+                            isAr ? 'قائمة التعبئة المستقلة' : 'Independent Packing List',
+                            style: const TextStyle(fontSize: 10, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          const Divider(height: 16),
-          ...modeItems.map((item) => _buildModeRadioTile(
-            value: item.$1,
-            label: item.$2,
-            desc: item.$3,
-            groupValue: modeValue,
-            color: color,
-            onChanged: onModeChanged,
-          )),
-          const SizedBox(height: 10),
-          extraWidget,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModeRadioTile({
-    required String value,
-    required String label,
-    required String desc,
-    required String groupValue,
-    required Color color,
-    required ValueChanged<String> onChanged,
-  }) {
-    final selected = value == groupValue;
-    return GestureDetector(
-      onTap: () => onChanged(value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: selected ? color.withOpacity(0.08) : Colors.transparent,
-          border: Border.all(color: selected ? color : Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            Icon(selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                color: selected ? color : Colors.grey, size: 16),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 12,
-                      color: selected ? color : Colors.black87,
-                    ),
+                const Divider(height: 16),
+                // Dim 1 + Dim 2
+                PackagingDetailToggle(
+                  packaging: _plConfig.packaging,
+                  detail: _plConfig.detail,
+                  onPackagingChanged: (v) => setState(() => _plConfig = _plConfig.copyWith(packaging: v)),
+                  onDetailChanged: (v) => setState(() => _plConfig = _plConfig.copyWith(detail: v)),
+                  activeColor: AppTheme.emerald,
+                ),
+                const SizedBox(height: 12),
+                // Dim 3 — Package & Carton Structure
+                GroupingSelector<PackingListStructure>(
+                  title: isAr ? '٣. هيكل التعبئة والتغليف:' : '3. Package & Carton Structure:',
+                  value: _plConfig.structure,
+                  options: PackingListStructure.values
+                      .map((s) => GroupingOption(
+                            value: s,
+                            label: isAr ? s.labelAr : s.labelEn,
+                            description: isAr ? s.descAr : s.descEn,
+                          ))
+                      .toList(),
+                  onChanged: (v) => setState(() => _plConfig = _plConfig.copyWith(structure: v)),
+                  activeColor: AppTheme.emerald,
+                ),
+                const SizedBox(height: 8),
+                // Dim 4 — Conditional pallet details toggle
+                AnimatedOpacity(
+                  opacity: _plConfig.isPalletToggleAllowed ? 1.0 : 0.4,
+                  duration: const Duration(milliseconds: 200),
+                  child: SwitchListTile(
+                    value: _plConfig.effectiveIncludePalletDetails,
+                    onChanged: _plConfig.isPalletToggleAllowed
+                        ? (v) => setState(() => _plConfig = _plConfig.copyWith(includePalletDetails: v))
+                        : null,
+                    title: Text(l.dualExtractionIncludePallets, style: const TextStyle(fontSize: 11)),
+                    activeColor: AppTheme.emerald,
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
                   ),
-                  Text(desc, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGroupingSelector(AppLocalizations l, bool isAr) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('${l.dualExtractionGroupingTitle}:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-        const SizedBox(height: 6),
-        ..._getInvoiceGroupings(isAr).map((g) => _buildModeRadioTile(
-          value: g.$1,
-          label: g.$2,
-          desc: g.$3,
-          groupValue: _invoiceGrouping,
-          color: AppTheme.cobalt,
-          onChanged: (v) => setState(() => _invoiceGrouping = v),
-        )),
-      ],
-    );
-  }
-
-  Widget _buildStructureSelector(AppLocalizations l, bool isAr) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('${l.dualExtractionStructureTitle}:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-        const SizedBox(height: 6),
-        ..._getPlStructures(isAr).map((s) => _buildModeRadioTile(
-          value: s.$1,
-          label: s.$2,
-          desc: s.$3,
-          groupValue: _plStructure,
-          color: AppTheme.emerald,
-          onChanged: (v) {
-            setState(() {
-              _plStructure = v;
-              if (v == 'by_pallet') _includePallets = true;
-            });
-          },
-        )),
-        const SizedBox(height: 8),
-        SwitchListTile(
-          value: _includePallets,
-          onChanged: (v) => setState(() => _includePallets = v),
-          title: Text(l.dualExtractionIncludePallets, style: const TextStyle(fontSize: 11)),
-          activeColor: AppTheme.emerald,
-          contentPadding: EdgeInsets.zero,
-          dense: true,
+          ),
         ),
       ],
     );

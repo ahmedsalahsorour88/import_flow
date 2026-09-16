@@ -1,14 +1,81 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' as io;
+import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'web_file_saver.dart';
 
-/// Central Unified File Save Service for Sorour Logistics ERP
-/// Standardizes all file download, export, and generation operations across the entire application.
+/// Central Unified File Save Service for Sorour Logistics ERP (Task I).
+/// 
+/// ⚡ PROTOCOL: Mandatory Save File Location Dialog Protocol (قاعدة فتح نافذة حوارية إلزامية لتحديد مكان حفظ وتنزيل الملفات)
+/// - All file exports and downloads (Excel, PDF, PNG, CSV, TSV) MUST prompt the user via a native modal dialog
+///   allowing explicit selection of the download directory and custom file name.
+/// - Silent downloads directly into default downloads or temp folders without user confirmation are STRICTLY FORBIDDEN.
+/// - Uses [FilePicker.saveFile] with `lockParentWindow: true` on Desktop to guarantee the dialog appears modally in front.
+/// - Uses File System Access API (`window.showSaveFilePicker`) on Chromium Web browsers with graceful AbortError cancel handling.
+/// - Falls back gracefully to anchor download with an informative toast on non-supporting browsers (Firefox, Safari, mobile).
+/// - Standardizes file naming convention: `[Stage Name] - [Import File Name or Code].[ext]`.
+/// - If cancelled, safely returns `null` without throwing errors or showing failed snackbars.
 class FileSaveHelper {
-  /// Prompts the user with a native FilePicker save dialog to select the destination path,
-  /// then writes the raw [bytes] to disk and displays a professional feedback banner with an
-  /// action to open the containing folder in Windows Explorer.
+  /// Sanitizes string to be valid across Windows, Linux, macOS, and Web filesystems.
+  /// Strips invalid characters: / \ : * ? " < > | and redundant spaces.
+  static String sanitizeFileName(String name) {
+    var sanitized = name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '-');
+    sanitized = sanitized.replaceAll(RegExp(r'\s+'), ' ');
+    sanitized = sanitized.replaceAll(RegExp(r'-+'), '-');
+    sanitized = sanitized.trim();
+    if (sanitized.isEmpty) {
+      sanitized = 'Export';
+    }
+    return sanitized;
+  }
+
+  /// Builds a unified file name following the project standard:
+  /// `[Stage Name] - [Import File Name or Code].[extension]`
+  /// e.g. `CargoX Blockchain & ACI Hub - PET Stock (IMP-2026-0004).xlsx`
+  static String buildExportFileName({
+    required String stageName,
+    required String importFileNameOrCode,
+    required String extension,
+  }) {
+    final cleanStage = sanitizeFileName(stageName);
+    final cleanFile = sanitizeFileName(importFileNameOrCode);
+    final cleanExt = extension.replaceAll('.', '').trim().toLowerCase();
+    return '$cleanStage - $cleanFile.$cleanExt';
+  }
+
+  /// Unified Export & Save method used by all screens and modules.
+  /// - Automatically builds standardized file name.
+  /// - Always opens the native modal "Save As" dialog to specify location.
+  /// - Passes bytes to WebFileSaver / FilePicker.saveFile.
+  /// - Triggers native Save As on Desktop and File System Access API on Chromium Web.
+  static Future<String?> exportAndSaveFile({
+    required BuildContext? context,
+    required List<int> bytes,
+    required String stageName,
+    required String importFileNameOrCode,
+    required String extension,
+    String? customDialogTitle,
+    bool showNotification = true,
+  }) async {
+    final fileName = buildExportFileName(
+      stageName: stageName,
+      importFileNameOrCode: importFileNameOrCode,
+      extension: extension,
+    );
+    final cleanExt = extension.replaceAll('.', '').trim().toLowerCase();
+    return saveBytes(
+      context: context,
+      bytes: bytes,
+      defaultFileName: fileName,
+      dialogTitle: customDialogTitle ?? 'تحديد مكان حفظ وتنزيل ملف $cleanExt (Save File As)',
+      allowedExtensions: [cleanExt],
+      showNotification: showNotification,
+    );
+  }
+
+  /// Prompts the user with a native FilePicker save dialog (Desktop) or triggers
+  /// native File System Access API / browser download (Web), writing the file safely without platform crashes.
   static Future<String?> saveBytes({
     required BuildContext? context,
     required List<int> bytes,
@@ -18,38 +85,89 @@ class FileSaveHelper {
     bool showNotification = true,
   }) async {
     try {
-      // 1. Open Native Save File Dialog
-      final savePath = await FilePicker.saveFile(
-        dialogTitle: dialogTitle,
-        fileName: defaultFileName,
-        type: (allowedExtensions != null && allowedExtensions.isNotEmpty)
-            ? FileType.custom
-            : FileType.any,
-        allowedExtensions: allowedExtensions,
-      );
+      final sanitizedDefaultName = sanitizeFileName(defaultFileName);
+      String? finalPath;
 
-      // User cancelled the dialog
-      if (savePath == null || savePath.trim().isEmpty) {
-        return null;
-      }
+      if (kIsWeb) {
+        // 1. Web Environment — File System Access API with Graceful Fallback
+        if (WebFileSaver.isSupported) {
+          final savedName = await WebFileSaver.saveFileWithPicker(
+            bytes: bytes,
+            fileName: sanitizedDefaultName,
+            allowedExtensions: allowedExtensions,
+          );
+          // If user cancelled the picker (AbortError), savedName is null -> stop silently
+          if (savedName == null) {
+            return null;
+          }
+          finalPath = savedName;
+        } else {
+          // Unsupported Web Browser (Firefox, Safari, Mobile) -> fallback to <a download>
+          WebFileSaver.triggerFallbackDownload(
+            bytes: bytes,
+            fileName: sanitizedDefaultName,
+          );
+          finalPath = sanitizedDefaultName;
 
-      // 2. Ensure Proper File Extension
-      var finalPath = savePath.trim();
-      if (allowedExtensions != null && allowedExtensions.isNotEmpty) {
-        final primaryExt = allowedExtensions.first.toLowerCase().replaceAll('.', '');
-        final hasValidExt = allowedExtensions.any((ext) => finalPath.toLowerCase().endsWith('.${ext.toLowerCase().replaceAll('.', '')}'));
-        if (!hasValidExt) {
-          finalPath = '$finalPath.$primaryExt';
+          // Inform user why dialog didn't appear
+          if (context != null && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                backgroundColor: Color(0xFFE67E22), // AppTheme.orange
+                behavior: SnackBarBehavior.floating,
+                duration: Duration(seconds: 4),
+                content: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'متصفحك لا يدعم اختيار مجلد الحفظ — تم حفظ الملف في مجلد التنزيلات (Downloads)',
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
         }
+      } else {
+        // 2. Desktop Environment (Windows, macOS, Linux) — Native Modal FilePicker
+        final savePath = await FilePicker.saveFile(
+          dialogTitle: dialogTitle,
+          fileName: sanitizedDefaultName,
+          type: (allowedExtensions != null && allowedExtensions.isNotEmpty)
+              ? FileType.custom
+              : FileType.any,
+          allowedExtensions: allowedExtensions,
+          lockParentWindow: true,
+        );
+
+        // User cancelled the dialog
+        if (savePath == null || savePath.trim().isEmpty) {
+          return null;
+        }
+
+        var desktopPath = savePath.trim();
+        if (allowedExtensions != null && allowedExtensions.isNotEmpty) {
+          final primaryExt = allowedExtensions.first.toLowerCase().replaceAll('.', '');
+          final hasValidExt = allowedExtensions.any((ext) => desktopPath.toLowerCase().endsWith('.${ext.toLowerCase().replaceAll('.', '')}'));
+          if (!hasValidExt) {
+            desktopPath = '$desktopPath.$primaryExt';
+          }
+        }
+
+        final file = io.File(desktopPath);
+        await file.writeAsBytes(bytes);
+        finalPath = desktopPath;
       }
 
-      // 3. Write File to Disk
-      final file = File(finalPath);
-      await file.writeAsBytes(bytes);
-
-      // 4. Show Professional Notification with "Open Folder" Action
+      // 3. Show Professional Notification with "Open Folder" Action
       if (showNotification && context != null && context.mounted) {
-        final fileNameOnly = file.uri.pathSegments.isNotEmpty ? file.uri.pathSegments.last : defaultFileName;
+        final fileNameOnly = finalPath.contains('/') || finalPath.contains(r'\')
+            ? (finalPath.split(RegExp(r'[\\/]')).last)
+            : sanitizedDefaultName;
         final fileSizeKb = (bytes.length / 1024).toStringAsFixed(1);
 
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -70,7 +188,7 @@ class FileSaveHelper {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'تم حفظ الملف بنجاح ($fileSizeKb KB)',
+                        'تم حفظ وتنزيل الملف بنجاح ($fileSizeKb KB)',
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                       Text(
@@ -83,18 +201,20 @@ class FileSaveHelper {
                 ),
               ],
             ),
-            action: SnackBarAction(
-              label: 'فتح المجلد',
-              textColor: Colors.amberAccent,
-              onPressed: () {
-                openContainingFolder(file.path);
-              },
-            ),
+            action: (!kIsWeb && io.Platform.isWindows)
+                ? SnackBarAction(
+                    label: 'فتح المجلد',
+                    textColor: Colors.amberAccent,
+                    onPressed: () {
+                      openContainingFolder(finalPath!);
+                    },
+                  )
+                : null,
           ),
         );
       }
 
-      return file.path;
+      return finalPath;
     } catch (e) {
       if (context != null && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -130,16 +250,17 @@ class FileSaveHelper {
     );
   }
 
-  /// Opens the folder containing the saved file and selects/highlights it in Windows Explorer
+  /// Opens the folder containing the saved file and selects/highlights it in Windows Explorer (Desktop only)
   static void openContainingFolder(String filePath) {
+    if (kIsWeb) return;
     try {
-      if (Platform.isWindows) {
-        Process.run('explorer.exe', ['/select,', filePath]);
-      } else if (Platform.isMacOS) {
-        Process.run('open', ['-R', filePath]);
-      } else if (Platform.isLinux) {
-        final parentDir = File(filePath).parent.path;
-        Process.run('xdg-open', [parentDir]);
+      if (io.Platform.isWindows) {
+        io.Process.run('explorer.exe', ['/select,', filePath]);
+      } else if (io.Platform.isMacOS) {
+        io.Process.run('open', ['-R', filePath]);
+      } else if (io.Platform.isLinux) {
+        final parentDir = io.File(filePath).parent.path;
+        io.Process.run('xdg-open', [parentDir]);
       }
     } catch (_) {}
   }

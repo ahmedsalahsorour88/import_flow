@@ -1,19 +1,59 @@
 import base64
 import hashlib
+import hmac
 import json
+import secrets
 import time
 from typing import Optional
 
-SECRET_KEY = "ImportFlow_ERP_Secret_Key_2026_Secure_RBAC"
+from settings import SECRET_KEY
 
 
 def hash_password(password: str) -> str:
-    salt = "importflow_salt_v1"
-    return hashlib.sha256((password + salt).encode('utf-8')).hexdigest()
+    """
+    Hashes password using PBKDF2-HMAC-SHA256 with 600,000 iterations and random salt.
+    Format: pbkdf2_sha256$<iterations>$<salt_hex>$<hash_hex>
+    """
+    salt = secrets.token_hex(16)
+    iterations = 600_000
+    derived = hashlib.pbkdf2_hmac(
+        'sha256',
+        password.encode('utf-8'),
+        salt.encode('utf-8'),
+        iterations
+    ).hex()
+    return f"pbkdf2_sha256${iterations}${salt}${derived}"
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return hash_password(plain_password) == hashed_password
+    """
+    Verifies a plain password against a stored hash.
+    Supports modern PBKDF2 and seamlessly verifies legacy SHA-256 hashes.
+    """
+    if not hashed_password:
+        return False
+
+    if hashed_password.startswith("pbkdf2_sha256$"):
+        parts = hashed_password.split("$")
+        if len(parts) == 4:
+            try:
+                iterations = int(parts[1])
+                salt = parts[2]
+                stored_hash = parts[3]
+                computed = hashlib.pbkdf2_hmac(
+                    'sha256',
+                    plain_password.encode('utf-8'),
+                    salt.encode('utf-8'),
+                    iterations
+                ).hex()
+                return hmac.compare_digest(computed, stored_hash)
+            except Exception:
+                return False
+
+    # Legacy SHA-256 fallback (importflow_salt_v1)
+    legacy_salt = "importflow_salt_v1"
+    legacy_hash = hashlib.sha256((plain_password + legacy_salt).encode('utf-8')).hexdigest()
+    return hmac.compare_digest(legacy_hash, hashed_password)
 
 
 def create_access_token(data: dict, expires_in_seconds: int = 86400) -> str:
@@ -27,7 +67,12 @@ def create_access_token(data: dict, expires_in_seconds: int = 86400) -> str:
     b64_payload = base64.urlsafe_b64encode(payload).decode('utf-8').rstrip("=")
 
     signature_input = f"{b64_header}.{b64_payload}"
-    signature = hashlib.sha256((signature_input + SECRET_KEY).encode('utf-8')).hexdigest()
+    # S-006 fix: use proper HMAC-SHA256, not raw SHA256(data+key)
+    signature = hmac.new(
+        SECRET_KEY.encode('utf-8'),
+        signature_input.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
 
     return f"{signature_input}.{signature}"
 
@@ -40,9 +85,14 @@ def decode_access_token(token: str) -> Optional[dict]:
 
         b64_header, b64_payload, signature = parts
         signature_input = f"{b64_header}.{b64_payload}"
-        expected_signature = hashlib.sha256((signature_input + SECRET_KEY).encode('utf-8')).hexdigest()
+        # S-006 fix: verify with proper HMAC-SHA256
+        expected_signature = hmac.new(
+            SECRET_KEY.encode('utf-8'),
+            signature_input.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
 
-        if signature != expected_signature:
+        if not hmac.compare_digest(signature, expected_signature):
             return None
 
         # Pad payload if needed
@@ -56,3 +106,4 @@ def decode_access_token(token: str) -> Optional[dict]:
         return payload
     except Exception:
         return None
+

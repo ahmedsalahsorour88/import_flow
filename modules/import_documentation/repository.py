@@ -13,6 +13,7 @@ from modules.import_documentation.model import (
     CertificateOfOriginReviewSession,
     InspectionCertificateReviewSession,
     POPackingReconciliationSession,
+    InvoiceBLMatchSession,
 )
 from modules.import_documentation.schemas import (
     AcidRegistrationCreate,
@@ -24,6 +25,8 @@ from modules.import_documentation.schemas import (
     CustomsDeclarationCreate,
     POReconciliationSessionCreate,
     POReconciliationSessionUpdate,
+    InvoiceBLMatchSessionCreate,
+    InvoiceBLMatchSessionUpdate,
     DraftBLReviewCreate,
     DraftBLReviewUpdate,
     CertificateOfOriginReviewCreate,
@@ -425,12 +428,15 @@ def get_draft_bl_reviews(
     import_file_id: int | None = None,
     status: str | None = None,
     search: str | None = None,
+    is_draft: bool | None = None,
 ) -> list[DraftBLReviewSession]:
     query = db.query(DraftBLReviewSession)
     if not include_inactive:
         query = query.filter(DraftBLReviewSession.is_active == True)
     if import_file_id:
         query = query.filter(DraftBLReviewSession.import_file_id == import_file_id)
+    if is_draft is not None:
+        query = query.filter(DraftBLReviewSession.is_draft == is_draft)
     if status and status != "All":
         query = query.filter(DraftBLReviewSession.status == status)
     if search:
@@ -442,6 +448,7 @@ def get_draft_bl_reviews(
             | (DraftBLReviewSession.booking_no.ilike(s))
             | (DraftBLReviewSession.hbl_no.ilike(s))
             | (DraftBLReviewSession.mbl_no.ilike(s))
+            | (DraftBLReviewSession.vessel_name.ilike(s))
         )
     return query.order_by(DraftBLReviewSession.bl_review_id.desc()).all()
 
@@ -453,10 +460,17 @@ def get_draft_bl_review_by_id(db: Session, review_id: int, include_inactive: boo
     return query.first()
 
 
-def get_draft_bl_review_by_file_id(db: Session, import_file_id: int, include_inactive: bool = False) -> DraftBLReviewSession | None:
+def get_draft_bl_review_by_file_id(
+    db: Session,
+    import_file_id: int,
+    include_inactive: bool = False,
+    include_drafts: bool = True,
+) -> DraftBLReviewSession | None:
     query = db.query(DraftBLReviewSession).filter(DraftBLReviewSession.import_file_id == import_file_id)
     if not include_inactive:
         query = query.filter(DraftBLReviewSession.is_active == True)
+    if not include_drafts:
+        query = query.filter(DraftBLReviewSession.is_draft == False)
     return query.order_by(DraftBLReviewSession.bl_review_id.desc()).first()
 
 
@@ -523,12 +537,15 @@ def get_coo_reviews(
     import_file_id: int | None = None,
     status: str | None = None,
     search: str | None = None,
+    is_draft: bool | None = None,
 ) -> list[CertificateOfOriginReviewSession]:
     query = db.query(CertificateOfOriginReviewSession)
     if not include_inactive:
         query = query.filter(CertificateOfOriginReviewSession.is_active == True)
     if import_file_id:
         query = query.filter(CertificateOfOriginReviewSession.import_file_id == import_file_id)
+    if is_draft is not None:
+        query = query.filter(CertificateOfOriginReviewSession.is_draft == is_draft)
     if status and status != "All":
         query = query.filter(CertificateOfOriginReviewSession.status == status)
     if search:
@@ -539,6 +556,7 @@ def get_coo_reviews(
             | (CertificateOfOriginReviewSession.exporter_name.ilike(s))
             | (CertificateOfOriginReviewSession.importer_name.ilike(s))
             | (CertificateOfOriginReviewSession.invoice_number.ilike(s))
+            | (CertificateOfOriginReviewSession.certificate_type.ilike(s))
         )
     return query.order_by(CertificateOfOriginReviewSession.coo_review_id.desc()).all()
 
@@ -550,10 +568,17 @@ def get_coo_review_by_id(db: Session, review_id: int, include_inactive: bool = F
     return query.first()
 
 
-def get_coo_review_by_file_id(db: Session, import_file_id: int, include_inactive: bool = False) -> CertificateOfOriginReviewSession | None:
+def get_coo_review_by_file_id(
+    db: Session,
+    import_file_id: int,
+    include_inactive: bool = False,
+    include_drafts: bool = True,
+) -> CertificateOfOriginReviewSession | None:
     query = db.query(CertificateOfOriginReviewSession).filter(CertificateOfOriginReviewSession.import_file_id == import_file_id)
     if not include_inactive:
         query = query.filter(CertificateOfOriginReviewSession.is_active == True)
+    if not include_drafts:
+        query = query.filter(CertificateOfOriginReviewSession.is_draft == False)
     return query.order_by(CertificateOfOriginReviewSession.coo_review_id.desc()).first()
 
 
@@ -803,4 +828,122 @@ def delete_po_reconciliation_session(db: Session, session_id: int) -> bool:
     item.updated_at = datetime.now(timezone.utc)
     db.commit()
     return True
+
+
+# --- SMART INVOICE VS B/L MATCH SESSIONS REPOSITORY (STEP_08_MATCH) ---
+def generate_invoice_bl_match_session_code(db: Session) -> str:
+    current_year = datetime.now(timezone.utc).year
+    prefix = f"MATCH-{current_year}-"
+
+    last_record = (
+        db.query(InvoiceBLMatchSession)
+        .filter(InvoiceBLMatchSession.session_code.like(f"{prefix}%"))
+        .order_by(InvoiceBLMatchSession.session_id.desc())
+        .first()
+    )
+
+    if not last_record:
+        return f"{prefix}0001"
+
+    last_code = last_record.session_code
+    try:
+        seq = int(last_code.split("-")[-1]) + 1
+    except (ValueError, IndexError):
+        seq = 1
+
+    return f"{prefix}{seq:04d}"
+
+
+def get_invoice_bl_match_session_by_id(
+    db: Session, session_id: int
+) -> InvoiceBLMatchSession | None:
+    return db.query(InvoiceBLMatchSession).filter(
+        InvoiceBLMatchSession.session_id == session_id,
+        InvoiceBLMatchSession.is_active == True,
+    ).first()
+
+
+def get_invoice_bl_match_session_by_file_id(
+    db: Session, import_file_id: int, include_drafts: bool = True
+) -> InvoiceBLMatchSession | None:
+    query = db.query(InvoiceBLMatchSession).filter(
+        InvoiceBLMatchSession.import_file_id == import_file_id,
+        InvoiceBLMatchSession.is_active == True,
+    )
+    if not include_drafts:
+        query = query.filter(InvoiceBLMatchSession.is_draft == False)
+    return query.order_by(InvoiceBLMatchSession.session_id.desc()).first()
+
+
+def list_invoice_bl_match_sessions(
+    db: Session,
+    import_file_id: int | None = None,
+    is_draft: bool | None = None,
+    search: str | None = None,
+) -> list[InvoiceBLMatchSession]:
+    query = db.query(InvoiceBLMatchSession).filter(InvoiceBLMatchSession.is_active == True)
+    if import_file_id is not None:
+        query = query.filter(InvoiceBLMatchSession.import_file_id == import_file_id)
+    if is_draft is not None:
+        query = query.filter(InvoiceBLMatchSession.is_draft == is_draft)
+    if search:
+        s = f"%{search}%"
+        from sqlalchemy import or_
+        query = query.filter(
+            or_(
+                InvoiceBLMatchSession.session_code.ilike(s),
+                InvoiceBLMatchSession.invoice_number.ilike(s),
+                InvoiceBLMatchSession.bl_number.ilike(s),
+                InvoiceBLMatchSession.packing_list_number.ilike(s),
+                InvoiceBLMatchSession.import_file_code.ilike(s),
+            )
+        )
+    return query.order_by(InvoiceBLMatchSession.session_id.desc()).all()
+
+
+def create_invoice_bl_match_session(
+    db: Session, schema: InvoiceBLMatchSessionCreate
+) -> InvoiceBLMatchSession:
+    code = generate_invoice_bl_match_session_code(db)
+    data = schema.model_dump(exclude_unset=True)
+    db_item = InvoiceBLMatchSession(
+        session_code=code,
+        **data,
+        is_active=True,
+    )
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+
+def update_invoice_bl_match_session(
+    db: Session, session_id: int, schema: InvoiceBLMatchSessionUpdate
+) -> InvoiceBLMatchSession:
+    item = db.query(InvoiceBLMatchSession).filter(
+        InvoiceBLMatchSession.session_id == session_id
+    ).first()
+    if not item:
+        raise ValueError(f"Invoice B/L Match Session ID {session_id} not found.")
+    data = schema.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(item, k, v)
+    item.is_active = True
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def delete_invoice_bl_match_session(db: Session, session_id: int) -> bool:
+    item = db.query(InvoiceBLMatchSession).filter(
+        InvoiceBLMatchSession.session_id == session_id
+    ).first()
+    if not item:
+        return False
+    item.is_active = False
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return True
+
 

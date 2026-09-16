@@ -2,6 +2,14 @@
 
 ---
 
+> [!WARNING]
+> **إشعار إعادة التصنيف بأثر رجعي (2026-09-14) — تطبيق قاعدة الإثبات الصارمة (Mandatory Evidence Rule):**
+> تم إعادة تصنيف كافة الشاشات والبنود في هذا السجل (Screens 0 to 68 + Standalone Tools) إلى Unverified — Requires Re-check.
+> **السبب:** غياب أدلة الإثبات المحسوبة (نسب التباين الرقمية WCAG AA، القياسات الفعلية للعرض بالبكسل، فحص انعكاس الأيقونات بالاسم، وإثبات النسخ والتصدير بالأدلة الرقمية قبل/بعد).
+> **تنبيه:** لا يُقبل تسجيل أي بند كـ Complete — Verified مستقبلاً إلا بوجود حقلي Evidence: و Verified by: بأرقام وقياسات فعلية.
+
+
+
 ## 📌 Current Review Status
 - **Session:** System Comprehensive Review & Audit Verification — 2026-09-13
 - **Architecture Decisions:**
@@ -11,7 +19,7 @@
   - On-screen value-copy mechanism used, and helper locations: `CopyHelper.copy` with localized `SnackBar`, `CopyableText`, `CopyableTableCell` with right-click menu, in `frontend/lib/core/widgets/copyable_data_helper.dart`.
   - On-screen label-selection mechanism used, and helper locations: Root `SelectionArea` wrappers across all screen scaffolds and modal dialogs.
   - ExportContentBuilder location, and which PDF/Excel/Python libraries it wraps: Dedicated export services (`OperationalDashboardExportService`, `ShipmentInquiryExportService`, `MasterDataExportService`, etc.) wrapping `pdf`, `printing` (Cairo vector fonts, dynamic RTL/LTR), `excel` / RFC-4180 CSV with UTF-8 BOM, and formatted plain-text clipboard dossiers for WhatsApp & Email sharing.
-- **Review Progress:** 🏆 **ALL SCREENS (LOGIN SCREEN & SCREENS 0 TO 68), ALL STANDALONE EXTRACTION, CUSTOMS-CLEARANCE & DOCUMENT TOOLS, AND PERSISTENT SMART IMPORT AI ASSISTANT OVERLAY WITH INTERACTIVE SHIPMENT LIFECYCLE NAVIGATOR HAVE BEEN 100% COMPLETED, REFINED, LOCALIZED, COPY-ENABLED, AND EXPORT-LINKED!**
+- **Review Progress:** ⚠️ **RETROACTIVELY RECLASSIFIED — ALL 69 SCREENS & STANDALONE TOOLS SET TO Unverified — Requires Re-check (2026-09-14)**
 - **Remaining screens/modules (not yet reviewed):** None (All 69 screens 0..68 & Login are complete)
 - **Remaining standalone extraction/generation tools (not yet reviewed):** None (All 8 standalone extraction/generation tools are complete)
 - **Last screen/tool where ALL applicable tasks (localization, on-screen copy, linked outputs) were fully completed:** Desktop High-Contrast Dark Mode Text Colors & Legibility Restoration (Screen 0 & Import Files Dialog) & Screen 59 Production Database & Release Synchronizer (`ProductionSyncScreen`, Route Index 59)
@@ -25,7 +33,9 @@
   - `frontend/lib/features/operational_dashboard/widgets/dashboard_card_drilldown_dialog.dart` (DashboardCardDrillDownDialog verified for all 9 cards answering What, Who, By When, explicit warning containers for data gaps, 100% mathematical equality guarantee with card face counts, human-readable names via DisplayNameResolver, pure AR/EN localization, and copy-ability)
   - `frontend/test/notification_bell_widget_test.dart` (Comprehensive unit and widget test suite covering unread badge, popup listing, actionable execution links, routing dispatch to Screen 51, shipment search query priming, and English/Arabic localization)
 - **Route Index:** `0` (Operational Dashboard), Global Bell Widget, and Targeted Execution Screens (11, 16, 32, 38, 40, 43, 44, 51, 54)
-- **Task E (Summary & Alert Cards Audit & Actionable Execution Links):** Complete.
+- **Task E (Summary & Alert Cards Audit & Actionable Execution Links):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Problem Solved:** Previously, clicking a notification bell alert merely marked it as read without opening or executing the related task/shipment, and summary cards showed only static counts without actionable visibility into what, who, and by when.
   - **All 9 Summary / Alert Cards Audited:**
     1. `Today's Tasks`: Filtered by `dueDate == today && status != 'Completed'`. Answers What (cleaned title), Who (`assignedUser`), By When (`dueDate`). Action: Mark Done & Focus Shipment. Data gap: Due time (HH:mm) not tracked.
@@ -50,13 +60,19 @@
   - `frontend/lib/features/operational_dashboard/screens/operational_dashboard_screen.dart` (Theme-adaptive scaffold, control bar, shipment card, stage pathway, next step card, linked tasks container, risk banner, priority badges, daily checkins, quick action buttons, and lifecycle phases)
   - `frontend/lib/features/import_files/widgets/import_file_details_dialog.dart` (Theme-adaptive top metric tiles, ACID card, Form 4, linked POs table, cargo stacking scenarios container, _buildScenarioResultCard, saved shipping evaluation studies, smart recommendation banner, _buildFileMetricPill, _showVisualLoadPlanDialog, and _showContainerComparisonDialog)
 - **Route Index:** `0` & Import Files Modal Dialog
-- **Task A (Contrast & Dark Mode Legibility):** Complete.
+- **Task A (Contrast & Dark Mode Legibility):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Eliminated white-on-white text disappearance by replacing fixed `Colors.white`, `Colors.grey.shade50`, and `Colors.grey.shade100` backgrounds with theme-adaptive `AppTheme.darkSurface`, `AppTheme.darkCardBackground`, and `Color(0xFF1B2430)`.
   - Replaced unreadable `AppTheme.charcoal` text on dark surfaces with `AppTheme.darkTextPrimary` (`#ECF0F1`) and `AppTheme.darkTextSecondary` (`#94A3B8`).
   - Adapted cargo stacking scenario cards, saved shipping evaluation studies, smart recommendation boxes, linked POs, and metric pills to ensure crisp, luminous contrast in dark mode.
-- **Task B (Copy Data Enablement):** Maintained.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - All copy triggers, context menus, and SelectionArea interactions remain fully operational.
-- **Task C (Linked Outputs):** Maintained.
+- **Task C (Linked Outputs):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
 - **Verification:**
   - `flutter analyze lib/` ➔ **0 issues found (100% clean)!** ✅
   - `flutter test test/operational_dashboard_test.dart test/operational_dashboard_localization_test.dart test/system_live_clock_test.dart` ➔ **35/35 tests passed (100% green)!** ✅
@@ -74,12 +90,18 @@
   - `frontend/test/system_live_clock_test.dart` (Updated 27 unit & widget tests verifying flag removal and Egypt Fri-Sat weekend logic)
   - `frontend/test/production_sync_test.dart` (Updated 12 unit & widget tests verifying localized English update banner)
 - **Route Index:** `59` & Core Clocks
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Raw backend string `النظام محدث لأحدث إصدار رسمي.` replaced with localized getter `l.prodSyncSystemUpToDateMsg`.
   - Zero raw Arabic strings in English mode, zero Latin in Arabic mode.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Full desktop clipboard copy for version badge, build number, file paths, backup tags, and error logs.
-- **Task C (Linked Outputs):** Complete.
+- **Task C (Linked Outputs):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Linked sync diff summaries, schema audits, and backup management.
 - **Verification:**
   - `flutter analyze lib/` ➔ **0 issues found (100% clean)!** ✅
@@ -99,23 +121,31 @@
   - `frontend/test/operational_dashboard_test.dart` (Screen widget tests verifying pure Arabic and pure English rendering without stacked bilingual text, CopyableText, priority badges, 6/6 passed 100%)
   - `frontend/test/perf/screen_0_operational_dashboard_perf_test.dart` (Benchmark diagnostics: Nav-IN First Frame: 321ms | Settled: 512ms | Nav-OUT: 40ms, 1/1 passed 100%)
 - **Route Index:** `0`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Replaced all hardcoded strings with typed getters from `AppLocalizations`.
   - Replaced Latin acronyms (e.g. `ACID`, `CargoX`, `STEP_01`, `P2:`) in Arabic phase and stage names with pure Arabic terms.
   - Strictly 0 Latin characters `[a-zA-Z]` across all Screen 0 Arabic strings verified via regex unit tests.
   - Replaced bilingual slashes with clean, natural Arabic phrases.
   - Strict single-language display without dual language stacking.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped root `CustomScrollView` in `SelectionArea` enabling desktop drag-to-select everywhere.
   - Added explicit copy `IconButton` with tooltip in the header of each shipment card for instant copying of full shipment summary with resolved human-readable name (`shipmentTitle | companyName -> supplierName | currentStage`).
   - Wrapped shipment card details and linked smart tasks in `CopyableText`.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Built `OperationalDashboardExportService` providing 4 standard export actions using resolved human-readable names:
     1. **TSV Export:** UTF-8 BOM (`\uFEFF`), tab-separated values, includes `shipmentName` and `importFileCode`.
     2. **Excel Export:** UTF-8 BOM (`\uFEFF`), RFC 4180 unmerged CSV, includes `shipmentName` and `importFileCode`.
     3. **Vector PDF Export:** Cairo Arabic font, landscape A4, KPI blocks, shipments detailed table, official ERP branding, dynamic RTL/LTR.
     4. **Clipboard Dossier Copy:** Complete structured itemized summary copied directly to clipboard with human-readable titles.
-- **Task D (Replace Internal Codes with Human-Readable Names):** Complete.
+- **Task D (Replace Internal Codes with Human-Readable Names):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Shipment code → name:** Complete. Commercial name (`customFileNumber` or user reference) displayed as primary prominent label (`fontSize: 14, FontWeight.bold`). Raw internal code (`IMP-YYYY-NNNN`) kept only as muted secondary reference container (`AppTheme.cobalt.withOpacity(0.1)`). If no custom name was entered, falls back gracefully to `importFileCode`.
   - **Step/operation code → name:** Complete. All 21 operational steps (`STEP_01` .. `STEP_21`) mapped to plain-language Arabic and English operation names (e.g. `STEP_07` ➔ "تخصيص وتوزيع الحاويات والبضائع" / "Container Allocation").
   - **Phases:** Phases 1 to 10 mapped to official clean titles without Latin abbreviations in Arabic mode.
@@ -133,7 +163,9 @@
   - `flutter test test/operational_dashboard_test.dart` ➔ **6/6 tests passed (100%)** ✅
   - `flutter test test/perf/screen_0_operational_dashboard_perf_test.dart` ➔ **1/1 benchmark passed (100%)** ✅
   - Combined Screen 0 suite: **26/26 tests passed (100% green)** ✅
-- **Task E (Actionable Summary & Alert Cards with Drill-Down Dialog):** Complete.
+- **Task E (Actionable Summary & Alert Cards with Drill-Down Dialog):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Problem Solved:** Every card on the dashboard previously showed only a static number and a single-line caption (e.g. `4 Shipments — Expected future arrivals`, `4 — Arrival schedule updated`, `4 — High / Critical priority alerts`). A number with no way to see which shipments/tasks it refers to, what is required, who is responsible, and by when is merely decoration. The user must never be shown a count that cannot be immediately traced to the specific records behind it.
   - **Actionable Drill-Down Architecture:**
     - Created `DashboardCardType` enum and `DashboardDrillDownHelper` centralized factory generating `DrillDownItem` models.
@@ -204,12 +236,16 @@
   - `frontend/test/shipment_inquiry_screen_widget_test.dart` (Widget tests for SelectionArea, 4-action export toolbar, CopyableTableCell, copy badges, row copy action, AR/EN mode, empty state, 3/3 passed 100%)
   - `frontend/test/perf/screen_68_shipment_inquiry_perf_test.dart` (Benchmark diagnostics: Nav-IN First Frame: 375ms | Settled: 519ms | Nav-OUT: 45ms, 1/1 passed 100%)
 - **Route Index:** `68`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 62+ typed getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
   - Strictly 0 Latin characters `[a-zA-Z]` across all Screen 68 Arabic strings verified via regex unit test.
   - Zero bilingual slashes (`/`).
   - Strict single-language display without dual language stacking.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped entire screen body in root `SelectionArea` enabling drag-to-select everywhere.
   - Clickable copy badges with copy icons and `CopyHelper.copy` on `importFileCode`.
   - Copy suffix buttons on HS Code, POL, POD, and Carrier fields in filter panel.
@@ -217,7 +253,9 @@
   - Wrapped all DataTable cells in `CopyableTableCell` with comprehensive TSV `rowSummary` and right-click context menu.
   - Quick-copy row summary action buttons (`Icons.copy_rounded`) on every table row.
   - Wrapped `SmartCloneShipmentDialog` in `SelectionArea`.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Built `ShipmentInquiryExportService` providing 4 standard export actions:
     1. **TSV Export:** UTF-8 BOM (`\uFEFF`), tab-separated values.
     2. **Excel Export:** UTF-8 BOM (`\uFEFF`), RFC 4180 unmerged CSV.
@@ -244,7 +282,9 @@
   - `frontend/test/ai_bilingual_assistant_test.dart` (Prompt and categorization tests, 10/10 passed 100%)
   - `frontend/test/ai_assistant_and_multiscreen_test.dart` (Floating overlay button and greeting card widget tests, 8/8 passed 100%)
 - **Route Index:** `Global Persistent AI Assistant Overlay & Lifecycle Navigator`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 62+ typed getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Assistant headers, tooltips, hints, greeting bubble, API key setup/dialog, quick suggestions title, and notifications.
     - Lifecycle title, status badges (Completed, Active, Overdue, Upcoming), stage count disclosure, and step action buttons.
@@ -252,13 +292,17 @@
   - Strictly 0 Latin characters `[a-zA-Z]` across all Arabic getters verified by automated regex testing.
   - Strictly 0 bilingual slashes (`/`).
   - Strict single-language display without dual language stacking.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `_buildChatPanel`, `_buildGreetingBubble`, and `_buildApiKeySetup` in `SelectionArea` enabling native text drag selection.
   - Converted message formatting from `RichText` to `Text.rich(TextSpan(...))` allowing full participation in Flutter's `SelectionArea`.
   - Added click-to-copy buttons with `CopyHelper.copy` and localized toasts on every user message, assistant response, and system notification.
   - Added copy action on active shipment context badge.
   - Added click-to-copy buttons on shipment file code badge and full lifecycle summary.
-- **Task C (Linked Outputs / Full Conversation Transcript Dossier):** Complete.
+- **Task C (Linked Outputs / Full Conversation Transcript Dossier):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Integrated dedicated `copy_all_rounded` button in the assistant panel header:
     - Formats active shipment context, step ID, and chronological conversation transcript into a structured markdown dossier.
     - Copies formatted conversation dossier to clipboard with localized success toast (`aiAssistantTranscriptCopied`).
@@ -278,13 +322,17 @@
   - `frontend/test/login_screen_localization_test.dart` (Localization unit tests: non-empty strings, 0 Latin characters, 0 slashes, 4/4 passed 100%)
   - `frontend/test/login_screen_widget_test.dart` (Widget & copy tests: SelectionArea presence, copy suffix buttons on username and password fields, demo chips copy actions, pure Arabic / English modes, 4/4 passed 100%)
 - **Route Index:** `Login / Auth Gateway`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 6 typed getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
   - Replaced hardcoded `'admin / manager / operator1'` hint with pure Arabic `loginUsernameHint` (`'اسم المستخدم أو المعرف الوظيفي...'`).
   - Strictly 0 Latin characters `[a-zA-Z]` across all LoginScreen Arabic strings verified via regex test.
   - Strictly 0 bilingual slashes (`/`).
   - Strict single-language display without dual language stacking.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped entire login card content in root `SelectionArea` enabling drag-to-select for titles, subtitles, labels, and notices.
   - Added copy suffix button to username field with `CopyHelper.copy` and localized feedback toast.
   - Added copy button to password field alongside visibility toggle icon.
@@ -310,12 +358,16 @@
   - `frontend/test/step_config_screen_widget_test.dart` (Widget & copy tests: SelectionArea, 4 export actions, CopyableTableCell, copy badges, search copy suffix, row copy action, AR/EN modes, 3/3 passed 100%)
   - `frontend/test/perf/screen_67_step_config_perf_test.dart` (Benchmark diagnostics: Nav-IN First Frame: 333ms | Settled: 344ms | Nav-OUT: 34ms, 1/1 passed 100%)
 - **Route Index:** `67`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 35+ typed getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
   - Strictly 0 Latin characters `[a-zA-Z]` across all Screen 67 Arabic strings verified via regex unit test.
   - Zero bilingual slashes (`/`).
   - Purged any stacked or dual-language text from headers, banners, dialogs, and exports.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped entire screen body in root `SelectionArea` enabling drag-to-select everywhere.
   - Clickable copy badges with copy icons and `CopyHelper.copy` on `stepCode`.
   - Copy suffix button on search field alongside clear button.
@@ -323,7 +375,9 @@
   - Quick-copy row summary action buttons (`Icons.copy_rounded`) on every table row.
   - Wrapped `_StepConfigEditDialog` and `_StepConfigAuditHistoryDialog` in `SelectionArea`.
   - Added copy buttons on audit log entries.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Built `StepConfigExportService` providing 4 standard export actions:
     1. **TSV Export:** UTF-8 BOM (`\uFEFF`), tab-separated values.
     2. **Excel Export:** UTF-8 BOM (`\uFEFF`), RFC 4180 unmerged CSV.
@@ -353,16 +407,22 @@
   - `frontend/test/freight_quotations_extractor_test.dart` (4/4 passed 100%)
   - `frontend/test/extraction_progress_dialog_test.dart` (4/4 passed 100%)
   - `frontend/test/copyable_data_helper_test.dart` (3/3 passed 100%)
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Strictly 0 Latin characters `[a-zA-Z]` across all Arabic UI strings and labels.
   - Zero bilingual slashes (`/`) in any Arabic text, tabs, or preset dropdowns.
   - Strictly single selected language display (clean RTL Arabic / clean LTR English).
   - Purged all raw English acronyms from Arabic modes.
   - Standardized dimensions with multiplication symbol `×` instead of Latin `x`.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - All 5 standalone extraction tools wrapped in `SelectionArea`.
   - Individual copy buttons on filenames, table cells, verification badges, and individual key-value rows.
-- **Task C (Linked Outputs / Plain-Text Clipboard Export):** Complete.
+- **Task C (Linked Outputs / Plain-Text Clipboard Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Single-click "Copy All Extracted Data" (`Icons.copy_all_rounded`) implemented across preview dialogs.
   - Formatted plain-text summary clipboard export with file name, confidence score, and all extracted key-value pairs.
 - **Verification:**
@@ -381,13 +441,17 @@
   - `frontend/test/users_management_widget_test.dart` (Widget & copy tests: SelectionArea, 4 export actions, CopyableTableCell, copy badges, search copy suffix, row copy action, EN/AR modes, 4/4 passed 100%)
   - `frontend/test/perf/screen_66_users_management_perf_test.dart` (Benchmark diagnostics: Nav-IN First Frame: 64ms | Settled: 86ms | Nav-OUT: 16ms, 1/1 passed 100%)
 - **Route Index:** `66`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 25 typed getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
   - Strictly 0 Latin characters `[a-zA-Z]` across all Screen 66 Arabic strings verified via regex unit test.
   - Zero bilingual slashes (`/`).
   - Purged any hardcoded English strings (`+ Grant`, `− Revoke`, `Role`, English tooltips) from `_PermissionRow`.
   - Strict single-language display without dual language stacking.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped entire screen body in root `SelectionArea` enabling drag-to-select everywhere.
   - Clickable copy badges with copy icons and `CopyHelper.copy` on `user.username` and `user.email`.
   - Copy suffix button on search field alongside clear button.
@@ -396,7 +460,9 @@
   - Wrapped `_showUserDialog`, `_showToggleConfirmDialog`, and `_showUserPermissionsDialog` in `SelectionArea`.
   - Added copy suffix buttons to full name, username, and email fields inside the user dialog.
   - Added copy button for username and full name inside the permissions dialog header.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Built `UsersManagementExportService` providing 4 standard export actions:
     1. **TSV Export:** UTF-8 BOM (`\uFEFF`), tab-separated values.
     2. **Excel Export:** UTF-8 BOM (`\uFEFF`), RFC 4180 unmerged CSV.
@@ -425,19 +491,25 @@
   - `frontend/test/cargo_insurance_test.dart` (Widget & calculation tests: serialization, calculation parsing, clean rendering, dialog modal open, 3/3 passed 100%)
   - `frontend/test/perf/screen_65_cargo_insurance_perf_test.dart` (Benchmark diagnostics: Nav-IN First Frame: 43ms | Settled: 126ms | Nav-OUT: 21ms, 1/1 passed 100%)
 - **Route Index:** `65`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 18+ typed getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
   - Strictly 0 Latin characters `[a-zA-Z]` across all Screen 65 Arabic strings verified via regex unit test.
   - Zero bilingual slashes (`/`).
   - Purged any stacked or dual-language text from headers, banners, and exports.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped entire screen body in root `SelectionArea` enabling drag-to-select everywhere.
   - Clickable copy badges with copy icons and `CopyHelper.copy` on `certificateCode`, `policyNumber`, and `importFileId`.
   - Copy suffix button on search field.
   - Wrapped all DataTable cells in `CopyableTableCell` with comprehensive TSV `rowSummary` and right-click context menu.
   - Quick-copy row summary action buttons (`Icons.copy_rounded`) on every table row.
   - Wrapped details dialog and new certificate form dialog in `SelectionArea`.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Built `CargoInsuranceExportService` providing 4 standard export actions:
     1. **TSV Export:** UTF-8 BOM (`\uFEFF`), tab-separated values.
     2. **Excel Export:** UTF-8 BOM (`\uFEFF`), RFC 4180 unmerged CSV.
@@ -463,18 +535,24 @@
   - `frontend/test/warehouse_received_report_screen_test.dart` (Widget & copy tests: SelectionArea, 4 export actions, 6 KPIs, copy badges, search copy suffix, row copy action, EN/AR modes, 6/6 passed 100%)
   - `frontend/test/perf/screen_64_inbound_warehouse_report_perf_test.dart` (Benchmark diagnostics: Nav-IN First Frame: 53ms | Settled: 112ms | Nav-OUT: 22ms, 1/1 passed 100%)
 - **Route Index:** `64`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 19+ typed getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
   - Strictly 0 Latin characters `[a-zA-Z]` across all Screen 64 Arabic strings verified via regex unit test.
   - Zero bilingual slashes (`/`).
   - Purged any stacked or dual-language text from headers, banners, and exports.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped entire screen body in root `SelectionArea` enabling drag-to-select everywhere.
   - Clickable copy badges with copy icons and `CopyHelper.copy` on `importFileCode`, `poNumber`, and `itemCode`.
   - Copy suffix button on search field alongside clear button.
   - Wrapped all DataTable cells in `CopyableTableCell` with comprehensive TSV `rowSummary` and right-click context menu.
   - Quick-copy row summary action buttons (`Icons.copy_rounded`) on every table row.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Built `WarehouseReceivedReportExportService` providing 4 standard export actions:
     1. **TSV Export:** UTF-8 BOM (`\uFEFF`), tab-separated values.
     2. **Excel Export:** UTF-8 BOM (`\uFEFF`), RFC 4180 unmerged CSV.
@@ -501,18 +579,24 @@
   - `frontend/test/goods_in_transit_screen_test.dart` (Widget & copy tests: SelectionArea, 4 export actions, 5 KPIs, copy badges, search copy suffix, row copy action, EN/AR modes, 5/5 passed 100%)
   - `frontend/test/perf/screen_63_inbound_warehouse_git_perf_test.dart` (Benchmark diagnostics: Nav-IN First Frame: 122ms | Settled: 132ms | Nav-OUT: 23ms, 1/1 passed 100%)
 - **Route Index:** `63`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 18+ typed getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
   - Strictly 0 Latin characters `[a-zA-Z]` across all Screen 63 Arabic strings verified via regex unit test.
   - Zero bilingual slashes (`/`).
   - Purged any stacked or dual-language text from ledger status, scaffold, banner, and exports.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped entire screen body in root `SelectionArea` enabling drag-to-select everywhere.
   - Clickable copy badges with copy icons and `CopyHelper.copy` on `importFileCode`, `poNumber`, and `itemCode`.
   - Copy suffix button on search field alongside clear button.
   - Wrapped all DataTable cells in `CopyableTableCell` with comprehensive TSV `rowSummary` and right-click context menu.
   - Quick-copy row summary action buttons (`Icons.copy_rounded`) on every table row.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Built `GoodsInTransitExportService` providing 4 standard export actions:
     1. **TSV Export:** UTF-8 BOM (`\uFEFF`), tab-separated values.
     2. **Excel Export:** UTF-8 BOM (`\uFEFF`), RFC 4180 unmerged CSV.
@@ -541,18 +625,24 @@
   - `frontend/test/final_duty_payment_tab_test.dart` (Widget tests: SelectionArea, 4 export actions, 4 KPIs, copy badges, search filtering, callbacks, EN/AR modes, 100% green)
   - `frontend/test/perf/screen_62_clearance_final_duty_perf_test.dart` (Benchmark: First Frame: 41.7ms | Settled: 107.7ms | Nav-OUT: 19.3ms, 100% green)
 - **Route Index:** `62`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 34+ localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
   - Strictly 0 Latin characters `[a-zA-Z]` across all Screen 62 Arabic strings via automated regex verification.
   - Zero bilingual slashes (`/`).
   - Purged any stacked or dual-language text.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `FinalDutyPaymentTab` in root `SelectionArea` enabling drag-to-select across all headers, cards, tables, and dialogs.
   - Clickable copy badges with icon and `CopyHelper.copy` on `clearanceCode`, `declaration46No`, `bankReceiptNo`, and `releasePermitNo`.
   - Added explicit copy suffix buttons to the search field and text inputs in payment & release dialogs.
   - Wrapped all table cells in `CopyableTableCell` with comprehensive TSV `rowSummary`.
   - Quick-copy row summary action buttons (`Icons.copy_rounded`) on all registry rows.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Built `FinalDutyPaymentExportService` providing 4 standard export actions:
     1. **TSV Export:** UTF-8 BOM (`\uFEFF`), tab-separated values.
     2. **Excel Export:** UTF-8 BOM (`\uFEFF`), RFC 4180 unmerged CSV.
@@ -580,18 +670,24 @@
   - `frontend/test/discrepancy_and_damage_tab_test.dart` (Widget tests: SelectionArea, 4 export actions, 4 KPIs, copy badges, search filtering, joint protocol dialog, EN/AR modes, 100% green)
   - `frontend/test/perf/screen_61_clearance_discrepancy_damage_perf_test.dart` (Benchmark: First Frame: 41.3ms | Settled: 107.0ms | Nav-OUT: 19.3ms, 100% green)
 - **Route Index:** `61`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 45+ localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
   - Strictly 0 Latin characters `[a-zA-Z]` across all Screen 61 Arabic strings via automated regex verification.
   - Replaced all bilingual slashes (`/`) with natural Arabic conjunctions (`أو`).
   - Completely purged any stacked or conditional dual-language text.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `DiscrepancyAndDamageTab` in root `SelectionArea` enabling drag-to-select across all headers, cards, tables, and dialogs.
   - Clickable copy badges with icon and `CopyHelper.copy` on `protocol_no`, `declaration_no`, and `container_no`.
   - Added explicit copy suffix buttons to the search field and all text inputs in `_showAddJointProtocolDialog`.
   - Wrapped all table cells in `CopyableTableCell` with comprehensive TSV `rowSummary`.
   - Quick-copy row summary action buttons (`Icons.copy_rounded`) on all registry rows.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Built `DiscrepancyAndDamageExportService` providing 4 standard export actions:
     1. **TSV Export:** UTF-8 BOM (`\uFEFF`), tab-separated values.
     2. **Excel Export:** UTF-8 BOM (`\uFEFF`), RFC 4180 unmerged CSV.
@@ -619,18 +715,24 @@
   - `frontend/test/drawing_samples_and_shortage_tab_test.dart` (Widget tests: SelectionArea, 4 export actions, 4 KPIs, copy badges, search filtering, dialogs, EN/AR modes, 100% green)
   - `frontend/test/perf/screen_60_clearance_samples_shortage_perf_test.dart` (Benchmark: First Frame: 40.3ms | Settled: 111.3ms | Nav-OUT: 20.3ms, 100% green)
 - **Route Index:** `60`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 58+ localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
   - Purged Latin words `(GOEIC, NFSA, Chemistry, Radiation)` from `customsClearanceSamplesBannerDesc` in Arabic, replacing with pure Arabic names.
   - Replaced all bilingual slashes (`/`) with pure Arabic conjunctions (`أو`).
   - Verified 0 Latin characters `[a-zA-Z]` across all Screen 60 Arabic strings via regex testing.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `DrawingSamplesAndShortageTab` in root `SelectionArea` enabling drag-to-select across all headers, cards, tables, and dialogs.
   - Clickable copy badges with icon and `CopyHelper.copy` on `sample_id`, `receipt_no`, `shortage_id`, and `container_no`.
   - Added explicit copy suffix buttons to search field and all input fields in `_showAddSampleDialog` and `_showAddShortageDialog`.
   - Wrapped all table cells in `CopyableTableCell` with comprehensive TSV `rowSummary`.
   - Quick-copy row summary action buttons (`Icons.copy_rounded`) on all rows in both Drawn Samples and Shortage tables.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Built `DrawingSamplesExportService` providing 4 standard export actions:
     1. **TSV Export:** UTF-8 BOM (`\uFEFF`), tab-separated values.
     2. **Excel Export:** UTF-8 BOM (`\uFEFF`), RFC 4180 unmerged CSV.
@@ -662,28 +764,38 @@
   - `frontend/test/perf/screen_59_production_sync_perf_test.dart` (Performance benchmark diagnostics: Nav-IN First Frame: 111.7ms | Settled: 155.7ms | Nav-OUT: 30.3ms, 1/1 passed 100%)
   - `frontend/test/perf/production_sync_hub_dialog_perf_test.dart` (Modal performance benchmark diagnostics: First Frame: 114ms | Settled: 167ms | Nav-OUT: 24ms, 1/1 passed 100%)
 - **Route Index:** `59`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - 120+ typed getters in `AppLocalizations`, `AppLocalizationsAr`, and `AppLocalizationsEn`.
   - Strictly 0 Latin characters `[a-zA-Z]` across all Screen 59 Arabic strings verified via automated regex testing in `production_sync_localization_test.dart`.
   - Strictly 0 bilingual slashes (`/`).
   - Purged hardcoded strings and ternary language checks (`isAr ? '...' : '...'`).
   - Strict single-language display without dual language stacking.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped entire screen body and hub dialog in root `SelectionArea` enabling desktop drag-to-select everywhere.
   - Clickable copy badges with copy icons and `CopyHelper.copy` on system version (`v1.0.73 (Build 74)`), dev DB path, prod DB path, and backup filenames.
   - Copy suffix button on table search field alongside clear button.
   - Quick-copy row summary action buttons (`Icons.copy_rounded`) on backups archive and schema diff items.
   - Terminal console with dedicated "Copy All Logs" button copying clean execution traces to clipboard.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Built `ProductionSyncExportService` providing 4 standard export actions:
     1. **TSV Export:** UTF-8 BOM (`\uFEFF`), tab-separated values for table differences and backups archive.
     2. **Excel Export:** UTF-8 BOM (`\uFEFF`), RFC 4180 unmerged CSV for table differences and backups archive.
     3. **Vector PDF Export:** Cairo Arabic font, landscape A4, KPI blocks, DB comparison details, official ERP branding, dynamic RTL/LTR.
     4. **Clipboard Dossier Copy:** Complete structured itemized summary copied directly to clipboard for WhatsApp & Email sharing.
-- **Task D (Human-Readable Names & Database Integrity):** Complete.
+- **Task D (Human-Readable Names & Database Integrity):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Schema diff tables and migration status display plain-language Arabic/English indicators (`سجلات جديدة مرتقبة`, `متطابقة بالكامل`, `جدول جديد`) rather than raw status codes.
   - Database paths formatted with clear monospace display and copy triggers.
-- **Task E (Actionable Verification & Safe Recovery):** Complete.
+- **Task E (Actionable Verification & Safe Recovery):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Instant one-click safety backup generation before any schema migration.
   - Safe restoration confirmation modal dialog with zero-data-loss warnings.
   - Visual diff comparison and real-time terminal output during synchronization operations.
@@ -705,13 +817,19 @@
   - `frontend/test/screen_58_original_docs_and_cargox_test.dart` (Automated widget & verification test suite: Arabic pure mode, English pure mode, SelectionArea presence, sub-tab navigation, 100% passed)
   - `frontend/test/perf/screen_58_original_docs_default_view_perf_test.dart` (Performance benchmark test: First Frame: 89.7ms | Settled: 134.7ms | Nav-OUT: 18.0ms, 100% passed)
 - **Route Index:** `58`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Scaffold header: pure Arabic `تحصيل المستندات وكارجو إكس — المرحلة 4` in Arabic mode and `Original Docs Collection & CargoX Hub — Phase 4` in English mode.
   - Tab navigation labels: `تحصيل أصول المستندات وتتبع الكورير` (SubTab 0) and `منظومة كارجو إكس والمانيفست الرقمي` (SubTab 1) in Arabic mode; `Original Docs Collection & Courier` and `CargoX Blockchain & ACI Hub` in English mode.
   - Strictly 0 Latin characters in Arabic mode (`[a-zA-Z]`), 0 bilingual slashes (`/`), 0 stacked text.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped root `VerticalStageScaffold` in `SelectionArea` enabling copy selection on desktop for all scaffold headers, badges, stage codes, tabs, and embedded tab contents.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Seamlessly coordinates linked outputs across both embedded sub-tabs (SubTab 0: `OriginalDocumentsCollectionTab` and SubTab 1: `CargoXHubScreen`), each with full 4-action toolbars (TSV, Excel, Vector PDF, Dossier).
   - Verified via `screen_58_original_docs_and_cargox_test.dart` and `screen_58_original_docs_default_view_perf_test.dart`.
 - **Verification:**
@@ -730,19 +848,25 @@
   - `frontend/test/original_documents_collection_test.dart` (Serialization, deserialization, and widget interaction tests, 100% passed)
   - `frontend/test/perf/screen_57_originals_collection_perf_test.dart` (Performance benchmark test: First Frame: 77.7ms | Settled: 112.3ms | Nav-OUT: 17.3ms, 100% passed)
 - **Route Index:** `57`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 40+ new typed getters/methods across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
   - Purified courier brands in Arabic mode (`courierCompanyDhl`, `courierCompanyFedex`, `courierCompanyAramex`, `courierCompanyUps`, `courierCompanyNaqel`, `courierCompanySmsa`), zero Latin letters (`[a-zA-Z]`), zero bilingual slashes (`/`).
   - Purified `statusBadgeDiscrepant` from `'غير مطابق / به ملاحظات'` to `'غير مطابق مع وجود ملاحظات'`.
   - Localized all dialog titles, TSV headers, registry headers, status badges, and action tooltips.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `OriginalDocumentsCollectionTab` in `SelectionArea` for global selectable text.
   - Added clickable copy badges with `CopyHelper.copy` on `collectionCode`, `importFileCode`, and `acidNumber`.
   - Added copy suffix buttons to courier fields (`courierNo`, `dispatchDate`, `receivedBy`), document name field, `_notesController`, `_overrideReasonController`, and `_registrySearchController`.
   - Wrapped all cells in Documents Verification Matrix and Collection Registry DataTable in `CopyableTableCell` with comprehensive `rowSummary` and right-click copy menu.
   - Added quick copy row action buttons (`Icons.copy`) in both matrix action column and registry action column.
   - Added open/load session action button (`Icons.folder_open_outlined`) in registry row actions.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Created `OriginalDocsExportService` and wired 4 standard export actions for both the active workspace and the historical registry:
     - **TSV Export:** UTF-8 BOM (`\uFEFF`), tab-separated values.
     - **Excel Export:** UTF-8 BOM (`\uFEFF`), clean RFC 4180 unmerged CSV.
@@ -767,16 +891,22 @@
   - `frontend/test/customs_consultation_localization_test.dart` (Automated localization and anti-stacking test suite, 100% passed)
   - `frontend/test/perf/screen_56_customs_tax_review_perf_test.dart` (Performance benchmark test: Tab 0 First Frame: 283.7ms | Settled: 369.3ms | Nav-OUT: 27.7ms; Tab 1 First Frame: 32.3ms | Settled: 83.3ms | Nav-OUT: 12.7ms, 100% passed)
 - **Route Index:** `56`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 37 new typed localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
   - Purified all Arabic strings: 0 Latin letters (`[a-zA-Z]`), 0 bilingual slashes (`/`), replaced hardcoded `EGP` with dynamic `$egpLabel` (`'ج.م'` vs `'EGP'`), replaced hardcoded `ACID`, `COO`, `GOEIC` badges with localized Arabic alternatives.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `CustomsConsultationScreen` (Tax Review Mode), `SavedConsultationsTab`, and `NafezaFeeBreakdownCard` in `SelectionArea`.
   - Converted table cells to `CopyableTableCell` with comprehensive itemized `rowSummary`.
   - Added clickable copy badges with `CopyHelper.copy` on `consultationCode` and fee item codes.
   - Added copy suffix buttons to all 6 currency/rate input fields.
   - Added quick copy row action buttons in both calculation table and saved consultations registry.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 4 export actions to both workspace calculation view and consultations registry:
     - **TSV Export:** UTF-8 BOM, tab-separated values.
     - **Excel Export:** UTF-8 BOM, clean RFC 4180 CSV with unmerged cells.
@@ -799,13 +929,17 @@
   - `frontend/test/customs_clearance_quotations_test.dart` (Quotation and RFQ JSON serialization, LCL/FCL fee isolation, catalog tests)
   - `frontend/test/perf/screen_55_clearance_quotes_ai_perf_test.dart` (Performance benchmark: Tab 2 First Frame: 57.3ms | Settled: 94.3ms | Nav-OUT: 18.0ms; Tab 3 First Frame: 80.7ms | Settled: 113.3ms | Nav-OUT: 17.3ms)
 - **Route Index:** `55`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 35+ new getters/methods across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Toolbar & export: `clearanceQuotesExportTsvBtn`, `clearanceQuotesExportExcelBtn`, `clearanceQuotesPrintPdfBtn`, `clearanceQuotesCopyDossierBtn`, `clearanceQuotesCopiedDossierSuccess`, `clearanceQuotesCopiedTsvSuccess`, `clearanceQuotesCopiedExcelSuccess`, `clearanceQuotesExportTsvDialogTitle`, `clearanceQuotesExportExcelDialogTitle`, `clearanceQuotesExportPdfDialogTitle`, `clearanceQuotesDossierTitle`, `clearanceQuotesCopyRowSuccess`, `clearanceQuotesCopySummarySuccess`.
     - TSV Headers: `clearanceQuotesTsvHeaderRfqCode`, `clearanceQuotesTsvHeaderTitle`, `clearanceQuotesTsvHeaderPort`, `clearanceQuotesTsvHeaderShipmentType`, `clearanceQuotesTsvHeaderContainers`, `clearanceQuotesTsvHeaderWeight`, `clearanceQuotesTsvHeaderCbm`, `clearanceQuotesTsvHeaderBroker`, `clearanceQuotesTsvHeaderClearanceFee`, `clearanceQuotesTsvHeaderInlandTransport`, `clearanceQuotesTsvHeaderInspectionFee`, `clearanceQuotesTsvHeaderPortExpenses`, `clearanceQuotesTsvHeaderMiscFee`, `clearanceQuotesTsvHeaderTotal`, `clearanceQuotesTsvHeaderDays`, `clearanceQuotesTsvHeaderStatus`, `clearanceQuotesTsvHeaderPriceServiceType`, `clearanceQuotesTsvHeaderPriceContainerType`, `clearanceQuotesTsvHeaderPriceStandardRate`, `clearanceQuotesTsvHeaderPriceNotes`.
     - Extractor & breakdown: `clearanceQuotesManagePriceListBtn`, `clearanceQuotesPasteClipboardBtn`, `clearanceQuotesSampleAccBtn`, `clearanceQuotesSampleStandardBtn`, `clearanceQuotesClearInputTooltip`, `clearanceQuotesOcrUploadingState`, `clearanceQuotesOcrStep1`, `clearanceQuotesOcrDialogTitle`, `clearanceQuotesOcrProgressState(percent)`, `clearanceQuotesOcrStep2`, `clearanceQuotesOcrStep4State`, `clearanceQuotesSelectedContainerLabel`, `clearanceQuotesSaveAsPriceListBtn`, `clearanceQuotesRateOptionsTitle`, `clearanceQuotesBreakdownClearanceFee`, `clearanceQuotesBreakdownInlandFee`, `clearanceQuotesBreakdownInspectionFee`, `clearanceQuotesBreakdownPortExpenses`, `clearanceQuotesBreakdownEstimatedTotal`, `clearanceQuotesExpensesCatalogCount(count)`.
   - 100% pure Arabic display with ZERO Latin characters (`[a-zA-Z]`) verified by automated unit tests.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `CustomsClearanceQuotationsScreen` scaffold body and embedded container in `SelectionArea` enabling native text drag selection.
   - Wrapped all 4 dialogs in `SelectionArea`: Create RFQ Dialog, Add Quotation Dialog, Add Price Item Dialog, and Smart Clearance Extractor Dialog.
   - Added clickable copy badges with `CopyHelper.copy` on `rfqCode`.
@@ -813,7 +947,9 @@
   - Added Copy Row action icon button on every quotation row and price list item row.
   - Added copy suffix `IconButton` to input fields in Create RFQ Dialog, Add Quotation Dialog, and Add Price Item Dialog.
   - Added quick copy triggers in Smart Clearance Extractor Dialog for extracted broker, port, container, and total cost summaries.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Built dedicated `CustomsClearanceQuotationsExportService`:
     - **RFQs TSV Export (`exportRfqsTsv`):** 16 tab-separated columns with active-locale headers and UTF-8 BOM.
     - **RFQs Excel/CSV Export (`exportRfqsExcel`):** 16 unmerged CSV columns with UTF-8 BOM, quoted fields, and RFC 4180 compatibility.
@@ -840,9 +976,15 @@
   - `frontend/test/cargox_hub_test.dart`, `test/cargox_standard_invoice_test.dart` (10 tests passed 100%)
   - `frontend/test/perf/screen_54_cargox_blockchain_perf_test.dart` (Performance benchmark passed: First Frame: 191.0ms | Settled: 303.0ms | Nav-OUT: 24.3ms)
 - **Route Index:** `54`
-- **Task A (Localization / i18n):** Complete.
-- **Task B (Copy Data Enablement):** Complete.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
 - **Verification:** 0 issues found, 100% test pass rate.
 
 ---
@@ -857,18 +999,24 @@
   - `frontend/test/visual_draft_coo_and_inspection_test.dart` (Automated widget tests for VisualDraftInspectionSheet and CCPIT COO)
   - `frontend/test/perf/screen_53_draft_inspection_cert_perf_test.dart` (Benchmark test: First Frame: 86.3ms | Settled: 111.3ms | Nav-OUT: 22.3ms)
 - **Route Index:** `53`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Slashes removed from Arabic getters (`exporterShipperFieldLabel`, `importerApplicantFieldLabel`, `colDescriptionBrandModel`).
   - Added typed getters for 4-button export toolbar, dialog titles, dossier headers, and TSV headers (`exportTsvBtn`, `copyDossierBtn`, `copiedDossierSuccess`, `copiedInspectionTsvSuccess`, `copiedInspectionExcelSuccess`, `exportTsvDialogTitle`, `exportExcelDialogTitle`, `exportPdfDialogTitle`, `cocNoPrefix`, `acidNoPrefix`, `certHeaderCocVoc`, `noticeBannerDraftConfirm`, `importerTaxIdHeader`, `exporterProducerHeader`, `inspectionDossierHeader`, etc.).
   - Verified 100% compliance with zero Latin characters rule (`[a-zA-Z]`) in Arabic getters via automated tests.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `InspectionReviewTab` root in `SelectionArea`.
   - Wrapped `VisualDraftInspectionSheet` root in `SelectionArea`.
   - Converted all DataTable cells in Step 3 (Discrepancy Matrix) to `DataCell(CopyableTableCell(...))` with full row TSV summaries and cell copy on click.
   - Converted all DataTable cells in Step 4 (Inspection Registry) to `DataCell(CopyableTableCell(...))` with full row TSV summaries.
   - Added dedicated Copy Row action button (`Icons.copy`) to Step 4 action column.
   - Enhanced Inspection Review Details dialog (`_showInspectionReviewDetailsDialog`): wrapped in `SelectionArea`, added copy triggers for file ID, certificate type, inspection company, certificate number, issuance date, status, discrepancies summary, and discrepancy table cells.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Refactored and upgraded `InspectionExportService`:
     - **TSV Export (`exportInspectionTsv` / `saveInspectionTsvToFile`):** Tab-separated values with UTF-8 BOM (`\uFEFF`) and active-locale column headers.
     - **Excel/CSV Export (`exportInspectionCsv` / `saveInspectionCsvToFile`):** RFC 4180 unmerged CSV with UTF-8 BOM, quoted fields, and numeric preserving formatting.
@@ -895,7 +1043,9 @@
   - `frontend/test/cargo_shipping_screen_test.dart` (Widget tests for container loading and milestone prefilling)
   - `frontend/test/perf/screen_52_cargo_shipping_sla_perf_test.dart` (Performance benchmark: First Frame: 175.0ms | Settled: 239.7ms | Nav-OUT: 24.7ms)
 - **Route Index:** `52`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 25 new getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Title & Toolbar: `cargoShippingSlaStageTitle`, `cargoShippingSlaExportTsvBtn`, `cargoShippingSlaExportExcelBtn`, `cargoShippingSlaPrintPdfBtn`, `cargoShippingSlaCopyDossierBtn`, `cargoShippingSlaCopyDossierSuccess`, `cargoShippingSlaDossierHeader`, `cargoShippingSlaExportTsvDialogTitle`, `cargoShippingSlaExportExcelDialogTitle`.
     - TSV/Excel Headers: `cargoShippingSlaTsvHeaderUnit`, `cargoShippingSlaTsvHeaderContainerNo`, `cargoShippingSlaTsvHeaderContainerType`, `cargoShippingSlaTsvHeaderSealNo`, `cargoShippingSlaTsvHeaderAssignmentDate`, `cargoShippingSlaTsvHeaderArrivalDate`, `cargoShippingSlaTsvHeaderLoadingStartDate`, `cargoShippingSlaTsvHeaderLoadingEndDate`, `cargoShippingSlaTsvHeaderPortGateInDate`, `cargoShippingSlaTsvHeaderSlaStatus`, `cargoShippingSlaTsvHeaderTrackingStatus`, `cargoShippingSlaTsvHeaderNotes`.
@@ -908,7 +1058,9 @@
     - Replaced bilingual slashes `/` with `أو`.
   - Purified `cargo_shipping_model.dart`: removed `CFS` and `(CFS)` from `arabicStatusLabel`.
   - 100% pure Arabic display with ZERO Latin characters (`[a-zA-Z]`) verified by automated unit tests.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `cargo_shipping_screen.dart` in `SelectionArea` enabling native text drag selection.
   - Enhanced Linked File Banner in Step 2 with `CopyableText` for file code, company, supplier, ACID number, and a copy button for the entire banner string.
   - Enhanced Top Metric Summary Cards (`_buildMetricSummaryCard`) with `Tooltip` + `InkWell` + `CopyHelper.copy` with a copy icon.
@@ -922,7 +1074,9 @@
   - Enhanced LCL Consolidation Card (`_buildLclConsolidationTrackingCard`):
     - Clickable warehouse header with warehouse name copy.
     - Clickable status badge with tracking status copy.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Built dedicated `CargoShippingSlaExportService`:
     - **TSV Export (`exportToTsv`):** Tab-separated columns with active-locale headers, 12 milestones tracking data, notes, and UTF-8 BOM.
     - **Excel/CSV Export (`exportToExcel`):** Unmerged CSV columns with UTF-8 BOM, quoted fields, and RFC 4180 compatibility.
@@ -949,21 +1103,27 @@
   - `frontend/test/central_docs_archive_test.dart` (Widget tests for empty state and full archive state with export toolbar and copy badges)
   - `frontend/test/perf/screen_51_central_docs_archive_perf_test.dart` (Performance benchmark: First Frame: 35.3ms | Settled: 49.3ms | Nav-OUT: 14.0ms)
 - **Route Index:** `51`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 21 new getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Toolbar: `centralDocsExportTsvBtn`, `centralDocsExportExcelBtn`, `centralDocsPrintPdfBtn`, `centralDocsCopyDossierBtn`, `centralDocsCopyDossierSuccess`, `centralDocsDossierHeader`, `centralDocsExportTsvDialogTitle`, `centralDocsExportExcelDialogTitle`.
     - 8 TSV Headers: `centralDocsTsvHeaderDocName`, `centralDocsTsvHeaderDocType`, `centralDocsTsvHeaderRefNo`, `centralDocsTsvHeaderStatus`, `centralDocsTsvHeaderDiscrepanciesCount`, `centralDocsTsvHeaderIssues`, `centralDocsTsvHeaderRectifications`, `centralDocsTsvHeaderLegalNote`.
     - Dossier & Details: `centralDocsDossierComplianceTitle`, `centralDocsDossierCoreDocsTitle`, `centralDocsDossierDiscrepanciesTitle`, `centralDocsCopyDetailSuccess`, `centralDocsCopyDiscrepancySuccess`.
   - Purified `exporterSupplierLabel` in `app_localizations_ar.dart` from `'المورد الأجنبي / المصدر:'` to `'المورد الأجنبي أو المصدر:'` (zero slashes).
   - 100% pure Arabic display with ZERO Latin characters (`[a-zA-Z]`) verified by automated unit tests.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `CentralDocsArchiveScreen` scaffold body in `SelectionArea` enabling native text drag selection.
   - Added clickable copy badges with `CopyHelper.copy` on `import_file_code`, `custom_file_number`, and `readiness_status`.
   - Enhanced `_buildHeaderInfoRow` to be clickable with `CopyHelper.copy`, copy icon, and ellipsis overflow protection.
   - Enhanced `_buildImportRequirementsComplianceCard` with click-to-copy on summary tag, live alert banners (tariff, GOEIC, Decree 43), and compliance chips.
   - Enhanced `_buildMasterRectificationsCard` so every rectification checklist item is wrapped in `InkWell` with `CopyHelper.copy` and copy icon.
   - Enhanced `_buildDocumentCard` with localized title, clickable `refNo`, clickable details grid pills (`centralDocsCopyDetailSuccess`), and clickable discrepancy rows (`centralDocsCopyDiscrepancySuccess`).
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Built dedicated `CentralDocsArchiveExportService`:
     - **TSV Export (`exportToTsv`):** Tab-separated columns with active-locale headers and UTF-8 BOM.
     - **Excel/CSV Export (`exportToExcel`):** Unmerged CSV columns with UTF-8 BOM, quoted fields, and RFC 4180 compatibility.
@@ -986,19 +1146,25 @@
   - `frontend/test/landed_cost_comparison_localization_test.dart` (Unit tests verifying non-empty getters, zero Latin characters in Arabic, zero bilingual slash stacking, and dossier generation)
   - `frontend/test/perf/screen_50_financial_settlement_perf_test.dart` (Performance benchmark: First Frame: 22.0ms | Settled: 29.7ms | Nav-OUT: 11.0ms)
 - **Route Index:** `50`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 38 new getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Toolbar & export: `landedCostExportTsvBtn`, `landedCostExportExcelBtn`, `landedCostPrintPdfBtn`, `landedCostCopyDossierBtn`, `landedCostCopyDossierSuccess`, `landedCostDossierHeader`, `landedCostExportTsvDialogTitle`, `landedCostExportExcelDialogTitle`.
     - 22 Purified Incoterm rule card getters: `incotermRuleCifCipTitle`, `incotermRuleCifCipDesc`, `incotermRuleCfrCptTitle`, `incotermRuleCfrCptDesc`, `incotermRuleExwTitle`, `incotermRuleExwDesc`, `incotermRuleDdpTitle`, `incotermRuleDdpDesc`, `incotermRuleFobFcaFasTitle`, `incotermRuleFobFcaFasDesc`, `incotermRuleDefaultTitle`, `incotermRuleDefaultDesc`, and incoterm code descriptions.
     - 8 Landed cost TSV column headers: `landedCostTsvHeaderItemCode`, `landedCostTsvHeaderHsCode`, `landedCostTsvHeaderItemDescription`, `landedCostTsvHeaderQuantity`, `landedCostTsvHeaderUnitFobPrice`, `landedCostTsvHeaderLandedCostPerUnit`, `landedCostTsvHeaderTotalLandedCost`, `landedCostTsvHeaderCostVariance`.
   - Purified existing Arabic strings: purged bilingual slashes `/` (`مقدم الخدمة / المورد` ➔ `مقدم الخدمة أو المورد`) and Latin acronyms (CIF, CIP, CFR, CPT, EXW, DDP, FOB, FCA, DTHC).
   - 100% pure Arabic display with ZERO Latin characters (`[a-zA-Z]`) verified by automated unit tests.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `LandedCostComparisonScreen` scaffold body in `SelectionArea` enabling native text drag selection.
   - Added clickable copy badges with `CopyHelper.copy` on `selectedImportFileCode` in AppBar and file selector, plus Incoterm badges.
   - Made summary metric cards clickable to copy with copy icon.
   - Wrapped all data cells in Expense Invoices Table and Item Landed Cost Table with `CopyableTableCell` with itemized `rowSummary` and required child.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Built dedicated `LandedCostComparisonExportService`:
     - **TSV Export (`exportToTsv`):** Tab-separated columns with active-locale headers and UTF-8 BOM.
     - **Excel/CSV Export (`exportToExcel`):** Unmerged CSV columns with UTF-8 BOM, quoted fields, and RFC 4180 compatibility.
@@ -1021,20 +1187,26 @@
   - `frontend/test/freight_quotations_localization_test.dart` (Unit tests verifying non-empty getters, zero Latin characters in Arabic, zero bilingual slash stacking, and dossier generation)
   - `frontend/test/perf/screen_49_freight_quotations_perf_test.dart` (Performance benchmark: FreightQuotationsScreen: First Frame: 123.3ms | Settled: 165.0ms | Nav-OUT: 19.7ms; FreightQuotationsComparisonScreen: First Frame: 29.7ms | Settled: 38.3ms | Nav-OUT: 10.3ms)
 - **Route Index:** `49`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 27 new getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Toolbar & export: `freightQuotationsExportTsvBtn`, `freightQuotationsExportExcelBtn`, `freightQuotationsPrintPdfBtn`, `freightQuotationsCopyDossierBtn`, `freightQuotationsCopyDossierSuccess`, `freightQuotationsDossierHeader`, `freightQuotationsExportTsvDialogTitle`, `freightQuotationsExportExcelDialogTitle`.
     - 11 Comparison/Quotation TSV column headers: `freightQuotesTsvHeaderCarrier`, `freightQuotesTsvHeaderTotalCost`, `freightQuotesTsvHeaderOceanFreight`, `freightQuotesTsvHeaderLocalCharges`, `freightQuotesTsvHeaderInlandCharges`, `freightQuotesTsvHeaderTransitDays`, `freightQuotesTsvHeaderSailingDate`, `freightQuotesTsvHeaderArrivalDate`, `freightQuotesTsvHeaderFreeDays`, `freightQuotesTsvHeaderStatus`, `freightQuotesTsvHeaderRemarks`.
     - 9 Form dialog & parameter labels: `vesselNameLabel`, `voyageNumberLabel`, `oceanFreightCostLabel`, `localChargesCostLabel`, `inlandCostLabel`, `sailingDateFormLabel`, `arrivalDateFormLabel`, `freeDaysPodFormLabel`, `remarksFormLabel`.
   - Purified existing Arabic strings: purged bilingual slashes `/` and Latin acronyms (`ETA`, `B/L`, `USD`, `Vessel Name`, `Voyage No`, `Ocean Freight`, `Free Days`).
   - 100% pure Arabic display with ZERO Latin characters (`[a-zA-Z]`) verified by automated unit tests.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `FreightQuotationsComparisonScreen` and `FreightQuotationsScreen` scaffold bodies in `SelectionArea` enabling native text drag selection.
   - Wrapped `RfqBenchmarkDialog` in `SelectionArea`.
   - Added clickable copy badges with `CopyHelper.copy` on `selectedImportFileCode` and `rfqCode`.
   - Added copy suffix icons to quotation form dialog inputs.
   - Wrapped carrier comparison metrics and details in `CopyableTableCell` with itemized `rowSummary`.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Built dedicated `FreightQuotationsExportService`:
     - **TSV Export (`exportToTsv`):** 11 tab-separated columns with active-locale headers and UTF-8 BOM.
     - **Excel/CSV Export (`exportToExcel`):** 11 unmerged CSV columns with UTF-8 BOM, quoted fields, and RFC 4180 compatibility.
@@ -1056,7 +1228,9 @@
   - `frontend/test/lifecycle_board_localization_test.dart` (Unit tests verifying non-empty getters, zero Latin characters in Arabic, and zero bilingual slash stacking)
   - `frontend/test/perf/screen_48_lifecycle_board_perf_test.dart` (Performance benchmark: First Frame: 26.3ms | Settled: 45.3ms | Nav-OUT: 13.0ms | Export verification)
 - **Route Index:** `48`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 27 new getters/methods across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Toolbar & export: `lifecycleExportTsvBtn`, `lifecycleExportExcelBtn`, `lifecyclePrintPdfBtn`, `lifecycleCopyDossierBtn`, `lifecycleCopyDossierSuccess`, `lifecycleDossierHeader`, `lifecycleExportTsvDialogTitle`, `lifecycleExportExcelDialogTitle`, `radarDossierHeader`, `radarExportTsvDialogTitle`, `radarExportExcelDialogTitle`, `searchLiveRadarHint`.
     - Radar helpers: `colBillOfLadingPrefix`, `colEtaPrefix`, `colCarrierUnderPrep`, `demurrageFeesFormatted`, `freeDaysConsumed`, `liveRadarError`.
@@ -1064,14 +1238,18 @@
     - 7 Radar TSV column headers: `radarTsvHeaderFileCode`, `radarTsvHeaderCarrierVessel`, `radarTsvHeaderBlRoute`, `radarTsvHeaderArrivalStatus`, `radarTsvHeaderDemurrageRisk`, `radarTsvHeaderTestingStatus`, `radarTsvHeaderDocReadiness`.
   - Purified existing Arabic strings: removed bilingual slashes `/` from `lifecycleBoardTitle`, `holdDialogTitle`, `stepParam1Label`, `stepParam2Label`, `riskFilterWarning`, `sampleFilterApproved`. Removed Latin `ETA` from `colEtaCountdown`.
   - 100% pure Arabic display with ZERO Latin characters (`[a-zA-Z]`) verified by automated unit tests.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `LifecycleBoardScreen` scaffold body in `SelectionArea` enabling native text drag selection.
   - Wrapped `StepActionDialog`, skip dialog, and hold dialog in `SelectionArea`.
   - Added clickable copy badges with `CopyHelper.copy` on `importFileCode` in both Kanban data table and Live Radar data table.
   - Added clickable copy badge with copy icon on all 5 header info columns in `StepActionDialog` (`importFileCode`, `companyName`, `supplierName`, `poNumber`, `estimatedCost`).
   - Added copy suffix `IconButton` to all text input fields across `StepActionDialog` (`_param1Controller`, `_param2Controller`, `_param3Controller`, `_notesController`, skip `reasonController`, hold `reasonController`).
   - Wrapped all cells in both Kanban and Live Radar tables in `CopyableTableCell` with itemized `rowSummary`.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Built dedicated `LifecycleBoardExportService`:
     - **Kanban TSV Export (`exportKanbanToTsv`):** 11 tab-separated columns with active-locale headers and UTF-8 BOM.
     - **Kanban Excel/CSV Export (`exportKanbanToExcel`):** 11 unmerged CSV columns with UTF-8 BOM, quoted fields, and RFC 4180 compatibility.
@@ -1098,7 +1276,9 @@
   - `frontend/test/comprehensive_report_localization_test.dart` (7 unit test suites asserting 100% pure Arabic with 0 Latin characters, no bilingual stacking, and typed export/dossier getters)
   - `frontend/test/perf/screen_47_comprehensive_report_perf_test.dart` (Benchmark: First Frame: 26.3ms | Settled: 43.0ms | Nav-OUT: 14.0ms)
 - **Route Index:** `47`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 14 new localization getters/methods across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Screen actions & export: `compReportExportTsvBtn`, `compReportExportExcelBtn`, `compReportPrintPdfBtn`, `compReportCopyDossierBtn`, `compReportCopyDossierSuccess`, `compReportExportTsvDialogTitle`, `compReportExportExcelDialogTitle`, `compReportPrintPdfDialogTitle`, `compReportDossierHeader`, `compReportPhaseLabel`, `compReportCopyValueTooltip`, `compReportCurrencyUsd`.
     - TSV column headers: `compReportTsvColSection`, `compReportTsvColField`, `compReportTsvColValue`, `compReportTsvColDetails`.
@@ -1106,7 +1286,9 @@
     - Replaced all English acronyms and words from Arabic strings (`PO`, `PI`, `ACID`, `Form 4`, `SWIFT`, `CBM`, `GRN`, `CargoX`, `Landed Cost`, `Phase`) with clear, standard Arabic terms (`أمر الشراء`, `الفاتورة المبدئية`, `التسجيل المسبق للشحنات نافذة`, `نموذج 4 البنكي`, `التحويل البنكي سويفت`, `المتر المكعب`, `إذن الإضافة بالمخازن`, `تكلفة الوصول الشاملة`, `المرحلة`).
     - 0 Latin characters in Arabic translations (`[a-zA-Z]`) verified by automated unit tests.
     - Strict single-language display without dual language stacking.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `ImportFileComprehensiveReportScreen` body in top-level `SelectionArea` enabling native desktop drag selection across all cards, chips, pipeline bars, and data tables.
   - Added dedicated clickable copy badges (`_buildCopyBadge` using `CopyHelper.copy`) for:
     - Primary shipment identifiers: `displayName`, `importFileCode`, `customFileNumber`.
@@ -1116,7 +1298,9 @@
     - Warehouse GRN: `grnCode`.
   - Converted table cells to `CopyableTableCell` with comprehensive itemized `rowSummary` (e.g. for invoices, packing lists, and warehouse receiving items).
   - Added "Copy Full Dossier" button in both AppBar actions and top action toolbar.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click "Copy Full Dossier" (`ComprehensiveReportExportService.buildDossierText`):** Generates clean, well-formatted plaintext summary of the entire shipment file (header, financials, documents, pipeline, invoices, packing lists, clearance, and warehouse status) to clipboard.
   - **TSV Export (`ComprehensiveReportExportService.exportToTsv`):** 4-column structured tab-separated export (`Section`, `Field`, `Value`, `Details`) with UTF-8 BOM.
   - **Unmerged Excel / CSV Export (`ComprehensiveReportExportService.exportToExcel`):** 4-column clean unmerged CSV export with UTF-8 BOM, quoted fields, and RFC 4180 compatibility.
@@ -1135,7 +1319,9 @@
   - `frontend/lib/core/localization/app_localizations.dart`, `app_localizations_ar.dart`, `app_localizations_en.dart` (66 getters/methods: 0 Latin characters in Arabic translations)
   - `frontend/test/swift_reconciliation_localization_test.dart` (Comprehensive unit test for Screen 46)
 - **Route Index:** `46`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 66 new localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Screen title, metrics & filters: `swiftScreenTitle`, `swiftRefreshBtn`, `swiftTotalRequestsMetric`, `swiftPendingSwiftMetric`, `swiftMatchedSwiftMetric`, `swiftVariancesMetric`, `swiftAvgProcessingTimeMetric`, `swiftDaysCount`, `swiftSearchPlaceholder`, `swiftFilterAll`, `swiftFilterPending`, `swiftFilterMatched`, `swiftFilterVariances`.
     - AI MT103 Extractor: `swiftExtractorHeader`, `swiftExpandToolTooltip`, `swiftExtractedDocLabel`, `swiftDocTypePrefix`, `swiftDocSizePrefix`, `swiftDocumentDefaultType`, `swiftRawTextPlaceholder`, `swiftExtractFromTextBtn`, `swiftUploadFileBtn`, `swiftExtractingState`, `swiftMatchingMatrixTitle`, `swiftConfidenceScoreTag`, `swiftExecuteReconcileBtn`, `swiftTargetPaymentLabel`, `swiftExtractedRefPrefix`, `swiftExtractedAmountPrefix`, `swiftExtractedDatePrefix`, `swiftExtractedSenderPrefix`, `swiftExtractedReceiverPrefix`.
@@ -1147,7 +1333,9 @@
   - Replaced all manual ternary operators (`isArabic ? '...' : '...'`) with `context.l10n`.
   - 100% pure Arabic display with ZERO Latin characters (`[a-zA-Z]`) verified by automated unit tests.
   - Strict single-language display without dual language stacking.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `SwiftReconciliationScreen` content in top-level `SelectionArea` enabling native desktop drag-to-select across all metrics, extractor sections, filter toolbar, and reconciliation table.
   - Wrapped reconciliation dialog and details dialog in `SelectionArea`.
   - Added clickable copy badges with `Tooltip` and `CopyHelper` on `paymentCode`, `importFileCode`, and `swiftReferenceNo` in both the table and dialogs.
@@ -1155,7 +1343,9 @@
   - Added copy suffix buttons to all form input fields in the reconciliation dialog (SWIFT ref, transferred amount, currency, notes, search input, and raw text).
   - Added quick copy button for payment dossier (`_copyPaymentDossier`).
   - Added quick copy summary button for filtered list (`_copyFilteredSummary`).
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click TSV Export (`_exportTsv`):** Dedicated "Export TSV" toolbar button copying all active payment requests and SWIFTs formatted as TSV with 12 localized headers.
   - **Clean Excel Export via `FinancialExportService.exportSwiftReconciliationToExcel`:** Clean Excel/CSV export with UTF-8 BOM, unmerged cells, and 12 localized headers.
   - **Vector PDF Slip via `FinancialExportService.printOrSaveSwiftSlipPdf`:** Official A4 SWIFT payment advice & reconciliation slip featuring Cairo typography, metadata, payment details, live comparison table, notes, and authorization block.
@@ -1174,7 +1364,9 @@
   - `frontend/lib/core/localization/app_localizations.dart`, `app_localizations_ar.dart`, `app_localizations_en.dart`
   - `frontend/test/hs_code_explorer_localization_test.dart`
 - **Route Index:** `45`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 18 new getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Screen actions & export: `hsExplorerExportTsvBtn`, `hsExplorerExportTsvSuccess`, `hsExplorerExportExcelBtn`, `hsExplorerExportPdfBtn`, `hsExplorerCopyHsCodeTooltip`, `hsExplorerCopySummaryBtn`, `hsExplorerCopySummarySuccess`, `hsExplorerCopyDutyBreakdownBtn`, `hsExplorerCopyDutyBreakdownSuccess`, `hsExplorerCopyCardRateTooltip`.
     - Localized quick queries for search suggestions: `hsQuickQueryAc`, `hsQuickQueryPlastics`, `hsQuickQueryMeat`, `hsQuickQueryWheat`.
@@ -1182,7 +1374,9 @@
   - Purified existing Arabic translations: removed all Latin characters (`CIF`, `Freight`, `ACID`, `COO`, `EUR.1`, `(Active)`, `(Inactive)`, `(TSV)`, `(PDF)`).
   - 100% pure Arabic display with ZERO Latin characters (`[a-zA-Z]`) verified by automated unit tests.
   - Strict single-language display without dual language stacking.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `bodyContent` in `SelectionArea` enabling native desktop drag-to-select across all text and cards.
   - Added clickable copy badges with `Tooltip` and `CopyHelper` to `item.hsCode` in the master list.
   - Added quick-copy summary icon buttons (`Icons.copy_all_rounded`) to each item tile copying full tariff details with agreements.
@@ -1194,7 +1388,9 @@
   - Tab 4 (Duty Calculator):
     - Added copy suffix buttons to `_cifValueCtrl` and `_freightCtrl` text fields.
     - Added `Copy Duty Breakdown` button (`_copyDutyBreakdownSummary`) to the calculation result card.
-- **Task C (Linked Outputs):** Complete.
+- **Task C (Linked Outputs):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - TSV Export: single-click `_copyFilteredTariffsTsv` copying all filtered tariffs formatted as TSV with localized 14-column headers.
   - Excel Export: single-click `MasterDataExportService.exportTariffsToExcel` creating clean Excel sheet with UTF-8 BOM.
   - PDF Export: vector PDF generation with Cairo fonts and itemized tax rates via `MasterDataExportService.printOrSaveTariffPdf(tariff, agreements)`.
@@ -1210,21 +1406,27 @@
   - `frontend/lib/core/localization/app_localizations.dart`, `app_localizations_ar.dart`, `app_localizations_en.dart`
   - `frontend/test/demurrage_detention_localization_test.dart`
 - **Route Index:** `44`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added / verified all localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Screen actions & export: `dualClockRadarBtn`, `demurrageExportTsvBtn`, `demurrageExportExcelBtn`, `demurrageExportPdfBtn`, `demurrageCopySummaryBtn`, `demurrageCopySummarySuccess`, `demurrageCopyFieldTooltip`, `demurrageSimulationTsvHeaderDaysRange`, `demurrageSimulationTsvHeaderDailyRate`, `demurrageSimulationTsvHeaderOverdueDays`, `demurrageSimulationTsvHeaderSubtotal`, `demurrageSimulationTsvHeaderSubtotalEgp`, `demurragePoliciesTsvHeaderLine`, `demurragePoliciesTsvHeaderEquipment`, `demurragePoliciesTsvHeaderDemurrageFree`, `demurragePoliciesTsvHeaderDetentionFree`, `demurragePoliciesTsvHeaderBaseCurrency`.
     - Localized status badge countdown alert in English mode to prevent displaying raw Arabic string `countdownSummaryAr` from backend.
     - Purified Arabic translations: replaced `'مثال: MSKU1234567'` in `dualClockContainerNoHint` with pure Arabic `'أدخل رقم الحاوية المراد تسجيل خروجها'` to guarantee 0 Latin characters in Arabic localization.
     - Replaced hardcoded string `'رادار الأرضيات والغرامات (Dual Clock)'` with `l10n.dualClockRadarBtn`.
     - Strict single-language display without dual language stacking.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `DemurrageDetentionScreen` scaffold body in top-level `SelectionArea` enabling drag selection across all 3 tabs and cards.
   - Converted simulation tiered breakdown table header to copyable TSV header action and all table `DataCell`s to `CopyableTableCell` with row TSV summary.
   - Added clickable copy badges with tooltip on `item.trackingCode` and `item.billOfLadingNo`.
   - Added quick-copy summary icon buttons (`Icons.copy_rounded`) on tracking cards and shipping line policy cards.
   - Added explicit copy suffix buttons (`CopyHelper.copy`) to form input fields in Simulator (`containersCount`, `exchangeRate`, `demurrageFreeDays`, `detentionFreeDays`).
   - Wrapped all modals in `SelectionArea`: `_showAddTrackingDialog`, `_showUpdateDatesDialog`, and `_showAddPolicyDialog`.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click TSV Exports:**
     - Tab 1: `_copyTrackingsTsv` with localized tracking headers.
     - Tab 2: `_copySimulationBreakdownTsv` with localized tiered calculation headers.
@@ -1249,7 +1451,9 @@
   - `frontend/lib/core/localization/app_localizations.dart`, `app_localizations_ar.dart`, `app_localizations_en.dart`
   - `frontend/test/import_requirements_localization_test.dart`
 - **Route Index:** `43`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 38 localization getters across all three localization files:
     - TSV column headers: `requirementsTsvHeaderCode`, `requirementsTsvHeaderFileCode`, `requirementsTsvHeaderHsCode`, `requirementsTsvHeaderCommodity`, `requirementsTsvHeaderValue`, `requirementsTsvHeaderCurrency`, `requirementsTsvHeaderOrigin`, `requirementsTsvHeaderSupplier`, `requirementsTsvHeaderDecree43`, `requirementsTsvHeaderCoo`, `requirementsTsvHeaderInspection`, `requirementsTsvHeaderPermit`, `requirementsTsvHeaderTechCerts`, `requirementsTsvHeaderSailingStatus`, `requirementsTsvHeaderOverallStatus`, `requirementsTsvHeaderRiskLevel`, `requirementsTsvHeaderAssessedBy`, `requirementsTsvHeaderNotes`.
     - Export/Action buttons: `requirementsExportTsvBtn`, `requirementsExportTsvSuccess`, `requirementsExportExcelBtn`, `requirementsExportPdfBtn`.
@@ -1258,13 +1462,17 @@
     - Decree 43 & ACID prompts: `decree43NotRegisteredBadge`, `decree43ExemptionChangeBtn`, `decree43SampleReasonGoeicReview`, `decree43CommonExemptionsTitle`, `decree43JustificationHint`, `decree43TaskExplanation`, `complianceBannerTitle`, `reqAcidNumberBadge`, `acidIssuedInPhaseText`.
   - Purified Arabic translations: 0 Latin characters. Pure Arabic compliance pillars, decree prompts, and export labels.
   - Strict single-language display without dual language stacking or bilingual slashes.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Top-level `SelectionArea` wrapping scaffold body enables native drag-to-select.
   - Clickable `_buildCopyableBadge` on `assessmentCode`, `acidNumber`, `hsCode` fields.
   - Quick-copy summary icon button (`Icons.copy_rounded`) on every registry row (`_buildRegistryRow`) via `_buildRequirementRowSummary`.
   - Added explicit copy suffix buttons (`CopyHelper.copy`) to 15 form TextFormFields: `_acidNumberCtrl`, `_hsCodeCtrl`, `_descCtrl`, `_originCtrl`, `_currencyCtrl`, `_valueCtrl`, `_factoryRegCtrl`, `_cooNotesCtrl`, `_inspReportNoCtrl`, `_inspNotesCtrl`, `_permitNumberCtrl`, `_permitNotesCtrl`, `_sailingDateCtrl`, `_specialNotesCtrl`, `justCtrl`.
   - `_showRequirementDetailsDialog` wrapped in `SelectionArea` for all detail rows.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click TSV Export (`_copyRequirementsTsv`):** Copies all requirements as localized TSV with 18 column headers.
   - **Clean Excel Export via `MasterDataExportService`:** `exportImportRequirementsToExcel` with UTF-8 BOM, unmerged cells, localized headers.
   - **Vector PDF Export via `MasterDataExportService`:**
@@ -1294,7 +1502,9 @@
   - `frontend/lib/core/localization/app_localizations.dart`, `app_localizations_ar.dart`, `app_localizations_en.dart`
   - `frontend/test/shipment_updates_localization_test.dart`
 - **Route Index:** `42`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 23 new localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Screen actions & export: `shipmentUpdatesExportTsvBtn`, `shipmentUpdatesExportTsvSuccess`, `shipmentUpdatesExportExcelBtn`, `shipmentUpdatesExportPdfBtn`, `shipmentUpdateCopySummaryBtn`, `shipmentUpdateCopySummarySuccess`, `shipmentUpdateCodeBadgeLabel`, `shipmentUpdateConsultCodeBadgeLabel`, `shipmentUpdateCopyFieldTooltip`.
     - TSV column headers: `shipmentUpdatesTsvHeaderCode`, `shipmentUpdatesTsvHeaderDate`, `shipmentUpdatesTsvHeaderCategory`, `shipmentUpdatesTsvHeaderPhase`, `shipmentUpdatesTsvHeaderNotes`, `shipmentUpdatesTsvHeaderCostItem`, `shipmentUpdatesTsvHeaderPrevCost`, `shipmentUpdatesTsvHeaderNewCost`, `shipmentUpdatesTsvHeaderPriority`, `shipmentUpdatesTsvHeaderAssignedUser`, `shipmentUpdatesTsvHeaderStatus`.
@@ -1303,7 +1513,9 @@
     - 0 Latin characters in Arabic translations (e.g. `المرحلة الأولى: التخطيط والجدوى`, `المرحلة الثالثة: المستندات والقيد المسبق`, `المرحلة الخامسة: الشحن والتتبع الإلكتروني`, `المرحلة الثامنة: استلام المخازن وإذن الإضافة`, `طباعة التقرير (بي دي إف)`).
     - Strict single-language display without dual language stacking.
     - Purified `shipmentUpdateSuccessSaved` removing bilingual slash `/`.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `ShipmentUpdateEngineScreen` scaffold body in top-level `SelectionArea` enabling drag selection across the shipment selector, 10-phase pipeline, customs consultation section, and update logs table.
   - Converted all 7 data cells in `DataTable` to `DataCell(CopyableTableCell(value: ..., rowSummary: rowSummary, child: ...))` with comprehensive full-row summary (`rowSummary`).
   - Added clickable copy badge with copy icon and tooltip on `log.updateCode`.
@@ -1312,7 +1524,9 @@
   - Wrapped `ShipmentUpdateDialog` in `SelectionArea`.
   - Added explicit copy suffix buttons (`CopyHelper.copy`) to all 5 input fields in `ShipmentUpdateDialog` (`_costItemController`, `_prevCostController`, `_newCostController`, `_dateController`, `_notesController`).
   - Wrapped View Dialog and `_showConsultationDetailsDialog` in `SelectionArea`.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click Shipment Updates TSV Export (`_copyShipmentUpdatesTsv`):** Top toolbar button copying all logged updates for the selected shipment formatted as TSV with localized headers.
   - **Single Row Summary Copy (`_buildRowSummary`):** Quick-copy button copying itemized log parameters.
   - **Clean Excel Export via `MasterDataExportService`:**
@@ -1339,7 +1553,9 @@
   - `frontend/lib/core/localization/app_localizations.dart`, `app_localizations_ar.dart`, `app_localizations_en.dart`
   - `frontend/test/dynamic_report_builder_localization_test.dart`
 - **Route Index:** `41`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 27 new localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Screen actions & export: `dynReportExportTsvBtn`, `dynReportExportTsvSuccess`, `dynReportExportExcelBtn`, `dynReportExportPdfBtn`, `dynReportCopyRowSummaryBtn`, `dynReportCopyRowSummarySuccess`, `dynReportCopySummaryBtn`, `dynReportCopySummarySuccess`, `dynReportCopySearchTooltip`, `dynReportCodeBadgeLabel`, `dynReportEcoBadgeLabel`, `dynReportAcidBadgeLabel`, `dynReportForm4BadgeLabel`.
     - Presets & UI labels: `dynReportPresetCustom`, `dynReportSelectedColumnsLabel`, `dynReportConfigureColsBtn`, `dynReportExportPdfTooltip`, `dynReportExportExcelTooltip`, `dynReportExportTsvTooltip`, `dynReportShowingRowsLabel`, `dynReportTotalCountLabel`.
@@ -1348,14 +1564,18 @@
     - 0 Latin characters in Arabic translations (e.g. `جدول نصوص` for TSV, `إكسيل` for Excel, pure Arabic labels for all stages and statuses).
     - Strict single-language display without dual language stacking.
     - Replaced bilingual stacked strings (`مفرج عنه (Released)`) and hardcoded English/Arabic fallback text in `_getCellValue` and UI modals.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `DynamicReportBuilderScreen` scaffold body in top-level `SelectionArea` enabling drag selection across entire report table, toolbar, and KPI chips.
   - Wrapped Column Picker modal dialog in `SelectionArea`.
   - Converted all dynamic table cells in `DataTable` to `CopyableTableCell` with comprehensive itemized `_buildRowSummary`.
   - Added clickable copyable badges with copy icons and tooltips on `importFileCode`, `ecoShipmentNo`, `acidNumber`, and `form4No`.
   - Added quick-copy summary icon button (`Icons.copy_rounded`) on first column copying full row report summary.
   - Added copy button suffix on the search text field.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click Dynamic Report TSV Export (`_copyDataToClipboard`):** Top toolbar button copying all active columns and rows formatted as TSV with localized headers.
   - **Single Row Summary Copy (`_buildRowSummary`):** Quick-copy button copying itemized report parameters.
   - **Clean Excel Export via `MasterDataExportService`:**
@@ -1377,14 +1597,18 @@
   - `frontend/lib/core/localization/app_localizations.dart`, `app_localizations_ar.dart`, `app_localizations_en.dart`
   - `frontend/test/smart_tasks_localization_test.dart`
 - **Route Index:** `40`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 21 new localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Screen actions & export: `smartTasksExportTsvBtn`, `smartTasksExportTsvSuccess`, `smartTasksExportPdfBtn`, `smartTasksExportExcelBtn`, `smartTaskCopySummaryBtn`, `smartTaskCopySummarySuccess`, `smartTaskPrintPdfTooltip`, `smartTaskShareWhatsappTooltip`, `smartTaskCodeBadgeLabel`, `smartTaskImportFileBadgeLabel`, `smartTaskCopyFieldTooltip`.
     - TSV column headers: `smartTasksTsvHeaderCode`, `smartTasksTsvHeaderType`, `smartTasksTsvHeaderTitle`, `smartTasksTsvHeaderShipment`, `smartTasksTsvHeaderPriority`, `smartTasksTsvHeaderReminder`, `smartTasksTsvHeaderDueDate`, `smartTasksTsvHeaderStatus`, `smartTasksTsvHeaderAssignedUser`, `smartTasksTsvHeaderDescription`.
   - Purified Arabic translations:
     - 0 Latin characters in Arabic translations (e.g. `جدول نصوص` for TSV, `إكسيل` for Excel, pure Arabic labels).
     - Strict single-language display without dual language stacking.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `SmartTasksScreen` scaffold body in top-level `SelectionArea` enabling drag selection across entire tasks table, toolbar, and filter cards.
   - Converted all 8 table data columns to `CopyableTableCell` with comprehensive full-row TSV summary (`rowSummary`).
   - Added clickable copyable badge with copy icon and tooltip on `t.taskCode`.
@@ -1392,7 +1616,9 @@
   - Added quick-copy summary icon button (`Icons.copy_rounded`) to each row copying full task details.
   - Wrapped `SmartTaskDialog` in `SelectionArea`.
   - Added explicit copy suffix buttons (`CopyHelper.copy`) to all input fields in `SmartTaskDialog` (`_titleController`, `_dueDateController`, `_reminderDateController`, `_descController`, `_notesController`).
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click Smart Tasks TSV Export (`_copySmartTasksTsv`):** Added a dedicated "Export TSV" button in top toolbar copying all active task records with active-locale column headers.
   - **Single Task Summary Copy (`_buildSmartTaskRowSummary`):** Quick-copy button copying itemized task parameters.
   - **Clean Excel Export via `MasterDataExportService`:**
@@ -1419,7 +1645,9 @@
   - `frontend/lib/core/localization/app_localizations.dart`, `app_localizations_ar.dart`, `app_localizations_en.dart`
   - `frontend/test/audit_logs_localization_test.dart`
 - **Route Index:** `39`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 27 new localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Screen actions & export: `auditLogsExportTsvBtn`, `auditLogsExportTsvSuccess`, `auditLogCopySummaryBtn`, `auditLogCopySummarySuccess`, `auditLogEntityCodeBadgeLabel`, `auditLogCopyFieldTooltip`, `exportAuditLogPdfBtn`, `exportAuditLogExcelBtn`, `viewEntityHistoryBtn`.
     - TSV column headers: `auditLogsTsvHeaderLogId`, `auditLogsTsvHeaderAction`, `auditLogsTsvHeaderEntityType`, `auditLogsTsvHeaderEntityCode`, `auditLogsTsvHeaderSummary`, `auditLogsTsvHeaderPerformedBy`, `auditLogsTsvHeaderTimestamp`.
@@ -1428,7 +1656,9 @@
     - Removed dual English/Arabic text and slashes (`مقدم الخدمة / البنك` ➔ `مقدم الخدمة والبنك`).
     - 0 Latin characters in Arabic translations (e.g. `جدول نصوص` for TSV, `إكسيل` for Excel, no Latin acronyms).
     - Strict single-language display without dual language stacking.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `AuditLogsScreen` scaffold body in top-level `SelectionArea` enabling native drag selection across entire audit list, search bar, and filter chips.
   - Clickable copyable badge with copy icon and tooltip on `log.entityCode ?? log.entityId.toString()`.
   - Clickable copyable user email with copy icon and tooltip on `log.performedBy`.
@@ -1436,7 +1666,9 @@
   - Added "View Entity Full History" action button (`Icons.history_rounded`) opening `RowHistoryDialog`.
   - Wrapped `RowHistoryDialog` in `SelectionArea`.
   - Added quick-copy summary icon button to each timeline item in `RowHistoryDialog`.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click Audit Logs TSV Export (`_copyAuditLogsTsv`):** Added a dedicated "Export Logs (TSV)" button in top toolbar copying all filtered audit records with active-locale column headers.
   - **Entity Timeline TSV Export (`_copyTimelineTsv`):** Added TSV export button in `RowHistoryDialog` header copying entity history.
   - **Excel Export via `MasterDataExportService`:**
@@ -1460,14 +1692,18 @@
   - `frontend/lib/core/localization/app_localizations.dart`, `app_localizations_ar.dart`, `app_localizations_en.dart`
   - `frontend/test/currencies_localization_test.dart`
 - **Route Index:** `38`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 16 new localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Screen actions & export: `currenciesExportTsvBtn`, `currenciesExportTsvSuccess`, `currencyCopySummaryBtn`, `currencyCopySummarySuccess`, `currencyCodeBadgeLabel`, `currencyCopyFieldTooltip`, `exportCurrencyPdfBtn`, `exportCurrencyExcelBtn`.
     - TSV column headers: `currenciesTsvHeaderIsoCode`, `currenciesTsvHeaderName`, `currenciesTsvHeaderSymbol`, `currenciesTsvHeaderIsBase`, `currenciesTsvHeaderCommercialRate`, `currenciesTsvHeaderCustomsRate`, `currenciesTsvHeaderStatus`, `currenciesTsvHeaderDecimals`.
   - Purified Arabic translations:
     - 0 Latin characters in Arabic translations (e.g. `جدول نصوص` for TSV, `إكسيل` for Excel, no Latin acronyms).
     - Strict single-language display without dual language stacking.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `CurrenciesScreen` scaffold body in top-level `SelectionArea` enabling drag selection across entire table and toolbar.
   - Converted all 7 table columns to `CopyableTableCell` with comprehensive full-row TSV summary (`rowSummary`).
   - Added clickable copyable badge with copy icon on `c.currencyCode`.
@@ -1478,7 +1714,9 @@
     - `_showAddRateDialog`: SelectionArea, copy suffix buttons on `commCtrl` and `custCtrl`.
     - `_showCurrencyConverterDialog`: SelectionArea, copy suffix button on `amountCtrl`, copy button on conversion result.
     - `_showGainLossCalculatorDialog`: SelectionArea, copy suffix buttons on `amountCtrl`, `initialRateCtrl`, `settlementRateCtrl`, and copy button on variance result.
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click Currencies TSV Export (`_copyCurrenciesTsv`):** Added a dedicated "Export Currencies (TSV)" button in top toolbar copying all active currency records with active-locale column headers.
   - **Single Currency Summary Copy (`_buildCurrencyRowSummary`):** Quick-copy button copying itemized currency rates and settings.
   - **Vector PDF & Excel Export via `MasterDataExportService`:**
@@ -1500,21 +1738,27 @@
   - `frontend/lib/core/localization/app_localizations.dart`, `app_localizations_ar.dart`, `app_localizations_en.dart`
   - `frontend/test/transport_locations_localization_test.dart`
 - **Route Index:** `37`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 15 new localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Screen actions & export: `locationsExportTsvBtn`, `locationsExportTsvSuccess`, `locationCopySummaryBtn`, `locationCopySummarySuccess`, `locationLocodeBadgeLabel`, `locationCopyFieldTooltip`, `exportLocationPdfBtn`, `exportLocationExcelBtn`.
     - TSV column headers: `locationsTsvHeaderUnLocode`, `locationsTsvHeaderName`, `locationsTsvHeaderType`, `locationsTsvHeaderCountry`, `locationsTsvHeaderCity`, `locationsTsvHeaderStatus`, `locationsTsvHeaderNotes`.
   - Purified Arabic translations:
     - Removed dual English/Arabic text and slashes (`الموانئ البحرية / Sea Ports` ➔ `الموانئ البحرية`, `UN/LOCODE` hints ➔ pure Arabic).
     - 0 Latin characters in Arabic translations.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `TransportLocationsScreen` scaffold body in top-level `SelectionArea` enabling mouse drag selection across entire table, filter chips, and dialogs.
   - Converted all 7 table columns to `CopyableTableCell` with comprehensive full-row TSV summary (`rowSummary`).
   - Added clickable copyable badge with copy icon on `loc.unLocode`.
   - Added quick-copy summary icon button (`Icons.copy_all_rounded`) to each row copying full transport location breakdown.
   - Wrapped `_showLocationDialog` in `SelectionArea`.
   - Added explicit copy suffix buttons (`CopyHelper.copy`) to all 5 form inputs in `_showLocationDialog` (`locodeCtrl`, `nameCtrl`, `countryCtrl`, `cityCtrl`, `notesCtrl`).
-- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click Locations TSV Export (`_copyLocationsTsv`):** Added a dedicated "Export Locations (TSV)" button in top toolbar copying all active location records with active-locale column headers.
   - **Single Location Summary Copy (`_buildLocationRowSummary`):** Quick-copy button copying itemized location details.
   - **Vector PDF & Excel Export via `MasterDataExportService`:**
@@ -1540,7 +1784,9 @@
   - `frontend/lib/core/localization/app_localizations.dart`, `app_localizations_ar.dart`, `app_localizations_en.dart`
   - `frontend/test/customs_tariff_localization_test.dart`
 - **Route Index:** `36`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 46 new localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Screen actions & export: `customsTariffScreenTitle`, `customsTariffScreenSubtitle`, `tariffsExportTsvBtn`, `tariffsExportTsvSuccess`, `tariffCopySummaryBtn`, `tariffCopySummarySuccess`, `tariffHsCodeBadgeLabel`, `exportTariffPdfBtn`, `exportTariffExcelBtn`.
     - TSV column headers: `tariffsTsvHeaderHsCode`, `tariffsTsvHeaderCategory`, `tariffsTsvHeaderDescription`, `tariffsTsvHeaderDutyRate`, `tariffsTsvHeaderVatRate`, `tariffsTsvHeaderScheduleRate`, `tariffsTsvHeaderDevelopmentRate`, `tariffsTsvHeaderImportFee`, `tariffsTsvHeaderAuthority`, `tariffsTsvHeaderRequirements`, `tariffsTsvHeaderStatus`, `tariffsTsvHeaderAgreementsCount`.
@@ -1549,14 +1795,18 @@
   - Purified Arabic translations:
     - Removed dual English/Arabic text and slashes: `بند التعريفة الجمركية (HS Code)` ➔ `بند التعريفة الجمركية`.
     - 0 Latin characters in Arabic translations.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `CustomsTariffScreen` scaffold body in top-level `SelectionArea` enabling mouse drag selection across entire table, filter chips, and dialogs.
   - Converted all 7 table columns to `CopyableTableCell` with comprehensive full-row TSV summary (`rowSummary`).
   - Added clickable copyable badge with copy icon on `tariff.hsCode`.
   - Added quick-copy summary icon button (`Icons.copy_all_rounded`) to each row copying full tariff breakdown with tax rates and requirements.
   - Wrapped `TariffFormDialog`, `NafezaDetailsDialog`, `AddAgreementDialog`, and `VerifyTariffDialog` in `SelectionArea`.
   - Added explicit copy suffix buttons (`CopyHelper.copy`) to all 11 form inputs in `TariffFormDialog`, smart text raw input, all 4 inputs in `AddAgreementDialog`, and all 6 inputs in `VerifyTariffDialog`.
-- **Task C (Linked Outputs / TSV & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click Tariffs TSV Export (`_copyTariffsTsv`):** Added a dedicated "Export Tariffs (TSV)" button in top toolbar copying all active tariff records with active-locale column headers.
   - **Single Tariff Summary Copy (`_buildTariffRowSummary`):** Quick-copy button copying itemized tax rates and regulatory requirements.
   - **Vector PDF & Excel Export via `MasterDataExportService`:**
@@ -1580,7 +1830,9 @@
   - `frontend/lib/core/localization/app_localizations.dart`, `app_localizations_ar.dart`, `app_localizations_en.dart`
   - `frontend/test/incoterms_localization_test.dart`
 - **Route Index:** `35`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 37 new localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Screen actions & tooltips: `incotermsCopyFieldTooltip`, `incotermsExportTsvBtn`, `incotermsExportTsvSuccess`, `incotermCopySummaryBtn`, `incotermCopySummarySuccess`, `incotermCodeBadgeLabel`, `costItemsExportTsvBtn`, `costItemsExportTsvSuccess`, `costItemCopySummaryBtn`, `costItemCopySummarySuccess`, `costItemCodeBadgeLabel`, `matrixExportTsvBtn`, `matrixExportTsvSuccess`, `matrixCopySummaryBtn`, `matrixCopySummarySuccess`, `exportIncotermsPdfBtn`, `exportIncotermsExcelBtn`.
     - TSV column headers: `incotermsTsvHeaderCode`, `incotermsTsvHeaderName`, `incotermsTsvHeaderVersion`, `incotermsTsvHeaderDescription`, `incotermsTsvHeaderStatus`, `costItemsTsvHeaderCode`, `costItemsTsvHeaderName`, `costItemsTsvHeaderCategory`, `costItemsTsvHeaderDescription`, `costItemsTsvHeaderStatus`, `matrixTsvHeaderIncoterm`, `matrixTsvHeaderCostItem`, `matrixTsvHeaderCategory`, `matrixTsvHeaderResponsible`, `matrixTsvHeaderIncluded`, `matrixTsvHeaderNotes`.
@@ -1588,7 +1840,9 @@
   - Purified Arabic translations:
     - Replaced bilingual slashes `/` and Latin words: `partyBuyerImporter`: `'المشتري (المستورد)'`, `partySellerExporter`: `'البائع (المورد)'`.
     - Eliminated Latin acronyms and dual English/Arabic text; 0 Latin characters in Arabic translations.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `IncotermsScreen` scaffold body in top-level `SelectionArea` enabling drag-to-select text across all tabs, tables, and dialogs.
   - Tab 1 (Incoterms List):
     - Converted all cells to `CopyableTableCell` with comprehensive full-row TSV summary (`rowSummary`).
@@ -1605,7 +1859,9 @@
     - Converted all cells to `CopyableTableCell` with `rowSummary`.
     - Added quick-copy summary icon button (`Icons.copy_all_rounded`) to each row.
     - Wrapped `_showEditResponsibilityDialog` in `SelectionArea`, added copy buttons to incoterm and cost item labels in top banner, and added copy suffix button to `notesCtrl`.
-- **Task C (Linked Outputs / TSV & Vector PDF Export):** Complete.
+- **Task C (Linked Outputs / TSV & Vector PDF Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Incoterms Rules TSV Export (`_copyIncotermsTsv`):** Single-click toolbar button copying 5-column tab-separated table with active-locale headers.
   - **Cost Items TSV Export (`_copyCostItemsTsv`):** Single-click toolbar button copying 5-column tab-separated table with active-locale headers.
   - **Responsibility Matrix TSV Export (`_copyMatrixTsv`):** Single-click toolbar button copying 6-column tab-separated table (filtered or all).
@@ -1628,7 +1884,9 @@
   - `frontend/lib/features/external_service_providers/widgets/partner_statement_of_account_dialog.dart` (Partner financial ledger, credit/debit statement, balance tracking, TSV export)
   - `frontend/lib/core/services/master_data_export_service.dart` (Partner PDF, Excel, WhatsApp, and Email export templates)
 - **Route Index:** `34`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 42 new localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Screen actions & tooltips: `partnersExportTsvBtn`, `partnersExportTsvSuccess`, `partnersCopyFieldTooltip`, `partnerCopySummaryBtn`, `partnerCopySummarySuccess`, `partnerScorecardTooltip`, `partnerScorecardBtn`, `partnerCodeBadgeLabel`, `partnerStatementOfAccountTooltip`, `partnerStatementOfAccountBtn`.
     - TSV column headers: `partnersTsvHeaderCode`, `partnersTsvHeaderName`, `partnersTsvHeaderCategories`, `partnersTsvHeaderCountry`, `partnersTsvHeaderAddress`, `partnersTsvHeaderPhone`, `partnersTsvHeaderMobile`, `partnersTsvHeaderFax`, `partnersTsvHeaderEmail`, `partnersTsvHeaderSecondaryEmail`, `partnersTsvHeaderWebsite`, `partnersTsvHeaderSwift`, `partnersTsvHeaderScac`, `partnersTsvHeaderLicense`, `partnersTsvHeaderCommercialReg`, `partnersTsvHeaderTaxId`, `partnersTsvHeaderStatus`, `partnersTsvHeaderNotes`.
@@ -1637,13 +1895,17 @@
     - Category: `partnerCatInsuranceCompany`.
   - Purified 6 existing Arabic getters (`partnerNameLabel`: 'اسم الشريك / الجهة', `partnerNameHint`: 'مثال: البنك الأهلي المصري', `diffPartnerName`: 'اسم الشريك', `diffConfirmPartnerTitle`: 'تأكيد تعديل بيانات الشريك', `phoneMobileDetailLabel`: 'الهاتف والمحمول', `ledgerDescriptionCol`: 'البيان / تفاصيل المعاملة') eliminating dual slashes and Latin characters.
   - Purified `master_data_export_service.dart` partner templates (PDF, Excel, WhatsApp, Email) removing Latin words (`Partner`, `Tax ID`, `Commercial Register`, `SWIFT`, `SCAC`) and replacing `EGP` with `ج.م`.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `PartnersScreen` scaffold body in top-level `SelectionArea` for mouse drag selection across entire table, filter chips, and dialogs.
   - Added copyable partner code badge with tooltip and explicit company name copy button using `CopyHelper.copy(context, ..., customMessage: ...)`.
   - Added copy suffix buttons (`CopyHelper.copy`) to all 17 dialog form inputs (`nameCtrl`, `swiftCtrl`, `bankCodeCtrl`, `branchCtrl`, `scacCtrl`, `trackingCtrl`, `licenseCtrl`, `taxIdCtrl`, `regCtrl`, `emailCtrl`, `secondaryEmailCtrl`, `phoneCtrl`, `mobileCtrl`, `faxCtrl`, `websiteCtrl`, `addressCtrl`, `countryCtrl`).
   - Wrapped `PartnerDetailsDialog`, `PartnerScorecardDialog`, and `PartnerStatementOfAccountDialog` in top-level `SelectionArea`.
   - Converted clipboard operations to `CopyHelper.copy` with localized confirmation toasts.
-- **Task C (Linked Outputs / TSV Export):** Complete.
+- **Task C (Linked Outputs / TSV Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click Partners TSV Export (`_copyPartnersTsv`):** Added a dedicated "Export Partners (TSV)" button in top action toolbar copying all active partner records with active-locale column headers.
   - **Single Partner Summary Copy (`_buildPartnerSummary`):** Added quick-copy summary icon button (`Icons.copy_all_rounded`) to each table row and details dialog, copying complete partner profile to clipboard.
   - **Statement of Account TSV Export (`_copySoaTsv`):** Added a dedicated "Export Ledger (TSV)" button in `PartnerStatementOfAccountDialog`.
@@ -1666,7 +1928,9 @@
   - `frontend/lib/features/suppliers/widgets/route_intelligence_dialog.dart` (AI shipping route intelligence, sea/air transit time, port pairs, carrier freight cost analysis)
   - `frontend/lib/features/suppliers/widgets/goeic_verification_dialog.dart` (Egyptian GOEIC decree 43 factory compliance verification, registration status & audit verdict)
 - **Route Index:** `33`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 57 new localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Dialog tooltips & actions: `suppliersCopyFieldTooltip`, `suppliersExportTsvBtn`, `suppliersExportTsvSuccess`, `supplierCopySummaryBtn`, `supplierCopySummarySuccess`, `routeIntelligenceBtnTooltip`, `goeicVerificationBtnTooltip`, `supplierCodeBadgeLabel`, `retryConnectionBtn`.
     - TSV column headers: `suppliersTsvHeaderCode`, `suppliersTsvHeaderName`, `suppliersTsvHeaderCountry`, `suppliersTsvHeaderCity`, `suppliersTsvHeaderType`, `suppliersTsvHeaderEmail`, `suppliersTsvHeaderPhone`, `suppliersTsvHeaderContact`, `suppliersTsvHeaderCurrency`, `suppliersTsvHeaderPaymentTerms`, `suppliersTsvHeaderIncoterm`, `suppliersTsvHeaderTaxId`, `suppliersTsvHeaderRegistrationNo`, `suppliersTsvHeaderGoeicStatus`, `suppliersTsvHeaderStatus`, `suppliersTsvHeaderRating`, `suppliersTsvHeaderNotes`.
@@ -1674,13 +1938,17 @@
     - GOEIC verification: `goeicVerificationTitle`, `goeicDecree43Subtitle`, `goeicFactoryNameLabel`, `goeicBrandLabel`, `goeicCountryLabel`, `goeicCategoryLabel`, `goeicDecreeRegLabel`, `goeicStatusValid`, `goeicStatusSuspended`, `goeicStatusExpired`, `goeicStatusUnderReview`, `goeicStatusNotRegistered`, `goeicSearchBtn`, `goeicComplianceVerdictTitle`, `goeicClearanceAllowedLabel`, `goeicCargoXAllowedLabel`, `goeicAcidAllowedLabel`, `goeicAuditNotesLabel`.
   - Purified 3 existing Arabic getters (`supplierTypeManufacturer`: `'مصنع إنتاج مباشر'`, `supplierTypeTrader`: `'شركة تجارية وتوريدات'`, `supplierTypeAgent`: `'وكيل تجاري معتمد'`) eliminating all Latin characters and dual slashes.
   - Replaced hardcoded Arabic and English strings across `suppliers_screen.dart`, `supplier_details_dialog.dart`, `route_intelligence_dialog.dart`, and `goeic_verification_dialog.dart` with localized getters.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `SuppliersScreen` scaffold body in top-level `SelectionArea` for mouse drag selection across cards, headers, and dialogs.
   - Added copyable supplier code badge (`supplierCodeBadgeLabel`) and explicit company name copy button (`suppliersCopyFieldTooltip`) using `CopyHelper.copy`.
   - Added copy suffix buttons (`CopyHelper.copy`) to all 18 form inputs in `_showSupplierDialog` (`nameCtrl`, `legalNameCtrl`, `countryCtrl`, `cityCtrl`, `addressCtrl`, `contactPersonCtrl`, `emailCtrl`, `phoneCtrl`, `websiteCtrl`, `taxIdCtrl`, `crCtrl`, `leadTimeCtrl`, `currencyCtrl`, `termsCtrl`, `incotermCtrl`, `bankNameCtrl`, `ibanCtrl`, `swiftCtrl`, `notesCtrl`).
   - Wrapped `SupplierDetailsDialog`, `RouteIntelligenceDialog`, and `GoeicVerificationDialog` in top-level `SelectionArea`.
   - Converted manual clipboard handling in `SupplierDetailsDialog` to `CopyHelper.copy`.
-- **Task C (Linked Outputs / TSV Export):** Complete.
+- **Task C (Linked Outputs / TSV Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click Suppliers TSV Export (`_copySuppliersTsv`):** Added a dedicated "Export Suppliers (TSV)" button in the top action toolbar copying all active supplier records with active-locale column headers.
   - **Single Supplier Summary Copy (`_buildSupplierSummary`):** Added a quick-copy summary icon button (`Icons.copy_all_rounded`) to each supplier card and details dialog, copying complete supplier dossier to clipboard.
   - Hardened error state with `SingleChildScrollView` and `maxLines: 4, overflow: TextOverflow.ellipsis` to ensure zero RenderFlex overflow on network errors.
@@ -1699,17 +1967,23 @@
   - `frontend/lib/features/import_companies/widgets/import_company_details_dialog.dart` (Comprehensive importer company dossier, WhatsApp/Email templates preview)
   - `frontend/lib/core/widgets/custom_text_field.dart` (Enhanced with optional `suffixIcon` for copy buttons)
 - **Route Index:** `32`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 21 new localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - `importCompaniesCopyFieldTooltip`, `importCompaniesExportTsvBtn`, `importCompaniesExportTsvSuccess`, `importCompanyCopySummaryBtn`, `importCompanyCopySummarySuccess`, TSV column headers (`importCompaniesTsvHeaderCode`, `importCompaniesTsvHeaderName`, `importCompaniesTsvHeaderImporterCard`, `importCompaniesTsvHeaderImporterCardExpiry`, `importCompaniesTsvHeaderVatId`, `importCompaniesTsvHeaderVatExpiry`, `importCompaniesTsvHeaderComReg`, `importCompaniesTsvHeaderComRegExpiry`, `importCompaniesTsvHeaderCountry`, `importCompaniesTsvHeaderAddress`, `importCompaniesTsvHeaderPhone`, `importCompaniesTsvHeaderStatus`, `importCompaniesTsvHeaderNotes`), and short badge labels (`importerCardIdLabelShort`, `vatTaxIdLabelShort`, `commercialRegLabelShort`).
   - Purified 6 existing Arabic getters (`printSavePdfBtn`: `'طباعة وحفظ المستند 🖨️'`, `downloadExcelBtn`: `'تصدير جدول بيانات 📊'`, `whatsappShareBtn`: `'مشاركة واتساب 💬'`, `emailShareBtn`: `'مشاركة بريد إلكتروني ✉️'`, `copyWhatsappTextBtn`: `'نسخ نص رسالة الواتساب 📋'`, `copyEmailTextBtn`: `'نسخ نص وموضوع البريد الإلكتروني 📋'`) eliminating all Latin characters (`PDF`, `EXCEL`, `WhatsApp`, `Email`) and dual slashes.
   - Replaced hardcoded Arabic tooltips and button labels with localized getters across screen and details dialog.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `ImportCompaniesScreen` scaffold body in top-level `SelectionArea` for mouse drag selection across all company cards, status indicators, and headers.
   - Enhanced `CustomTextField` with `suffixIcon` support, adding explicit copy buttons (`CopyHelper.copy`) to all 7 dialog input fields (`nameCtrl`, `addressCtrl`, `countryCtrl`, `impIdCtrl`, `vatIdCtrl`, `regNumCtrl`, `phoneCtrl`).
   - Implemented `_buildCopyableIdBadge(...)` rendering Importer Card ID, VAT ID, and Commercial Reg No as dedicated clickable copy badges with copy icons and tooltips.
   - Replaced hardcoded clipboard calls in `import_company_details_dialog.dart` with `CopyHelper.copy` and wrapped dialog body in `SelectionArea`.
-- **Task C (Linked Outputs / TSV Export):** Complete.
+- **Task C (Linked Outputs / TSV Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click Companies TSV Export (`_copyCompaniesTsv`):** Added a dedicated "Export Importers (TSV)" button in the top action toolbar copying all active records with localized headers, tab-separated, and ready for spreadsheet ingestion.
   - **Single Company Summary Copy (`_buildCompanySummary`):** Added a quick-copy summary icon button (`Icons.copy_all_rounded`) to each company list tile, copying complete company dossier to clipboard.
   - **Details Dialog Full Copy:** Connected "Copy Full Dossier" button in `import_company_details_dialog.dart` to `CopyHelper.copy` with localized confirmation toast (`importCompanyCopySummarySuccess`).
@@ -1726,19 +2000,25 @@
 - **Target Files:**
   - `frontend/lib/features/projects/screens/projects_screen.dart` (Import projects registry, multi-company/shipment capabilities, project creation/edit dialog, status filtering, table listing)
 - **Route Index:** `31`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 17 new localization getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - `projectsCopyFieldTooltip`, `projectsExportTsvBtn`, `projectsExportTsvSuccess`, `projectCopySummaryBtn`, `projectCopySummarySuccess`, `projectBudgetNotSet`, `projectIncotermFallback`, `projectColActive`, `projectColShipmentCategories`, `projectActiveYes`, `projectActiveNo`, `projectMultiShipmentYes`, `projectMultiShipmentNo`, `projectMultiCompanyYes`, `projectMultiCompanyNo`, `projectNotesFallback`, `projectsToolbarTitle`.
   - Purified 11 existing Arabic keys in `app_localizations_ar.dart` eliminating all Latin acronyms (`USD`, `Multi-Shipment`, `Multi-Company`, `FCL`, `LCL`, `Bulk`, `Incoterm`) and all bilingual slashes (`/`).
   - Replaced hardcoded English fallbacks (`"Incoterm"`, `'N/A'`) with dynamic localized getters (`projectIncotermFallback`, `projectBudgetNotSet`).
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `ProjectsScreen` scaffold body in top-level `SelectionArea` for seamless mouse drag selection across all labels, titles, chips, and table cells.
   - Wrapped `_showProjectDialog` content in `SelectionArea`.
   - Wrapped project deactivation/activation confirmation `AlertDialog` in `SelectionArea`.
   - Wrapped `p.projectCode` and `p.projectName` in `CopyableText`.
   - Converted all cells in the projects `Table` to `CopyableTableCell` with complete tab-separated row summaries for right-click copy actions.
   - Added copy suffix buttons (`CopyHelper.copy`) with tooltips to all 4 dialog inputs (`nameCtrl`, `ownerCtrl`, `budgetCtrl`, `notesCtrl`).
-- **Task C (Linked Outputs / TSV Export):** Complete.
+- **Task C (Linked Outputs / TSV Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click Projects TSV Export (`_copyProjectsTsv`):** Added a dedicated "Export Projects (TSV)" button in the top action toolbar copying all active project records with active-locale column headers.
   - **Single Project Summary Copy (`_buildProjectSummary`):** Upgraded `RowActionsPill.onPrint` to copy a comprehensive multi-line project specification directly to the clipboard with localized confirmation feedback (`projectCopySummarySuccess`).
 - **Verification:**
@@ -1753,18 +2033,24 @@
   - `frontend/lib/features/file_closure/screens/file_closure_screen.dart` (Shipment closure checklist, audit certification vault, archived files list, closure certification dialog)
   - `frontend/lib/core/widgets/reopen_shipment_dialog.dart` (Managerial shipment reopening authorization dialog)
 - **Route Index:** `30`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 22 new localization getters/methods across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - `fileClosureCopyFieldTooltip`, `fileClosureExportTsvBtn`, `fileClosureExportTsvSuccess`, `fileClosureCopyCertTsvBtn`, `fileClosureCopyCertSuccess`, `fileClosurePrintSuccess(code)`, `fileClosureDraftSavedSuccess(pct, completed)`, `fileClosureCertifiedSuccess`, `fileClosureChecklistCompletionLabel`, `fileClosureSaveDraftTip`, `fileClosureSaveDraftBtn`, and 11 TSV column headers (`fileClosureColClosureCode`, `fileClosureColImportFile`, `fileClosureColArchiveVault`, `fileClosureColAuditor`, `fileClosureColClosedDate`, `fileClosureColDocsVerified`, `fileClosureColCustomsCleared`, `fileClosureColWarehouseReceived`, `fileClosureColLandedCostSettled`, `fileClosureColTasksClosed`, `fileClosureColNotes`).
   - Purified all Arabic translations to 100% Arabic without any Latin characters or bilingual slashes (`/`).
   - Replaced hardcoded inline Arabic strings and ternary conditions in `_FileClosureFormDialog` with dynamic localized getters.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `FileClosureScreen` scaffold body in top-level `SelectionArea` for seamless mouse drag selection across all text and labels.
   - Wrapped `ReopenShipmentDialog` content in `SelectionArea` and added copy suffix icon button to `_reasonController`.
   - Wrapped `cf.importFileCode`, `r.closureCode`, file titles, vault locations, and auditor labels in `CopyableText`.
   - Added copy suffix buttons (`CopyHelper.copy`) with tooltips to all 3 form inputs in `_FileClosureFormDialog` (`_auditorCtrl`, `_vaultCtrl`, `_notesCtrl`).
   - Wrapped all certificate audit details in `SelectionArea` and converted metadata fields to `CopyableText`.
-- **Task C (Linked Outputs / TSV Export):** Complete.
+- **Task C (Linked Outputs / TSV Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click Archived Files TSV Export (`_copyArchivedFilesTsv`):** Added a dedicated "Export Archived Files (TSV)" button in the top action toolbar copying all archived closure files with active-locale column headers.
   - **Certificate Summary Copy (`_copySingleCertificateSummary`):** Added "Copy Certificate Data" button to each card row and inside the certificate view dialog, formatted with complete checklist status and auditor details.
   - Upgraded `RowActionsPill.onPrint` to trigger comprehensive certificate summary copy with localized snackbar confirmation (`fileClosurePrintSuccess`).
@@ -1781,14 +2067,18 @@
   - `frontend/lib/features/financial_settlement/screens/financial_settlement_screen.dart` (Landed cost settlement registry, expense invoices breakdown, unit landed cost distribution, KPI summary metrics, entry/allocation form dialog)
   - `frontend/lib/features/financial_settlement/screens/odoo_journal_entry_dialog.dart` (Dual-entry balanced accounting journal generator & ERP export dialog)
 - **Route Index:** `29`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 18 new localization keys across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - `financialSettlementCopyFieldTooltip`, `financialSettlementExportTsvBtn`, `financialSettlementExportTsvSuccess`, `financialSettlementCopyBreakdownTsvBtn`, `financialSettlementCopyBreakdownSuccess`, `financialSettlementPrintSummarySuccess`, `financialSettlementCurrencyEgp`, `odooJournalCopyTsvBtn`, `odooJournalCopyTsvSuccess`, `odooJournalSaveCsvDialogTitle`, `odooJournalSaveExcelDialogTitle`, `odooJournalCatGoods`, `odooJournalCatFreight`, `odooJournalCatCustoms`, `odooJournalCatClearance`, `odooJournalCatTransport`, `odooJournalCatDemurrage`, `odooJournalCatPriceAdjustment`.
   - Purified 13 existing Arabic localizations eliminating English acronyms (`(FOB)` → `فاتورة الشراء`, `FOB` → `فاتورة الشراء`, `Odoo / ERP` → `النظام المالي`, `Odoo ERP` → `النظام المالي`, `Odoo CSV` → `ملف البيانات المجدولة`, `Excel` → `جدول البيانات المحاسبي`) and all bilingual slashes (`/`).
   - Replaced hardcoded currency strings (`' ج.م'`) with dynamic `context.l10n.financialSettlementCurrencyEgp` across KPI tiles and table cells.
   - Replaced hardcoded Arabic file-saving dialog titles with `context.l10n.odooJournalSaveCsvDialogTitle` and `context.l10n.odooJournalSaveExcelDialogTitle`.
   - Replaced hardcoded category badge labels with dynamic localized getters (`odooJournalCatGoods`, `odooJournalCatFreight`, etc.).
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `_buildRegistryView` and `_FinancialSettlementFormDialog` in top-level `SelectionArea` for full native text selection across labels, headers, and values.
   - Wrapped settlement code badge, import file reference, and all KPI summary metric values (FOB Total, Expenses Total, Landed Cost Total, Markup Factor) in `CopyableText`.
   - Converted all 7 columns in the Expense Invoices DataTable to `DataCell(CopyableTableCell(value: ..., rowSummary: ..., child: ...))`.
@@ -1796,7 +2086,9 @@
   - Wrapped `OdooJournalEntryDialog` metadata values (importer, supplier, project, date, total debit/credit) in `CopyableText`.
   - Converted all 8 columns in the Odoo Journal Lines DataTable to `DataCell(CopyableTableCell(value: ..., rowSummary: ..., child: ...))`.
   - Added copy suffix buttons (`CopyHelper.copy`) with tooltips to all 8 form inputs (`_invNoCtrl`, `_providerCtrl`, `_amountFxCtrl`, `_rateCtrl`, `_itemCodeCtrl`, `_itemNameCtrl`, `_qtyCtrl`, `_fobUnitCtrl`).
-- **Task C (Linked Outputs / TSV Export):** Complete.
+- **Task C (Linked Outputs / TSV Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click Registry TSV Export (`_copySettlementRecordsTsv`):** Added a dedicated "Export Settlements (TSV)" button in the top action toolbar copying all settlement records with active-locale column headers.
   - **Cost Breakdown TSV Export (`_copySettlementBreakdownTsv`):** Added a "Copy Cost Breakdown (TSV)" action button in each settlement card row, exporting itemized expense allocations and landed cost per unit.
   - **Odoo Journal TSV Export (`_copyJournalEntryTSV`):** Added single-click "Copy TSV" button to `OdooJournalEntryDialog` with active-locale headers and localized feedback notification.
@@ -1813,7 +2105,9 @@
   - `frontend/lib/features/warehouse_receiving/screens/inbound_warehouse_hub_screen.dart` (Inbound Logistics & Warehouse Hub scaffold & Tab navigation)
   - `frontend/lib/features/warehouse_receiving/screens/warehouse_receiving_screen.dart` (SubTab 1: Goods Receiving Notes (GRN) list, inspection audit summary, multi-PO receiving form, discrepancy certification)
 - **Route Index:** `28`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 21 new localization getters/methods across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - `warehouseReceivingQuarantineLockBadge`, `warehouseReceivingQuarantineStatusBlocked`, `warehouseReceivingQuarantineStatusCheck`, `warehouseReceivingQuarantineAlertBlocked`, `warehouseReceivingQuarantineAlertCleared`, `warehouseReceivingExportTsvBtn`, `warehouseReceivingExportTsvSuccess`, `warehouseReceivingCopyFieldTooltip`, `warehouseReceivingPrintReceiptSuccess`, `warehouseReceivingColGrnCode`, `warehouseReceivingColWarehouse`, `warehouseReceivingColStatus`, `warehouseReceivingColQuarantine`, `warehouseReceivingColTruckDriver`, `warehouseReceivingColArrivalDate`, `warehouseReceivingColInspector`, `warehouseReceivingColDiscrepancy`, `warehouseReceivingColInvoicedQty`, `warehouseReceivingColAcceptedQty`, `warehouseReceivingColShortageQty`, `warehouseReceivingColDamagedQty`.
   - Replaced hardcoded strings in `warehouse_receiving_screen.dart`:
@@ -1822,14 +2116,18 @@
     - Replaced hardcoded SnackBars with localized alerts (`warehouseReceivingQuarantineAlertBlocked`, `warehouseReceivingQuarantineAlertCleared`).
   - Purified Arabic translations in `app_localizations_ar.dart` eliminating all bilingual slashes (`/`), dual headers, and Latin characters (`Excel` → `جدول بيانات`, `الرصاص تالف/مكسور` → `الرصاص تالف أو مكسور`, `إثبات عجز / تلف` → `إثبات عجز أو تلف`, `رقم الشاحنة / السيارة` → `رقم الشاحنة واللوحة`, `رقم السيل / الرصاص الأمني` → `رقم السيل والرصاص الأمني`).
   - Cleaned tab title in `inbound_warehouse_hub_screen.dart` to `titleEn: 'Warehouse Receiving & GRN'`.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped `inbound_warehouse_hub_screen.dart` tab host body in `SelectionArea(child: _buildCurrentTab())`.
   - Wrapped `warehouse_receiving_screen.dart` `bodyContent` in `SelectionArea` so all labels, instructions, metrics, and card details are natively selectable and copyable via Ctrl+C.
   - Wrapped individual card values in `CopyableText` (GRN Code, warehouse name, driver & truck plate number, arrival date & time, inspector name).
   - Wrapped all 4 audit metric counts (Invoiced, Accepted, Shortage, Damaged) in `CopyableText`.
   - Wrapped `_WarehouseReceivingFormDialog` in `SelectionArea` and added explicit copy suffix buttons (`CopyHelper.copy`) with tooltips on all text inputs (`_whCtrl`, `_plateCtrl`, `_driverCtrl`, `_sealCtrl`).
   - Wrapped `_DiscrepancyReportDialog` in `SelectionArea` and added copy suffix button on `_claimRefCtrl`.
-- **Task C (Linked Outputs / TSV Export):** Complete.
+- **Task C (Linked Outputs / TSV Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added dedicated single-click TSV table export button (`OutlinedButton.icon` with `_copyGrnRecordsTsv`) to toolbar row:
     - Generates 12-column tab-separated table with active-locale column headers (GRN Code, Warehouse, Status, Quarantine Status, Driver & Plate, Arrival Date, Inspector, Discrepancy, Invoiced Qty, Accepted Qty, Shortage Qty, Damaged Qty).
     - Copies directly to system clipboard via `CopyHelper.copy` with snackbar feedback (`warehouseReceivingExportTsvSuccess`), immediately pasteable into Excel, WhatsApp, or Email.
@@ -1848,19 +2146,25 @@
   - `frontend/lib/features/customs_clearance/screens/customs_clearance_screen.dart` (4 Sub-views: Follow-up & Under-Bond, Drawing Samples & Shortage, Discrepancy & Damage Protocols, Final Duty Payment & Release)
   - `frontend/lib/features/customs_clearance/widgets/under_bond_release_dialog.dart` (Under-Bond Release & Lab Verdict Dialog)
 - **Route Index:** `27`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 29 new localization keys across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - `customsClearanceAiBrokerExtractorBtn`, `customsClearanceUnderBondTooltip`, `underBondReleaseDialogTitle`, `underBondReleaseDeclSubtitle`, `underBondModeUnderBond`, `underBondModeLabVerdict`, `underBondInfoBanner`, `underBondGuaranteeRefLabel`, `underBondQuarantineLocLabel`, `underBondDefaultQuarantineLoc`, `underBondConfirmReleaseBtn`, `underBondRequiredFieldsError`, `underBondReleaseSuccess`, `underBondActionError`, `underBondLabInfoBanner`, `underBondLabCertLabel`, `underBondLabVerdictLabel`, `underBondLabVerdictPassed`, `underBondLabVerdictRejected`, `underBondLabRemarksLabel`, `underBondApproveReleaseBtn`, `underBondRejectReleaseBtn`, `underBondLabCertRequiredError`, `underBondLabApprovedSuccess`, `underBondLabRejectedAlert`, `underBondLabResultError`, `customsClearanceExportTsvBtn`, `customsClearanceExportTsvSuccess`, `customsClearanceCopyFieldTooltip`.
   - Replaced all hardcoded strings in `under_bond_release_dialog.dart` (banner texts, form fields, validation errors, success/failure notifications, and verdict segmented buttons).
   - Cleaned stacked English acronyms (`(Under-Bond Release)`, `(PASSED)`, `(REJECTED)`, `(VAT)`, `(1%)`) from Arabic translations.
   - Localized AI broker quotation extractor button with pure single-locale getter `l.customsClearanceAiBrokerExtractorBtn`.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped entire screen scaffold body in top-level `SelectionArea` allowing native text selection across all 4 sub-views without cluttering static text.
   - Wrapped clearance card values (Clearance Code, Declaration 46 No, Delivery Order No, Customs Office, Import File Ref, Total Duties, Estimated Duties & Variance) in `CopyableText`.
   - Converted all DataTables across SubTab 1 (Samples), SubTab 2 (Discrepancies & Damage Protocols), and SubTab 3 (Duty Ledger & Reconciliations) to use `CopyableTableCell` with comprehensive full-row TSV `rowSummary`.
   - Wrapped all dialog bodies (`UnderBondReleaseDialog`, `_CustomsClearanceFormDialog`, `_DutyPaymentDialog`, `_FinalReleaseDialog`, `_showAddSampleDialog`, `_showAddDamageDialog`) in `SelectionArea`.
   - Added explicit copy suffix buttons (`CopyHelper.copy`) to form fields (`_decl46Ctrl`, `_doNumberCtrl`, `_receiptCtrl`, `_releaseNoCtrl`, guarantee reference, lab certificate, sample receipt, damage declaration & container).
-- **Task C (Linked Outputs / TSV Export):** Complete.
+- **Task C (Linked Outputs / TSV Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 4 dedicated single-click TSV export actions across all 4 sub-views:
     1. `_copyClearanceRecordsTsv`: Exports filtered clearance records with active-locale column headers (Clearance Code, Declaration 46, Office, Channel, Delivery Order, Free Days, Total Duty, Status).
     2. `_copySamplesTsv`: Exports drawn samples table (Sample Code, Authority, Date, Receipt No, Test Type, Result, Notes).
@@ -1876,18 +2180,24 @@
 ## 📝 Session Log: Screen 26: Cargo Shipping & Tracking - Allocations (VGM) — 2026-09-08
 - **Target File:** `frontend/lib/features/cargo_shipping/screens/cargo_shipping_screen.dart` (SubTab 0: Allocations & VGM Manifest)
 - **Route Index:** `26`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 14 new localization keys across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - `cargoShippingAiExtractorBtn`, `cargoShippingExportManifestBtn`, `cargoShippingManifestCopySuccess`, `cargoShippingCopyFieldTooltip`, `cargoShippingAcidPrefix`, `cargoShippingManifestHeader`, `cargoShippingColUnitNumber`, `cargoShippingColContainerNo`, `cargoShippingColContainerType`, `cargoShippingColSealNo`, `cargoShippingColGrossWeight`, `cargoShippingColVgmStatus`, `cargoShippingColVgmRef`, `cargoShippingColTrackingStatus`.
   - Cleaned all stacked bilingual slashes (`/`), dual headers, and parenthetical English acronyms in Arabic localizations (`(VGM)`, `(48h SLA)`, `(PDF / Word / Excel)`, `FCL (حاوية كاملة)`).
   - Dynamic container type localization helper (`_getLocalizedContainerTypeLabel`) eliminating raw English fallbacks.
   - Localized AI B/L analyzer button with pure single-locale getter `context.l10n.cargoShippingAiExtractorBtn`.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped entire screen scaffold body in `SelectionArea` making all titles, labels, card headers, and instructions natively drag-selectable and copyable via Ctrl+C.
   - Wrapped active file banner values (Import File Code, Foreign Supplier, ACID Number, Study Code) in `CopyableText` with hover tooltip and double-tap copy.
   - Wrapped aggregated cargo metric totals and auto-recommendation text banner in `CopyableText`.
   - Added explicit copy suffix icon buttons with tooltips to container equipment card text fields (Gross Weight VGM, Container Number, Seal Number, and CFS Warehouse Location).
-- **Task C (Linked Outputs / Reports):** Complete.
+- **Task C (Linked Outputs / Reports):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Single-Click TSV Manifest Export (`_copyContainerAllocationsManifest`):** Added a dedicated "Copy Container Allocations Manifest (TSV)" action button to the bottom action toolbar.
   - Generates structured, tab-separated manifest data with localized column headers (Unit No, Container No, Type, Seal No, Gross Weight VGM, Status, VGM Ref, Tracking Status) matching the active locale.
   - Outputs directly to clipboard via `CopyHelper.copy` with snackbar feedback (`cargoShippingManifestCopySuccess`), pasteable directly into Excel / WhatsApp / Email clients.
@@ -1900,17 +2210,23 @@
 ## 📝 Session Log: Screen 25: Freight Booking Operations — 2026-09-07
 - **Target File:** `frontend/lib/features/freight_booking/screens/freight_booking_screen.dart`
 - **Route Index:** `25`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 15 new localization keys: `freightBookingAiShippingLineBtn`, `freightBookingAiForwarderBtn`, `freightBookingDraftPendingLabel`, `freightBookingForwarderPrefixLabel`, `freightBookingEtdPrefixLabel`, `freightBookingAtdPrefixLabel`, `freightBookingEtaPrefixLabel`, `freightBookingBasedOnQuote`, `freightBookingCostSavingsBadgeAmount`, `freightBookingCostIncreaseBadgeAmount`, `freightBookingCostMatchBadge`, `freightBookingNetDifference`, `freightBookingBreakdownHeader`, `freightBookingBreakdownSavingsUnit`, `freightBookingPrintSystemHeader`.
   - Fixed all hardcoded strings in DataTable cells (columns 4–12): `'Draft Pending'`, `'N/A'`, `'FWD: ...'`, `'ETD: ...'`, `'ATD: ...'`, `'ETA: ...'`.
   - Fixed all hardcoded Arabic strings in cost savings comparison card: `'مبني على عرض أسعار: ...'`, `'توفير: $ ...'`, `'زيادة: $ ...'`, `'مطابق: $ 0.00'`, `'الفرق'`, `'📊 تفاصيل ...'`, `'... USD توفير'`.
   - Fixed hardcoded `'IMPORTFLOW ERP - CARRIER BOOKING CONFIRMATION'` in Print dialog.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped DataTable cells 4–12 with `DataCell(CopyableTableCell(value: ..., child: ...))` for right-click copy menu.
   - Wrapped `_FreightBookingViewDialog` content in `SelectionArea` for free text selection.
   - Wrapped `_FreightBookingPrintDialog` content in `SelectionArea` for free text selection.
   - Added explicit "Copy" `TextButton.icon` in Print dialog actions — copies full booking manifest as multi-line text to clipboard.
-- **Task C (Linked Outputs / Reports):** Complete.
+- **Task C (Linked Outputs / Reports):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Print dialog manifest copy button (multi-line text with all booking fields, containers, charges, totals). ✅
   - PDF / Excel / WhatsApp / Email: N/A for this screen — only Print dialog output exists.
 - **Verification:**
@@ -1922,18 +2238,24 @@
 ## 📝 Session Log: Screen 24: Customs Declaration 46 - Tariff Items & Assessment — 2026-09-07
 - **Target File:** `frontend/lib/features/import_documentation/screens/customs_declaration46_screen.dart` (SubTab 1: Declaration Registry, KPI Valuation Cards, Tariff Assessment & Valuation Dialog, Itemized Duty Schedule)
 - **Route Index:** `24`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 22 new localization keys across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - `customsDeclAssessmentTitle`, `customsDeclViewAssessmentTooltip`, `customsDeclAssessmentSubtitle`, `customsDeclShipmentParticularsHeader`, `customsDeclValuationBreakdownHeader`, `customsDeclFobForeignLabel`, `customsDeclFreightEgpLabel`, `customsDeclInsuranceEgpLabel`, `customsDeclCifTotalEgpLabel`, `customsDeclTariffTaxesHeader`, `customsDeclImportDutyRateLabel`, `customsDeclVatRateLabel`, `customsDeclDevFeeLabel`, `customsDeclCustomsServicesFeeLabel`, `customsDeclColActions`, `customsDeclAssessmentCopySuccess`, `customsDeclMetricTotalDeclarations`, `customsDeclMetricTotalCif`, `customsDeclMetricTotalDuties`, `customsDeclMetricExemptions`, `customsDeclFxRateLabel`, `customsDeclVatBaseLabel`.
   - Eliminated all bilingual slashes (`/`), dual headers, and stacked English acronyms (`(CIF)`, `(VAT)`, `(HS Code)`).
   - Used pure Arabic in `app_localizations_ar.dart` and clean professional English in `app_localizations_en.dart`.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Retained top-level `SelectionArea` wrapping the entire screen and dialog contents.
   - Wrapped all 4 SubTab 1 KPI summary card values (`Total Declarations`, `Total CIF Base`, `Total Duties & Taxes`, `European Partnership Exemptions`) in `CopyableText(..., isSelectable: false)` with hover tooltips and double-tap copy.
   - Converted all 8 columns in the Declaration Registry DataTable to `CopyableTableCell` with comprehensive tab-separated `rowSummary` containing all assessment metrics (Declaration No, File Code, Supplier, HS Code, CIF EGP, Total Duties, Status).
   - Added explicit copy button in the Tariff Assessment & Valuation Dialog with toast feedback (`customsDeclAssessmentCopySuccess`).
   - Wrapped each itemized valuation line and duty breakdown row in `CopyableText`.
-- **Task C (Linked Outputs / Reports):** Complete.
+- **Task C (Linked Outputs / Reports):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Itemized Tariff Assessment & Customs Valuation Dialog (`_showTariffAssessmentDialog`):** Full breakdown dialog providing Shipment Particulars, CIF Base Valuation (FOB foreign currency, official customs exchange rate, deemed freight, deemed insurance, CIF total EGP), Tariff Taxes Schedule (HS code, item description, import duty rate & EGP, service fees, development fee, VAT base, VAT rate & EGP, grand total), and European Partnership Exemption card.
   - **Single-Click Formatted Assessment Text Copy:** Formatted monospace text copyable directly via `CopyHelper.copy(context, ..., customMessage: l.customsDeclAssessmentCopySuccess)` with snackbar notification.
   - **Single-Click Structured TSV Export (`_exportRegistryTsv`):** Full 10-column tab-separated export of the entire registry table with active-locale column headers, pasteable directly into Excel / WhatsApp / Email.
@@ -1948,20 +2270,26 @@
 ## 📝 Session Log: Screen 23: Customs Declaration 46 Entry & Declaration — 2026-09-07
 - **Target File:** `frontend/lib/features/import_documentation/screens/customs_declaration46_screen.dart` (SubTab 0: Declaration 46 Form, Exemption & Trade Agreement Card, Regulatory Approvals Board; SubTab 1: Declaration 46 Registry)
 - **Route Index:** `23`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 10 new localization keys across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - `customsDeclRequiredField`, `customsDeclCopyValueTooltip`, `customsDeclPrintPreviewButton`, `customsDeclPreviewTitle`, `customsDeclCopySummarySuccess`, `customsDeclExportTsvButton`, `customsDeclExportSuccess`, `customsDeclExportRegistryTsv`, `customsDeclCopyAllSuccess`, `customsDeclCloseDialog`.
   - Cleaned all stacked English acronyms, parenthetical abbreviations, and bilingual slashes from Arabic keys:
     - Removed `(ACID)`, `(B/L)`, `CIF`, `VAT`, `(EUR.1)`, `(GOEIC)`, and `(HS Code)`.
     - Pure Arabic titles and labels when Arabic is active; clean English when English is active.
   - Form validation updated to use dynamic localized message `l.customsDeclRequiredField`.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped the entire screen in `SelectionArea` so all labels, instructions, table headers, and static text are natively selectable via mouse drag without cluttering static text with copy icons.
   - Added explicit copy suffix icon buttons with tooltips (`customsDeclCopyValueTooltip`) to all 9 text form fields (`_declaration46NoCtrl`, `_submissionDateCtrl`, `_acidNumberCtrl`, `_form4NumberCtrl`, `_blNumberCtrl`, `_customsValueEgpCtrl`, `_importDutyEgpCtrl`, `_vatEgpCtrl`, `_totalDutyAndTaxesCtrl`).
   - Wrapped Exemption & Trade Agreement card title and condition bullet points in `CopyableText`.
   - Converted all 6 columns of Regulatory Approvals DataTable to `CopyableTableCell` with comprehensive TSV `rowSummary`.
   - Converted all 5 data cells in Declaration 46 Registry DataTable (SubTab 1) to `CopyableTableCell` with full-row TSV `rowSummary`.
-- **Task C (Linked Outputs / Reports):** Complete.
+- **Task C (Linked Outputs / Reports):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Declaration 46 Certificate Summary Preview & Copy Dialog (`_showDeclarationSummaryDialog`):** Displays a clean, localized certificate summary formatted with active-locale labels and numbers, copyable via `CopyHelper.copy` in one click with toast confirmation.
   - **Copy Declaration as Table (TSV) (`_copyDeclarationAsTsv`):** Generates structured TSV text with localized headers and field values, pasteable directly into Excel / WhatsApp / Email.
   - **Export Registry (TSV) (`_exportRegistryTsv`):** Enables one-click TSV export of the entire registry table with localized column headers in SubTab 1.
@@ -1976,7 +2304,9 @@
   - `frontend/lib/features/import_documentation/widgets/invoice_bl_matcher_tab.dart` (Discrepancy Matrix & Cross-Matching, Carrier B/L Correction Letter Generator, TSV Export Engine, Matrix KPI Cards, Match Summary)
   - `frontend/lib/features/import_documentation/widgets/smart_invoice_bl_extractor_dialog.dart` (Optical & Text Parser for Invoice & B/L, Commercial Invoice Summary, Bill of Lading Summary, 10-Point Customs Audit Radar, Amendment Notice Dispatcher)
 - **Route Index:** `22`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 75+ new localization keys across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
   - Removed all stacked bilingual slashes (`/`), dual titles, and parenthetical English abbreviations:
     - Tab headers: `l.smartExtractorTabInvoice` ('الفاتورة التجارية' / 'Commercial Invoice'), `l.smartExtractorTabBl` ('بوليصة الشحن' / 'Bill of Lading'), `l.smartExtractorTabAudit` ('رادار المطابقة الجمركية' / 'Customs Audit Radar').
@@ -1984,13 +2314,17 @@
     - Summary & Status indicators: `l.invoiceBlMatcherAllMatchedSuccess`, `l.invoiceBlMatcherDiscrepanciesFoundAlert`, `l.invoiceBlMatcherCorrectionLetterTitle`, `l.invoiceBlMatcherCorrectionLetterSubtitle`, `l.smartExtractorTitle`, `l.smartExtractorSubtitle`.
   - Replaced hardcoded Arabic and English text in SnackBars, dialog headers, item/container table columns, and amendment notices with pure single-locale strings.
   - Removed unused imports and cleaned all ternary `isArabic` expressions.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped the entire `invoice_bl_matcher_tab.dart` and `smart_invoice_bl_extractor_dialog.dart` in `SelectionArea` so all labels, table headers, form descriptions, and data values are natively selectable with mouse click/drag without adding dedicated icons to static text.
   - Converted all Discrepancy Matrix table cells to use `CopyableTableCell` with comprehensive TSV `rowSummary` (Field, Invoice Value, B/L Value, Match Status, Difference / Tolerance, Regulatory Risk / Customs Impact).
   - Converted Extractor Dialog audit radar table cells and container breakdown table cells to use `CopyableTableCell` with full-row TSV summary.
   - Wrapped all KPI summary card values, match percentage counters, header chips, and extracted metadata pills in `CopyableText`.
   - Replaced raw `Clipboard.setData` with unified `CopyHelper.copy(context, text, customMessage: ...)` for carrier correction letters, amendment notices, and TSV matrix exports with toast feedback.
-- **Task C (Linked Outputs — Carrier Correction Letter / Amendment Notice / TSV Export):** Complete.
+- **Task C (Linked Outputs — Carrier Correction Letter / Amendment Notice / TSV Export):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Carrier Correction Letter:** Fully localized and copy-enabled via `CopyHelper.copy`. Displays dynamic date, shipper, consignee, notify party, B/L number, vessel, and formatted itemized discrepancy list in single active locale.
   - **Customs Audit Radar & Amendment Notice:** Fully localized text preview inside `SelectionArea` with single-click clipboard copy formatted for direct transmission to shipping lines or customs brokers.
   - **TSV Matrix Export:** Structured TSV format with localized column headers, allowing seamless one-click copying and direct paste into Excel / WhatsApp / Email with proper column alignment.
@@ -2005,7 +2339,9 @@
 ## 📝 Session Log: Screen 21: PO & Final Commercial Invoice & Packing List Reconciliation — 2026-09-07
 - **Target File:** `frontend/lib/features/import_documentation/widgets/po_reconciliation_tab.dart` (PO & Final Commercial Invoice Line Items Cross-Check, Packing List & Package Breakdown Reconciliation, Smart Optical Discrepancy Extractor & Compliance Checks, Historical Audit Registry, Final Certification Engine)
 - **Route Index:** `21`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 27 new localization keys across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Prefixes: `poRecInvoicePrefix` ('فاتورة:' / 'Invoice:'), `poRecPackingPrefix` ('كشف تعبئة:' / 'Packing List:'), `poRecGrossPrefix` ('الوزن القائم:' / 'Gross Wt:').
     - Discrepancy header check fields: `poRecCheckFieldInvoiceNumber` ('رقم الفاتورة التجارية النهائية' / 'Final Commercial Invoice Number'), `poRecCheckFieldAcidNumber` ('رقم القيد الجمركي المبدئي' / 'Customs ACID Number'), `poRecCheckFieldTotalAmount` ('إجمالي قيمة الفاتورة التجارية' / 'Total Commercial Invoice Amount').
@@ -2016,7 +2352,9 @@
   - Replaced hardcoded English prefixes (`INV:`, `PL:`, `Gross:`) in saved session cards with localized dynamic labels.
   - Localized the header compliance checks table so field names and verification messages render strictly in the active language.
   - Replaced hardcoded currency formatting in line items table with dynamic currency formatting.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped entire editor and history sections in `SelectionArea` so labels, table headers, form descriptions, and data values are natively selectable with click/drag without dedicated icons on labels.
   - Wrapped `_showSaveSuccessReportDialog`, `_showSessionDetailsModal`, and `_showPrintReportDialog` dialog contents in `SelectionArea`.
   - Converted history table cells to use `CopyableTableCell` with comprehensive tab-separated `rowSummary` for index, session code, import file/importer, invoice/packing list numbers, total value, packages/weight, CBM volume, status badge, and creation date.
@@ -2025,7 +2363,9 @@
   - Converted header compliance checks table in discrepancies section to use `CopyableTableCell` with row summary.
   - Replaced raw `Clipboard.setData` with unified `CopyHelper.copy(context, ...)` for session code copy and report copy with toast feedback.
   - Wrapped KPI card values, history stat cards, and extracted metadata pills with `CopyableText(..., isSelectable: false)` with hover tooltips and double-tap copy.
-- **Task C (Linked Outputs — PDF / Excel / WhatsApp / Email / Print Report):** Complete.
+- **Task C (Linked Outputs — PDF / Excel / WhatsApp / Email / Print Report):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - **Text / CSV Comprehensive Report:** Fully localized and copy-enabled.
     - Sourced from unified single-language translation keys (`poRecReportTitle`, `poRecReportSessionCode`, `poRecReportCsvHeader`, etc.).
     - When Arabic is active: 100% Arabic headers and localized statuses.
@@ -2045,7 +2385,9 @@
 ## 📝 Session Log: Screen 20: Draft Docs Customs Approval Hub — 2026-09-07
 - **Target File:** `frontend/lib/features/import_documentation/widgets/customs_document_approval_tab.dart` (Dual-Tier Sign-off & Matrix Audit, Live Cross-Document Matrix Banner, Discrepancy Rectification Tickets, Commercial Review & Customs Broker Sign-off Dialogs)
 - **Route Index:** `20`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 25 new localization keys across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`:
     - Standard document type resolvers (`customsApprovalDocCommercialInvoice`, `customsApprovalDocPackingList`, `customsApprovalDocBillOfLading`, `customsApprovalDocCertificateOfOrigin`, `customsApprovalDocEur1`, `customsApprovalDocInspectionCertificate`, `customsApprovalDocBankForm4`, `customsApprovalDocProformaInvoice`).
     - Overall status resolvers (`customsApprovalStatusApprovedForClearance`, `customsApprovalStatusRectificationRequired`, `customsApprovalStatusConditionallyApproved`, `customsApprovalStatusUnderReview`, `customsApprovalStatusPendingReview`, `customsApprovalStatusDraft`, `customsApprovalStatusRejected`, `customsApprovalStatusApproved`, `customsApprovalStatusPending`).
@@ -2056,7 +2398,9 @@
   - Cleaned all stacked bilingual slashes (` / `), English abbreviations, and parenthetical acronyms from Arabic keys (`مكتب التخليص الجمركي *`, `اسم المخلص الجمركي المعتمد *`, `تصنيف عدم المطابقة *`, `عدم تطابق بند التعريفة الجمركية`, `اختلاف الحجم التكعيبي`, `غياب الرقم التعريفي المبدئي للشحنة`, `تعارض شرط الشحن الدولي`, `تسجيل رد المورد وإغلاق التذكرة`, `رد المورد وتعديل المسودة *`).
   - Replaced raw English text pre-filled into text controllers (`Commercial Specialist`, `Licensed Customs Broker`, `Legal Officer`, `Compliance Specialist`) with localized defaults initialized via `didChangeDependencies`.
   - Cleaned parameterized fraction string in Arabic matrix compliance result (`$passed من $total مطابق` instead of `$passed/$total`).
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped Live Matrix Banner in `SelectionArea` and wrapped compliance results, recommendations, and open tickets count with `CopyableText`.
   - Wrapped Left Column (Dual-Tier Approvals Card) in `SelectionArea` allowing native mouse selection.
   - Wrapped Right Column (Discrepancy Tickets Card) in `SelectionArea` allowing native mouse selection.
@@ -2073,14 +2417,18 @@
   - `frontend/lib/features/import_documentation/widgets/coo_review_tab.dart` (4 Stages: Origin Requirements & Selection, Draft Extraction & Details, Discrepancy Matrix & Visual Sheet, COO Review Registry)
   - `frontend/lib/features/import_documentation/widgets/visual_draft_coo_sheet.dart` (Official Certificate of Origin & EUR.1 Visual Preview, Egyptian Customs Compliance Banner, Multi-format Export Engine)
 - **Route Index:** `19`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 4 new getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart` (`cooCustomsClearanceNote`, `cooExcelSavedSuccess`, `cooDetailsExporterLabel`, `cooDetailsImporterLabel`).
   - Replaced the stacked bilingual Customs Compliance Banner in `visual_draft_coo_sheet.dart` (which was previously displaying Arabic and English notes simultaneously) with a single-language responsive note using `context.l10n.cooCustomsClearanceNote`.
   - Localized hardcoded Excel save success SnackBar with parameterized `context.l10n.cooExcelSavedSuccess(path)`.
   - Replaced ternary bilingual text in COO Details dialog with localized `cooDetailsExporterLabel` and `cooDetailsImporterLabel`.
   - Added localized field label mapping `_getFieldLabel` to present clean localized names in the Discrepancy Matrix instead of raw database keys.
   - Cleaned all 10 Arabic and 11 English existing COO localization keys from stacked bilingual slashes (` / `), such as `(PDF, Word, Excel)`, `(CCPIT - اتفاقية الصين ومصر)`, and `EUR.1 (EU Partnership, EFTA, Turkey)`.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped Origin badge, Approved Cert badge, and Recommendation alert in Step 1 with `CopyableText`.
   - Replaced raw `Clipboard.setData` calls with unified `CopyHelper.copy(context, ...)` for CSV/Excel export.
   - Wrapped all 5 data cells in Step 3 Discrepancy Matrix DataTable with `CopyableTableCell` with complete TSV `rowSummary`.
@@ -2099,12 +2447,16 @@
   - `frontend/lib/features/import_documentation/widgets/draft_bl_review_tab.dart` (5 Stages: Review Sheet & Checklist, Revision Report & Letter, Version Branching, Dual Approval, Final Registry)
   - `frontend/lib/features/import_documentation/widgets/visual_draft_bl_sheet.dart` (Interactive Visual Bill of Lading Sheet & Maritime Export Engine)
 - **Route Index:** `18`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 20 new localization keys across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
   - Replaced all 29 hardcoded Arabic and English strings, SnackBars, and search hints with pure single-language localized getters (`context.l10n`).
   - Localized file extraction, comparison result, session saving, dual approval completion/rejection, PDF/Excel export, and print error SnackBars.
   - Cleaned all stacked bilingual slashes (`/`) and dual alternatives from existing Draft B/L localization keys in Arabic and English.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped all 15 summary cards in Step 0 auto-summary with `CopyableText` via `_buildSummaryBox`.
   - Wrapped all Checklist DataTable field labels and system values with `CopyableText`.
   - Enabled one-click and double-click copying on generated Carrier Correction Request Letters with `CopyHelper.copy`.
@@ -2121,11 +2473,15 @@
 ## 📝 Session Log: Screens 16 & 17: Bank Form 4 & Endorsement Hub — 2026-09-07
 - **Target File:** `frontend/lib/features/import_documentation/screens/bank_form4_screen.dart` (SubTab 0: Form 4 Request & Checklist, SubTab 1: Bank Form 4 Registry)
 - **Route Index:** `16` and `17`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Cleaned up stacked English acronyms and parenthetical abbreviations from Arabic localizations in `app_localizations_ar.dart` (`(PI)`, `(P/L)`, `(COO)`, `(B/L Draft)`, `(ACID Notice)`, `(Insurance)`, and slash slashes `/`).
   - Cleaned up acronyms and slashes in `app_localizations_en.dart`.
   - Replaced generic file selector error with clean single-locale prompt `selectImportFileFirst`.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped edit mode banner reference code in SubTab 0 with `CopyableText`.
   - Wrapped all 6 data cells in Bank Form 4 Registry DataTable with `CopyableTableCell` supporting individual cell copy and comprehensive TSV full-row copy (`rowSummary`).
 - **Verification:**
@@ -2138,7 +2494,9 @@
 ## 📝 Session Log: Screen 11: Nafeza & ACID Operations Hub — 2026-09-07
 - **Target File:** `frontend/lib/features/import_documentation/screens/nafeza_acid_screen.dart` (SubTabs 0–4: ACID Request Form, MTS Smart AI Parser, Discrepancy Matrix, ACID Issuance Registry, Expiry & Release Tracker)
 - **Route Index:** `11`, `12`, `13`, `14`, and `15`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 45+ keys to `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
   - SubTab 0: Localized exporter registration types (`vatRegType`, `crRegType`, `taxIdRegType`, `dunsRegType`) in `SearchableDropdownField`, localized invoice types (`proformaInvoiceLabel`, `commercialInvoiceLabel`), edit mode banner subtitle, and integrated single-locale dispatch templates.
   - SubTab 1: Localized raw text hint, sample text buttons, and dropdown options in `_showEditMtsDataDialog` (`companyRegNumberType`, `foreignExporterNafezaType`, `factoryRegType`, `vatRegType`, `taxIdRegType`, `crRegType`).
@@ -2146,7 +2504,9 @@
   - SubTab 3: Table headers and PO number prefix localized cleanly.
   - SubTab 4: Table headers, validity badges (`validStatusBadge`, `expiringSoonStatusBadge`, `expiredStatusBadge`), and card labels localized.
   - Dialogs & Actions: All alerts, confirmations, and SnackBars localized (`mtsNoticeDisclaimerAlertTitle/Content`, `mtsNoticeNoAcidAlertTitle/Content`, `acidSessionLoadedForEdit`, `acidSessionDeletedSuccess`, `mtsExtractedDataUpdated`, `foreignSupplierNotInData`, `supplierCodedSuccess`, `errorCodingSupplier`).
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Replaced raw clipboard operations with `CopyHelper.copy(context, text, customMessage: ...)` across WhatsApp, Email, and English dispatch actions.
   - Wrapped edit mode session codes, extracted MTS values, requested/generated discrepancy matrix values, and tracker metrics with `CopyableText`.
   - Wrapped all data cells in ACID Registry DataTable and Expiry Tracker DataTable with `CopyableTableCell` supporting cell copy and full-row TSV copy with comprehensive `rowSummary`.
@@ -2162,7 +2522,9 @@
   - `frontend/lib/features/financial_approval/screens/financial_approval_screen.dart` (Screen 8: Tab 0 Payment Requests, Screen 9: Tab 1 Budget Approval, Screen 10: Tab 3 Payment Registry & Tab 4 SWIFT Reconciliation)
   - `frontend/lib/features/financial_approval/widgets/saved_budgets_registry_tab.dart` (Screen 10: Tab 2 Saved Budgets Registry)
 - **Route Index:** `8`, `9`, and `10`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 70+ localization keys across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
   - Removed all `isArabic ? ... : ...` ternary logic and unused `isArabic` variable.
   - Localized duplicate warnings for payment requests and budgets (`duplicatePaymentRequestTitle`, `duplicatePaymentRequestMessage`, `duplicateBudgetTitle`, `duplicateBudgetMessage`, `cancelSelection`, `viewAndEditPaymentRequest`, `viewAndPrintBudget`).
@@ -2172,7 +2534,9 @@
   - Localized status badges (`_buildStatusBadge`) to display pure Arabic or English for Paid, Approved, Pending Review, Draft, and Reconciled.
   - Localized date column prefixes in Payment Requests Registry (`l.requestDateLabel`, `l.dueDateLabel`).
   - Localized responsible authority in budget summary table (`l.customsAuthority`).
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Replaced manual `Clipboard.setData` with unified `CopyHelper.copy` across all share modals and summary actions.
   - Wrapped metric badge values in `_buildMetricBadge` with `CopyableText`.
   - Wrapped Linked POs table cells in Tab 0 with `CopyableText`.
@@ -2196,7 +2560,9 @@
   - `frontend/lib/features/customs_consultation/widgets/post_save_status_dialog.dart`
   - `frontend/lib/features/customs_consultation/widgets/blocking_issues_dialog.dart`
 - **Route Index:** `6` and `7`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 35+ keys for customs workspace, ocean/air freight box, marine insurance segment, CIF formula, tariff details table, checklist documents, agencies, responsible parties, and statuses.
   - Eliminated hardcoded Arabic and bilingual stacked text from:
     - Linked PO, invoice count, and project name summaries (`l.linkedPurchaseOrdersSummary`, `l.approvedInvoicesSummary`, `l.projectNamedSummary`).
@@ -2209,7 +2575,9 @@
     - Document checklist in both narrow and wide responsive layouts: localized document type via `_getLocalizedDocType(item.documentType, l)`, remarks via `_getLocalizedRemarks(item.remarks, l)`, regulatory agency (`GOEIC` → `l.goeicAgencyName`), responsible party dropdown options (`l.partyCustomsBroker`, `l.partySupplierExporter`, `l.partyImporterTeam`, `l.partyFreightForwarder`), and status dropdown options (`l.statusPending`, `l.statusReceived`, `l.statusVerified`, `l.statusApproved`, `l.statusRejected`).
     - Removed `isArabic` ternary evaluations across the screen.
     - Localized loading and error states in saved consultations tab (`l.loading`, `l.error`).
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Upgraded `ConsultationMetricBadge` to wrap its value in `CopyableText`.
   - Wrapped CIF metrics and project names with `CopyableText`.
   - Wrapped all 10 `DataCell`s in tariff calculation `DataTable` with `CopyableTableCell` with complete row summaries.
@@ -2229,7 +2597,9 @@
   - `frontend/lib/features/shipping_scenarios/screens/shipping_scenarios_screen.dart` (Tab 0: Evaluator)
   - `frontend/lib/features/shipping_scenarios/widgets/saved_scenarios_registry_tab.dart` (Tab 1: Saved Registry)
 - **Route Index:** `4` and `5`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Replaced all hardcoded Arabic and bilingual strings with keys from `app_localizations.dart`:
     - All snackbars in state methods (session loaded, quotes added, quotes extracted, cancel edit mode, save failed).
     - AI Extractor widget: title, expand/collapse tooltips, paste/clear/sample/upload/extract buttons, banners, attached file, POL/POD chips, transit route chips, ocean freight, local charges, and total labels.
@@ -2240,7 +2610,9 @@
     - Visual container load plan simulation dialog: cleaned up parenthetical English in Arabic localizations (`app_localizations_ar.dart`) and English localizations (`app_localizations_en.dart`), choice chips, metric pills, load table headers, status labels, and layout titles.
     - Cost items 18–21 (`clearanceBrokerFeeItem`, `inspectionFeeItem`, `inlandTransportFeeItem`, `portClearanceExpensesItem`) localized cleanly.
     - Removed unused `isArabic` variable and conditional bilingual ternary expressions.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped evaluator metric cards (`val`) with `CopyableText`.
   - Wrapped all side-by-side comparison `DataTable` cells with `CopyableTableCell` including full `rowSummary`.
   - Wrapped saved scenarios registry summary cards with `CopyableText`.
@@ -2256,7 +2628,9 @@
 ## 📝 Session Log: Screen 2: Purchase Orders — 2026-09-07
 - **Target Screen:** `frontend/lib/features/purchase_orders/screens/purchase_orders_screen.dart`
 - **Route Index:** `2`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Localized status dropdown options (`statusDraft`, `statusPoApproved`, `statusInTransit`, `statusClosed`).
   - Localized table column 9 header with `cbmAndGrossWeightCol` ('الحجم والوزن القائم' / 'CBM & Gross Wt').
   - Localized status badge via `_getStatusLabel(po.status, l)` eliminating hardcoded bilingual or Arabic-only fallbacks.
@@ -2265,7 +2639,9 @@
   - Localized Master Pallet Plan dialog (title, pallet counters with units, 3D simulation button, table headers for dimensions, weights, quantities).
   - Localized Visual Container Load Planner dialog (title, metrics summary, top/side view segmented buttons, container titles, package counts).
   - Cleaned up parenthetical English in Arabic localizations (`app_localizations_ar.dart`) for container load plan, export report, side view, and top view.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped summary metrics in `_buildSummaryCard` with `CopyableText`.
   - Wrapped all 10 `DataCell`s in main `DataTable` with `CopyableTableCell` generating a complete tab-separated row summary for full-row copying.
   - Wrapped detail items in PO details dialog (`_buildDetailItem`) with `CopyableText`.
@@ -2282,7 +2658,9 @@
   - `frontend/lib/features/cbm_calculator/screens/cbm_calculator_screen.dart`
   - `frontend/lib/features/cbm_calculator/widgets/saved_cbm_registry_tab.dart`
 - **Route Index:** `3`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added 9 new localization keys to all 3 localization files (`app_localizations.dart`, `app_localizations_en.dart`, `app_localizations_ar.dart`): `cbmStackingAccepts`, `cbmStackingRejects`, `cbmNotLinked`, `cbmDownloadCsvTitle`, `cbmSendingReportToScreen` (parameterized), `cbmRowLineCbm`, `cbmRowLineGross`, `cbmRowLineAirVol`, `copyAllCbmDataSuccess`.
   - Replaced hardcoded Arabic row output labels (`'CBM: ...'`, `'الإجمالي: ...'`, `'الوزن الجوي: ...'`) with `l.cbmRowLineCbm`, `l.cbmRowLineGross`, `l.cbmRowLineAirVol`.
   - Replaced hardcoded `'FAILED'` string in visual load plan table with `l.operationFailed`.
@@ -2294,7 +2672,9 @@
   - Fixed `_triggerReportPrint` hardcoded Arabic SnackBar text → `l.cbmSendingReportToScreen(calc.calcCode)` (added `final l = context.l10n;` at function start).
   - Fixed string-matching color logic in `saved_cbm_registry_tab.dart` `_showVisualLoadPlanDialog`: replaced `statusText.contains('فشل')` / `statusText.contains('غير قابل')` with boolean `res.fits` / `hasNonStackable` flags.
   - Removed unnecessary `import 'package:flutter/services.dart'` from `saved_cbm_registry_tab.dart` (redundant with `material.dart`).
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Added `import '../../../core/widgets/copyable_data_helper.dart'` to both `cbm_calculator_screen.dart` and `saved_cbm_registry_tab.dart`.
   - Wrapped row output column values (`CBM`, `Gross`, `Air Vol`) with `CopyableText` in `cbm_calculator_screen.dart`.
   - Wrapped `_buildResultCardItem` value and subtitle with `CopyableText`.
@@ -2310,13 +2690,17 @@
 ## 📝 Session Log: Screen 1: Import Files Management — 2026-09-07
 - **Target Screen:** `frontend/lib/features/import_files/screens/import_files_screen.dart`
 - **Route Index:** `1`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Eliminated hardcoded bilingual text (`(AI)`, `(What-If)`) in top toolbar buttons and replaced with clean localized getters `l.smartInvoiceBlExtractorButton` and `l.whatIfSimulatorButton` ('استخلاص الفواتير والبوالص الذكي' in AR, 'Smart Invoice & B/L Extractor' in EN; 'محاكي الأزمات وتحوط الصرف' in AR, 'What-If & Hedging Simulator' in EN).
   - Localized PO and PI short prefixes in main data table (`l.poNumberShortPrefix`, `l.piNumberShortPrefix`).
   - Localized priority badges and status chips via `_getPriorityLabel` and `_getStatusLabel` ensuring pure single-locale rendering without hardcoded fallback strings.
   - Localized all 21 columns and headers in print preview and master report dialogs (`l.colIncoterms`, `l.colPort`, `l.colWarehouse`, `l.colDirectTransit`, `l.colPickupDate`, `l.colDocDate`, `l.colSwift`, `l.colCarrier`, `l.colAcid`, `l.colForm4`, `l.colForm46`, `l.saveComprehensiveReportDialogTitle`, `l.customsBrokerLabel`).
   - Localized field change diff names and confirmation dialog title in `import_file_form_dialog.dart` (`l.importFileIdLabel`, `l.importingCompany`, `l.foreignSupplier`, `l.responsiblePersonLabel`, `l.purchaseOrder`, `l.proformaInvoiceNoLabel`, `l.dynColEstimatedCost`, `l.status`, `l.notesInstructions`, `l.importFileReviewChangesTitle`, `l.importFileSavedSuccess`).
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped metric values in `_buildMetricMiniCard` and `_buildMetricCard` with `CopyableText(value, showIcon: false, ...)`.
   - Wrapped all 12 `DataCell`s for every row in the main `DataTable` with `CopyableTableCell(value: ..., rowSummary: ..., child: ...)`, supporting both individual cell copy and complete row TSV copy.
   - Wrapped file title header in Section 2 with `CopyableText`.
@@ -2328,14 +2712,18 @@
 ## 📝 Session Log: Screen 0: Operational Dashboard — 2026-09-07
 - **Target Screen:** `frontend/lib/features/operational_dashboard/screens/operational_dashboard_screen.dart`
 - **Route Index:** `0`
-- **Task A (Localization / i18n):** Complete.
+- **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Eliminated hardcoded bilingual text (`/`) in responsible stakeholder labels (`'المستخلص الجمركي'` in AR, `'Customs Broker'` in EN; removed `'شركة الشحن / Freight Forwarder'`).
   - Localized `'NEW'` badge dynamically via `context.l10n.badgeNew` ('جديد' / 'NEW').
   - Implemented dynamic single-language priority labels via `_getPriorityLabel` mapping to `context.l10n.priorityHigh`, `priorityCritical`, `priorityMedium`, `priorityLow`.
   - Replaced hardcoded string formatting in pending regulatory requirements with parameterized localized method `context.l10n.pendingRegRequirementsCount(...)`.
   - Added localized tooltip to AppBar refresh action button (`l.refresh`).
   - Fixed variable shadowing of `l` in `_buildDailyCheckinsCard`.
-- **Task B (Copy Data Enablement):** Complete.
+- **Task B (Copy Data Enablement):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط
   - Wrapped KPI card metric values with `CopyableText`.
   - Wrapped all shipment card details (custom file name, import file code, company name, supplier name, broker name, PO number, progress percentage) with `CopyableText`.
   - Wrapped shipment 3-way stage pathways (previous, current, next) with `CopyableText`.
@@ -3018,7 +3406,9 @@
 - **Status:** `Complete` (100% Tasks A, B, C)
 - **Date Reviewed:** 2026-09-09
 - **Details:**
-  - **Task A (Localization / i18n):** Complete zero-stacking architecture, zero bilingual slashes (`/`), 50+ type-safe getters in `AppLocalizations`, strictly pure Arabic (`[a-zA-Z]` regex verification passes 100%).
+  - **Task A (Localization / i18n):** Unverified — Requires Re-check (أُعيد تصنيفه بتاريخ 2026-09-14 بسبب غياب دليل الإثبات المطلوب)
+  - Evidence: غير متوفر وقت التسجيل الأصلي — يتطلب إعادة فحص وقياس تجريبي
+  - Verified by: في انتظار الفحص التجريبي الفعلي المستوفي للشروط zero-stacking architecture, zero bilingual slashes (`/`), 50+ type-safe getters in `AppLocalizations`, strictly pure Arabic (`[a-zA-Z]` regex verification passes 100%).
   - **Task B (Full Copy Data Functionality):** Root views and dialogs wrapped in `SelectionArea`, clickable version/DB path/filename badges with `CopyHelper.copy`, copy suffix button on table search field, quick row summary copy actions (`Icons.copy_rounded`) on backups and diff items.
   - **Task C (Linked Outputs):** `ProductionSyncExportService` implementation with 4 standard exports: TSV with UTF-8 BOM, unmerged CSV/Excel with UTF-8 BOM, Vector A4 PDF using Cairo Arabic font, and structured plain-text clipboard dossier copy.
 
@@ -3153,4 +3543,65 @@
 | 66 | Users Management & RBAC | 66 | Complete | 2026-09-10 | i18n anti-stacking applied; SelectionArea, copy badges on username/email, CopyableTableCell across all cols, search copy button, 4 linked exports (TSV/Excel/PDF/Dossier) via UsersManagementExportService |
 | 67 | Step Config Management | 67 | Complete | 2026-09-10 | i18n anti-stacking applied; SelectionArea, copy badges on stepCode, CopyableTableCell across all data cols, search copy button, 4 linked exports (TSV/Excel/PDF/Dossier) via StepConfigExportService |
 | 68 | Free Freight & Demurrage Connector | N/A (INT-DATA-015) | Complete | 2026-09-10 | i18n anti-stacking applied; SelectionArea, copy badges, 3-tab monitor dialog, Quota Guard, versioned Egyptian port storage tariffs, instant local math (<50ms), 1-click clipboard dossier export |
+| 69 | Customs Broker Price List & Reference Coding | 56 (Dialog) | Complete | 2026-09-14 | i18n anti-stacking applied; SelectionArea enabled; Searchable dropdown with auto-alias for reference item code; save failure fixed; payload sanitized and dates normalized; 100% test passing |
+| 70 | Import Files & Shipments (Screen 1 Hardening) | 1 | Complete | 2026-09-14 | i18n anti-stacking applied; SelectionArea enabled; pure AR/EN localizations; 26 typed getters; Master Shipment report & CSV export localized; Excel/PDF export routes added; 11/11 tests passing |
+
+---
+
+## 📝 Session Log: Screen 1 — Import Files & Shipments Full Hardening & Audit — 2026-09-14
+- **Target Screen:** `ImportFilesScreen` (`frontend/lib/features/import_files/screens/import_files_screen.dart`), `import_file_details_dialog.dart`, `import_file_form_dialog.dart`, `freight_rfq_dialog.dart`.
+- **Backend Endpoints:** `modules/import_files/router.py`, `modules/import_files/service.py`, `modules/import_files/schemas.py`.
+- **Route Index:** `1` (`/import-files`)
+- **Task A (Localization i18n):**
+  - Eliminated all stacked Arabic/English titles and inline `isAr ? :` conditionals across `ImportFilesScreen`, `_SearchAndCloneImportFileDialog`, `ImportFileDetailsDialog`, `ImportFileFormDialog`, and `FreightRfqDialog`.
+  - Added 26 typed getters to `AppLocalizations`, `AppLocalizationsEn`, and `AppLocalizationsAr`:
+    * `searchAndCloneImportFileBtn`, `searchAndCloneImportFileDialogTitle`, `searchAndCloneImportFileSubtitle`, `searchAndCloneImportFileHint`, `resultsWithCount(count)`, `noMatchingShipmentsFound`, `cloneFieldAcidReset`, `portsOfLoadingAndDischarge`, `smartChecklistTooltip`, `moreToolsTooltip`, `confirmDeleteImportFilePrompt(code)`, `cloneBtn`, `selectCompanyValidation`, `selectSupplierValidation`, `ownerFieldRequired`, `ownerFieldHint`, `containerStackableTab`, `containerNonStackableTab`, `containerMixedTab`, `woodenFloorPallets`, `internalDimensionsPrefix`, `containerOptionsAnalysisTitle`, `closeDiagramBtn`, `approvedRecommendationPrefix`, `oversizedItemsWarning`, `failedToFetchRfqData`, `generatingRfqTemplatesLoading`.
+  - Replaced stacked owner label `${l.owner} (المسئول عن المشروع) *` with clean `${l.owner} *` and localized hint `l.ownerFieldHint`.
+  - Replaced stacked tabs `'📦 1. قابل للرص (Stackable)'`, `'🚫 2. غير قابل للرص (Non-Stackable)'`, `'🔀 3. مزيج يقبل ولا يقبل (Mixed)'` with purely localized tabs.
+- **Task B (Copy Data Enablement):**
+  - Root `SelectionArea` wrapped across the entire `ImportFilesScreen` scaffold body.
+  - Value copy badges maintained for all import file codes, custom file numbers, ACID, POs, and PIs.
+  - Table cells selectable and copyable via `CopyableTableCell` / `CopyHelper`.
+- **Task C (Linked Outputs):**
+  - Localized Master Shipment Report text output (pure Arabic when `isAr` is true, pure English when false).
+  - Localized CSV export with language-specific headers and formatting.
+  - Implemented `@router.get("/export-excel")` and `@router.get("/export-pdf")` in `modules/import_files/router.py` streaming clean Excel workbook and vector PDF reports via `MasterDataExportImportHelper`.
+- **Verification:**
+  - `flutter analyze lib/features/import_files/` ➔ **0 issues found!** ✅
+  - `flutter test test/import_file_form_dialog_test.dart test/import_file_po_linker_test.dart test/import_file_primary_name_test.dart test/import_files_localization_test.dart` ➔ **11/11 tests passed (100% green)!** ✅
+
+---
+
+## 📝 Session Log: Screen 2 — Purchase Orders Full Hardening & Verification — 2026-09-14
+- **Target Screen:** `PurchaseOrdersScreen` (`frontend/lib/features/purchase_orders/screens/purchase_orders_screen.dart`), `po_form_dialog.dart`, `_SearchAndClonePODialog`, `CloneEntityReviewDialog`.
+- **Backend Endpoints:** `modules/purchase_orders/router.py`, `modules/purchase_orders/service.py`, `modules/purchase_orders/schemas.py`.
+- **Route Index:** `2` (`/purchase-orders`)
+- **Task A (Localization i18n):**
+  - Eliminated all stacked Arabic/English titles and dual-language labels.
+  - Verified 14 typed getters across `AppLocalizations`:
+    * `searchByPoHint`, `filterByProject`, `filterByStatus`, `allProjects`, `allStatuses`, `statusPoApproved`, `statusInTransit`, `statusClosed`, `poReferenceCol`, `invoiceDateCol`, `importFileCol`, `piNumberCol`, `cbmAndGrossWeightCol`, `poBalanceLedgerTooltip`.
+- **Task B (Copy Data Enablement):**
+  - Root `SelectionArea` wrapped across screen scaffold.
+  - Every table cell wrapped in `CopyableTableCell` with right-click menu.
+  - Summary metric cards provide click-to-copy via `CopyableText`.
+  - PO codes, PI numbers, and importer/supplier names copyable.
+- **Task C (Linked Outputs):**
+  - Comprehensive PO Report Preview Dialog (`POReportPreviewDialog`) with print/export capabilities.
+  - Visual 3D Load Planner report dialog with fleet simulation and container requirements.
+  - Linked PO balance ledger dialog (`showPOBalanceLedgerDialog`).
+- **Task D (Screen-Level Clone):**
+  - Header banner "بحث واستنساخ أمر شراء" button opens `_SearchAndClonePODialog`.
+  - Live filtering across PO number, title, PI number, supplier, company, project.
+  - Launches `CloneEntityReviewDialog` with mandatory reset invariants: clears primary key, unlinks import file, clears partial allocations, and forces status to Draft.
+  - Backend endpoint `POST /api/v1/purchase-orders/{id}/clone` tested and passing.
+- **Task E (Table Row-Level Clone & Shortcuts):**
+  - `RowActionsPill` clone action button on desktop DataTable and mobile cards.
+  - Global keyboard shortcut `Ctrl + D` bound to root scaffold with `Focus(autofocus: true)`.
+  - Line items & packing items duplicate buttons in `POFormDialog` appending `(نسخة)` and triggering live recalculations of FOB totals, CBM, and gross weights.
+- **Verification:**
+  - `flutter analyze lib/features/purchase_orders/` ➔ **0 issues found!** ✅
+  - `flutter test test/responsive_and_clone_screen2_test.dart` ➔ **7/7 tests passed (100% green)!** ✅
+  - `pytest tests/unit/test_purchase_orders.py` ➔ **7/7 tests passed (100% green)!** ✅
+
+
 

@@ -193,6 +193,38 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
     }
   }
 
+  Future<PurchaseOrderModel?> clonePurchaseOrder(int poId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.purchaseOrders}/$poId/clone',
+        data: payload,
+      );
+      final cloned = PurchaseOrderModel.fromJson(response.data);
+      await fetchPurchaseOrders();
+      _ref.read(importFilesProvider.notifier).fetchImportFiles();
+      _ref.read(shippingScenariosProvider.notifier).fetchSessions();
+      return cloned;
+    } on DioException catch (e) {
+      final detail = e.response?.data?['detail'];
+      String msg = 'Failed to clone purchase order.';
+      if (detail != null) {
+        if (detail is List) {
+          msg = detail.map((d) => d['msg'] ?? d.toString()).join('\n');
+        } else {
+          msg = detail.toString();
+        }
+      } else if (e.message != null) {
+        msg = e.message!;
+      }
+      state = state.copyWith(errorMessage: msg);
+      throw Exception(msg);
+    } catch (e) {
+      final msg = 'Failed to clone purchase order: ${e.toString()}';
+      state = state.copyWith(errorMessage: msg);
+      throw Exception(msg);
+    }
+  }
+
   @override
   void dispose() {
     _cancelToken?.cancel('PurchaseOrdersNotifier disposed');

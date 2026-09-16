@@ -1,5 +1,8 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/app_localizations_ar.dart';
@@ -9,6 +12,10 @@ import '../../../core/providers/workspace_tabs_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../smart_tasks/widgets/smart_email_listener_dialog.dart';
 import '../../smart_tasks/widgets/email_settings_dialog.dart';
+import '../../../core/widgets/command_palette_dialog.dart';
+import '../../../core/widgets/display_density_selector.dart';
+import '../../../core/widgets/keyboard_shortcuts_dialog.dart';
+import '../../../core/widgets/unsaved_changes_dialog.dart';
 
 String _getLocalizedTabTitle(BuildContext context, int routeIndex, String fallbackTitle) {
   final l10n = AppLocalizations.of(context);
@@ -170,11 +177,47 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
                             ),
                           ),
                         ),
+                        if (tab.isDirty) ...[
+                          const SizedBox(width: 5),
+                          Tooltip(
+                            message: l10n.unsavedChangesBadgeTooltip,
+                            child: Container(
+                              width: 7,
+                              height: 7,
+                              decoration: const BoxDecoration(
+                                color: AppTheme.crimson,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                        ],
                         if (tab.isClosable) ...[
                           const SizedBox(width: 6),
                           InkWell(
                             borderRadius: BorderRadius.circular(10),
-                            onTap: () => tabsNotifier.closeTab(tab.id),
+                            onTap: () async {
+                              if (!tab.isDirty) {
+                                tabsNotifier.closeTab(tab.id);
+                                final active = ref.read(workspaceTabsProvider).activeTab;
+                                if (active != null) {
+                                  ref.read(navigationIndexProvider.notifier).state = active.routeIndex;
+                                }
+                                return;
+                              }
+
+                              final confirmed = await UnsavedChangesDialog.show(
+                                context,
+                                customMessage: '${l10n.unsavedChangesMessage}\n($localizedTitle)',
+                              );
+                              if (confirmed) {
+                                tabsNotifier.setTabDirty(tab.id, false);
+                                tabsNotifier.closeTab(tab.id);
+                                final active = ref.read(workspaceTabsProvider).activeTab;
+                                if (active != null) {
+                                  ref.read(navigationIndexProvider.notifier).state = active.routeIndex;
+                                }
+                              }
+                            },
                             child: Padding(
                               padding: const EdgeInsets.all(2.0),
                               child: Icon(
@@ -194,6 +237,59 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
               },
             ),
           ),
+          // Command Palette Quick Action Pill (Ctrl + K)
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => CommandPaletteDialog.show(context, ref),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E2631) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                  width: 0.8,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.travel_explore_rounded,
+                    size: 15,
+                    color: isDark ? AppTheme.cobaltLight : AppTheme.cobalt,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    isArabic ? 'لوحة الأوامر' : 'Commands',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.grey.shade300 : AppTheme.charcoal,
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'Ctrl+K',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppTheme.cobaltLight : AppTheme.cobalt,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 2),
           // Quick Mail Actions
           IconButton(
             tooltip: isArabic ? 'المستمع الذكي للبريد وإشعارات الوصول' : 'Smart Email & Arrival Notice Listener',
@@ -218,6 +314,53 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
             constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
             splashRadius: 16,
             onPressed: () => EmailSettingsDialog.show(context),
+          ),
+          const SizedBox(width: 2),
+          // Global Display Density Selector
+          const DisplayDensitySelector(compact: true),
+          const SizedBox(width: 2),
+          // Keyboard Shortcuts Guide Button (F1)
+          IconButton(
+            tooltip: l10n.shortcutShowHelp,
+            icon: Icon(
+              Icons.keyboard_outlined,
+              size: 18,
+              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            splashRadius: 16,
+            onPressed: () => KeyboardShortcutsDialog.show(context),
+          ),
+          // Fullscreen Toggle Button (F11)
+          IconButton(
+            tooltip: l10n.shortcutToggleFullscreen,
+            icon: Icon(
+              Icons.fullscreen_rounded,
+              size: 20,
+              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            splashRadius: 16,
+            onPressed: () async {
+              if (!kIsWeb && Platform.isWindows) {
+                try {
+                  final isFull = await windowManager.isFullScreen();
+                  await windowManager.setFullScreen(!isFull);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(!isFull ? l10n.fullscreenEnabledToast : l10n.fullscreenDisabledToast),
+                        duration: const Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                        width: 320,
+                      ),
+                    );
+                  }
+                } catch (_) {}
+              }
+            },
           ),
           const SizedBox(width: 4),
           // Tab bar actions menu

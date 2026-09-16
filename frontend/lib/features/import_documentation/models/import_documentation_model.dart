@@ -853,6 +853,7 @@ class POReconciliationItemModel {
     'variance_percentage': variancePercentage,
     'price_variance_percentage': priceVariancePercentage,
     'weight_variance_percentage': weightVariancePercentage,
+    'total_amount': finalQuantity * (finalUnitPrice > 0 ? finalUnitPrice : unitPrice),
     'notes': notes,
   };
 }
@@ -1187,6 +1188,7 @@ class DraftBLReviewModel {
   final String? approvedAt;
   final String? correctionRequestLetter;
   final String? notes;
+  final bool isDraft;
   final bool isActive;
   final String createdAt;
 
@@ -1232,6 +1234,7 @@ class DraftBLReviewModel {
     this.brokerApprovalDate,
     this.brokerApprovalNotes,
     required this.status,
+    this.isDraft = false,
     this.approvedBy,
     this.approvedAt,
     this.correctionRequestLetter,
@@ -1289,6 +1292,7 @@ class DraftBLReviewModel {
       brokerApprovalDate: json['broker_approval_date']?.toString(),
       brokerApprovalNotes: json['broker_approval_notes'],
       status: json['status'] ?? 'Draft',
+      isDraft: json['is_draft'] == true || json['is_draft'] == 1 || json['status'] == 'DRAFT',
       approvedBy: json['approved_by'],
       approvedAt: json['approved_at']?.toString(),
       correctionRequestLetter: json['correction_request_letter'],
@@ -1340,6 +1344,7 @@ class DraftBLReviewModel {
     'broker_approval_date': brokerApprovalDate,
     'broker_approval_notes': brokerApprovalNotes,
     'status': status,
+    'is_draft': isDraft,
     'approved_by': approvedBy,
     'approved_at': approvedAt,
     'correction_request_letter': correctionRequestLetter,
@@ -1363,6 +1368,7 @@ class CertificateOfOriginReviewModel {
   final bool hasDiscrepancies;
   final bool hasCriticalMismatch;
   final String status;
+  final bool isDraft;
   final String? approvedBy;
   final String? approvedAt;
   final String? notes;
@@ -1383,6 +1389,7 @@ class CertificateOfOriginReviewModel {
     required this.hasDiscrepancies,
     required this.hasCriticalMismatch,
     required this.status,
+    this.isDraft = false,
     this.approvedBy,
     this.approvedAt,
     this.notes,
@@ -1405,6 +1412,7 @@ class CertificateOfOriginReviewModel {
       hasDiscrepancies: json['has_discrepancies'] ?? false,
       hasCriticalMismatch: json['has_critical_mismatch'] ?? false,
       status: json['status'] ?? 'Draft',
+      isDraft: json['is_draft'] == true || json['is_draft'] == 1 || json['status'] == 'Draft Generated' || json['status'] == 'DRAFT',
       approvedBy: json['approved_by'],
       approvedAt: json['approved_at'],
       notes: json['notes'],
@@ -1412,6 +1420,28 @@ class CertificateOfOriginReviewModel {
       createdAt: json['created_at'] ?? '',
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'coo_review_id': cooReviewId,
+    'coo_review_code': cooReviewCode,
+    'import_file_id': importFileId,
+    'certificate_type': certificateType,
+    'certificate_number': certificateNumber,
+    'raw_text': rawText,
+    'document_file_url': documentFileUrl,
+    'system_snapshot_data': systemSnapshotData,
+    'draft_input_data': draftInputData,
+    'comparison_matrix': comparisonMatrix,
+    'has_discrepancies': hasDiscrepancies,
+    'has_critical_mismatch': hasCriticalMismatch,
+    'status': status,
+    'is_draft': isDraft,
+    'approved_by': approvedBy,
+    'approved_at': approvedAt,
+    'notes': notes,
+    'is_active': isActive,
+    'created_at': createdAt,
+  };
 }
 
 class InspectionCertificateReviewModel {

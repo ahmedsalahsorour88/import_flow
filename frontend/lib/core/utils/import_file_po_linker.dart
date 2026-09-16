@@ -55,15 +55,23 @@ class ImportFilePoLinker {
     int plCount = 0;
     final invoices = <String>{};
 
-    if (file.piNumber != null && file.piNumber!.isNotEmpty) invoices.add(file.piNumber!);
-    if (file.poNumber != null && file.poNumber!.isNotEmpty) invoices.add(file.poNumber!);
+    for (final inv in file.invoicesData) {
+      final invClean = inv.invoiceNo.trim();
+      if (invClean.isNotEmpty) invoices.add(invClean);
+    }
+    if (file.piNumber != null && file.piNumber!.trim().isNotEmpty) {
+      invoices.add(file.piNumber!.trim());
+    }
+    if (file.poNumber != null && file.poNumber!.trim().isNotEmpty) {
+      invoices.add(file.poNumber!.trim());
+    }
 
     for (final po in linkedPOs) {
-      if (po.proformaInvoiceNumber != null && po.proformaInvoiceNumber!.isNotEmpty) {
-        invoices.add(po.proformaInvoiceNumber!);
+      if (po.poNumber.trim().isNotEmpty) {
+        invoices.add(po.poNumber.trim());
       }
-      if (po.poNumber.isNotEmpty) {
-        invoices.add(po.poNumber);
+      if (po.proformaInvoiceNumber != null && po.proformaInvoiceNumber!.trim().isNotEmpty) {
+        invoices.add(po.proformaInvoiceNumber!.trim());
       }
 
       final double palletCbm = po.palletPlanItems.isNotEmpty

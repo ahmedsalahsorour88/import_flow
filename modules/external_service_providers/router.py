@@ -64,11 +64,7 @@ def download_partners_excel_template():
         'notes': 'Primary LC & CAD Bank',
     }
     content = MasterDataExportImportHelper.create_excel_template(cols, sample)
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=Partners_Banks_Template.xlsx"},
-    )
+    return MasterDataExportImportHelper.as_excel_response("Partners_Banks_Template.xlsx", content)
 
 
 @router.post("/import-excel")

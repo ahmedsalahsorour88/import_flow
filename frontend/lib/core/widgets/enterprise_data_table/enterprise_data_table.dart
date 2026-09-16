@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/file_save_helper.dart';
+import '../../services/table_export_service.dart';
 import '../../theme/app_theme.dart';
 import 'models/enterprise_column.dart';
 import 'widgets/enterprise_table_column_picker_dialog.dart';
@@ -86,6 +88,8 @@ class EnterpriseDataTable<T> extends StatefulWidget {
 
 class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
   late Set<String> _visibleColumnIds;
+  List<String> _columnOrder = [];
+  Map<String, double> _columnWidths = {};
   String _searchQuery = '';
   String? _sortColumnId;
   bool _isAscending = true;
@@ -97,6 +101,7 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
   void initState() {
     super.initState();
     _visibleColumnIds = widget.columns.where((c) => c.isVisible).map((c) => c.id).toSet();
+    _columnOrder = widget.columns.map((c) => c.id).toList();
     _sortColumnId = widget.initialSortColumnId;
     _isAscending = widget.initialSortAscending;
     _pageSize = widget.initialPageSize;
@@ -112,6 +117,11 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
     if (widget.selectedItems != null) {
       _internalSelectedItems = Set<T>.from(widget.selectedItems!);
     }
+    for (final col in widget.columns) {
+      if (!_columnOrder.contains(col.id)) {
+        _columnOrder.add(col.id);
+      }
+    }
   }
 
   Future<void> _loadPreferences() async {
@@ -119,23 +129,38 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final keyCols = 'enterprise_table_${widget.storageKey}_columns';
+      final keyOrder = 'enterprise_table_${widget.storageKey}_columns_order';
+      final keyWidths = 'enterprise_table_${widget.storageKey}_column_widths';
       final keyPageSize = 'enterprise_table_${widget.storageKey}_page_size';
 
       final savedCols = prefs.getStringList(keyCols);
+      final savedOrder = prefs.getStringList(keyOrder);
+      final savedWidthsJson = prefs.getString(keyWidths);
       final savedSize = prefs.getInt(keyPageSize);
 
-      if (mounted && savedCols != null && savedCols.isNotEmpty) {
+      if (mounted) {
         setState(() {
-          _visibleColumnIds = savedCols.toSet();
-          // Ensure locked columns remain visible
-          for (final col in widget.columns) {
-            if (col.isLocked) _visibleColumnIds.add(col.id);
+          if (savedCols != null && savedCols.isNotEmpty) {
+            _visibleColumnIds = savedCols.toSet();
+            // Ensure locked columns remain visible
+            for (final col in widget.columns) {
+              if (col.isLocked) _visibleColumnIds.add(col.id);
+            }
           }
-        });
-      }
-      if (mounted && savedSize != null) {
-        setState(() {
-          _pageSize = savedSize;
+          if (savedOrder != null && savedOrder.isNotEmpty) {
+            final validSaved = savedOrder.where((id) => widget.columns.any((c) => c.id == id)).toList();
+            final missing = widget.columns.where((c) => !validSaved.contains(c.id)).map((c) => c.id);
+            _columnOrder = [...validSaved, ...missing];
+          }
+          if (savedWidthsJson != null) {
+            try {
+              final decoded = jsonDecode(savedWidthsJson) as Map<String, dynamic>;
+              _columnWidths = decoded.map((k, v) => MapEntry(k, (v as num).toDouble()));
+            } catch (_) {}
+          }
+          if (savedSize != null) {
+            _pageSize = savedSize;
+          }
         });
       }
     } catch (_) {}
@@ -146,15 +171,32 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final keyCols = 'enterprise_table_${widget.storageKey}_columns';
+      final keyOrder = 'enterprise_table_${widget.storageKey}_columns_order';
+      final keyWidths = 'enterprise_table_${widget.storageKey}_column_widths';
       final keyPageSize = 'enterprise_table_${widget.storageKey}_page_size';
 
       await prefs.setStringList(keyCols, _visibleColumnIds.toList());
+      await prefs.setStringList(keyOrder, _columnOrder);
+      await prefs.setString(keyWidths, jsonEncode(_columnWidths));
       await prefs.setInt(keyPageSize, _pageSize);
     } catch (_) {}
   }
 
   List<EnterpriseColumn<T>> get _activeColumns {
-    return widget.columns.where((c) => _visibleColumnIds.contains(c.id)).toList();
+    final colMap = {for (final c in widget.columns) c.id: c};
+    final List<EnterpriseColumn<T>> ordered = [];
+    for (final id in _columnOrder) {
+      final col = colMap[id];
+      if (col != null && _visibleColumnIds.contains(id)) {
+        ordered.add(col);
+      }
+    }
+    for (final c in widget.columns) {
+      if (_visibleColumnIds.contains(c.id) && !ordered.any((col) => col.id == c.id)) {
+        ordered.add(c);
+      }
+    }
+    return ordered;
   }
 
   List<T> get _filteredAndSortedData {
@@ -319,20 +361,59 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
     }
   }
 
+  Future<void> _exportToPdf() async {
+    final activeCols = _activeColumns;
+    final dataToExport = _filteredAndSortedData;
+    if (dataToExport.isEmpty) return;
+
+    final headers = activeCols.map((c) => c.title).toList();
+    final rows = dataToExport.map((item) {
+      return activeCols.map((c) {
+        return c.exportValue?.call(item) ?? c.searchValue?.call(item) ?? '';
+      }).toList();
+    }).toList();
+
+    final title = widget.title ?? 'جدول بيانات النظام';
+    final stageName = widget.storageKey ?? 'EnterpriseDataTable';
+    final importFileNameOrCode = widget.exportFileName ?? 'Report';
+
+    await TableExportService.exportTableToPdf(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: stageName,
+      importFileNameOrCode: importFileNameOrCode,
+      headerContext: TableExportHeaderContext(
+        title: title,
+        subtitle: 'Sorour Logistics ERP — عدد السجلات: ${rows.length}',
+      ),
+    );
+  }
+
   void _openColumnPicker() {
     EnterpriseTableColumnPickerDialog.show<T>(
       context: context,
       allColumns: widget.columns,
       visibleColumnIds: _visibleColumnIds,
+      currentColumnOrder: _columnOrder,
       onColumnsChanged: (newSet) {
         setState(() {
           _visibleColumnIds = newSet;
         });
         _savePreferences();
       },
+      onConfigurationChanged: (visibleIds, orderedIds) {
+        setState(() {
+          _visibleColumnIds = visibleIds;
+          _columnOrder = orderedIds;
+        });
+        _savePreferences();
+      },
       onResetToDefaults: () {
         setState(() {
           _visibleColumnIds = widget.columns.where((c) => c.isVisible).map((c) => c.id).toSet();
+          _columnOrder = widget.columns.map((c) => c.id).toList();
+          _columnWidths.clear();
         });
         _savePreferences();
       },
@@ -393,6 +474,7 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
               },
               onOpenColumnPicker: _openColumnPicker,
               onExportCSV: widget.enableExport ? _exportToCSV : null,
+              onExportPDF: widget.enableExport ? _exportToPdf : null,
               onCopyToClipboard: widget.enableExport ? _copyToClipboard : null,
               extraActions: widget.extraActions,
               bulkActions: widget.bulkActions,
@@ -507,20 +589,20 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
             // Active Columns
             ...activeCols.map((col) {
               final isSorted = _sortColumnId == col.id;
+              final colWidth = _columnWidths[col.id] ?? col.width;
 
-              return DataColumn(
-                tooltip: col.tooltip,
-                onSort: col.isSortable ? (_, __) => _onSort(col.id) : null,
-                label: InkWell(
-                  onTap: col.isSortable ? () => _onSort(col.id) : null,
-                  borderRadius: BorderRadius.circular(4),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
+              final headerContent = InkWell(
+                onTap: col.isSortable ? () => _onSort(col.id) : null,
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
                           col.title,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -530,20 +612,79 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
                           ),
                           textAlign: col.textAlign,
                         ),
-                        if (col.isSortable) ...[
-                          const SizedBox(width: 4),
-                          Icon(
-                            isSorted
-                                ? (_isAscending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded)
-                                : Icons.unfold_more_rounded,
-                            size: 14,
-                            color: isSorted ? AppTheme.cobalt : Colors.grey.shade400,
-                          ),
-                        ],
+                      ),
+                      if (col.isSortable) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          isSorted
+                              ? (_isAscending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded)
+                              : Icons.unfold_more_rounded,
+                          size: 14,
+                          color: isSorted ? AppTheme.cobalt : Colors.grey.shade400,
+                        ),
                       ],
+                    ],
+                  ),
+                ),
+              );
+
+              final resizeHandle = MouseRegion(
+                cursor: SystemMouseCursors.resizeColumn,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragUpdate: (details) {
+                    final isRtl = Directionality.of(context) == TextDirection.rtl;
+                    final delta = isRtl ? -details.delta.dx : details.delta.dx;
+                    setState(() {
+                      final currentW = _columnWidths[col.id] ?? col.width ?? 130.0;
+                      final newW = (currentW + delta).clamp(50.0, 800.0);
+                      _columnWidths[col.id] = newW;
+                    });
+                  },
+                  onHorizontalDragEnd: (_) => _savePreferences(),
+                  onDoubleTap: () {
+                    setState(() => _columnWidths.remove(col.id));
+                    _savePreferences();
+                  },
+                  child: Container(
+                    width: 14,
+                    height: widget.headerHeight,
+                    alignment: Alignment.center,
+                    child: Container(
+                      width: 2,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(1),
+                      ),
                     ),
                   ),
                 ),
+              );
+
+              final Widget labelWidget = colWidth != null
+                  ? SizedBox(
+                      width: colWidth,
+                      child: Row(
+                        children: [
+                          Expanded(child: headerContent),
+                          resizeHandle,
+                        ],
+                      ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        headerContent,
+                        const SizedBox(width: 4),
+                        resizeHandle,
+                      ],
+                    );
+
+              return DataColumn(
+                tooltip: col.tooltip,
+                onSort: col.isSortable ? (_, __) => _onSort(col.id) : null,
+                label: labelWidget,
               );
             }),
           ],
@@ -584,12 +725,23 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
 
                 // Data Cells
                 ...activeCols.map((col) {
-                  return DataCell(
-                    Align(
+                  final colWidth = _columnWidths[col.id] ?? col.width;
+                  Widget cellContent = col.cellBuilder(context, item, index);
+                  if (colWidth != null) {
+                    cellContent = SizedBox(
+                      width: colWidth,
+                      child: Align(
+                        alignment: col.alignment,
+                        child: cellContent,
+                      ),
+                    );
+                  } else {
+                    cellContent = Align(
                       alignment: col.alignment,
-                      child: col.cellBuilder(context, item, index),
-                    ),
-                  );
+                      child: cellContent,
+                    );
+                  }
+                  return DataCell(cellContent);
                 }),
               ],
             );

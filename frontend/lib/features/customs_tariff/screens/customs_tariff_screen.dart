@@ -368,26 +368,26 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                   child: Table(
                     defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                     columnWidths: const {
-                      0: FixedColumnWidth(140),
-                      1: FlexColumnWidth(3),
-                      2: FixedColumnWidth(140),
-                      3: FixedColumnWidth(180),
-                      4: FixedColumnWidth(140),
-                      5: FixedColumnWidth(90),
-                      6: FixedColumnWidth(210),
+                      0: FixedColumnWidth(210),
+                      1: FixedColumnWidth(140),
+                      2: FlexColumnWidth(3),
+                      3: FixedColumnWidth(140),
+                      4: FixedColumnWidth(180),
+                      5: FixedColumnWidth(140),
+                      6: FixedColumnWidth(90),
                     },
                     children: [
                   // Header Row
                   TableRow(
                     decoration: const BoxDecoration(color: AppTheme.charcoal),
                     children: [
+                      l10n.tariffActionsCol,
                       l10n.tariffHsCodeCol,
                       l10n.tariffDescAndAuthorityCol,
                       l10n.tariffCategoryCol,
                       l10n.tariffTaxRatesBreakdownCol,
                       l10n.tariffRequirementsCol,
                       l10n.tariffStatusCol,
-                      l10n.tariffActionsCol,
                     ]
                         .map((h) => Padding(
                               padding: const EdgeInsets.symmetric(
@@ -429,6 +429,61 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                         color: isEven ? Colors.white : Colors.grey.shade50,
                       ),
                       children: [
+                        // Actions: Quick Copy Summary, View, Edit, Print, Delete
+                        _cell(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.copy_all_rounded,
+                                    size: 18, color: AppTheme.cobalt),
+                                tooltip: l10n.tariffCopySummaryBtn,
+                                onPressed: () =>
+                                    _copySingleTariffSummary(context, tariff),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              RowActionsPill(
+                                onView: () => showNafezaDetailsDialog(context, ref, tariff),
+                                onEdit: () => showTariffDialog(context, ref, tariff: tariff),
+                                onPrint: () async {
+                                  final agreements = await ref
+                                      .read(customsTariffProvider.notifier)
+                                      .fetchAgreements(tariff.hsCode);
+                                  if (context.mounted) {
+                                    await MasterDataExportService.printOrSaveTariffPdf(
+                                        tariff, agreements);
+                                  }
+                                },
+                                onDelete: () async {
+                                  final isActive = tariff.isActive;
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: Text(l10n.confirmActionTitle),
+                                      content: Text(isActive
+                                          ? l10n.confirmDeactivateTariff(tariff.hsCode)
+                                          : l10n.confirmActivateTariff(tariff.hsCode)),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+                                        ElevatedButton(
+                                          onPressed: () => Navigator.pop(ctx, true),
+                                          style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                          child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirm == true) {
+                                    await ref
+                                        .read(customsTariffProvider.notifier)
+                                        .toggleActive(tariff.tariffId, tariff.isActive);
+                                  }
+                                },
+                                deleteTooltip: tariff.isActive ? l10n.deactivateTariffTooltip : l10n.activateTariffTooltip,
+                              ),
+                            ],
+                          ),
+                        ),
                         // HS Code Badge
                         _cell(
                           value: tariff.hsCode,
@@ -597,61 +652,6 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                           ),
                         ),
 
-                        // Actions: Quick Copy Summary, View, Edit, Print, Delete
-                        _cell(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.copy_all_rounded,
-                                    size: 18, color: AppTheme.cobalt),
-                                tooltip: l10n.tariffCopySummaryBtn,
-                                onPressed: () =>
-                                    _copySingleTariffSummary(context, tariff),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              RowActionsPill(
-                                onView: () => showNafezaDetailsDialog(context, ref, tariff),
-                                onEdit: () => showTariffDialog(context, ref, tariff: tariff),
-                                onPrint: () async {
-                                  final agreements = await ref
-                                      .read(customsTariffProvider.notifier)
-                                      .fetchAgreements(tariff.hsCode);
-                                  if (context.mounted) {
-                                    await MasterDataExportService.printOrSaveTariffPdf(
-                                        tariff, agreements);
-                                  }
-                                },
-                                onDelete: () async {
-                                  final isActive = tariff.isActive;
-                                  final confirm = await showDialog<bool>(
-                                    context: context,
-                                    builder: (ctx) => AlertDialog(
-                                      title: Text(l10n.confirmActionTitle),
-                                      content: Text(isActive
-                                          ? l10n.confirmDeactivateTariff(tariff.hsCode)
-                                          : l10n.confirmActivateTariff(tariff.hsCode)),
-                                      actions: [
-                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                                        ElevatedButton(
-                                          onPressed: () => Navigator.pop(ctx, true),
-                                          style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                          child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                  if (confirm == true) {
-                                    await ref
-                                        .read(customsTariffProvider.notifier)
-                                        .toggleActive(tariff.tariffId, tariff.isActive);
-                                  }
-                                },
-                                deleteTooltip: tariff.isActive ? l10n.deactivateTariffTooltip : l10n.activateTariffTooltip,
-                              ),
-                            ],
-                          ),
-                        ),
                       ],
                     );
                   }),

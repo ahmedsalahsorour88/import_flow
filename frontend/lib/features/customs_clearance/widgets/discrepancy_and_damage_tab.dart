@@ -646,6 +646,7 @@ class _DiscrepancyAndDamageTabState extends ConsumerState<DiscrepancyAndDamageTa
                         child: DataTable(
                           headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                           columns: [
+                            DataColumn(label: Text(l.discrepancyDamageColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text(l.discrepancyDamageColProtocolNo, style: const TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text(l.discrepancyDamageColDeclarationNo, style: const TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text(l.discrepancyDamageColContainerNo, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -655,7 +656,6 @@ class _DiscrepancyAndDamageTabState extends ConsumerState<DiscrepancyAndDamageTa
                             DataColumn(label: Text(l.discrepancyDamageColResponsibleParty, style: const TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text(l.discrepancyDamageColClaimStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text(l.discrepancyDamageColDate, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.discrepancyDamageColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                           ],
                           rows: filtered.map((p) {
                             final isApproved = p['insurance_claim_status'] == 'APPROVED';
@@ -677,6 +677,23 @@ class _DiscrepancyAndDamageTabState extends ConsumerState<DiscrepancyAndDamageTa
                             final rowSummary = "$protoNo\t$declNo\t$containerNo\t$damageType\t$damagedQty\t$loss ${l.discrepancyDamageCurrencyEgp}\t$party\t$claimStr\t$date\t$notes";
 
                             return DataRow(cells: [
+                              // Actions (Quick Row Summary Copy)
+                              DataCell(
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 18, color: AppTheme.cobalt),
+                                      tooltip: l.discrepancyDamageCopyRowSummaryBtn,
+                                      onPressed: () => CopyHelper.copy(
+                                        context,
+                                        rowSummary,
+                                        customMessage: l.discrepancyDamageCopyRowSummarySuccess,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                               // Protocol No Badge
                               DataCell(
                                 CopyableTableCell(
@@ -825,23 +842,6 @@ class _DiscrepancyAndDamageTabState extends ConsumerState<DiscrepancyAndDamageTa
                                   value: date,
                                   rowSummary: rowSummary,
                                   child: Text(date),
-                                ),
-                              ),
-                              // Actions (Quick Row Summary Copy)
-                              DataCell(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.copy_rounded, size: 18, color: AppTheme.cobalt),
-                                      tooltip: l.discrepancyDamageCopyRowSummaryBtn,
-                                      onPressed: () => CopyHelper.copy(
-                                        context,
-                                        rowSummary,
-                                        customMessage: l.discrepancyDamageCopyRowSummarySuccess,
-                                      ),
-                                    ),
-                                  ],
                                 ),
                               ),
                             ]);

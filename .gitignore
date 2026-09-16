@@ -40,3 +40,5 @@ backend.spec
 scratch/
 scratch*.txt
 
+# Secrets / Environment
+.env

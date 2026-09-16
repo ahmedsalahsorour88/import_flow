@@ -133,12 +133,12 @@ _ScreenTabInfo _getScreenTabInfo(int index) {
     case 15: return const _ScreenTabInfo('منظومة نافذة ACID', Icons.cloud_done_outlined);
     case 16:
     case 17: return const _ScreenTabInfo('نموذج 4 البنكي', Icons.account_balance_outlined);
-    case 18:
-    case 19:
-    case 20:
-    case 21:
-    case 22:
-    case 53: return const _ScreenTabInfo('مراجعة مسودات المستندات', Icons.assignment_turned_in_outlined);
+    case 21: return const _ScreenTabInfo('مطابقة الفاتورة وقائمة التعبئة', Icons.fact_check_outlined);
+    case 18: return const _ScreenTabInfo('مسودة بوليصة الشحن (B/L)', Icons.assignment_turned_in_outlined);
+    case 22: return const _ScreenTabInfo('المطابقة الذكية بين الفاتورة والبوليصة', Icons.auto_awesome);
+    case 19: return const _ScreenTabInfo('مسودة شهادة المنشأ و EUR.1', Icons.flag_circle_outlined);
+    case 53: return const _ScreenTabInfo('شهادات الفحص والمطابقة (COC)', Icons.security_outlined);
+    case 20: return const _ScreenTabInfo('مركز اعتماد المستندات وتعديلات المورد', Icons.verified_user_outlined);
     case 23:
     case 24: return const _ScreenTabInfo('شهادة الإجراء 46', Icons.verified_outlined);
     case 25: return const _ScreenTabInfo('حجز الشحن الملاحي', Icons.directions_boat_outlined);

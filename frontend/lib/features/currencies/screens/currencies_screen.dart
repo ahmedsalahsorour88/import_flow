@@ -385,26 +385,26 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                             ),
                             child: Table(
                               columnWidths: const {
-                                0: FixedColumnWidth(110),
-                                1: FlexColumnWidth(3),
-                                2: FixedColumnWidth(90),
-                                3: FlexColumnWidth(2.5),
+                                0: FixedColumnWidth(190),
+                                1: FixedColumnWidth(110),
+                                2: FlexColumnWidth(3),
+                                3: FixedColumnWidth(90),
                                 4: FlexColumnWidth(2.5),
-                                5: FixedColumnWidth(90),
-                                6: FixedColumnWidth(190),
+                                5: FlexColumnWidth(2.5),
+                                6: FixedColumnWidth(90),
                               },
                               children: [
                                 // Header
                                 TableRow(
                                   decoration: const BoxDecoration(color: AppTheme.charcoal),
                                   children: [
+                                    l10n.actionsCol,
                                     l10n.isoCodeCol,
                                     l10n.currencyNameCol,
                                     l10n.currencySymbolCol,
                                     l10n.commercialRateBankCol,
                                     l10n.customsRateOfficialCol,
                                     l10n.statusCol,
-                                    l10n.actionsCol,
                                   ]
                                       .map((h) => Padding(
                                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -432,6 +432,54 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                       color: isEven ? Colors.white : Colors.grey.shade50,
                                     ),
                                     children: [
+                                      // Actions
+                                      _cell(
+                                        value: c.currencyCode,
+                                        rowSummary: rowSummary,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              icon: const Icon(Icons.copy_all_rounded, size: 17, color: AppTheme.charcoal),
+                                              tooltip: l10n.currencyCopySummaryBtn,
+                                              onPressed: () => _copySingleCurrencySummary(context, c),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            RowActionsPill(
+                                              onView: () => _showCurrencyRateHistoryDialog(context, ref, c),
+                                              onEdit: () => _showCurrencyDialog(context, currency: c),
+                                              onPrint: () => MasterDataExportService.printOrSaveCurrencyPdf(c),
+                                              onDelete: c.isBaseCurrency
+                                                  ? null
+                                                  : () async {
+                                                      final confirm = await showDialog<bool>(
+                                                        context: context,
+                                                        builder: (ctx) => AlertDialog(
+                                                          title: Text(l10n.confirmActionTitle),
+                                                          content: Text(isActive
+                                                              ? l10n.confirmDeactivateCurrency(c.currencyCode, c.currencyName)
+                                                              : l10n.confirmActivateCurrency(c.currencyCode, c.currencyName)),
+                                                          actions: [
+                                                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+                                                            ElevatedButton(
+                                                              onPressed: () => Navigator.pop(ctx, true),
+                                                              style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                                              child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      );
+                                                      if (confirm == true && c.currencyId != null) {
+                                                        ref.read(currenciesProvider.notifier).toggleActive(c.currencyId!, isActive);
+                                                      }
+                                                    },
+                                              deleteTooltip: c.isBaseCurrency
+                                                  ? l10n.cannotDeactivateBaseCurrencyTooltip
+                                                  : (isActive ? l10n.deactivateCurrencyTooltip : l10n.activateCurrencyTooltip),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                       // ISO Code
                                       _cell(
                                         value: c.currencyCode,
@@ -594,54 +642,6 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                         ),
                                       ),
 
-                                      // Actions
-                                      _cell(
-                                        value: c.currencyCode,
-                                        rowSummary: rowSummary,
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            IconButton(
-                                              icon: const Icon(Icons.copy_all_rounded, size: 17, color: AppTheme.charcoal),
-                                              tooltip: l10n.currencyCopySummaryBtn,
-                                              onPressed: () => _copySingleCurrencySummary(context, c),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            RowActionsPill(
-                                              onView: () => _showCurrencyRateHistoryDialog(context, ref, c),
-                                              onEdit: () => _showCurrencyDialog(context, currency: c),
-                                              onPrint: () => MasterDataExportService.printOrSaveCurrencyPdf(c),
-                                              onDelete: c.isBaseCurrency
-                                                  ? null
-                                                  : () async {
-                                                      final confirm = await showDialog<bool>(
-                                                        context: context,
-                                                        builder: (ctx) => AlertDialog(
-                                                          title: Text(l10n.confirmActionTitle),
-                                                          content: Text(isActive
-                                                              ? l10n.confirmDeactivateCurrency(c.currencyCode, c.currencyName)
-                                                              : l10n.confirmActivateCurrency(c.currencyCode, c.currencyName)),
-                                                          actions: [
-                                                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                                                            ElevatedButton(
-                                                              onPressed: () => Navigator.pop(ctx, true),
-                                                              style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                                              child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      );
-                                                      if (confirm == true && c.currencyId != null) {
-                                                        ref.read(currenciesProvider.notifier).toggleActive(c.currencyId!, isActive);
-                                                      }
-                                                    },
-                                              deleteTooltip: c.isBaseCurrency
-                                                  ? l10n.cannotDeactivateBaseCurrencyTooltip
-                                                  : (isActive ? l10n.deactivateCurrencyTooltip : l10n.activateCurrencyTooltip),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
                                     ],
                                   );
                                 }),

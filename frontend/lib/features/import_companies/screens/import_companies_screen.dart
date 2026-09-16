@@ -379,6 +379,53 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
           padding: const EdgeInsets.symmetric(vertical: 12.0),
           child: Row(
             children: [
+              // Quick Copy Summary Button
+              Tooltip(
+                message: l10n.importCompanyCopySummaryBtn,
+                child: IconButton(
+                  icon: const Icon(Icons.copy_all_rounded, size: 18, color: AppTheme.cobalt),
+                  onPressed: () {
+                    final summary = _buildCompanySummary(company);
+                    CopyHelper.copy(context, summary, customMessage: l10n.importCompanyCopySummarySuccess);
+                  },
+                ),
+              ),
+              const SizedBox(width: 4),
+
+              // Standard 4-Action Row Pill: View, Edit, Print, Delete
+              RowActionsPill(
+                onView: () => ImportCompanyDetailsDialog.show(
+                  context,
+                  company,
+                  onEdit: () => _showCompanyDialog(context, company),
+                ),
+                onEdit: () => _showCompanyDialog(context, company),
+                onPrint: () => MasterDataExportService.printOrSaveImporterPdf(company),
+                onDelete: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: Text(l10n.confirmActionTitle),
+                      content: Text(isActive
+                          ? l10n.confirmDeactivateCompany(company.importerName)
+                          : l10n.confirmActivateCompany(company.importerName)),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                          child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true && company.companyId != null) {
+                    ref.read(importCompaniesProvider.notifier).toggleActiveStatus(company.companyId!, isActive);
+                  }
+                },
+                deleteTooltip: isActive ? l10n.deactivateCompanyTooltip : l10n.activateCompanyTooltip,
+              ),
+              const SizedBox(width: 8),
               // Icon Avatar
               Container(
                 width: 48,
@@ -486,52 +533,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                 ),
               ),
 
-              // Quick Copy Summary Button
-              Tooltip(
-                message: l10n.importCompanyCopySummaryBtn,
-                child: IconButton(
-                  icon: const Icon(Icons.copy_all_rounded, size: 18, color: AppTheme.cobalt),
-                  onPressed: () {
-                    final summary = _buildCompanySummary(company);
-                    CopyHelper.copy(context, summary, customMessage: l10n.importCompanyCopySummarySuccess);
-                  },
-                ),
-              ),
-              const SizedBox(width: 4),
 
-              // Standard 4-Action Row Pill: View, Edit, Print, Delete
-              RowActionsPill(
-                onView: () => ImportCompanyDetailsDialog.show(
-                  context,
-                  company,
-                  onEdit: () => _showCompanyDialog(context, company),
-                ),
-                onEdit: () => _showCompanyDialog(context, company),
-                onPrint: () => MasterDataExportService.printOrSaveImporterPdf(company),
-                onDelete: () async {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: Text(l10n.confirmActionTitle),
-                      content: Text(isActive
-                          ? l10n.confirmDeactivateCompany(company.importerName)
-                          : l10n.confirmActivateCompany(company.importerName)),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                          child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
-                        ),
-                      ],
-                    ),
-                  );
-                  if (confirm == true && company.companyId != null) {
-                    ref.read(importCompaniesProvider.notifier).toggleActiveStatus(company.companyId!, isActive);
-                  }
-                },
-                deleteTooltip: isActive ? l10n.deactivateCompanyTooltip : l10n.activateCompanyTooltip,
-              ),
             ],
           ),
         ),

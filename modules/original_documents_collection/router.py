@@ -11,6 +11,9 @@ from .schemas import (
     OriginalDocumentsCollectionUpdate,
     OriginalDocumentsCollectionResponse,
     OriginalDocumentsAutoPopulateResponse,
+    CourierReceiptProofRequest,
+    CourierAlertsResponse,
+    CourierFlatItemResponse,
 )
 
 router = APIRouter(
@@ -126,3 +129,47 @@ def export_excel(
             "Content-Disposition": f"attachment; filename=Original_Documents_Collection_{import_file_id_or_session_id}.xlsx"
         },
     )
+
+
+@router.post(
+    "/couriers/confirm-receipt",
+    response_model=OriginalDocumentsCollectionResponse,
+    status_code=status.HTTP_200_OK,
+)
+def confirm_courier_receipt(
+    request: CourierReceiptProofRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Formally certifies and records the physical delivery date, time, and recipient for a courier package.
+    """
+    return OriginalDocumentsCollectionService.confirm_courier_receipt(db, request)
+
+
+@router.get(
+    "/couriers/alerts",
+    response_model=CourierAlertsResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_courier_alerts(
+    db: Session = Depends(get_db),
+):
+    """
+    Retrieves all courier delivery alerts, transit days, and SLA breach warnings across all shipments.
+    """
+    return OriginalDocumentsCollectionService.get_courier_alerts(db)
+
+
+@router.get(
+    "/couriers/all",
+    response_model=List[CourierFlatItemResponse],
+    status_code=status.HTTP_200_OK,
+)
+def get_all_couriers(
+    db: Session = Depends(get_db),
+):
+    """
+    Retrieves all couriers across all shipments for the unified courier tracking and delivery proof registry.
+    """
+    return OriginalDocumentsCollectionService.get_all_couriers_flat(db)
+

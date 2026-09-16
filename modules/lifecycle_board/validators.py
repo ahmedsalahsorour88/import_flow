@@ -13,6 +13,11 @@ VALID_STEP_CODES = {
     "STEP_06": "Freight Booking",
     "STEP_07": "Freight Allocations",
     "STEP_08": "Draft Docs Review",
+    "STEP_08_PO": "PO & Packing Reconciliation",
+    "STEP_08_BL": "Draft B/L Review & Approval",
+    "STEP_08_MATCH": "Smart Invoice vs B/L Match",
+    "STEP_08_COO": "Draft COO & EUR.1 Review",
+    "STEP_08_COC": "Draft Inspection Review",
     "STEP_09": "Docs Customs Approval",
     "STEP_10": "CargoX Follow-up",
     "STEP_11": "Originals Collection",
@@ -33,7 +38,7 @@ def validate_step_code(step_code: str):
     if step_code not in VALID_STEP_CODES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"كود الخطوة '{step_code}' غير صالح. الأكواد المعتمدة من STEP_01 إلى STEP_21.",
+            detail=f"كود الخطوة '{step_code}' غير صالح. يرجى اختيار أحد الأكواد الـ 25 المعتمدة لنظام دورة حياة الشحنة.",
         )
 
 

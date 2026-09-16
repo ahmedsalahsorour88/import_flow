@@ -118,7 +118,7 @@ class _StreamlitBoardScreenState extends ConsumerState<StreamlitBoardScreen> {
                   style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  'لوحة تتبع ومتابعة مراحل الشحنات التفاعلية (المستويات الـ 6 — 21 خطوة تشغيلية)',
+                  'لوحة تتبع ومتابعة مراحل الشحنات التفاعلية (المستويات الـ 6 — 25 خطوة تشغيلية)',
                   style: TextStyle(color: Colors.white70, fontSize: 11),
                 ),
               ],

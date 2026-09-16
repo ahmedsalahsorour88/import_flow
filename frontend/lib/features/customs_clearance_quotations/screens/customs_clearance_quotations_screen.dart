@@ -538,6 +538,7 @@ class _CustomsClearanceQuotationsScreenState
                 child: DataTable(
                   headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                   columns: [
+                    DataColumn(label: Text(l10n.clearanceQuotesColStatusActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                     DataColumn(label: Text(l10n.clearanceQuotesColBroker, style: const TextStyle(fontWeight: FontWeight.bold))),
                     DataColumn(label: Text(l10n.clearanceQuotesColClearanceFee, style: const TextStyle(fontWeight: FontWeight.bold))),
                     DataColumn(label: Text(l10n.clearanceQuotesColInlandTransport, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -546,7 +547,6 @@ class _CustomsClearanceQuotationsScreenState
                     DataColumn(label: Text(l10n.clearanceQuotesColMiscellaneous, style: const TextStyle(fontWeight: FontWeight.bold))),
                     DataColumn(label: Text(l10n.clearanceQuotesColEstimatedTotal, style: const TextStyle(fontWeight: FontWeight.bold))),
                     DataColumn(label: Text(l10n.clearanceQuotesColDuration, style: const TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text(l10n.clearanceQuotesColStatusActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                   ],
                   rows: rfq.quotations.map((q) {
                     final isAwarded = q.isAwarded;
@@ -554,6 +554,38 @@ class _CustomsClearanceQuotationsScreenState
                     return DataRow(
                       color: isAwarded ? WidgetStateProperty.all(AppTheme.emerald.withOpacity(0.06)) : null,
                       cells: [
+                        DataCell(Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
+                              tooltip: l10n.copy,
+                              onPressed: () => CopyHelper.copy(context, rowSummary),
+                            ),
+                            if (isAwarded)
+                              Chip(
+                                avatar: const Icon(Icons.check, size: 14, color: Colors.white),
+                                label: Text(l10n.clearanceQuotesStatusAwardedBadge, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                backgroundColor: AppTheme.emerald,
+                                padding: EdgeInsets.zero,
+                              )
+                            else
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.emerald,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                ),
+                                child: Text(l10n.clearanceQuotesAwardAndApproveBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                onPressed: () => _awardQuotation(rfq.rfqId, q.quotationId!),
+                              ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
+                              onPressed: () => _deleteQuotation(q.quotationId!),
+                            ),
+                          ],
+                        )),
                         DataCell(CopyableTableCell(
                           value: q.providerName,
                           rowSummary: rowSummary,
@@ -597,38 +629,7 @@ class _CustomsClearanceQuotationsScreenState
                           rowSummary: rowSummary,
                           child: Text(l10n.clearanceQuotesDaysCount(q.estimatedTurnaroundDays)),
                         )),
-                        DataCell(Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
-                              tooltip: l10n.copy,
-                              onPressed: () => CopyHelper.copy(context, rowSummary),
-                            ),
-                            if (isAwarded)
-                              Chip(
-                                avatar: const Icon(Icons.check, size: 14, color: Colors.white),
-                                label: Text(l10n.clearanceQuotesStatusAwardedBadge, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                                backgroundColor: AppTheme.emerald,
-                                padding: EdgeInsets.zero,
-                              )
-                            else
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.emerald,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                                ),
-                                child: Text(l10n.clearanceQuotesAwardAndApproveBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                onPressed: () => _awardQuotation(rfq.rfqId, q.quotationId!),
-                              ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
-                              onPressed: () => _deleteQuotation(q.quotationId!),
-                            ),
-                          ],
-                        )),
+
                       ],
                     );
                   }).toList(),
@@ -753,17 +754,31 @@ class _CustomsClearanceQuotationsScreenState
                             child: DataTable(
                               headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                               columns: [
+                                DataColumn(label: Text(l10n.clearanceQuotesColPriceDelete, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l10n.clearanceQuotesColBroker, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l10n.clearanceQuotesColPricePort, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l10n.clearanceQuotesColPriceServiceType, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l10n.clearanceQuotesColPriceContainerType, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l10n.clearanceQuotesColPriceStandardRate, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l10n.clearanceQuotesColPriceNotes, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text(l10n.clearanceQuotesColPriceDelete, style: const TextStyle(fontWeight: FontWeight.bold))),
                               ],
                               rows: items.map((item) {
                                 final rowSummary = '${item.providerName} | ${item.portName} | ${item.serviceCategory} | ${item.containerType} | ${item.unitPrice.toStringAsFixed(2)} ${item.currency}';
                                 return DataRow(cells: [
+                                  DataCell(Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
+                                        tooltip: l10n.copy,
+                                        onPressed: () => CopyHelper.copy(context, rowSummary),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
+                                        onPressed: () => ref.read(clearancePriceListProvider.notifier).deletePriceItem(item.priceItemId),
+                                      ),
+                                    ],
+                                  )),
                                   DataCell(CopyableTableCell(
                                     value: item.providerName,
                                     rowSummary: rowSummary,
@@ -794,20 +809,7 @@ class _CustomsClearanceQuotationsScreenState
                                     rowSummary: rowSummary,
                                     child: Text(item.notes ?? '-'),
                                   )),
-                                  DataCell(Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
-                                        tooltip: l10n.copy,
-                                        onPressed: () => CopyHelper.copy(context, rowSummary),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
-                                        onPressed: () => ref.read(clearancePriceListProvider.notifier).deletePriceItem(item.priceItemId),
-                                      ),
-                                    ],
-                                  )),
+
                                 ]);
                               }).toList(),
                             ),

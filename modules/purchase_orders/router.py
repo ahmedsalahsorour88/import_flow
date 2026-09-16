@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from database.database import get_db
 from modules.purchase_orders.schemas import (
+    ClonePurchaseOrderRequest,
     PackingListValidationReport,
     PurchaseOrderCreate,
     PurchaseOrderResponse,
@@ -89,5 +90,11 @@ def allocate_po_shipment(po_id: int, data: POShipmentAllocationCreate, db: Sessi
 def get_po_balance(po_id: int, db: Session = Depends(get_db)):
     service = PurchaseOrderService(db)
     return service.compute_po_balance(po_id)
+
+
+@router.post("/{po_id}/clone", response_model=PurchaseOrderResponse, status_code=status.HTTP_201_CREATED, summary="Clone a Purchase Order (Universal Clone Engine UX-CLONE-011)")
+def clone_purchase_order(po_id: int, payload: ClonePurchaseOrderRequest, db: Session = Depends(get_db)):
+    service = PurchaseOrderService(db)
+    return service.clone_purchase_order(po_id, payload)
 
 

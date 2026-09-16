@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/adaptive_tab_scaffold.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/live_pulse_badge.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/demurrage_model.dart';
 import '../providers/demurrage_provider.dart';
@@ -530,12 +531,6 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
 
   Widget _buildTrackingCard(DemurrageTrackingModel item) {
     final l10n = context.l10n;
-    Color statusColor = AppTheme.emerald;
-    if (item.status.contains('Demurrage') || item.status.contains('Detention')) {
-      statusColor = AppTheme.crimson;
-    } else if (item.isPushedToSettlement) {
-      statusColor = AppTheme.cobalt;
-    }
 
     return Card(
       elevation: 0,
@@ -601,17 +596,11 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                     Text('(${item.carrierName} - ${item.portName})', style: TextStyle(color: Colors.grey.shade600)),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: statusColor),
-                  ),
-                  child: Text(
-                    l10n.localizedDemurrageStatus(item.status),
-                    style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
+                LivePulseBadge.demurrage(
+                  status: item.status,
+                  accruedPenaltyEgp: item.totalCostEgp,
+                  customLabel: l10n.localizedDemurrageStatus(item.status),
+                  size: PulseBadgeSize.regular,
                 ),
               ],
             ),

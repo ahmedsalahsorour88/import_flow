@@ -196,7 +196,12 @@ class PurchaseOrderRepository:
 
             # Sync PO totals from Packing List if provided
             total_cbm = pkg_total_cbm if pkg_total_cbm > 0 else total_cbm
-            total_gross = pkg_total_gross if pkg_total_gross > 0 else total_gross
+            if pkg_total_gross > 0:
+                # Preserve certified master gross weight if within 100g rounding tolerance
+                if total_gross > 0 and abs(total_gross - pkg_total_gross) < 0.1:
+                    pass
+                else:
+                    total_gross = pkg_total_gross
             total_net = pkg_total_net if pkg_total_net > 0 else total_net
             total_pkgs = int(pkg_count) if pkg_count > 0 else total_pkgs
 
@@ -371,7 +376,10 @@ class PurchaseOrderRepository:
             if pkg_total_cbm > 0:
                 total_cbm = pkg_total_cbm
             if pkg_total_gross > 0:
-                total_gross = pkg_total_gross
+                if total_gross > 0 and abs(total_gross - pkg_total_gross) < 0.1:
+                    pass
+                else:
+                    total_gross = pkg_total_gross
             if pkg_total_net > 0:
                 total_net = pkg_total_net
             if pkg_count > 0:

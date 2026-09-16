@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -901,4 +902,32 @@ class OriginalDocsExportService {
       name: 'Original_Docs_Registry_${DateTime.now().millisecondsSinceEpoch}.pdf',
     );
   }
+
+  static Future<void> launchCarrierTracking(String company, String awb) async {
+    final cleanAwb = awb.trim();
+    final c = company.toUpperCase();
+    String url = 'https://www.google.com/search?q=$company+$cleanAwb+tracking';
+    if (c.contains('DHL')) {
+      url = 'https://www.dhl.com/en/express/tracking.html?AWB=$cleanAwb';
+    } else if (c.contains('FEDEX')) {
+      url = 'https://www.fedex.com/fedextrack/?trknbr=$cleanAwb';
+    } else if (c.contains('ARAMEX')) {
+      url = 'https://www.aramex.com/track/results?mode=0&ShipmentNumber=$cleanAwb';
+    } else if (c.contains('UPS')) {
+      url = 'https://www.ups.com/track?tracknum=$cleanAwb';
+    } else if (c.contains('NAQEL')) {
+      url = 'https://www.naqelexpress.com/tracking?trackNumbers=$cleanAwb';
+    } else if (c.contains('SMSA')) {
+      url = 'https://www.smsaexpress.com/track?trackNumber=$cleanAwb';
+    }
+
+    try {
+      if (Platform.isWindows) {
+        await Process.run('cmd', ['/c', 'start', '', url.replaceAll('&', '^&')], runInShell: true);
+      }
+    } catch (e) {
+      debugPrint('Error launching carrier tracking URL: $e');
+    }
+  }
 }
+

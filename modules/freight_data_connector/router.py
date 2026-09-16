@@ -47,6 +47,11 @@ def get_latest_snapshots(db: Session = Depends(get_db)):
     response_model=FreightIndexSyncResponse,
     summary="Manually trigger SFX weekly freight index sync via shaq-freight"
 )
+@freight_data_router.post(
+    "/sync-shaq-freight",
+    response_model=FreightIndexSyncResponse,
+    summary="Alias: Manually trigger SFX weekly freight index sync via shaq-freight"
+)
 def sync_freight_index(db: Session = Depends(get_db)):
     service = FreightDataService(db)
     count = service.sync_shaq_freight_index(force_sample_if_unavailable=True)
@@ -57,6 +62,7 @@ def sync_freight_index(db: Session = Depends(get_db)):
         synced_at=service.get_connector_status().last_sfx_sync or datetime.now(),
         message=f"Successfully synced {count} global trade lane rate snapshots."
     )
+
 
 
 @freight_data_router.get(

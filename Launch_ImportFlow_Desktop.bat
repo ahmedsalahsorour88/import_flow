@@ -13,7 +13,7 @@ for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":28080"') do taskkill /f /pi
 
 :: Start Backend API in minimized background process
 echo Starting Backend API...
-start "Sorour Logistics Backend" /min cmd /c "cd /d %~dp0 && python -m uvicorn main:app --host 127.0.0.1 --port 28080"
+start "Sorour Logistics Backend" /min cmd /c "cd /d %~dp0 && python -m uvicorn main:app --host 127.0.0.1 --port 28080 --reload"
 
 :: Wait 2 seconds for API server ready
 ping 127.0.0.1 -n 3 >nul 2>&1

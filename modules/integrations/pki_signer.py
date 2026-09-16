@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import os
 from datetime import datetime, timezone
 from typing import Dict, Any
 
@@ -27,7 +28,8 @@ class PKISignerService:
             encoded_signature = base64.b64encode(dummy_signature.encode("utf-8")).decode("utf-8")
         else:
             # Production PKI signing logic (using cryptography or PKCS11 Token Key interface)
-            signature_bytes = hashlib.sha256(serialized_bytes + b"_EGY_TRUST_PKI_KEY").digest()
+            pki_key = os.getenv("EGY_TRUST_PKI_KEY", "EGY_TRUST_PKI_KEY").encode("utf-8")
+            signature_bytes = hashlib.sha256(serialized_bytes + b"_" + pki_key).digest()
             encoded_signature = base64.b64encode(signature_bytes).decode("utf-8")
 
         return {

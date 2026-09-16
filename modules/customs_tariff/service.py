@@ -44,9 +44,19 @@ def create_tariff_service(db: Session, data: CustomsTariffCreate) -> CustomsTari
 
 
 def get_all_tariffs_service(
-    db: Session, include_inactive: bool = False, search: Optional[str] = None
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
 ) -> List[CustomsTariff]:
-    return repository.get_all_tariffs(db, include_inactive=include_inactive, search=search)
+    return repository.get_all_tariffs(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        skip=skip,
+        limit=limit,
+    )
 
 
 def get_tariff_by_id_service(db: Session, tariff_id: int) -> CustomsTariff:

@@ -32,10 +32,11 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
 
   final List<String> _allStepCodes = [
     'STEP_01', 'STEP_02', 'STEP_03', 'STEP_04', 'STEP_05',
-    'STEP_06', 'STEP_07', 'STEP_08', 'STEP_09', 'STEP_10',
-    'STEP_11', 'STEP_12', 'STEP_13', 'STEP_14', 'STEP_15',
-    'STEP_16', 'STEP_17', 'STEP_18', 'STEP_19', 'STEP_20',
-    'STEP_21',
+    'STEP_06', 'STEP_07',
+    'STEP_08_PO', 'STEP_08_BL', 'STEP_08_MATCH', 'STEP_08_COO', 'STEP_08_COC',
+    'STEP_09', 'STEP_10', 'STEP_11', 'STEP_12', 'STEP_13',
+    'STEP_14', 'STEP_15', 'STEP_16', 'STEP_17', 'STEP_18',
+    'STEP_19', 'STEP_20', 'STEP_21',
   ];
 
   @override
@@ -97,10 +98,10 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
 
   void _suggestNextSteps() {
     final cur = widget.shipment.stepCode;
-    final index = int.tryParse(cur.replaceAll('STEP_', '')) ?? 1;
-    if (index < 21) {
-      final nextCode = 'STEP_${(index + 1).toString().padLeft(2, '0')}';
-      _selectedNextSteps.add(nextCode);
+    final normalized = (cur == 'STEP_08') ? 'STEP_08_PO' : cur;
+    final index = _allStepCodes.indexOf(normalized);
+    if (index >= 0 && index < _allStepCodes.length - 1) {
+      _selectedNextSteps.add(_allStepCodes[index + 1]);
     }
   }
 
@@ -680,7 +681,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
+              Text(label, style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
               const SizedBox(height: 2),
               Row(
                 mainAxisSize: MainAxisSize.min,

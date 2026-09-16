@@ -6,10 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/live_pulse_badge.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
+import '../widgets/search_and_clone_acid_dialog.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -18,6 +21,8 @@ import '../../suppliers/models/supplier_model.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
 import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
+import '../../../core/helpers/table_copy_helper.dart';
+import '../../../core/services/table_export_service.dart';
 
 class NafezaAcidScreen extends ConsumerStatefulWidget {
   final int initialSubTab;
@@ -281,6 +286,163 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
     }
   }
 
+  void _openSearchAndCloneDialog() {
+    final acidSessions = ref.read(acidSessionsProvider).valueOrNull ?? [];
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: Localizations.localeOf(context),
+        child: Directionality(
+          textDirection: Directionality.of(context),
+          child: SearchAndCloneAcidDialog(
+            sessions: acidSessions,
+            onSelectSession: _onCloneAcidSelected,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _onCloneAcidSelected(AcidRegistrationModel session) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: Localizations.localeOf(context),
+        child: Directionality(
+          textDirection: Directionality.of(context),
+          child: CloneEntityReviewDialog(
+            entityType: 'طلب تسجيل مسبق للشحنات (ACID)',
+            sourceCode: session.acidNumber.isNotEmpty ? session.acidNumber : session.acidCode,
+            sourceTitle: session.importerName,
+            suggestedNewCode: 'ACID-EG-2026-DRAFT',
+            copiedFieldsSummary: {
+              'المستورد': session.importerName,
+              'المصدر الأجنبي': session.exporterName,
+              'بلد التصدير': session.exporterCountry,
+              'رقم الفاتورة المبدئية': session.proformaInvoiceNo,
+              'الموانئ': '${session.polName} → ${session.podName}',
+            },
+            mandatorilyResetFields: const [
+              'رقم ACID: يتم تصفيره إلى مسودة جديدة (Draft)',
+              'حالة الإفراج الجمركي: ملغاة (False)',
+              'تاريخ الطلب: يعاد ضبطه إلى تاريخ اليوم',
+              'معرف الجلسة السابق: تم فك الارتباط',
+            ],
+            allowCopyLineItems: false,
+            allowCopyAttachments: false,
+            onConfirm: ({
+              required String newCode,
+              required String newTitle,
+              required bool copyLineItems,
+              required bool copyAttachments,
+              String? notes,
+            }) async {
+              setState(() {
+                _editingAcidSessionId = null;
+                _editingAcidCode = null;
+                _selectedSubTab = 0;
+                _selectedImportFileId = session.importFileId;
+                _acidNumberCtrl.text = 'ACID-EG-2026-';
+                _selectedImporterId = session.importerId;
+                _importerNameCtrl.text = session.importerName;
+                _importerTaxIdCtrl.text = session.importerTaxId;
+                _importerAddressCtrl.text = session.importerAddress ?? '';
+                _selectedSupplierId = session.supplierId;
+                _exporterNameCtrl.text = session.exporterName;
+                _exporterCountryCtrl.text = session.exporterCountry;
+                _exporterAddressCtrl.text = session.exporterAddress ?? '';
+                _exporterPhoneCtrl.text = session.exporterPhone ?? '';
+                _cargoxIdCtrl.text = session.cargoxId ?? '';
+                _exporterRegIdCtrl.text = session.exporterRegId;
+                _exporterRegType = session.exporterRegType ?? 'VAT Number';
+                _selectedPoId = session.poId;
+                _poNoCtrl.text = session.poNumber ?? '';
+                _proformaNoCtrl.text = '${session.proformaInvoiceNo} (نسخة)';
+                _proformaDateCtrl.text = session.proformaInvoiceDate ?? DateTime.now().toString().substring(0, 10);
+                _invoiceType = session.invoiceType ?? 'Proforma Invoice';
+                _polCtrl.text = session.polName;
+                _podCtrl.text = session.podName;
+                _selectedBrokerId = session.customsBrokerId;
+                _brokerNameCtrl.text = session.customsBrokerName ?? '';
+                _brokerPhoneCtrl.text = session.customsBrokerPhone ?? '';
+                _requestedDateCtrl.text = DateTime.now().toString().substring(0, 10);
+              });
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(context.l10n.cloneAcidSuccess),
+                  backgroundColor: AppTheme.wcagEmerald,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openImportRawTextFromPreviousDialog() {
+    final acidSessions = ref.read(acidSessionsProvider).valueOrNull ?? [];
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: Localizations.localeOf(context),
+        child: Directionality(
+          textDirection: Directionality.of(context),
+          child: SearchAndCloneAcidDialog(
+            sessions: acidSessions,
+            onSelectSession: (session) {
+              final acidNum = session.acidNumber.isNotEmpty && session.acidNumber != 'PENDING'
+                  ? session.acidNumber
+                  : '5281534391023010013';
+
+              final rawReconstructed = '''MTS Notification
+Dear ${session.exporterName},
+
+Kindly be informed that an Advance Cargo Information request (ACI) has been approved for shipping:
+[ACID: $acidNum]
+Requested: ${session.requestedDate ?? ''}   Generated: ${session.generatedDate ?? ''}   Expires: ${session.expiryDate ?? ''}
+
+Egyptian Importer
+Egyptian Importer Name: ${session.importerName}
+Egyptian Importer Tax ID: ${session.importerTaxId}
+Address: ${session.importerAddress ?? ''}
+
+Foreign Exporter
+Foreign Exporter Name: ${session.exporterName}
+Foreign Exporter ID: ${session.exporterRegId}
+Registration Type: ${session.exporterRegType ?? 'Company Registration Number'}
+Country of Export: ${session.exporterCountry}
+
+Proforma Invoice No.: ${session.proformaInvoiceNo}
+Port of Loading: ${session.polName}
+Port of Discharge: ${session.podName}
+CargoX Platform ID: ${session.cargoxId ?? ''}''';
+
+              setState(() {
+                _rawMtsTextCtrl.text = rawReconstructed;
+                if (session.importFileId != null && _selectedImportFileId == null) {
+                  _onImportFileChanged(session.importFileId);
+                }
+              });
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(context.l10n.rawTextImportedSuccess),
+                  backgroundColor: AppTheme.wcagEmerald,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+
+              _parseMtsText();
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final acidSessions = ref.watch(acidSessionsProvider).valueOrNull ?? [];
@@ -377,16 +539,36 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
       selectedImportFileId: _selectedImportFileId,
       onShipmentStatusChanged: _refreshData,
       headerActions: [
+        OutlinedButton.icon(
+          key: const Key('searchAndCloneAcidBtn'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            side: const BorderSide(color: Colors.white60),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+          onPressed: _openSearchAndCloneDialog,
+          icon: const Icon(Icons.copy_all, size: 16),
+          label: Text(context.l10n.searchAndCloneAcidBtn, style: const TextStyle(fontSize: 12)),
+        ),
+        const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
           tooltip: context.l10n.refresh,
           onPressed: _refreshData,
         ),
       ],
-      body: SingleChildScrollView(
-        controller: _scrollController,
-        padding: const EdgeInsets.all(20),
-        child: _buildCurrentSubTabContent(),
+      body: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyD, control: true): _openSearchAndCloneDialog,
+        },
+        child: Focus(
+          autofocus: true,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            padding: const EdgeInsets.all(20),
+            child: _buildCurrentSubTabContent(),
+          ),
+        ),
       ),
     );
   }
@@ -415,287 +597,187 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
     final suppliers = ref.watch(suppliersProvider).valueOrNull ?? [];
     final partners = ref.watch(partnersProvider).valueOrNull ?? [];
     final brokers = partners.where((p) => p.partnerType.contains('Broker') || p.partnerType.contains('مخلص')).toList();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Form(
-      key: _requestFormKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Informational Alert
-          Container(
-            padding: const EdgeInsets.all(14),
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.blue.shade200),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline, color: AppTheme.cobalt, size: 24),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    context.l10n.acidInfoBanner,
-                    style: TextStyle(color: Colors.blue.shade900, fontSize: 13, height: 1.4),
-                  ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 768;
+
+        return Form(
+          key: _requestFormKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Informational Alert
+              Container(
+                padding: const EdgeInsets.all(14),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1A2634) : Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: isDark ? AppTheme.wcagCobalt.withOpacity(0.5) : Colors.blue.shade200),
                 ),
-              ],
-            ),
-          ),
-
-          // Edit Mode Banner
-          if (_editingAcidSessionId != null) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.amber.shade400, width: 1.5),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.edit_note, color: Colors.orange, size: 26),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CopyableText(
-                          '${context.l10n.activeEditModeBanner}: ${_editingAcidCode ?? ''}',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900, fontSize: 13.5),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          context.l10n.acidSessionLoadedForEdit(_editingAcidCode ?? ''),
-                          style: const TextStyle(fontSize: 12, color: Colors.black87),
-                        ),
-                      ],
-                    ),
-                  ),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.orange.shade900, side: BorderSide(color: Colors.orange.shade400)),
-                    onPressed: () {
-                      setState(() {
-                        _editingAcidSessionId = null;
-                        _editingAcidCode = null;
-                      });
-                    },
-                    icon: const Icon(Icons.close, size: 16),
-                    label: Text(context.l10n.cancelEdit),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          // File Selector Card
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: SearchableDropdownField<int>(
-              labelText: context.l10n.selectImportFileAcidLabel,
-              hintText: context.l10n.searchFileOrSupplierHint,
-              value: _selectedImportFileId,
-              isRequired: true,
-              items: importFiles.map((f) => SearchableDropdownItem<int>(
-                value: f.importFileId,
-                label: '${f.primaryNameWithCode}${f.poNumber != null && f.poNumber!.isNotEmpty ? " [PO: ${f.poNumber!}]" : ""} — ${f.supplierName} (${f.companyName})',
-              )).toList(),
-              onChanged: _onImportFileChanged,
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Importer & Exporter Card
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.importerAndExporterSection,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                ),
-                const Divider(height: 24),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    // Importer Column
+                    const Icon(Icons.info_outline, color: AppTheme.wcagCobalt, size: 24),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('🏢 ${context.l10n.importerSectionTitle}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          const SizedBox(height: 10),
-                          SearchableDropdownField<int>(
-                            labelText: context.l10n.importerSectionTitle,
-                            hintText: context.l10n.searchFileOrSupplierHint,
-                            value: _selectedImporterId,
-                            isRequired: true,
-                            items: importCompanies.map((c) => SearchableDropdownItem<int>(
-                              value: c.companyId ?? 0,
-                              label: '${c.importerName} (${c.importerId})',
-                            )).toList(),
-                            onChanged: (val) {
-                              setState(() => _selectedImporterId = val);
-                              final c = importCompanies.where((comp) => comp.companyId == val).firstOrNull;
-                              if (c != null) {
-                                _importerNameCtrl.text = c.importerName;
-                                _importerTaxIdCtrl.text = c.vatId;
-                                _importerAddressCtrl.text = c.address;
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _importerTaxIdCtrl,
-                            decoration: InputDecoration(
-                              labelText: '${context.l10n.importerTaxIdLabel} *',
-                              prefixIcon: const Icon(Icons.badge_outlined),
-                              border: const OutlineInputBorder(),
-                            ),
-                            validator: (v) => v == null || v.trim().isEmpty ? context.l10n.importerTaxIdLabel : null,
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _importerAddressCtrl,
-                            decoration: InputDecoration(
-                              labelText: context.l10n.importerAddressLabel,
-                              prefixIcon: const Icon(Icons.location_on_outlined),
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-
-                    // Exporter Column
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('🌍 ${context.l10n.foreignExporterSectionTitle}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          const SizedBox(height: 10),
-                          SearchableDropdownField<int>(
-                            labelText: context.l10n.foreignExporterSectionTitle,
-                            hintText: context.l10n.searchFileOrSupplierHint,
-                            value: _selectedSupplierId,
-                            isRequired: true,
-                            items: suppliers.map((s) => SearchableDropdownItem<int>(
-                              value: s.supplierId ?? 0,
-                              label: '${s.companyName} (${s.foreignExporterCountry})',
-                            )).toList(),
-                            onChanged: (val) {
-                              setState(() => _selectedSupplierId = val);
-                              final s = suppliers.where((supp) => supp.supplierId == val).firstOrNull;
-                              if (s != null) {
-                                _exporterNameCtrl.text = s.companyName;
-                                _exporterCountryCtrl.text = s.foreignExporterCountry;
-                                _exporterAddressCtrl.text = s.address;
-                                _exporterPhoneCtrl.text = s.phone ?? '';
-                                _cargoxIdCtrl.text = s.cargoxPlatformId ?? '';
-                                _exporterRegIdCtrl.text = s.foreignExporterId;
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: TextFormField(
-                                  controller: _exporterRegIdCtrl,
-                                  decoration: InputDecoration(
-                                    labelText: '${context.l10n.foreignExporterIdLabel} *',
-                                    helperText: _exporterRegType,
-                                    border: const OutlineInputBorder(),
-                                  ),
-                                  validator: (v) => v == null || v.trim().isEmpty ? context.l10n.foreignExporterIdLabel : null,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: SearchableDropdownField<String>(
-                                  value: _exporterRegType,
-                                  labelText: context.l10n.regTypeLabel,
-                                  items: [
-                                    SearchableDropdownItem(value: 'VAT Number', label: context.l10n.vatRegType),
-                                    SearchableDropdownItem(value: 'Commercial Register', label: context.l10n.crRegType),
-                                    SearchableDropdownItem(value: 'Tax ID', label: context.l10n.taxIdRegType),
-                                    SearchableDropdownItem(value: 'DUNS Number', label: context.l10n.dunsRegType),
-                                  ],
-                                  onChanged: (val) => setState(() => _exporterRegType = val ?? 'VAT Number'),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _exporterCountryCtrl,
-                                  decoration: InputDecoration(
-                                    labelText: '${context.l10n.countryOfOriginExportLabel} *',
-                                    border: const OutlineInputBorder(),
-                                  ),
-                                  validator: (v) => v == null || v.trim().isEmpty ? context.l10n.countryOfOriginExportLabel : null,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _cargoxIdCtrl,
-                                  decoration: InputDecoration(
-                                    labelText: context.l10n.cargoxPlatformIdLabel,
-                                    border: const OutlineInputBorder(),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                      child: Text(
+                        context.l10n.acidInfoBanner,
+                        style: TextStyle(
+                          color: isDark ? const Color(0xFF93C5FD) : Colors.blue.shade900,
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
+              ),
 
-          // Invoice, Ports & Broker Card
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.proformaPortsBrokerSection,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+              // Edit Mode Banner
+              if (_editingAcidSessionId != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF2C2411) : Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: isDark ? AppTheme.wcagOrange : Colors.amber.shade400, width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.edit_note, color: Colors.orange, size: 26),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            CopyableText(
+                              '${context.l10n.activeEditModeBanner}: ${_editingAcidCode ?? ''}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? const Color(0xFFFDE68A) : Colors.orange.shade900,
+                                fontSize: 13.5,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              context.l10n.acidSessionLoadedForEdit(_editingAcidCode ?? ''),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? AppTheme.darkTextSecondary : Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? const Color(0xFFFDE68A) : Colors.orange.shade900,
+                          side: BorderSide(color: isDark ? AppTheme.wcagOrange : Colors.orange.shade400),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _editingAcidSessionId = null;
+                            _editingAcidCode = null;
+                          });
+                        },
+                        icon: const Icon(Icons.close, size: 16),
+                        label: Text(context.l10n.cancelEdit),
+                      ),
+                    ],
+                  ),
                 ),
-                const Divider(height: 24),
-                Row(
+              ],
+
+              // File Selector Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                ),
+                child: SearchableDropdownField<int>(
+                  labelText: context.l10n.selectImportFileAcidLabel,
+                  hintText: context.l10n.searchFileOrSupplierHint,
+                  value: _selectedImportFileId,
+                  isRequired: true,
+                  items: importFiles.map((f) => SearchableDropdownItem<int>(
+                    value: f.importFileId,
+                    label: '${f.primaryNameWithCode}${f.poNumber != null && f.poNumber!.isNotEmpty ? " [PO: ${f.poNumber!}]" : ""} — ${f.supplierName} (${f.companyName})',
+                  )).toList(),
+                  onChanged: _onImportFileChanged,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Importer & Exporter Card
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: TextFormField(
+                    Text(
+                      context.l10n.importerAndExporterSection,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                      ),
+                    ),
+                    const Divider(height: 24),
+                    if (isMobile) ...[
+                      // Mobile Stacked Importer & Exporter
+                      _buildImporterSection(importCompanies),
+                      const SizedBox(height: 20),
+                      const Divider(),
+                      const SizedBox(height: 16),
+                      _buildExporterSection(suppliers),
+                    ] else ...[
+                      // Desktop Side-by-Side Importer & Exporter
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: _buildImporterSection(importCompanies)),
+                          const SizedBox(width: 24),
+                          Expanded(child: _buildExporterSection(suppliers)),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Invoice, Ports & Broker Card
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.l10n.proformaPortsBrokerSection,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                      ),
+                    ),
+                    const Divider(height: 24),
+                    if (isMobile) ...[
+                      TextFormField(
                         controller: _proformaNoCtrl,
                         decoration: InputDecoration(
                           labelText: '${context.l10n.proformaInvoiceNoLabel} *',
@@ -704,10 +786,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                         ),
                         validator: (v) => v == null || v.trim().isEmpty ? context.l10n.proformaInvoiceNoLabel : null,
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: TextFormField(
+                      const SizedBox(height: 12),
+                      TextFormField(
                         controller: _proformaDateCtrl,
                         decoration: InputDecoration(
                           labelText: '${context.l10n.proformaInvoiceDateLabel} *',
@@ -715,10 +795,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                           border: const OutlineInputBorder(),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: SearchableDropdownField<String>(
+                      const SizedBox(height: 12),
+                      SearchableDropdownField<String>(
                         value: _invoiceType,
                         labelText: context.l10n.invoiceTypeLabel,
                         items: [
@@ -727,14 +805,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                         ],
                         onChanged: (val) => setState(() => _invoiceType = val ?? 'Proforma Invoice'),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
+                      const SizedBox(height: 12),
+                      TextFormField(
                         controller: _polCtrl,
                         decoration: InputDecoration(
                           labelText: '${context.l10n.portOfLoadingLabel} *',
@@ -743,10 +815,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                         ),
                         validator: (v) => v == null || v.trim().isEmpty ? context.l10n.portOfLoadingLabel : null,
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: TextFormField(
+                      const SizedBox(height: 12),
+                      TextFormField(
                         controller: _podCtrl,
                         decoration: InputDecoration(
                           labelText: '${context.l10n.portOfDischargeLabel} *',
@@ -755,14 +825,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                         ),
                         validator: (v) => v == null || v.trim().isEmpty ? context.l10n.portOfDischargeLabel : null,
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: SearchableDropdownField<int>(
+                      const SizedBox(height: 12),
+                      SearchableDropdownField<int>(
                         labelText: context.l10n.customsBrokerResponsibleLabel,
                         hintText: context.l10n.searchFileOrSupplierHint,
                         value: _selectedBrokerId,
@@ -779,10 +843,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                           }
                         },
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: TextFormField(
+                      const SizedBox(height: 12),
+                      TextFormField(
                         controller: _brokerPhoneCtrl,
                         decoration: InputDecoration(
                           labelText: context.l10n.brokerPhoneLabel,
@@ -790,10 +852,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                           border: const OutlineInputBorder(),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: TextFormField(
+                      const SizedBox(height: 12),
+                      TextFormField(
                         controller: _requestedDateCtrl,
                         decoration: InputDecoration(
                           labelText: '${context.l10n.acidRequestDateLabel} *',
@@ -801,407 +861,798 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                           border: const OutlineInputBorder(),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // Submit Button
-                Row(
-                  children: [
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.charcoal,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      onPressed: _isSaving ? null : _saveAcidRequest,
-                      icon: _isSaving
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Icon(Icons.save),
-                      label: Text(
-                        _isSaving
-                            ? context.l10n.loading
-                            : (_editingAcidSessionId != null ? context.l10n.updateAcidRequestButton : context.l10n.saveAcidRequestButton),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16)),
-                      onPressed: () => setState(() => _selectedSubTab = 1),
-                      icon: const Icon(Icons.smart_toy_outlined),
-                      label: Text(context.l10n.goToSmartParserButton),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Live Generated Broker Message Preview Card
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0FDF4),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.green.shade300, width: 1.5),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.mark_email_read_outlined, color: Colors.green, size: 24),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    ] else ...[
+                      Row(
                         children: [
-                          Text(
-                            context.l10n.brokerDispatchMessageTitle,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.green),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _proformaNoCtrl,
+                              decoration: InputDecoration(
+                                labelText: '${context.l10n.proformaInvoiceNoLabel} *',
+                                prefixIcon: const Icon(Icons.receipt_outlined),
+                                border: const OutlineInputBorder(),
+                              ),
+                              validator: (v) => v == null || v.trim().isEmpty ? context.l10n.proformaInvoiceNoLabel : null,
+                            ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            context.l10n.brokerDispatchMessageSub,
-                            style: const TextStyle(fontSize: 12, color: Colors.black87),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _proformaDateCtrl,
+                              decoration: InputDecoration(
+                                labelText: '${context.l10n.proformaInvoiceDateLabel} *',
+                                prefixIcon: const Icon(Icons.calendar_today_outlined),
+                                border: const OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: SearchableDropdownField<String>(
+                              value: _invoiceType,
+                              labelText: context.l10n.invoiceTypeLabel,
+                              items: [
+                                SearchableDropdownItem(value: 'Proforma Invoice', label: context.l10n.proformaInvoiceLabel),
+                                SearchableDropdownItem(value: 'Commercial Invoice', label: context.l10n.commercialInvoiceLabel),
+                              ],
+                              onChanged: (val) => setState(() => _invoiceType = val ?? 'Proforma Invoice'),
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF25D366),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _polCtrl,
+                              decoration: InputDecoration(
+                                labelText: '${context.l10n.portOfLoadingLabel} *',
+                                prefixIcon: const Icon(Icons.directions_boat_outlined),
+                                border: const OutlineInputBorder(),
+                              ),
+                              validator: (v) => v == null || v.trim().isEmpty ? context.l10n.portOfLoadingLabel : null,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _podCtrl,
+                              decoration: InputDecoration(
+                                labelText: '${context.l10n.portOfDischargeLabel} *',
+                                prefixIcon: const Icon(Icons.anchor),
+                                border: const OutlineInputBorder(),
+                              ),
+                              validator: (v) => v == null || v.trim().isEmpty ? context.l10n.portOfDischargeLabel : null,
+                            ),
+                          ),
+                        ],
                       ),
-                      onPressed: () {
-                        CopyHelper.copy(context, _buildWhatsAppMessage(), customMessage: context.l10n.whatsAppMessageCopied);
-                      },
-                      icon: const Icon(Icons.copy, size: 16),
-                      label: Text(context.l10n.copyArabicWhatsApp, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: SearchableDropdownField<int>(
+                              labelText: context.l10n.customsBrokerResponsibleLabel,
+                              hintText: context.l10n.searchFileOrSupplierHint,
+                              value: _selectedBrokerId,
+                              items: brokers.map((b) => SearchableDropdownItem<int>(
+                                value: b.providerId ?? 0,
+                                label: '${b.partnerName} (${b.partnerCode})',
+                              )).toList(),
+                              onChanged: (val) {
+                                setState(() => _selectedBrokerId = val);
+                                final b = brokers.where((brk) => brk.providerId == val).firstOrNull;
+                                if (b != null) {
+                                  _brokerNameCtrl.text = b.partnerName;
+                                  _brokerPhoneCtrl.text = b.phone ?? '';
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _brokerPhoneCtrl,
+                              decoration: InputDecoration(
+                                labelText: context.l10n.brokerPhoneLabel,
+                                prefixIcon: const Icon(Icons.phone_outlined),
+                                border: const OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _requestedDateCtrl,
+                              decoration: InputDecoration(
+                                labelText: '${context.l10n.acidRequestDateLabel} *',
+                                prefixIcon: const Icon(Icons.event_available),
+                                border: const OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      onPressed: () {
-                        CopyHelper.copy(context, _buildEnglishRequestMessage(), customMessage: context.l10n.acidRequestCopied);
-                      },
-                      icon: const Icon(Icons.language, size: 16),
-                      label: Text(context.l10n.copyEnglishRequest, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.charcoal,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      ),
-                      onPressed: () {
-                        CopyHelper.copy(context, _buildEmailMessage(), customMessage: context.l10n.emailTemplateCopied);
-                      },
-                      icon: const Icon(Icons.email_outlined, size: 16),
-                      label: Text(context.l10n.emailTemplateButton),
+                    ],
+                    const SizedBox(height: 24),
+
+                    // Submit & Action Buttons
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        ElevatedButton.icon(
+                          key: const Key('saveAcidRequestSubmitBtn'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.wcagCobalt,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: _isSaving ? null : _saveAcidRequest,
+                          icon: _isSaving
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Icon(Icons.save),
+                          label: Text(
+                            _isSaving
+                                ? context.l10n.loading
+                                : (_editingAcidSessionId != null ? context.l10n.updateAcidRequestButton : context.l10n.saveAcidRequestButton),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                            foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
+                          ),
+                          onPressed: () => setState(() => _selectedSubTab = 1),
+                          icon: const Icon(Icons.smart_toy_outlined),
+                          label: Text(context.l10n.goToSmartParserButton),
+                        ),
+                        OutlinedButton.icon(
+                          key: const Key('subtab0SearchAndCloneBtn'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                            foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
+                          ),
+                          onPressed: _openSearchAndCloneDialog,
+                          icon: const Icon(Icons.copy_all, size: 18),
+                          label: Text(context.l10n.searchAndCloneAcidBtn),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const Divider(height: 24),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.green.shade200),
-                  ),
-                  child: SelectableText(
-                    Localizations.localeOf(context).languageCode == 'en' ? _buildEnglishRequestMessage() : _buildWhatsAppMessage(),
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 13, height: 1.5, color: AppTheme.charcoal),
-                  ),
+              ),
+              const SizedBox(height: 20),
+
+              // Live Generated Broker Message Preview Card
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1B2E24) : const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isDark ? AppTheme.wcagEmerald.withOpacity(0.5) : Colors.green.shade300, width: 1.5),
                 ),
-              ],
-            ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.mark_email_read_outlined, color: isDark ? AppTheme.wcagEmerald : Colors.green, size: 24),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.l10n.brokerDispatchMessageTitle,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: isDark ? AppTheme.wcagEmerald : Colors.green,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                context.l10n.brokerDispatchMessageSub,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? AppTheme.darkTextSecondary : Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF25D366),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          ),
+                          onPressed: () {
+                            CopyHelper.copy(context, _buildWhatsAppMessage(), customMessage: context.l10n.whatsAppMessageCopied);
+                          },
+                          icon: const Icon(Icons.copy, size: 16),
+                          label: Text(context.l10n.copyArabicWhatsApp, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.wcagCobalt,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          ),
+                          onPressed: () {
+                            CopyHelper.copy(context, _buildEnglishRequestMessage(), customMessage: context.l10n.acidRequestCopied);
+                          },
+                          icon: const Icon(Icons.language, size: 16),
+                          label: Text(context.l10n.copyEnglishRequest, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          ),
+                          onPressed: () {
+                            CopyHelper.copy(context, _buildEmailMessage(), customMessage: context.l10n.emailTemplateCopied);
+                          },
+                          icon: const Icon(Icons.email_outlined, size: 16),
+                          label: Text(context.l10n.emailTemplateButton),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkSurface : Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.green.shade200),
+                      ),
+                      child: SelectableText(
+                        Localizations.localeOf(context).languageCode == 'en' ? _buildEnglishRequestMessage() : _buildWhatsAppMessage(),
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 13,
+                          height: 1.5,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
+    );
+  }
+
+  Widget _buildImporterSection(List<dynamic> importCompanies) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('🏢 ${context.l10n.importerSectionTitle}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        const SizedBox(height: 10),
+        SearchableDropdownField<int>(
+          labelText: context.l10n.importerSectionTitle,
+          hintText: context.l10n.searchFileOrSupplierHint,
+          value: _selectedImporterId,
+          isRequired: true,
+          items: importCompanies.map((c) => SearchableDropdownItem<int>(
+            value: c.companyId ?? 0,
+            label: '${c.importerName} (${c.importerId})',
+          )).toList(),
+          onChanged: (val) {
+            setState(() => _selectedImporterId = val);
+            final c = importCompanies.where((comp) => comp.companyId == val).firstOrNull;
+            if (c != null) {
+              _importerNameCtrl.text = c.importerName;
+              _importerTaxIdCtrl.text = c.vatId;
+              _importerAddressCtrl.text = c.address;
+            }
+          },
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _importerTaxIdCtrl,
+          decoration: InputDecoration(
+            labelText: '${context.l10n.importerTaxIdLabel} *',
+            prefixIcon: const Icon(Icons.badge_outlined),
+            border: const OutlineInputBorder(),
+          ),
+          validator: (v) => v == null || v.trim().isEmpty ? context.l10n.importerTaxIdLabel : null,
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _importerAddressCtrl,
+          decoration: InputDecoration(
+            labelText: context.l10n.importerAddressLabel,
+            prefixIcon: const Icon(Icons.location_on_outlined),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExporterSection(List<dynamic> suppliers) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('🌍 ${context.l10n.foreignExporterSectionTitle}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        const SizedBox(height: 10),
+        SearchableDropdownField<int>(
+          labelText: context.l10n.foreignExporterSectionTitle,
+          hintText: context.l10n.searchFileOrSupplierHint,
+          value: _selectedSupplierId,
+          isRequired: true,
+          items: suppliers.map((s) => SearchableDropdownItem<int>(
+            value: s.supplierId ?? 0,
+            label: '${s.companyName} (${s.foreignExporterCountry})',
+          )).toList(),
+          onChanged: (val) {
+            setState(() => _selectedSupplierId = val);
+            final s = suppliers.where((supp) => supp.supplierId == val).firstOrNull;
+            if (s != null) {
+              _exporterNameCtrl.text = s.companyName;
+              _exporterCountryCtrl.text = s.foreignExporterCountry;
+              _exporterAddressCtrl.text = s.address;
+              _exporterPhoneCtrl.text = s.phone ?? '';
+              _cargoxIdCtrl.text = s.cargoxPlatformId ?? '';
+              _exporterRegIdCtrl.text = s.foreignExporterId;
+            }
+          },
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: TextFormField(
+                controller: _exporterRegIdCtrl,
+                decoration: InputDecoration(
+                  labelText: '${context.l10n.foreignExporterIdLabel} *',
+                  helperText: _exporterRegType,
+                  border: const OutlineInputBorder(),
+                ),
+                validator: (v) => v == null || v.trim().isEmpty ? context.l10n.foreignExporterIdLabel : null,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: SearchableDropdownField<String>(
+                value: _exporterRegType,
+                labelText: context.l10n.regTypeLabel,
+                items: [
+                  SearchableDropdownItem(value: 'VAT Number', label: context.l10n.vatRegType),
+                  SearchableDropdownItem(value: 'Commercial Register', label: context.l10n.crRegType),
+                  SearchableDropdownItem(value: 'Tax ID', label: context.l10n.taxIdRegType),
+                  SearchableDropdownItem(value: 'DUNS Number', label: context.l10n.dunsRegType),
+                ],
+                onChanged: (val) => setState(() => _exporterRegType = val ?? 'VAT Number'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _exporterCountryCtrl,
+                decoration: InputDecoration(
+                  labelText: '${context.l10n.countryOfOriginExportLabel} *',
+                  border: const OutlineInputBorder(),
+                ),
+                validator: (v) => v == null || v.trim().isEmpty ? context.l10n.countryOfOriginExportLabel : null,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextFormField(
+                controller: _cargoxIdCtrl,
+                decoration: InputDecoration(
+                  labelText: context.l10n.cargoxPlatformIdLabel,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
   // --- SUB-VIEW 1: SMART MTS PARSER TAB ---
   Widget _buildSmartMtsParserTab() {
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(14),
-          margin: const EdgeInsets.only(bottom: 20),
-          decoration: BoxDecoration(
-            color: Colors.teal.shade50,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.teal.shade200),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.auto_awesome, color: Colors.teal, size: 24),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  context.l10n.smartParserInfoBanner,
-                  style: TextStyle(color: Colors.teal.shade900, fontSize: 13, height: 1.4),
-                ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 768;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Info Banner
+            Container(
+              padding: const EdgeInsets.all(14),
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0D2825) : Colors.teal.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: isDark ? AppTheme.wcagEmerald.withOpacity(0.4) : Colors.teal.shade200),
               ),
-            ],
-          ),
-        ),
-
-        // File Selector
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: SearchableDropdownField<int>(
-            labelText: context.l10n.linkImportFileResult,
-            hintText: context.l10n.searchFileOrSupplierHint,
-            value: _selectedImportFileId,
-            items: importFiles.map((f) => SearchableDropdownItem<int>(
-              value: f.importFileId,
-              label: '${f.primaryNameWithCode}${f.poNumber != null && f.poNumber!.isNotEmpty ? " [PO: ${f.poNumber!}]" : ""} — ${f.supplierName}',
-            )).toList(),
-            onChanged: (val) => _onImportFileChanged(val),
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        // Raw Text Input Box
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+              child: Row(
                 children: [
-                  Text('${context.l10n.pasteRawMtsTextTitle}:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  const Spacer(),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.cobalt,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    ),
-                    onPressed: _loadSampleMtsText,
-                    icon: const Icon(Icons.auto_fix_high, size: 16),
-                    label: Text(context.l10n.loadSampleMtsTextButton),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton.icon(
-                    onPressed: () async {
-                      final data = await Clipboard.getData('text/plain');
-                      if (data?.text != null) {
-                        _rawMtsTextCtrl.text = data!.text!;
-                      }
-                    },
-                    icon: const Icon(Icons.paste, size: 16),
-                    label: Text(context.l10n.pasteFromClipboardButton),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _rawMtsTextCtrl,
-                maxLines: 8,
-                decoration: InputDecoration(
-                  hintText: context.l10n.mtsNotificationHint,
-                  border: const OutlineInputBorder(),
-                  filled: true,
-                  fillColor: const Color(0xFFFAFAFA),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                    ),
-                    onPressed: _isParsingMts ? null : _parseMtsText,
-                    icon: _isParsingMts
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.bolt),
-                    label: Text(_isParsingMts ? context.l10n.loading : context.l10n.runSmartParserButton, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  ),
+                  Icon(Icons.auto_awesome, color: isDark ? AppTheme.wcagEmerald : Colors.teal, size: 24),
                   const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: () => setState(() {
-                      _rawMtsTextCtrl.clear();
-                      _parsedMtsData = null;
-                    }),
-                    icon: const Icon(Icons.clear_all),
-                    label: Text(context.l10n.clearTextButton),
+                  Expanded(
+                    child: Text(
+                      context.l10n.smartParserInfoBanner,
+                      style: TextStyle(
+                        color: isDark ? const Color(0xFFA7F3D0) : Colors.teal.shade900,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                    ),
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
 
-        if (_parsedMtsData != null) ...[
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false) ? Colors.teal.shade300 : AppTheme.orange, width: 1.5),
+            // File Selector
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+              ),
+              child: SearchableDropdownField<int>(
+                labelText: context.l10n.linkImportFileResult,
+                hintText: context.l10n.searchFileOrSupplierHint,
+                value: _selectedImportFileId,
+                items: importFiles.map((f) => SearchableDropdownItem<int>(
+                  value: f.importFileId,
+                  label: '${f.primaryNameWithCode}${f.poNumber != null && f.poNumber!.isNotEmpty ? " [PO: ${f.poNumber!}]" : ""} — ${f.supplierName}',
+                )).toList(),
+                onChanged: (val) => _onImportFileChanged(val),
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false) ? Icons.check_circle : Icons.warning_amber_rounded,
-                      color: (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false) ? Colors.teal : AppTheme.orange,
-                      size: 22,
+            const SizedBox(height: 20),
+
+            // Raw Text Input Box
+            Container(
+              padding: EdgeInsets.all(isMobile ? 14 : 20),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${context.l10n.pasteRawMtsTextTitle}:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false)
-                          ? context.l10n.parsedMtsSuccessTitle
-                          : context.l10n.parsedMtsNoAcidTitle,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false) ? Colors.teal : AppTheme.orange,
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
+                          side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        ),
+                        onPressed: _loadSampleMtsText,
+                        icon: const Icon(Icons.auto_fix_high, size: 16),
+                        label: Text(context.l10n.loadSampleMtsTextButton),
                       ),
-                    ),
-                    const Spacer(),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        foregroundColor: Colors.white,
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? AppTheme.wcagEmerald : AppTheme.emerald,
+                          side: BorderSide(color: isDark ? AppTheme.wcagEmerald : AppTheme.emerald),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        ),
+                        onPressed: _openImportRawTextFromPreviousDialog,
+                        icon: const Icon(Icons.history_edu, size: 16),
+                        label: Text(context.l10n.importFromPreviousAcidSessionBtn),
                       ),
-                      onPressed: () {
-                        setState(() => _selectedSubTab = 2);
-                        if (_selectedImportFileId != null) {
-                          _runComparison();
-                        }
-                      },
-                      icon: const Icon(Icons.compare_arrows, size: 16),
-                      label: Text(context.l10n.goToVerificationButton),
-                    ),
-                  ],
-                ),
-                const Divider(height: 20),
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 12,
-                  children: [
-                    _buildExtractedField(context.l10n.acidNumberCol, _parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false ? _parsedMtsData!['acid_number']!.toString() : '-'),
-                    _buildExtractedField(context.l10n.issueDateCol, _parsedMtsData!['generated_date']?.toString() ?? '-'),
-                    _buildExtractedField(context.l10n.expiryDateCol, _parsedMtsData!['expiry_date']?.toString() ?? '-'),
-                    _buildExtractedField(context.l10n.importerCompanyCol, _parsedMtsData!['importer_name']?.toString() ?? '-'),
-                    _buildExtractedField(context.l10n.importerTaxIdLabel, _parsedMtsData!['importer_tax_id']?.toString() ?? '-'),
-                    _buildExtractedField(context.l10n.foreignExporterCol, _parsedMtsData!['exporter_name']?.toString() ?? '-'),
-                    _buildExtractedField(context.l10n.foreignExporterIdLabel, _parsedMtsData!['exporter_reg_id']?.toString() ?? '-'),
-                    _buildExtractedField(context.l10n.regTypeLabel, _parsedMtsData!['exporter_reg_type']?.toString() ?? 'Company Registration Number'),
-                    _buildExtractedField(context.l10n.countryOfOriginExportLabel, _parsedMtsData!['exporter_country']?.toString() ?? '-'),
-                    _buildExtractedField(context.l10n.cargoxPlatformIdLabel, _parsedMtsData!['cargox_id']?.toString() ?? '-'),
-                    _buildExtractedField(context.l10n.proformaInvoiceNoLabel, _parsedMtsData!['proforma_invoice_no']?.toString() ?? '-'),
-                    _buildExtractedField(context.l10n.portOfLoadingLabel, _parsedMtsData!['pol_name']?.toString() ?? '-'),
-                    _buildExtractedField(context.l10n.portOfDischargeLabel, _parsedMtsData!['pod_name']?.toString() ?? '-'),
-                  ],
-                ),
-                const Divider(height: 24),
-                // Action Buttons Bar
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.emerald,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      TextButton.icon(
+                        onPressed: () async {
+                          final data = await Clipboard.getData('text/plain');
+                          if (data?.text != null) {
+                            _rawMtsTextCtrl.text = data!.text!;
+                          }
+                        },
+                        icon: const Icon(Icons.paste, size: 16),
+                        label: Text(context.l10n.pasteFromClipboardButton),
                       ),
-                      onPressed: _isSaving ? null : () => _saveMtsResultAsAcidSession(isDraft: false),
-                      icon: const Icon(Icons.save_as, size: 18),
-                      label: Text(context.l10n.saveAndCertifyAcidButton, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _rawMtsTextCtrl,
+                    maxLines: 8,
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                      fontFamily: 'monospace',
+                      fontSize: 13,
                     ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey.shade800,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    decoration: InputDecoration(
+                      hintText: context.l10n.mtsNotificationHint,
+                      border: const OutlineInputBorder(),
+                      filled: true,
+                      fillColor: isDark ? AppTheme.darkSurface : const Color(0xFFFAFAFA),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isDark ? AppTheme.wcagEmerald : Colors.teal,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                        ),
+                        onPressed: _isParsingMts ? null : _parseMtsText,
+                        icon: _isParsingMts
+                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Icon(Icons.bolt),
+                        label: Text(_isParsingMts ? context.l10n.loading : context.l10n.runSmartParserButton, style: const TextStyle(fontWeight: FontWeight.bold)),
                       ),
-                      onPressed: _isSaving ? null : () => _saveMtsResultAsAcidSession(isDraft: true),
-                      icon: const Icon(Icons.save_outlined, size: 18),
-                      label: Text(context.l10n.saveTempDraftButton, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.cobalt,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        side: const BorderSide(color: AppTheme.cobalt),
+                      OutlinedButton.icon(
+                        onPressed: () => setState(() {
+                          _rawMtsTextCtrl.clear();
+                          _parsedMtsData = null;
+                        }),
+                        icon: const Icon(Icons.clear_all),
+                        label: Text(context.l10n.clearTextButton),
                       ),
-                      onPressed: _showEditMtsDataDialog,
-                      icon: const Icon(Icons.edit, size: 18),
-                      label: Text(context.l10n.editExtractedDataButton, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      onPressed: _codeSupplierFromMts,
-                      icon: const Icon(Icons.business_outlined, size: 18),
-                      label: Text(context.l10n.codeSupplierButton, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ],
+
+            if (_parsedMtsData != null) ...[
+              const SizedBox(height: 20),
+              Container(
+                padding: EdgeInsets.all(isMobile ? 14 : 20),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false)
+                        ? (isDark ? AppTheme.wcagEmerald : Colors.teal.shade300)
+                        : (isDark ? AppTheme.wcagOrange : AppTheme.orange),
+                    width: 1.5,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isMobile) ...[
+                      Row(
+                        children: [
+                          Icon(
+                            (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false) ? Icons.check_circle : Icons.warning_amber_rounded,
+                            color: (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false)
+                                ? (isDark ? AppTheme.wcagEmerald : Colors.teal)
+                                : (isDark ? AppTheme.wcagOrange : AppTheme.orange),
+                            size: 22,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false)
+                                  ? context.l10n.parsedMtsSuccessTitle
+                                  : context.l10n.parsedMtsNoAcidTitle,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false)
+                                    ? (isDark ? AppTheme.wcagEmerald : Colors.teal)
+                                    : (isDark ? AppTheme.wcagOrange : AppTheme.orange),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () {
+                          setState(() => _selectedSubTab = 2);
+                          if (_selectedImportFileId != null) {
+                            _runComparison();
+                          }
+                        },
+                        icon: const Icon(Icons.compare_arrows, size: 16),
+                        label: Text(context.l10n.goToVerificationButton),
+                      ),
+                    ] else ...[
+                      Row(
+                        children: [
+                          Icon(
+                            (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false) ? Icons.check_circle : Icons.warning_amber_rounded,
+                            color: (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false)
+                                ? (isDark ? AppTheme.wcagEmerald : Colors.teal)
+                                : (isDark ? AppTheme.wcagOrange : AppTheme.orange),
+                            size: 22,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false)
+                                  ? context.l10n.parsedMtsSuccessTitle
+                                  : context.l10n.parsedMtsNoAcidTitle,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false)
+                                    ? (isDark ? AppTheme.wcagEmerald : Colors.teal)
+                                    : (isDark ? AppTheme.wcagOrange : AppTheme.orange),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () {
+                              setState(() => _selectedSubTab = 2);
+                              if (_selectedImportFileId != null) {
+                                _runComparison();
+                              }
+                            },
+                            icon: const Icon(Icons.compare_arrows, size: 16),
+                            label: Text(context.l10n.goToVerificationButton),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const Divider(height: 20),
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 12,
+                      children: [
+                        _buildExtractedField(context.l10n.acidNumberCol, _parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false ? _parsedMtsData!['acid_number']!.toString() : '-'),
+                        _buildExtractedField(context.l10n.issueDateCol, _parsedMtsData!['generated_date']?.toString() ?? '-'),
+                        _buildExtractedField(context.l10n.expiryDateCol, _parsedMtsData!['expiry_date']?.toString() ?? '-'),
+                        _buildExtractedField(context.l10n.importerCompanyCol, _parsedMtsData!['importer_name']?.toString() ?? '-'),
+                        _buildExtractedField(context.l10n.importerTaxIdLabel, _parsedMtsData!['importer_tax_id']?.toString() ?? '-'),
+                        _buildExtractedField(context.l10n.foreignExporterCol, _parsedMtsData!['exporter_name']?.toString() ?? '-'),
+                        _buildExtractedField(context.l10n.foreignExporterIdLabel, _parsedMtsData!['exporter_reg_id']?.toString() ?? '-'),
+                        _buildExtractedField(context.l10n.regTypeLabel, _parsedMtsData!['exporter_reg_type']?.toString() ?? 'Company Registration Number'),
+                        _buildExtractedField(context.l10n.countryOfOriginExportLabel, _parsedMtsData!['exporter_country']?.toString() ?? '-'),
+                        _buildExtractedField(context.l10n.cargoxPlatformIdLabel, _parsedMtsData!['cargox_id']?.toString() ?? '-'),
+                        _buildExtractedField(context.l10n.proformaInvoiceNoLabel, _parsedMtsData!['proforma_invoice_no']?.toString() ?? '-'),
+                        _buildExtractedField(context.l10n.portOfLoadingLabel, _parsedMtsData!['pol_name']?.toString() ?? '-'),
+                        _buildExtractedField(context.l10n.portOfDischargeLabel, _parsedMtsData!['pod_name']?.toString() ?? '-'),
+                      ],
+                    ),
+                    const Divider(height: 24),
+                    // Action Buttons Bar
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isDark ? AppTheme.wcagEmerald : AppTheme.emerald,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: _isSaving ? null : () => _saveMtsResultAsAcidSession(isDraft: false),
+                          icon: const Icon(Icons.save_as, size: 18),
+                          label: Text(context.l10n.saveAndCertifyAcidButton, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isDark ? Colors.grey.shade700 : Colors.grey.shade800,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: _isSaving ? null : () => _saveMtsResultAsAcidSession(isDraft: true),
+                          icon: const Icon(Icons.save_outlined, size: 18),
+                          label: Text(context.l10n.saveTempDraftButton, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt),
+                          ),
+                          onPressed: _showEditMtsDataDialog,
+                          icon: const Icon(Icons.edit, size: 18),
+                          label: Text(context.l10n.editExtractedDataButton, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isDark ? const Color(0xFF4338CA) : Colors.indigo,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: _codeSupplierFromMts,
+                          icon: const Icon(Icons.business_outlined, size: 18),
+                          label: Text(context.l10n.codeSupplierButton, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 
   Widget _buildExtractedField(String label, String val) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 2),
-          CopyableText(val, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+          CopyableText(
+            val,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+            ),
+          ),
         ],
       ),
     );
@@ -1210,183 +1661,413 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
   // --- SUB-VIEW 2: DISCREPANCY MATRIX TAB ---
   Widget _buildDiscrepancyMatrixTab() {
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // File Selector & Compare Trigger
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: SearchableDropdownField<int>(
-                  labelText: context.l10n.selectImportFileAcidLabel,
-                  hintText: context.l10n.searchFileOrSupplierHint,
-                  value: _selectedImportFileId,
-                  items: importFiles.map((f) => SearchableDropdownItem<int>(
-                    value: f.importFileId,
-                    label: '${f.primaryNameWithCode}${f.poNumber != null && f.poNumber!.isNotEmpty ? " [PO: ${f.poNumber!}]" : ""} — ${f.supplierName}',
-                  )).toList(),
-                  onChanged: (val) {
-                    _onImportFileChanged(val);
-                    if (val != null && _parsedMtsData != null) {
-                      _runComparison();
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 14),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                ),
-                onPressed: _isComparing ? null : _runComparison,
-                icon: _isComparing
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Icon(Icons.compare_arrows),
-                label: Text(context.l10n.runDiscrepancyMatrixButton, style: const TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 768;
 
-        if (_comparisonResult != null) ...[
-          // Discrepancy Matrix Table
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      _comparisonResult!.allMatched ? Icons.check_circle : Icons.warning_amber_rounded,
-                      color: _comparisonResult!.allMatched ? Colors.green : Colors.red,
-                      size: 26,
-                    ),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // File Selector & Compare Trigger
+            Container(
+              padding: EdgeInsets.all(isMobile ? 14 : 16),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+              ),
+              child: isMobile
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(
-                          _comparisonResult!.allMatched
-                              ? context.l10n.perfectMatchTitle
-                              : context.l10n.discrepancyFoundTitle,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: _comparisonResult!.allMatched ? Colors.green.shade800 : Colors.red.shade800,
-                          ),
+                        SearchableDropdownField<int>(
+                          labelText: context.l10n.selectImportFileAcidLabel,
+                          hintText: context.l10n.searchFileOrSupplierHint,
+                          value: _selectedImportFileId,
+                          items: importFiles.map((f) => SearchableDropdownItem<int>(
+                            value: f.importFileId,
+                            label: '${f.primaryNameWithCode}${f.poNumber != null && f.poNumber!.isNotEmpty ? " [PO: ${f.poNumber!}]" : ""} — ${f.supplierName}',
+                          )).toList(),
+                          onChanged: (val) {
+                            _onImportFileChanged(val);
+                            if (val != null && _parsedMtsData != null) {
+                              _runComparison();
+                            }
+                          },
                         ),
-                        Text(
-                          '${context.l10n.matchingStatusCol}: ${_comparisonResult!.matchPercentage.toStringAsFixed(1)}% (${_comparisonResult!.matchedCount} / ${_comparisonResult!.totalComparedFields})',
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        const SizedBox(height: 12),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                          ),
+                          onPressed: _isComparing ? null : _runComparison,
+                          icon: _isComparing
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Icon(Icons.compare_arrows),
+                          label: Text(context.l10n.runDiscrepancyMatrixButton, style: const TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: SearchableDropdownField<int>(
+                            labelText: context.l10n.selectImportFileAcidLabel,
+                            hintText: context.l10n.searchFileOrSupplierHint,
+                            value: _selectedImportFileId,
+                            items: importFiles.map((f) => SearchableDropdownItem<int>(
+                              value: f.importFileId,
+                              label: '${f.primaryNameWithCode}${f.poNumber != null && f.poNumber!.isNotEmpty ? " [PO: ${f.poNumber!}]" : ""} — ${f.supplierName}',
+                            )).toList(),
+                            onChanged: (val) {
+                              _onImportFileChanged(val);
+                              if (val != null && _parsedMtsData != null) {
+                                _runComparison();
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          ),
+                          onPressed: _isComparing ? null : _runComparison,
+                          icon: _isComparing
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Icon(Icons.compare_arrows),
+                          label: Text(context.l10n.runDiscrepancyMatrixButton, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+            ),
+            const SizedBox(height: 20),
+
+            if (_comparisonResult == null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.rule_folder_outlined, size: 48, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400),
+                    const SizedBox(height: 12),
+                    Text(
+                      context.l10n.emptyComparisonHint,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                        height: 1.5,
+                      ),
                     ),
                   ],
                 ),
-                const Divider(height: 24),
+              ),
+            ],
 
-                Table(
-                  border: TableBorder.all(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(8)),
-                  columnWidths: const {
-                    0: FlexColumnWidth(1.5),
-                    1: FlexColumnWidth(2),
-                    2: FlexColumnWidth(2),
-                    3: FlexColumnWidth(1),
-                  },
+            if (_comparisonResult != null) ...[
+              // Discrepancy Matrix Table
+              Container(
+                padding: EdgeInsets.all(isMobile ? 14 : 20),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TableRow(
-                      decoration: BoxDecoration(color: Colors.grey.shade100),
-                      children: [
-                        Padding(padding: const EdgeInsets.all(10), child: Text(context.l10n.customsFieldCol, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        Padding(padding: const EdgeInsets.all(10), child: Text(context.l10n.requestedValueCol, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        Padding(padding: const EdgeInsets.all(10), child: Text(context.l10n.generatedValueCol, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        Padding(padding: const EdgeInsets.all(10), child: Text(context.l10n.matchingStatusCol, style: const TextStyle(fontWeight: FontWeight.bold))),
-                      ],
-                    ),
-                    ..._comparisonResult!.items.map((item) {
-                      return TableRow(
-                        decoration: BoxDecoration(color: item.isMatched ? Colors.white : Colors.red.shade50.withOpacity(0.5)),
+                    if (isMobile) ...[
+                      Row(
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: Text(
-                              Localizations.localeOf(context).languageCode == 'en' ? item.labelEn : item.labelAr,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                            ),
+                          Icon(
+                            _comparisonResult!.allMatched ? Icons.check_circle : Icons.warning_amber_rounded,
+                            color: _comparisonResult!.allMatched
+                                ? (isDark ? AppTheme.wcagEmerald : Colors.green)
+                                : (isDark ? AppTheme.wcagOrange : Colors.red),
+                            size: 26,
                           ),
-                          Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: CopyableText(item.requestedValue, style: const TextStyle(fontSize: 12)),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: CopyableText(item.generatedValue, style: const TextStyle(fontSize: 12)),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: Row(
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(item.isMatched ? Icons.check_circle : Icons.cancel, size: 16, color: item.isMatched ? Colors.green : Colors.red),
-                                const SizedBox(width: 4),
-                                Text(item.isMatched ? context.l10n.matchedStatus : context.l10n.discrepancyStatus, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: item.isMatched ? Colors.green : Colors.red)),
+                                Text(
+                                  _comparisonResult!.allMatched
+                                      ? context.l10n.perfectMatchTitle
+                                      : context.l10n.discrepancyFoundTitle,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: _comparisonResult!.allMatched
+                                        ? (isDark ? AppTheme.wcagEmerald : Colors.green.shade800)
+                                        : (isDark ? const Color(0xFFEF4444) : Colors.red.shade800),
+                                  ),
+                                ),
+                                Text(
+                                  '${context.l10n.matchingStatusCol}: ${_comparisonResult!.matchPercentage.toStringAsFixed(1)}% (${_comparisonResult!.matchedCount} / ${_comparisonResult!.totalComparedFields})',
+                                  style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                                ),
                               ],
                             ),
                           ),
                         ],
-                      );
-                    }),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
+                          side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        ),
+                        onPressed: _copyDiscrepancyReportToClipboard,
+                        icon: const Icon(Icons.copy, size: 16),
+                        label: Text(context.l10n.copyDiscrepancyReportBtn),
+                      ),
+                    ] else ...[
+                      Row(
+                        children: [
+                          Icon(
+                            _comparisonResult!.allMatched ? Icons.check_circle : Icons.warning_amber_rounded,
+                            color: _comparisonResult!.allMatched
+                                ? (isDark ? AppTheme.wcagEmerald : Colors.green)
+                                : (isDark ? AppTheme.wcagOrange : Colors.red),
+                            size: 26,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _comparisonResult!.allMatched
+                                      ? context.l10n.perfectMatchTitle
+                                      : context.l10n.discrepancyFoundTitle,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: _comparisonResult!.allMatched
+                                        ? (isDark ? AppTheme.wcagEmerald : Colors.green.shade800)
+                                        : (isDark ? const Color(0xFFEF4444) : Colors.red.shade800),
+                                  ),
+                                ),
+                                Text(
+                                  '${context.l10n.matchingStatusCol}: ${_comparisonResult!.matchPercentage.toStringAsFixed(1)}% (${_comparisonResult!.matchedCount} / ${_comparisonResult!.totalComparedFields})',
+                                  style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
+                              side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            ),
+                            onPressed: _copyDiscrepancyReportToClipboard,
+                            icon: const Icon(Icons.copy, size: 16),
+                            label: Text(context.l10n.copyDiscrepancyReportBtn),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const Divider(height: 24),
+
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minWidth: constraints.maxWidth < 650 ? 650 : constraints.maxWidth - (isMobile ? 28 : 40),
+                        ),
+                        child: Table(
+                          border: TableBorder.all(
+                            color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          columnWidths: const {
+                            0: FlexColumnWidth(1.5),
+                            1: FlexColumnWidth(2),
+                            2: FlexColumnWidth(2),
+                            3: FlexColumnWidth(1),
+                          },
+                          children: [
+                            TableRow(
+                              decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.grey.shade100),
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(10),
+                                  child: Text(
+                                    context.l10n.customsFieldCol,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(10),
+                                  child: Text(
+                                    context.l10n.requestedValueCol,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(10),
+                                  child: Text(
+                                    context.l10n.generatedValueCol,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(10),
+                                  child: Text(
+                                    context.l10n.matchingStatusCol,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            ..._comparisonResult!.items.map((item) {
+                              return TableRow(
+                                decoration: BoxDecoration(
+                                  color: item.isMatched
+                                      ? (isDark ? AppTheme.darkCardBackground : Colors.white)
+                                      : (isDark ? const Color(0xFF3B1E1E) : Colors.red.shade50.withOpacity(0.5)),
+                                ),
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.all(10),
+                                    child: Text(
+                                      context.l10n.isArabic ? item.labelAr : item.labelEn,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                      ),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(10),
+                                    child: CopyableText(
+                                      item.requestedValue,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
+                                      ),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(10),
+                                    child: CopyableText(
+                                      item.generatedValue,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
+                                      ),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(10),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          item.isMatched ? Icons.check_circle : Icons.cancel,
+                                          size: 16,
+                                          color: item.isMatched
+                                              ? (isDark ? AppTheme.wcagEmerald : Colors.green)
+                                              : (isDark ? const Color(0xFFEF4444) : Colors.red),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            item.isMatched ? context.l10n.matchedStatus : context.l10n.discrepancyStatus,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: item.isMatched
+                                                  ? (isDark ? AppTheme.wcagEmerald : Colors.green)
+                                                  : (isDark ? const Color(0xFFEF4444) : Colors.red),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Approval & Override
+                    if (!_comparisonResult!.allMatched) ...[
+                      Text(
+                        context.l10n.discrepancyOverrideJustificationLabel,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: isDark ? const Color(0xFFF87171) : Colors.red,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _discrepancyOverrideReasonCtrl,
+                        style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                        decoration: InputDecoration(
+                          hintText: context.l10n.discrepancyOverrideReasonHint,
+                          border: const OutlineInputBorder(),
+                          filled: true,
+                          fillColor: isDark ? AppTheme.darkSurface : Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _comparisonResult!.allMatched
+                            ? (isDark ? AppTheme.wcagEmerald : Colors.green)
+                            : (isDark ? AppTheme.wcagOrange : AppTheme.orange),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                      ),
+                      onPressed: _isSaving ? null : _saveVerifiedAcid,
+                      icon: _isSaving
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.verified),
+                      label: Text(_isSaving ? context.l10n.loading : context.l10n.verifyAndCertifyAcidButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 20),
-
-                // Approval & Override
-                if (!_comparisonResult!.allMatched) ...[
-                  Text(context.l10n.discrepancyOverrideJustificationLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.red)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _discrepancyOverrideReasonCtrl,
-                    decoration: InputDecoration(
-                      hintText: context.l10n.discrepancyOverrideReasonHint,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _comparisonResult!.allMatched ? Colors.green : AppTheme.orange,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-                  ),
-                  onPressed: _isSaving ? null : _saveVerifiedAcid,
-                  icon: _isSaving
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.verified),
-                  label: Text(_isSaving ? context.l10n.loading : context.l10n.verifyAndCertifyAcidButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ],
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -1394,6 +2075,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
   Widget _buildAcidSessionsRegistryTab() {
     final acidSessions = ref.watch(acidSessionsProvider).valueOrNull ?? [];
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final filtered = acidSessions.where((s) {
       if (_acidSearchQuery.isEmpty) return true;
       return s.acidNumber.toLowerCase().contains(_acidSearchQuery.toLowerCase()) ||
@@ -1401,174 +2083,380 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
           s.exporterName.toLowerCase().contains(_acidSearchQuery.toLowerCase());
     }).toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 768;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: context.l10n.searchAcidRegistryHint,
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+            if (isMobile) ...[
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    key: const Key('acidRegistrySearchField'),
+                    style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                    decoration: InputDecoration(
+                      hintText: context.l10n.searchAcidRegistryHint,
+                      hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500),
+                      prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      filled: true,
+                      fillColor: isDark ? AppTheme.darkSurface : Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                    ),
+                    onChanged: (val) => setState(() => _acidSearchQuery = val),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ElevatedButton.icon(
+                        key: const Key('acidRegistryNewRequestBtn'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => setState(() => _selectedSubTab = 0),
+                        icon: const Icon(Icons.add),
+                        label: Text(context.l10n.newAcidRequestButton, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                      OutlinedButton.icon(
+                        key: const Key('acidRegistryCopyBtn'),
+                        icon: const Icon(Icons.copy, size: 16),
+                        label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
+                          side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal),
+                        ),
+                        onPressed: () => _copyAcidRegistryAsTsv(filtered, importFiles),
+                      ),
+                      OutlinedButton.icon(
+                        key: const Key('acidRegistryExcelBtn'),
+                        icon: const Icon(Icons.table_chart, size: 16, color: Colors.green),
+                        label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.green.shade700,
+                          side: const BorderSide(color: Colors.green),
+                        ),
+                        onPressed: () => _exportAcidRegistryToExcel(filtered, importFiles),
+                      ),
+                      OutlinedButton.icon(
+                        key: const Key('acidRegistryPdfBtn'),
+                        icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.red),
+                        label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red.shade700,
+                          side: const BorderSide(color: Colors.red),
+                        ),
+                        onPressed: () => _exportAcidRegistryToPdf(filtered, importFiles),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const Key('acidRegistrySearchField'),
+                      style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                      decoration: InputDecoration(
+                        hintText: context.l10n.searchAcidRegistryHint,
+                        hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500),
+                        prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        filled: true,
+                        fillColor: isDark ? AppTheme.darkSurface : Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                      ),
+                      onChanged: (val) => setState(() => _acidSearchQuery = val),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    key: const Key('acidRegistryCopyBtn'),
+                    icon: const Icon(Icons.copy, size: 16),
+                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
+                      side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    ),
+                    onPressed: () => _copyAcidRegistryAsTsv(filtered, importFiles),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    key: const Key('acidRegistryExcelBtn'),
+                    icon: const Icon(Icons.table_chart, size: 16, color: Colors.green),
+                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.green.shade700,
+                      side: const BorderSide(color: Colors.green),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    ),
+                    onPressed: () => _exportAcidRegistryToExcel(filtered, importFiles),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    key: const Key('acidRegistryPdfBtn'),
+                    icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.red),
+                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red.shade700,
+                      side: const BorderSide(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    ),
+                    onPressed: () => _exportAcidRegistryToPdf(filtered, importFiles),
+                  ),
+                  const SizedBox(width: 14),
+                  ElevatedButton.icon(
+                    key: const Key('acidRegistryNewRequestBtn'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () => setState(() => _selectedSubTab = 0),
+                    icon: const Icon(Icons.add),
+                    label: Text(context.l10n.newAcidRequestButton, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 16),
+
+            if (filtered.isEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                 ),
-                onChanged: (val) => setState(() => _acidSearchQuery = val),
-              ),
-            ),
-            const SizedBox(width: 14),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.charcoal,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              ),
-              onPressed: () => setState(() => _selectedSubTab = 0),
-              icon: const Icon(Icons.add),
-              label: Text(context.l10n.newAcidRequestButton),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-              columns: [
-                DataColumn(label: Text(context.l10n.acidNumberCol, style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(context.l10n.importFile, style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(context.l10n.foreignExporterCol, style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(context.l10n.importerCompanyCol, style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(context.l10n.issueDateCol, style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(context.l10n.expiryDateCol, style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(context.l10n.validityStatusCol, style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(context.l10n.actionCol, style: const TextStyle(fontWeight: FontWeight.bold))),
-              ],
-              rows: filtered.map((s) {
-                final dateStr = s.generatedDate ?? s.requestedDate ?? '';
-                final expStr = s.expiryDate ?? '';
-                final matchedFile = importFiles.where((f) => f.importFileId == s.importFileId).firstOrNull;
-                final fileLabel = matchedFile?.displayName ?? s.importFileCode ?? '-';
-                final poLabel = (s.poNumber != null && s.poNumber!.trim().isNotEmpty)
-                    ? s.poNumber!.trim()
-                    : (matchedFile?.poNumber ?? s.proformaInvoiceNo);
-                final statusLabel = s.status == 'Issued' ? context.l10n.issuedAndValidStatus : (s.status == 'DRAFT' ? context.l10n.tempDraftStatus : context.l10n.underReviewStatus);
-                final rowSummary = [
-                  s.acidNumber,
-                  fileLabel,
-                  (poLabel.isNotEmpty && poLabel != '-') ? poLabel : '',
-                  s.exporterName,
-                  s.importerName,
-                  dateStr.isNotEmpty ? dateStr.substring(0, min(10, dateStr.length)) : '-',
-                  expStr.isNotEmpty ? expStr.substring(0, min(10, expStr.length)) : '-',
-                  statusLabel,
-                ].join('\t');
-
-                return DataRow(
-                  cells: [
-                    DataCell(
-                      CopyableTableCell(
-                        value: s.acidNumber,
-                        rowSummary: rowSummary,
-                        child: Text(s.acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                      ),
-                    ),
-                    DataCell(
-                      CopyableTableCell(
-                        value: fileLabel,
-                        rowSummary: rowSummary,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(fileLabel, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                            if (poLabel.isNotEmpty && poLabel != '-')
-                              Text('${context.l10n.poLabelPrefix}: $poLabel', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      CopyableTableCell(
-                        value: s.exporterName,
-                        rowSummary: rowSummary,
-                        child: Text(s.exporterName),
-                      ),
-                    ),
-                    DataCell(
-                      CopyableTableCell(
-                        value: s.importerName,
-                        rowSummary: rowSummary,
-                        child: Text(s.importerName),
-                      ),
-                    ),
-                    DataCell(
-                      CopyableTableCell(
-                        value: dateStr.isNotEmpty ? dateStr.substring(0, min(10, dateStr.length)) : '-',
-                        rowSummary: rowSummary,
-                        child: Text(dateStr.isNotEmpty ? dateStr.substring(0, min(10, dateStr.length)) : '-'),
-                      ),
-                    ),
-                    DataCell(
-                      CopyableTableCell(
-                        value: expStr.isNotEmpty ? expStr.substring(0, min(10, expStr.length)) : '-',
-                        rowSummary: rowSummary,
-                        child: Text(expStr.isNotEmpty ? expStr.substring(0, min(10, expStr.length)) : '-'),
-                      ),
-                    ),
-                    DataCell(
-                      CopyableTableCell(
-                        value: statusLabel,
-                        rowSummary: rowSummary,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: s.status == 'Issued' ? Colors.green.shade50 : Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: s.status == 'Issued' ? Colors.green.shade300 : Colors.blue.shade300),
-                          ),
-                          child: Text(
-                            statusLabel,
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: s.status == 'Issued' ? Colors.green.shade800 : Colors.blue.shade800),
-                          ),
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit_note, color: AppTheme.cobalt, size: 22),
-                            tooltip: context.l10n.edit,
-                            onPressed: () => _loadSessionForEdit(s),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 20),
-                            tooltip: context.l10n.delete,
-                            onPressed: () => _confirmDeleteAcidSession(s),
-                          ),
-                        ],
+                child: Column(
+                  children: [
+                    Icon(Icons.search_off, size: 48, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400),
+                    const SizedBox(height: 12),
+                    Text(
+                      context.l10n.noAcidsFound,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
                       ),
                     ),
                   ],
-                );
-              }).toList(),
+                ),
+              ),
+            ] else ...[
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                ),
+                child: SelectionArea(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: constraints.maxWidth < 750 ? 750 : constraints.maxWidth - (isMobile ? 28 : 40),
+                    ),
+                    child: DataTable(
+                      headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : Colors.grey.shade100),
+                      columns: [
+                        DataColumn(label: Text(context.l10n.actionCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                        DataColumn(label: Text(context.l10n.acidNumberCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                        DataColumn(label: Text(context.l10n.importFile, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                        DataColumn(label: Text(context.l10n.foreignExporterCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                        DataColumn(label: Text(context.l10n.importerCompanyCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                        DataColumn(label: Text(context.l10n.issueDateCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                        DataColumn(label: Text(context.l10n.expiryDateCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                        DataColumn(label: Text(context.l10n.validityStatusCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      ],
+                      rows: filtered.map((s) {
+                        final dateStr = s.generatedDate ?? s.requestedDate ?? '';
+                        final expStr = s.expiryDate ?? '';
+                        final matchedFile = importFiles.where((f) => f.importFileId == s.importFileId).firstOrNull;
+                        final fileLabel = matchedFile?.displayName ?? s.importFileCode ?? '-';
+                        final poLabel = (s.poNumber != null && s.poNumber!.trim().isNotEmpty)
+                            ? s.poNumber!.trim()
+                            : (matchedFile?.poNumber ?? s.proformaInvoiceNo);
+                        final isIssued = s.status == 'Issued' || s.status == 'ISSUED';
+                        final isDraft = s.status == 'DRAFT' || s.status == 'Draft';
+                        final statusLabel = isIssued
+                            ? context.l10n.issuedAndValidStatus
+                            : (isDraft ? context.l10n.tempDraftStatus : context.l10n.underReviewStatus);
+                        final rowSummary = [
+                          s.acidNumber,
+                          fileLabel,
+                          (poLabel.isNotEmpty && poLabel != '-') ? poLabel : '',
+                          s.exporterName,
+                          s.importerName,
+                          dateStr.isNotEmpty ? dateStr.substring(0, min(10, dateStr.length)) : '-',
+                          expStr.isNotEmpty ? expStr.substring(0, min(10, expStr.length)) : '-',
+                          statusLabel,
+                        ].join('\t');
+
+                        return DataRow(
+                          cells: [
+                            DataCell(
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: Icon(Icons.edit_note, color: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt, size: 22),
+                                    tooltip: context.l10n.edit,
+                                    onPressed: () => _loadSessionForEdit(s),
+                                  ),
+                                  IconButton(
+                                    key: Key('cloneRowBtn_${s.acidId}'),
+                                    icon: Icon(Icons.copy_all, color: isDark ? AppTheme.wcagEmerald : AppTheme.emerald, size: 20),
+                                    tooltip: context.l10n.cloneAcidRecordTooltip,
+                                    onPressed: () => _onCloneAcidSelected(s),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 20),
+                                    tooltip: context.l10n.delete,
+                                    onPressed: () => _confirmDeleteAcidSession(s),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            DataCell(
+                              CopyableTableCell(
+                                value: s.acidNumber,
+                                rowSummary: rowSummary,
+                                child: Text(
+                                  s.acidNumber,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              CopyableTableCell(
+                                value: fileLabel,
+                                rowSummary: rowSummary,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      fileLabel,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
+                                      ),
+                                    ),
+                                    if (poLabel.isNotEmpty && poLabel != '-')
+                                      Text(
+                                        '${context.l10n.poLabelPrefix}: $poLabel',
+                                        style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              CopyableTableCell(
+                                value: s.exporterName,
+                                rowSummary: rowSummary,
+                                child: Text(
+                                  s.exporterName,
+                                  style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              CopyableTableCell(
+                                value: s.importerName,
+                                rowSummary: rowSummary,
+                                child: Text(
+                                  s.importerName,
+                                  style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              CopyableTableCell(
+                                value: dateStr.isNotEmpty ? dateStr.substring(0, min(10, dateStr.length)) : '-',
+                                rowSummary: rowSummary,
+                                child: Text(
+                                  dateStr.isNotEmpty ? dateStr.substring(0, min(10, dateStr.length)) : '-',
+                                  style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              CopyableTableCell(
+                                value: expStr.isNotEmpty ? expStr.substring(0, min(10, expStr.length)) : '-',
+                                rowSummary: rowSummary,
+                                child: Text(
+                                  expStr.isNotEmpty ? expStr.substring(0, min(10, expStr.length)) : '-',
+                                  style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              CopyableTableCell(
+                                value: statusLabel,
+                                rowSummary: rowSummary,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: isIssued
+                                        ? (isDark ? const Color(0xFF1B2E24) : Colors.green.shade50)
+                                        : (isDraft
+                                            ? (isDark ? const Color(0xFF332014) : Colors.amber.shade50)
+                                            : (isDark ? const Color(0xFF1E293B) : Colors.blue.shade50)),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: isIssued
+                                          ? (isDark ? AppTheme.wcagEmerald.withOpacity(0.5) : Colors.green.shade300)
+                                          : (isDraft
+                                              ? (isDark ? AppTheme.wcagOrange.withOpacity(0.5) : Colors.amber.shade300)
+                                              : (isDark ? AppTheme.wcagCobalt.withOpacity(0.5) : Colors.blue.shade300)),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    statusLabel,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: isIssued
+                                          ? (isDark ? AppTheme.wcagEmerald : Colors.green.shade800)
+                                          : (isDraft
+                                              ? (isDark ? AppTheme.wcagOrange : Colors.amber.shade900)
+                                              : (isDark ? AppTheme.wcagCobalt : Colors.blue.shade800)),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ],
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -1577,6 +2465,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
     final trackerSummary = ref.watch(acidTrackerProvider).valueOrNull;
     final trackerItems = trackerSummary?.items ?? [];
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final filtered = trackerItems.where((t) {
       if (_acidSearchQuery.isEmpty) return true;
@@ -1585,170 +2474,397 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
           t.supplierName.toLowerCase().contains(_acidSearchQuery.toLowerCase());
     }).toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Summary Cards
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 768;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildTrackerCard(
-              title: context.l10n.totalAcidsCard,
-              count: trackerSummary?.totalAcidsCount ?? trackerItems.length,
-              color: AppTheme.charcoal,
-              icon: Icons.qr_code,
-            ),
-            const SizedBox(width: 14),
-            _buildTrackerCard(
-              title: context.l10n.validAcidsCard,
-              count: trackerSummary?.validCount ?? trackerItems.where((t) => t.status != 'Expired' && t.daysRemaining > 14).length,
-              color: Colors.green,
-              icon: Icons.check_circle_outline,
-            ),
-            const SizedBox(width: 14),
-            _buildTrackerCard(
-              title: context.l10n.expiringSoonAcidsCard,
-              count: trackerSummary?.expiringSoonCount ?? trackerItems.where((t) => t.status != 'Expired' && t.daysRemaining <= 14 && t.daysRemaining > 0).length,
-              color: AppTheme.orange,
-              icon: Icons.warning_amber,
-            ),
-            const SizedBox(width: 14),
-            _buildTrackerCard(
-              title: context.l10n.expiredAcidsCard,
-              count: trackerSummary?.expiredCount ?? trackerItems.where((t) => t.status == 'Expired' || t.daysRemaining <= 0).length,
-              color: AppTheme.crimson,
-              icon: Icons.cancel_outlined,
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-
-        // Search Bar
-        TextField(
-          decoration: InputDecoration(
-            hintText: context.l10n.searchExpiryTrackerHint,
-            prefixIcon: const Icon(Icons.search),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            filled: true,
-            fillColor: Colors.white,
-            contentPadding: const EdgeInsets.symmetric(vertical: 10),
-          ),
-          onChanged: (val) => setState(() => _acidSearchQuery = val),
-        ),
-        const SizedBox(height: 16),
-
-        // Tracker Table
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: DataTable(
-            headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-            columns: [
-              DataColumn(label: Text(context.l10n.acidNumberCol, style: const TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text(context.l10n.importFile, style: const TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text(context.l10n.foreignExporterCol, style: const TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text(context.l10n.expiryDateCol, style: const TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text(context.l10n.daysRemainingCol, style: const TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text(context.l10n.validityStatusCol, style: const TextStyle(fontWeight: FontWeight.bold))),
-            ],
-            rows: filtered.map((t) {
-              final days = t.daysRemaining;
-              final isExp = t.status == 'Expired' || days <= 0;
-              final isWarning = !isExp && days <= 14;
-              final expDate = t.acidExpiryDate ?? '';
-              final matchedFile = importFiles.where((f) => f.importFileId == t.importFileId).firstOrNull;
-              final fileLabel = matchedFile?.displayName ?? t.importFileCode ?? '-';
-              final poLabel = (matchedFile?.poNumber != null && matchedFile!.poNumber!.isNotEmpty)
-                  ? matchedFile.poNumber!
-                  : '';
-              final statusLabel = isExp ? context.l10n.expiredStatusBadge : isWarning ? context.l10n.expiringSoonStatusBadge : context.l10n.validStatusBadge;
-              final rowSummary = [
-                t.acidNumber,
-                fileLabel,
-                poLabel,
-                t.supplierName,
-                expDate.length >= 10 ? expDate.substring(0, 10) : expDate,
-                '$days',
-                statusLabel,
-              ].join('\t');
-
-              return DataRow(
-                cells: [
-                  DataCell(
-                    CopyableTableCell(
-                      value: t.acidNumber,
-                      rowSummary: rowSummary,
-                      child: Text(t.acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                    ),
+            // Summary Cards (Responsive: 2x2 grid on mobile, 1x4 row on desktop/tablet)
+            if (isMobile) ...[
+              Row(
+                children: [
+                  _buildTrackerCard(
+                    title: context.l10n.totalAcidsCard,
+                    count: trackerSummary?.totalAcidsCount ?? trackerItems.length,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                    icon: Icons.qr_code,
                   ),
-                  DataCell(
-                    CopyableTableCell(
-                      value: fileLabel,
-                      rowSummary: rowSummary,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(fileLabel, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                          if (poLabel.isNotEmpty)
-                            Text('${context.l10n.poLabelPrefix}: $poLabel', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  DataCell(
-                    CopyableTableCell(
-                      value: t.supplierName,
-                      rowSummary: rowSummary,
-                      child: Text(t.supplierName),
-                    ),
-                  ),
-                  DataCell(
-                    CopyableTableCell(
-                      value: expDate.length >= 10 ? expDate.substring(0, 10) : expDate,
-                      rowSummary: rowSummary,
-                      child: Text(expDate.length >= 10 ? expDate.substring(0, 10) : expDate),
-                    ),
-                  ),
-                  DataCell(
-                    CopyableTableCell(
-                      value: '$days',
-                      rowSummary: rowSummary,
-                      child: Text('$days', style: TextStyle(fontWeight: FontWeight.bold, color: isExp ? Colors.red : isWarning ? Colors.orange : Colors.green)),
-                    ),
-                  ),
-                  DataCell(
-                    CopyableTableCell(
-                      value: statusLabel,
-                      rowSummary: rowSummary,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: isExp ? Colors.red.shade50 : isWarning ? Colors.orange.shade50 : Colors.green.shade50,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: isExp ? Colors.red.shade300 : isWarning ? Colors.orange.shade300 : Colors.green.shade300),
-                        ),
-                        child: Text(
-                          statusLabel,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: isExp ? Colors.red.shade900 : isWarning ? Colors.orange.shade900 : Colors.green.shade900,
-                          ),
-                        ),
-                      ),
-                    ),
+                  const SizedBox(width: 10),
+                  _buildTrackerCard(
+                    title: context.l10n.validAcidsCard,
+                    count: trackerSummary?.validCount ?? trackerItems.where((t) => t.status != 'Expired' && t.daysRemaining > 14).length,
+                    color: isDark ? AppTheme.wcagEmerald : Colors.green,
+                    icon: Icons.check_circle_outline,
                   ),
                 ],
-              );
-            }).toList(),
-          ),
-        ),
-      ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _buildTrackerCard(
+                    title: context.l10n.expiringSoonAcidsCard,
+                    count: trackerSummary?.expiringSoonCount ?? trackerItems.where((t) => t.status != 'Expired' && t.daysRemaining <= 14 && t.daysRemaining > 0).length,
+                    color: isDark ? AppTheme.wcagOrange : AppTheme.orange,
+                    icon: Icons.warning_amber,
+                  ),
+                  const SizedBox(width: 10),
+                  _buildTrackerCard(
+                    title: context.l10n.expiredAcidsCard,
+                    count: trackerSummary?.expiredCount ?? trackerItems.where((t) => t.status == 'Expired' || t.daysRemaining <= 0).length,
+                    color: isDark ? AppTheme.wcagCrimson : AppTheme.crimson,
+                    icon: Icons.cancel_outlined,
+                  ),
+                ],
+              ),
+            ] else ...[
+              Row(
+                children: [
+                  _buildTrackerCard(
+                    title: context.l10n.totalAcidsCard,
+                    count: trackerSummary?.totalAcidsCount ?? trackerItems.length,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                    icon: Icons.qr_code,
+                  ),
+                  const SizedBox(width: 14),
+                  _buildTrackerCard(
+                    title: context.l10n.validAcidsCard,
+                    count: trackerSummary?.validCount ?? trackerItems.where((t) => t.status != 'Expired' && t.daysRemaining > 14).length,
+                    color: isDark ? AppTheme.wcagEmerald : Colors.green,
+                    icon: Icons.check_circle_outline,
+                  ),
+                  const SizedBox(width: 14),
+                  _buildTrackerCard(
+                    title: context.l10n.expiringSoonAcidsCard,
+                    count: trackerSummary?.expiringSoonCount ?? trackerItems.where((t) => t.status != 'Expired' && t.daysRemaining <= 14 && t.daysRemaining > 0).length,
+                    color: isDark ? AppTheme.wcagOrange : AppTheme.orange,
+                    icon: Icons.warning_amber,
+                  ),
+                  const SizedBox(width: 14),
+                  _buildTrackerCard(
+                    title: context.l10n.expiredAcidsCard,
+                    count: trackerSummary?.expiredCount ?? trackerItems.where((t) => t.status == 'Expired' || t.daysRemaining <= 0).length,
+                    color: isDark ? AppTheme.wcagCrimson : AppTheme.crimson,
+                    icon: Icons.cancel_outlined,
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 18),
+
+            // Search Bar & Export Actions
+            if (isMobile) ...[
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    key: const Key('acidExpiryTrackerSearchField'),
+                    style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                    decoration: InputDecoration(
+                      hintText: context.l10n.searchExpiryTrackerHint,
+                      hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500),
+                      prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      filled: true,
+                      fillColor: isDark ? AppTheme.darkSurface : Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                    ),
+                    onChanged: (val) => setState(() => _acidSearchQuery = val),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        key: const Key('acidExpiryCopyBtn'),
+                        icon: const Icon(Icons.copy, size: 16),
+                        label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
+                          side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal),
+                        ),
+                        onPressed: () => _copyAcidExpiryAsTsv(filtered, importFiles),
+                      ),
+                      OutlinedButton.icon(
+                        key: const Key('acidExpiryExcelBtn'),
+                        icon: const Icon(Icons.table_chart, size: 16, color: Colors.green),
+                        label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.green.shade700,
+                          side: const BorderSide(color: Colors.green),
+                        ),
+                        onPressed: () => _exportAcidExpiryToExcel(filtered, importFiles),
+                      ),
+                      OutlinedButton.icon(
+                        key: const Key('acidExpiryPdfBtn'),
+                        icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.red),
+                        label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red.shade700,
+                          side: const BorderSide(color: Colors.red),
+                        ),
+                        onPressed: () => _exportAcidExpiryToPdf(filtered, importFiles),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const Key('acidExpiryTrackerSearchField'),
+                      style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                      decoration: InputDecoration(
+                        hintText: context.l10n.searchExpiryTrackerHint,
+                        hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500),
+                        prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        filled: true,
+                        fillColor: isDark ? AppTheme.darkSurface : Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                      ),
+                      onChanged: (val) => setState(() => _acidSearchQuery = val),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    key: const Key('acidExpiryCopyBtn'),
+                    icon: const Icon(Icons.copy, size: 16),
+                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
+                      side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    ),
+                    onPressed: () => _copyAcidExpiryAsTsv(filtered, importFiles),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    key: const Key('acidExpiryExcelBtn'),
+                    icon: const Icon(Icons.table_chart, size: 16, color: Colors.green),
+                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.green.shade700,
+                      side: const BorderSide(color: Colors.green),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    ),
+                    onPressed: () => _exportAcidExpiryToExcel(filtered, importFiles),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    key: const Key('acidExpiryPdfBtn'),
+                    icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.red),
+                    label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red.shade700,
+                      side: const BorderSide(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    ),
+                    onPressed: () => _exportAcidExpiryToPdf(filtered, importFiles),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 16),
+
+            // Tracker Table / Empty State
+            if (filtered.isEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.search_off, size: 48, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400),
+                    const SizedBox(height: 12),
+                    Text(
+                      context.l10n.noAcidsFound,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                ),
+                child: SelectionArea(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: constraints.maxWidth < 750 ? 750 : constraints.maxWidth - (isMobile ? 28 : 40),
+                    ),
+                    child: DataTable(
+                      headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : Colors.grey.shade100),
+                      columns: [
+                        DataColumn(label: Text(context.l10n.actionCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                        DataColumn(label: Text(context.l10n.acidNumberCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                        DataColumn(label: Text(context.l10n.importFile, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                        DataColumn(label: Text(context.l10n.foreignExporterCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                        DataColumn(label: Text(context.l10n.expiryDateCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                        DataColumn(label: Text(context.l10n.daysRemainingCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                        DataColumn(label: Text(context.l10n.validityStatusCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      ],
+                      rows: filtered.map((t) {
+                        final days = t.daysRemaining;
+                        final isExp = t.status == 'Expired' || days <= 0;
+                        final isWarning = !isExp && days <= 14;
+                        final expDate = t.acidExpiryDate ?? '';
+                        final matchedFile = importFiles.where((f) => f.importFileId == t.importFileId).firstOrNull;
+                        final fileLabel = matchedFile?.displayName ?? t.importFileCode ?? '-';
+                        final poLabel = (matchedFile?.poNumber != null && matchedFile!.poNumber!.isNotEmpty)
+                            ? matchedFile.poNumber!
+                            : '';
+                        final statusLabel = isExp ? context.l10n.expiredStatusBadge : isWarning ? context.l10n.expiringSoonStatusBadge : context.l10n.validStatusBadge;
+                        final rowSummary = [
+                          t.acidNumber,
+                          fileLabel,
+                          poLabel,
+                          t.supplierName,
+                          expDate.length >= 10 ? expDate.substring(0, 10) : expDate,
+                          '$days',
+                          statusLabel,
+                        ].join('\t');
+
+                        return DataRow(
+                          cells: [
+                            DataCell(
+                              IconButton(
+                                key: Key('cloneTrackerRowBtn_${t.acidNumber}'),
+                                icon: Icon(Icons.copy_all, color: isDark ? AppTheme.wcagEmerald : AppTheme.emerald, size: 20),
+                                tooltip: context.l10n.cloneAcidRecordTooltip,
+                                onPressed: () => _onCloneTrackerItem(t),
+                              ),
+                            ),
+                            DataCell(
+                              CopyableTableCell(
+                                value: t.acidNumber,
+                                rowSummary: rowSummary,
+                                child: Text(t.acidNumber, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt)),
+                              ),
+                            ),
+                            DataCell(
+                              CopyableTableCell(
+                                value: fileLabel,
+                                rowSummary: rowSummary,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(fileLabel, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                                    if (poLabel.isNotEmpty)
+                                      Text('${context.l10n.poLabelPrefix}: $poLabel', style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              CopyableTableCell(
+                                value: t.supplierName,
+                                rowSummary: rowSummary,
+                                child: Text(t.supplierName, style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                              ),
+                            ),
+                            DataCell(
+                              CopyableTableCell(
+                                value: expDate.length >= 10 ? expDate.substring(0, 10) : expDate,
+                                rowSummary: rowSummary,
+                                child: Text(expDate.length >= 10 ? expDate.substring(0, 10) : expDate, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal)),
+                              ),
+                            ),
+                            DataCell(
+                              CopyableTableCell(
+                                value: '$days',
+                                rowSummary: rowSummary,
+                                child: Text(
+                                  '$days',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: isExp
+                                        ? (isDark ? const Color(0xFFF87171) : Colors.red)
+                                        : isWarning
+                                            ? (isDark ? AppTheme.wcagOrange : Colors.orange)
+                                            : (isDark ? AppTheme.wcagEmerald : Colors.green),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              CopyableTableCell(
+                                value: statusLabel,
+                                rowSummary: rowSummary,
+                                child: LivePulseBadge.acid(
+                                  daysRemaining: days,
+                                  isCustomsReleased: t.isCustomsReleased,
+                                  customLabel: statusLabel,
+                                  size: PulseBadgeSize.compact,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            ],
+          ],
+        );
+      },
     );
+  }
+
+  void _onCloneTrackerItem(AcidTrackerItemModel item) {
+    final acidSessions = ref.read(acidSessionsProvider).valueOrNull ?? [];
+    AcidRegistrationModel? session = acidSessions.where((s) =>
+        (item.acidSessionId != null && s.acidId == item.acidSessionId) ||
+        (s.acidNumber.isNotEmpty && s.acidNumber == item.acidNumber) ||
+        (item.importFileId != null && s.importFileId == item.importFileId)).firstOrNull;
+
+    session ??= AcidRegistrationModel(
+      acidId: item.acidSessionId ?? 0,
+      acidCode: item.acidCode ?? 'ACID-REG-2026',
+      acidNumber: item.acidNumber,
+      importFileId: item.importFileId,
+      importFileCode: item.importFileCode,
+      poNumber: item.poNumber,
+      importerId: 1,
+      importerName: item.importerName.isNotEmpty ? item.importerName : 'مستورد',
+      importerTaxId: '100-200-300',
+      supplierId: 1,
+      exporterName: item.supplierName.isNotEmpty ? item.supplierName : 'مورد أجنبي',
+      exporterCountry: 'China',
+      exporterCountryCode: 'CN',
+      exporterRegId: 'CN91310000',
+      proformaInvoiceNo: item.piNumber ?? 'PI-2026-001',
+      polName: 'CHANGSHU',
+      podName: 'Alexandria',
+      customsBrokerName: item.customsBrokerName,
+      status: item.status,
+      createdAt: item.acidIssueDate ?? DateTime.now().toIso8601String(),
+      updatedAt: DateTime.now().toIso8601String(),
+    );
+
+    _onCloneAcidSelected(session);
   }
 
   Widget _buildTrackerCard({
@@ -1757,37 +2873,50 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
     required Color color,
     required IconData icon,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? AppTheme.darkCardBackground : Colors.white,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: isDark ? AppTheme.darkBorder : color.withOpacity(0.3)),
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, color: color, size: 22),
+              child: Icon(icon, color: color, size: 20),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(fontSize: 11.5, color: Colors.grey, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                      fontWeight: FontWeight.bold,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
-                  CopyableText('$count', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+                  CopyableText(
+                    '$count',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? (color == AppTheme.charcoal ? AppTheme.darkTextPrimary : color) : color,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -2035,6 +3164,40 @@ CargoX Platform ID: 5b1b827d-5840-4ad6-b692-c5f636881c0e''';
     } finally {
       if (mounted) setState(() => _isParsingMts = false);
     }
+  }
+
+  void _copyDiscrepancyReportToClipboard() {
+    if (_comparisonResult == null) return;
+
+    final isAr = context.l10n.isArabic;
+    final buffer = StringBuffer();
+    buffer.writeln(isAr ? '📋 تقرير مطابقة والتحقق الجمركي لبيانات ACID' : '📋 ACID Customs Discrepancy & Verification Report');
+    buffer.writeln('--------------------------------------------------');
+    buffer.writeln('${isAr ? "حالة المطابقة الإجمالية" : "Overall Status"}: ${_comparisonResult!.allMatched ? (isAr ? "مطابق بالكامل ✅" : "Fully Matched ✅") : (isAr ? "يوجد تعارض ⚠️" : "Discrepancies Found ⚠️")}');
+    buffer.writeln('${isAr ? "نسبة المطابقة" : "Match Percentage"}: ${_comparisonResult!.matchPercentage.toStringAsFixed(1)}% (${_comparisonResult!.matchedCount}/${_comparisonResult!.totalComparedFields})');
+    buffer.writeln('--------------------------------------------------');
+
+    for (final item in _comparisonResult!.items) {
+      final label = isAr ? item.labelAr : item.labelEn;
+      final status = item.isMatched ? '✅' : '❌';
+      buffer.writeln('$status $label:');
+      buffer.writeln('   - ${isAr ? "المطلوب في أمر الشراء" : "Requested (PO/Invoice)"}: ${item.requestedValue}');
+      buffer.writeln('   - ${isAr ? "الفعلي الصادر من نافذة" : "Generated (Nafeza MTS)"}: ${item.generatedValue}');
+    }
+
+    if (!_comparisonResult!.allMatched && _discrepancyOverrideReasonCtrl.text.trim().isNotEmpty) {
+      buffer.writeln('--------------------------------------------------');
+      buffer.writeln('${isAr ? "مبرر التجاوز والاعتماد" : "Override Justification"}: ${_discrepancyOverrideReasonCtrl.text.trim()}');
+    }
+
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.l10n.discrepancyReportCopiedSuccess),
+        backgroundColor: AppTheme.wcagEmerald,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _runComparison() async {
@@ -2706,5 +3869,216 @@ Sorour Logistics ERP System''';
 📅 *Request Date:* $reqDate
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ *Important Note:* Please initiate the ACID issuance on the Nafeza (MTS) portal and provide us with the 19-digit ACID number upon generation. Thank you.''';
+  }
+
+  Future<void> _exportAcidRegistryToExcel(List<dynamic> list, List<dynamic> importFiles) async {
+    final headers = [
+      context.l10n.acidNumberCol,
+      context.l10n.importFile,
+      context.l10n.foreignExporterCol,
+      context.l10n.importerCompanyCol,
+      context.l10n.issueDateCol,
+      context.l10n.expiryDateCol,
+      context.l10n.validityStatusCol,
+    ];
+    final rows = list.map((s) {
+      final dateStr = s.generatedDate ?? s.requestedDate ?? '-';
+      final expStr = s.expiryDate ?? '-';
+      final matchedFile = importFiles.where((f) => f.importFileId == s.importFileId).firstOrNull;
+      final fileLabel = matchedFile?.displayName ?? s.importFileCode ?? '-';
+      final isIssued = s.status == 'Issued' || s.status == 'ISSUED';
+      final isDraft = s.status == 'DRAFT' || s.status == 'Draft';
+      final statusLabel = isIssued
+          ? context.l10n.issuedAndValidStatus
+          : (isDraft ? context.l10n.tempDraftStatus : context.l10n.underReviewStatus);
+      return [
+        s.acidNumber.isNotEmpty ? s.acidNumber : '-',
+        fileLabel,
+        s.exporterName,
+        s.importerName,
+        dateStr,
+        expStr,
+        statusLabel,
+      ];
+    }).toList();
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    await TableExportService.exportTableToExcel(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isArabic ? 'سجل أرقام ACID' : 'ACID Registry',
+      importFileNameOrCode: 'ACID_Registry',
+    );
+  }
+
+  Future<void> _exportAcidRegistryToPdf(List<dynamic> list, List<dynamic> importFiles) async {
+    final headers = [
+      context.l10n.acidNumberCol,
+      context.l10n.importFile,
+      context.l10n.foreignExporterCol,
+      context.l10n.importerCompanyCol,
+      context.l10n.issueDateCol,
+      context.l10n.expiryDateCol,
+      context.l10n.validityStatusCol,
+    ];
+    final rows = list.map((s) {
+      final dateStr = s.generatedDate ?? s.requestedDate ?? '-';
+      final expStr = s.expiryDate ?? '-';
+      final matchedFile = importFiles.where((f) => f.importFileId == s.importFileId).firstOrNull;
+      final fileLabel = matchedFile?.displayName ?? s.importFileCode ?? '-';
+      final isIssued = s.status == 'Issued' || s.status == 'ISSUED';
+      final isDraft = s.status == 'DRAFT' || s.status == 'Draft';
+      final statusLabel = isIssued
+          ? context.l10n.issuedAndValidStatus
+          : (isDraft ? context.l10n.tempDraftStatus : context.l10n.underReviewStatus);
+      return [
+        s.acidNumber.isNotEmpty ? s.acidNumber : '-',
+        fileLabel,
+        s.exporterName,
+        s.importerName,
+        dateStr,
+        expStr,
+        statusLabel,
+      ];
+    }).toList();
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    await TableExportService.exportTableToPdf(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isArabic ? 'سجل أرقام ACID' : 'ACID Registry',
+      importFileNameOrCode: 'ACID_Registry',
+    );
+  }
+
+  void _copyAcidRegistryAsTsv(List<dynamic> list, List<dynamic> importFiles) {
+    final headers = [
+      context.l10n.acidNumberCol,
+      context.l10n.importFile,
+      context.l10n.foreignExporterCol,
+      context.l10n.importerCompanyCol,
+      context.l10n.issueDateCol,
+      context.l10n.expiryDateCol,
+      context.l10n.validityStatusCol,
+    ];
+    final rows = list.map((s) {
+      final dateStr = s.generatedDate ?? s.requestedDate ?? '-';
+      final expStr = s.expiryDate ?? '-';
+      final matchedFile = importFiles.where((f) => f.importFileId == s.importFileId).firstOrNull;
+      final fileLabel = matchedFile?.displayName ?? s.importFileCode ?? '-';
+      final isIssued = s.status == 'Issued' || s.status == 'ISSUED';
+      final isDraft = s.status == 'DRAFT' || s.status == 'Draft';
+      final statusLabel = isIssued
+          ? context.l10n.issuedAndValidStatus
+          : (isDraft ? context.l10n.tempDraftStatus : context.l10n.underReviewStatus);
+      return [
+        s.acidNumber.isNotEmpty ? s.acidNumber : '-',
+        fileLabel,
+        s.exporterName,
+        s.importerName,
+        dateStr,
+        expStr,
+        statusLabel,
+      ];
+    }).toList();
+    TableCopyHelper.copyTable(context, headers, rows);
+  }
+
+  Future<void> _exportAcidExpiryToExcel(List<dynamic> list, List<dynamic> importFiles) async {
+    final headers = [
+      context.l10n.acidNumberCol,
+      context.l10n.importFile,
+      context.l10n.foreignExporterCol,
+      context.l10n.expiryDateCol,
+      context.l10n.daysRemainingCol,
+      context.l10n.validityStatusCol,
+    ];
+    final rows = list.map((t) {
+      final days = t.daysRemaining;
+      final isExp = t.status == 'Expired' || days <= 0;
+      final isWarning = !isExp && days <= 14;
+      final matchedFile = importFiles.where((f) => f.importFileId == t.importFileId).firstOrNull;
+      final fileLabel = matchedFile?.displayName ?? t.importFileCode ?? '-';
+      final statusLabel = isExp ? context.l10n.expiredStatusBadge : isWarning ? context.l10n.expiringSoonStatusBadge : context.l10n.validStatusBadge;
+      return [
+        t.acidNumber,
+        fileLabel,
+        t.supplierName,
+        t.acidExpiryDate ?? '-',
+        days > 0 ? '$days' : '0',
+        statusLabel,
+      ];
+    }).toList();
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    await TableExportService.exportTableToExcel(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isArabic ? 'متتبع صلاحية ACID' : 'ACID Expiry Tracker',
+      importFileNameOrCode: 'ACID_Expiry_Tracker',
+    );
+  }
+
+  Future<void> _exportAcidExpiryToPdf(List<dynamic> list, List<dynamic> importFiles) async {
+    final headers = [
+      context.l10n.acidNumberCol,
+      context.l10n.importFile,
+      context.l10n.foreignExporterCol,
+      context.l10n.expiryDateCol,
+      context.l10n.daysRemainingCol,
+      context.l10n.validityStatusCol,
+    ];
+    final rows = list.map((t) {
+      final days = t.daysRemaining;
+      final isExp = t.status == 'Expired' || days <= 0;
+      final isWarning = !isExp && days <= 14;
+      final matchedFile = importFiles.where((f) => f.importFileId == t.importFileId).firstOrNull;
+      final fileLabel = matchedFile?.displayName ?? t.importFileCode ?? '-';
+      final statusLabel = isExp ? context.l10n.expiredStatusBadge : isWarning ? context.l10n.expiringSoonStatusBadge : context.l10n.validStatusBadge;
+      return [
+        t.acidNumber,
+        fileLabel,
+        t.supplierName,
+        t.acidExpiryDate ?? '-',
+        days > 0 ? '$days' : '0',
+        statusLabel,
+      ];
+    }).toList();
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    await TableExportService.exportTableToPdf(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isArabic ? 'متتبع صلاحية ACID' : 'ACID Expiry Tracker',
+      importFileNameOrCode: 'ACID_Expiry_Tracker',
+    );
+  }
+
+  void _copyAcidExpiryAsTsv(List<dynamic> list, List<dynamic> importFiles) {
+    final headers = [
+      context.l10n.acidNumberCol,
+      context.l10n.importFile,
+      context.l10n.foreignExporterCol,
+      context.l10n.expiryDateCol,
+      context.l10n.daysRemainingCol,
+      context.l10n.validityStatusCol,
+    ];
+    final rows = list.map((t) {
+      final days = t.daysRemaining;
+      final isExp = t.status == 'Expired' || days <= 0;
+      final isWarning = !isExp && days <= 14;
+      final matchedFile = importFiles.where((f) => f.importFileId == t.importFileId).firstOrNull;
+      final fileLabel = matchedFile?.displayName ?? t.importFileCode ?? '-';
+      final statusLabel = isExp ? context.l10n.expiredStatusBadge : isWarning ? context.l10n.expiringSoonStatusBadge : context.l10n.validStatusBadge;
+      return [
+        t.acidNumber,
+        fileLabel,
+        t.supplierName,
+        t.acidExpiryDate ?? '-',
+        days > 0 ? '$days' : '0',
+        statusLabel,
+      ];
+    }).toList();
+    TableCopyHelper.copyTable(context, headers, rows);
   }
 }

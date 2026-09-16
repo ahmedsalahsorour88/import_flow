@@ -88,12 +88,7 @@ def list_acid_sessions(
     )
     if not items:
         return []
-    file_ids = {item.import_file_id for item in items if item.import_file_id}
-    import_files_map = {}
-    if file_ids:
-        from modules.import_files.model import ImportFile
-        files = db.query(ImportFile).filter(ImportFile.import_file_id.in_(file_ids)).all()
-        import_files_map = {f.import_file_id: f for f in files}
+    import_files_map = service.get_import_files_map(db, [item.import_file_id for item in items])
     return [service.enrich_acid_response(db, item, import_files_map=import_files_map) for item in items]
 
 
@@ -151,12 +146,7 @@ def create_banking_document(
 @router.get("/banking-documents", response_model=List[BankingDocumentResponse])
 def list_banking_documents(import_file_id: Optional[int] = None, db: Session = Depends(get_db)):
     items = service.get_all_banking_documents_service(db, import_file_id=import_file_id)
-    file_ids = [item.import_file_id for item in items if item.import_file_id]
-    import_files_map = {}
-    if file_ids:
-        from modules.import_files.model import ImportFile
-        import_files = db.query(ImportFile).filter(ImportFile.import_file_id.in_(set(file_ids))).all()
-        import_files_map = {f.import_file_id: f for f in import_files}
+    import_files_map = service.get_import_files_map(db, [item.import_file_id for item in items])
     return [service.enrich_banking_response(db, item, import_file=import_files_map.get(item.import_file_id)) for item in items]
 
 
@@ -214,12 +204,7 @@ def create_shipment_document(
 @router.get("/shipment-documents", response_model=List[ShipmentDocumentResponse])
 def list_shipment_documents(import_file_id: Optional[int] = None, db: Session = Depends(get_db)):
     items = service.get_all_shipment_documents_service(db, import_file_id=import_file_id)
-    file_ids = [item.import_file_id for item in items if item.import_file_id]
-    import_files_map = {}
-    if file_ids:
-        from modules.import_files.model import ImportFile
-        import_files = db.query(ImportFile).filter(ImportFile.import_file_id.in_(set(file_ids))).all()
-        import_files_map = {f.import_file_id: f for f in import_files}
+    import_files_map = service.get_import_files_map(db, [item.import_file_id for item in items])
     return [service.enrich_shipment_doc_response(db, item, import_file=import_files_map.get(item.import_file_id)) for item in items]
 
 
@@ -480,6 +465,7 @@ def list_draft_bl_reviews(
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
+    is_draft: Optional[bool] = None,
     db: Session = Depends(get_db),
 ):
     return service.get_draft_bl_reviews_service(
@@ -488,6 +474,7 @@ def list_draft_bl_reviews(
         import_file_id=import_file_id,
         status=status,
         search=search,
+        is_draft=is_draft,
     )
 
 
@@ -497,6 +484,11 @@ def get_draft_bl_review(review_id: int, db: Session = Depends(get_db)):
     if not item:
         raise HTTPException(status_code=404, detail="Draft B/L Review not found")
     return item
+
+
+@router.delete("/draft-bl/{review_id}", status_code=status.HTTP_200_OK)
+def delete_draft_bl_review(review_id: int, db: Session = Depends(get_db)):
+    return service.delete_draft_bl_review_service(db, review_id)
 
 
 @router.put("/draft-bl/{review_id}", response_model=DraftBLReviewResponse)
@@ -562,6 +554,7 @@ def list_coo_reviews(
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
+    is_draft: Optional[bool] = None,
     db: Session = Depends(get_db),
 ):
     return service.get_coo_reviews_service(
@@ -570,6 +563,7 @@ def list_coo_reviews(
         import_file_id=import_file_id,
         status=status,
         search=search,
+        is_draft=is_draft,
     )
 
 
@@ -835,6 +829,50 @@ def certify_and_sync_invoice_bl(
     Certifies reconciled invoice and B/L parameters and synchronizes them with the Import File and Downstream Records.
     """
     return service.sync_certified_invoice_bl_to_file_service(db, payload)
+
+
+@router.post(
+    "/invoice-bl/sessions",
+    response_model=InvoiceBLMatchSessionResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create or update an Invoice vs B/L Match Session (supports Draft or Certified Save)",
+)
+def create_invoice_bl_session(
+    payload: InvoiceBLMatchSessionCreate, db: Session = Depends(get_db)
+):
+    return service.create_invoice_bl_match_session_service(db, payload)
+
+
+@router.get(
+    "/invoice-bl/sessions",
+    response_model=List[InvoiceBLMatchSessionResponse],
+    summary="List all Invoice vs B/L Match Sessions with optional filters",
+)
+def list_invoice_bl_sessions(
+    import_file_id: Optional[int] = None,
+    is_draft: Optional[bool] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    return service.list_invoice_bl_match_sessions_service(
+        db, import_file_id=import_file_id, is_draft=is_draft, search=search
+    )
+
+
+@router.get(
+    "/invoice-bl/sessions/{session_id}",
+    response_model=InvoiceBLMatchSessionResponse,
+    summary="Get single Invoice vs B/L Match Session by ID",
+)
+def get_invoice_bl_session(session_id: int, db: Session = Depends(get_db)):
+    session = service.get_invoice_bl_match_session_service(db, session_id)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invoice B/L Match Session not found.",
+        )
+    return session
+
 
 
 # --- 7. CENTRAL SHIPMENT DOCUMENTS ARCHIVE & DISCREPANCIES SUMMARY ---

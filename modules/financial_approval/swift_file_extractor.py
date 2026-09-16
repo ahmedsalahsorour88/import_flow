@@ -33,30 +33,48 @@ def get_ocr_engine():
 def normalize_swift_ocr_text(text: str) -> str:
     """
     Normalizes common OCR character misrecognitions in SWIFT MT103 and bank advice slips.
+    Guaranteed to be idempotent (calling multiple times produces identical output).
     """
     if not text:
         return ""
 
-    # Replace fullwidth / Unicode colons and slashes
-    text = text.replace('\uff1a', ':').replace('\uff0f', '/')
+    # Replace fullwidth / Unicode colons, slashes, and brackets
+    text = text.replace('\uff1a', ':').replace('\uff0f', '/').replace('）', ')').replace('（', '(')
 
-    # OCR tag typos e.g. 2O -> 20, 5OK -> 50K, 5OA -> 50A
-    text = re.sub(r':?2[oO](?:/|\b)', r':20/', text)
-    text = re.sub(r':?5[oO]([KA])', r':50\1', text)
+    # 1. OCR Tag Substitutions (multiline with optional leading spaces and colons)
+    # Ensure valid standard tags (:20:, :32A:, etc.) are NOT modified or suffixed with /
+    text = re.sub(r'(?mi)^\s*:?(?:2[oO]|Z[oO0])(?=[/:\s]|$)', r':20', text)
+    text = re.sub(r'(?mi)^\s*:?2(?:BB|38|B8)(?=[/:\s]|$)', r':23B', text)
+    text = re.sub(r'(?mi)^\s*:?(?:[B8]2A|3ZA|BZA)(?=[/:\s]|$)', r':32A', text)
+    text = re.sub(r'(?mi)^\s*:?(?:B2B|82B)(?=[/:\s]|$)', r':32B', text)
+    text = re.sub(r'(?mi)^\s*:?(?:5[oO]|S[oO0])K(?=[/:\s]|$)', r':50K', text)
+    text = re.sub(r'(?mi)^\s*:?(?:5[oO]|S[oO0])A(?=[/:\s]|$)', r':50A', text)
+    text = re.sub(r'(?mi)^\s*:?S7A(?=[/:\s]|$)', r':57A', text)
+    text = re.sub(r'(?mi)^\s*:?S7D(?=[/:\s]|$)', r':57D', text)
+    text = re.sub(r'(?mi)^\s*:?S9A(?=[/:\s]|$)', r':59A', text)
+    text = re.sub(r'(?mi)^\s*:?S9(?=[/:\s]|$)', r':59', text)
+    text = re.sub(r'(?mi)^\s*:?(?:[7Z][oO]|Z0)(?=[/:\s]|$)', r':70', text)
+    text = re.sub(r'(?mi)^\s*:?(?:7IA|Z1A|ZA)(?=[/:\s]|$)', r':71A', text)
+    text = re.sub(r'(?mi)^\s*:?Z2(?=[/:\s]|$)', r':72', text)
 
-    # Standardize tag lines e.g. "20/TRANSACTION..." or "59/Beneficiary..." to ":20:" or ":59:"
-    standard_tags = ['20', '23B', '32A', '50K', '50A', '52A', '53A', '54A', '57A', '59', '59A', '70', '71A', '72']
-    for tag in standard_tags:
-        # Match tag at line start with optional leading colon, optional label, and optional table pipes
-        text = re.sub(rf'(?m)^:?({tag})(?:/[^\n:|]+)?\s*[:\n|]\s*\|?\s*:?', rf':\1: ', text)
+    tags_re = r'(?:20|23B|32A|32B|50[KA]|57[AD]|59[A]?|70|71A|72)'
 
-    # OCR Currency Typos normalization (especially in field 32A e.g. 260818U5D4370400 -> 260818USD4370400)
+    # Add missing leading colon if tag is bare and followed by / (e.g. 57A/Account -> :57A/Account)
+    text = re.sub(rf'(?mi)^(?!\s*:)\s*({tags_re})(/)', r':\1\2', text)
+
+    # 2. Standardize tags with slash labels (e.g. :20/TRANSACTION... or :59/Beneficiary...)
+    # Horizontal whitespace only [^\S\r\n] so it does NOT match across newlines!
+    text = re.sub(rf'(?mi)^\s*:?({tags_re})/[A-Za-z\t ,]+(?::[^\S\r\n]*|[^\S\r\n]*\r?\n[^\S\r\n]*:?|[^\S\r\n]*$)', r':\1: ', text)
+
+    # 3. OCR Currency Typos normalization (especially in field 32A e.g. 260818U5D4370400 -> 260818USD4370400)
     text = re.sub(r'(\d{6})\s*U[5S0][Dd0]', r'\1USD', text)
     text = re.sub(r'(\d{6})\s*E[0OVU]R', r'\1EUR', text)
     text = re.sub(r'(\d{6})\s*E[6CG]P', r'\1EGP', text)
     text = re.sub(r'(\d{6})\s*6BP', r'\1GBP', text)
     text = re.sub(r'(\d{6})\s*5AR', r'\1SAR', text)
     text = re.sub(r'\bU5D\b', 'USD', text)
+    text = re.sub(r'\bE0R\b', 'EUR', text)
+    text = re.sub(r'\bE6P\b', 'EGP', text)
 
     return text
 

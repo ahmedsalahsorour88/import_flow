@@ -1,11 +1,10 @@
 import sys
 import asyncio
 
-if sys.platform == "win32":
+if sys.platform == "win32" and sys.version_info < (3, 8):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-from fastapi import FastAPI, Request, Response
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Request, Response, Depends
 from starlette.middleware.base import BaseHTTPMiddleware
 
 # ==================================================
@@ -36,13 +35,20 @@ from modules.shipping_scenarios.model import ShippingEvaluationSession, Shipping
 from modules.customs_consultation.model import CustomsConsultationSession, CustomsChecklistItem
 from modules.freight_quotations.model import FreightRFQRequest, FreightQuotationItem
 from modules.customs_clearance_quotations.model import CustomsClearanceRFQ, CustomsClearanceQuotationItem, ClearanceServicePriceListItem
-from modules.financial_approval.model import PaymentRequestSession, ImportBudgetApproval
+from modules.financial_approval.model import (
+    PaymentRequestSession,
+    ImportBudgetApproval,
+    SwiftExtractionBatch,
+    SwiftExtractionField,
+    OcrCorrectionsLog,
+)
 from modules.import_documentation.model import (
     AcidRegistrationSession,
     BankingDocumentSession,
     ShipmentDocumentItem,
     CustomsDeclarationDraft,
     POPackingReconciliationSession,
+    InvoiceBLMatchSession,
 )
 
 from modules.import_files.model import ImportFile
@@ -57,7 +63,11 @@ from modules.smart_tasks.model import SmartTask
 from modules.shipment_updates.model import ShipmentUpdateLog
 from modules.demurrage_detention.model import DemurragePolicy, DemurrageTracking
 from modules.smart_document_upload.model import UploadSession
-from modules.docs_customs_approval.model import CustomsDocumentApproval, DiscrepancyRectificationTicket
+from modules.docs_customs_approval.model import (
+    CustomsDocumentApproval,
+    DiscrepancyRectificationTicket,
+    DocsCustomsApprovalSession,
+)
 from modules.cargox.model import CargoXEnvelope, CargoXEnvelopeDocument, CargoXStandardInvoiceReviewSession
 from modules.original_documents_collection.model import OriginalDocumentsCollectionSession
 from modules.cargo_insurance.model import CargoInsuranceCertificate
@@ -80,6 +90,7 @@ from modules.freight_data_connector.model import (
 from modules.expense_catalog.model import ExpenseCatalog
 from modules.experience_guide.model import GuideEntry, GuideEntryScope
 from modules.smart_checklists.model import ImportFileChecklistItem
+from modules.recalculation.model import RecalculationDependencyMap, RecalculationLog
 
 
 
@@ -91,7 +102,7 @@ from modules.import_companies.router import import_router
 from modules.suppliers.router import supplier_router
 from modules.external_service_providers.router import router as provider_router
 from modules.audit_logs.router import router as audit_router
-from modules.auth.router import router as auth_router
+from modules.auth.router import router as auth_router, get_current_user
 from modules.incoterms.router import incoterms_router
 from modules.customs_tariff.router import customs_tariff_router
 from modules.transport_locations.router import router as transport_locations_router
@@ -134,6 +145,7 @@ from modules.freight_data_connector.router import freight_data_router
 from modules.expense_catalog.router import router as expense_catalog_router
 from modules.experience_guide.router import router as experience_guide_router
 from modules.smart_checklists.router import router as smart_checklists_router
+from modules.recalculation.router import router as recalculation_router
 
 
 
@@ -141,61 +153,80 @@ from modules.smart_checklists.router import router as smart_checklists_router
 # Create FastAPI Application
 # ==================================================
 
-from fastapi.middleware.cors import CORSMiddleware
-
 app = FastAPI(
     title="Sorour Logistics ERP API",
-    version="1.0.162",
+    version="1.0.180",
 )
 
 # ==================================================
-# Custom CORS & Private Network Access (PNA) Middleware
+# CORS & Private Network Access (PNA) Middleware
 # ==================================================
+# NOTE: We use a single unified custom middleware instead of FastAPI's built-in
+# CORSMiddleware to avoid conflicts. In Starlette, middlewares execute LIFO
+# (Last In, First Out), so two separate CORS handlers conflict — the http
+# middleware intercepts OPTIONS before CORSMiddleware can add its headers.
+# This unified handler covers both preflight (OPTIONS) and actual requests.
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origin_regex=r".*",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-)
+import re as _re
+
+CORS_ALLOWED_METHODS = "GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD"
+CORS_ALLOWED_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)(:[0-9]+)?$"
+
+# Keep LOCAL_ORIGIN_REGEX as alias used in the global exception handler below
+LOCAL_ORIGIN_REGEX = CORS_ALLOWED_ORIGIN_REGEX
 
 
 @app.middleware("http")
-async def add_pna_and_security_headers(request: Request, call_next):
-    origin = request.headers.get("origin") or "*"
+async def cors_and_pna_middleware(request: Request, call_next):
+    raw_origin = request.headers.get("origin", "")
+    is_allowed = bool(raw_origin and _re.match(CORS_ALLOWED_ORIGIN_REGEX, raw_origin))
+    effective_origin = raw_origin if is_allowed else (raw_origin if raw_origin else "*")
+
+    # Handle CORS preflight (OPTIONS) immediately — no need to forward downstream
     if request.method == "OPTIONS":
-        response = Response(status_code=204)
         req_headers = request.headers.get("access-control-request-headers", "*")
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD"
+        response = Response(status_code=204)
+        response.headers["Access-Control-Allow-Origin"] = effective_origin
+        response.headers["Access-Control-Allow-Methods"] = CORS_ALLOWED_METHODS
         response.headers["Access-Control-Allow-Headers"] = req_headers
         response.headers["Access-Control-Allow-Credentials"] = "true"
         response.headers["Access-Control-Allow-Private-Network"] = "true"
         response.headers["Access-Control-Max-Age"] = "86400"
+        response.headers["Vary"] = "Origin"
         return response
 
     response = await call_next(request)
-    if origin != "*":
-        response.headers["Access-Control-Allow-Origin"] = origin
+
+    # Inject CORS + PNA headers on every actual response
+    response.headers["Access-Control-Allow-Origin"] = effective_origin
+    if effective_origin != "*":
         response.headers["Access-Control-Allow-Credentials"] = "true"
     response.headers["Access-Control-Allow-Private-Network"] = "true"
+    response.headers["Vary"] = "Origin"
     return response
 
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    import logging
+    import os
+    import re
     from fastapi.responses import JSONResponse
-    origin = request.headers.get("origin") or "*"
+
+    logging.getLogger("main").error(f"Unhandled server error: {exc}", exc_info=True)
+    raw_origin = request.headers.get("origin")
+    is_allowed = bool(raw_origin and re.match(LOCAL_ORIGIN_REGEX, raw_origin))
+    origin = raw_origin if is_allowed else "http://localhost:28080"
     headers = {
         "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Credentials": "true",
         "Access-Control-Allow-Private-Network": "true",
     }
+    is_debug = os.getenv("DEBUG", "false").lower() in ("true", "1")
+    detail = f"Internal Server Error: {str(exc)}" if is_debug else "Internal Server Error"
     return JSONResponse(
         status_code=500,
-        content={"detail": f"Internal Server Error: {str(exc)}"},
+        content={"detail": detail},
         headers=headers,
     )
 
@@ -253,6 +284,7 @@ app.include_router(freight_data_router)
 app.include_router(expense_catalog_router)
 app.include_router(experience_guide_router)
 app.include_router(smart_checklists_router)
+app.include_router(recalculation_router)
 
 
 
@@ -279,7 +311,7 @@ SchemaUpgradeService.execute_safe_startup_upgrade(
 def dashboard():
     return {
         "system": "Sorour Logistics ERP",
-        "version": "1.0.162",
+        "version": "1.0.180",
         "status": "running",
     }
 
@@ -310,10 +342,9 @@ def health_check():
     return {
         "status": "OK",
         "system": "Sorour Logistics ERP",
-        "version": "1.0.162",
+        "version": "1.0.180",
         "database": {
             "connected": db_exists,
-            "path": db_path,
             "size_kb": db_size_kb,
             "tables_count": tables_count,
         },
@@ -326,7 +357,7 @@ def health_check():
 
 @app.post("/shutdown")
 @app.post("/api/v1/shutdown")
-def shutdown_system():
+def shutdown_system(current_user: User = Depends(get_current_user)):
     import os
     import threading
     import time

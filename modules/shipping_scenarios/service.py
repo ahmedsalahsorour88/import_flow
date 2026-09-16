@@ -3,13 +3,17 @@ from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from modules.shipping_scenarios.model import ShippingEvaluationSession
+from modules.shipping_scenarios.model import (
+    ShippingEvaluationSession,
+    ShippingScenarioItem,
+)
 from modules.shipping_scenarios.repository import ShippingScenarioRepository
 from modules.shipping_scenarios.schemas import (
     ShippingEvaluationCreate,
     ShippingEvaluationUpdate,
     ShippingEvaluationResponse,
     ShippingScenarioItemCalculated,
+    CloneShippingEvaluationRequest,
 )
 from modules.shipping_scenarios.validators import ShippingScenarioValidator
 
@@ -339,3 +343,149 @@ class ShippingScenarioService:
             )
         restored_obj = ShippingScenarioRepository.restore(db, session_obj)
         return ShippingScenarioService._enrich_session_response(db, restored_obj)
+
+    @staticmethod
+    def clone_session_service(
+        db: Session,
+        session_id: int,
+        payload: Optional[CloneShippingEvaluationRequest] = None,
+    ) -> ShippingEvaluationResponse:
+        source = ShippingScenarioRepository.get_by_id(db, session_id)
+        if not source:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Shipping evaluation session with ID {session_id} not found.",
+            )
+
+        req = payload or CloneShippingEvaluationRequest()
+        new_code = ShippingScenarioRepository.generate_session_code(db)
+
+        new_title = req.new_title
+        if not new_title:
+            base_title = source.title or f"Study {source.session_code}"
+            new_title = f"{base_title} (نسخة)"
+
+        new_crd = req.cargo_ready_date or source.cargo_ready_date
+        new_import_file_id = None if req.unlink_import_file else source.import_file_id
+        new_po_id = None if req.unlink_po else source.po_id
+
+        notes = source.notes
+        if req.remarks:
+            notes = f"{notes}\n[Clone Note]: {req.remarks}" if notes else f"[Clone Note]: {req.remarks}"
+
+        cloned_session = ShippingEvaluationSession(
+            session_code=new_code,
+            title=new_title,
+            cargo_ready_date=new_crd,
+            pick_up_address=source.pick_up_address,
+            port_of_loading_id=source.port_of_loading_id,
+            port_of_discharge_id=source.port_of_discharge_id,
+            avg_form4_days=source.avg_form4_days,
+            avg_clearance_days=source.avg_clearance_days,
+            import_file_id=new_import_file_id,
+            po_id=new_po_id,
+            project_id=source.project_id,
+            notes=notes,
+            is_active=True,
+        )
+        db.add(cloned_session)
+        db.flush()
+
+        if req.copy_carrier_options and source.items:
+            for item in source.items:
+                cloned_item = ShippingScenarioItem(
+                    session_id=cloned_session.session_id,
+                    provider_id=item.provider_id,
+                    provider_name=item.provider_name,
+                    customs_broker_id=item.customs_broker_id,
+                    customs_broker_name=item.customs_broker_name,
+                    vessel_name=item.vessel_name,
+                    voyage_number=item.voyage_number,
+                    port_of_loading_id=item.port_of_loading_id,
+                    port_of_discharge_id=item.port_of_discharge_id,
+                    pol_name=item.pol_name,
+                    pod_name=item.pod_name,
+                    sailing_date=item.sailing_date,
+                    estimated_arrival_date=item.estimated_arrival_date,
+                    expected_line_delay_days=item.expected_line_delay_days,
+                    is_excluded_from_average=item.is_excluded_from_average,
+                    is_recommended=False,
+                    is_selected=False,
+                    risk_level=item.risk_level,
+                    notes=item.notes,
+                    free_time_days=item.free_time_days,
+                    quotation_currency=item.quotation_currency,
+                    total_quotation_amount=item.total_quotation_amount,
+                    container_40ft_applicable=item.container_40ft_applicable,
+                    container_40ft_price=item.container_40ft_price,
+                    container_40ft_currency=item.container_40ft_currency,
+                    container_40ft_qty=item.container_40ft_qty,
+                    container_20ft_applicable=item.container_20ft_applicable,
+                    container_20ft_price=item.container_20ft_price,
+                    container_20ft_currency=item.container_20ft_currency,
+                    container_20ft_qty=item.container_20ft_qty,
+                    lcl_cbm_applicable=item.lcl_cbm_applicable,
+                    lcl_cbm_price=item.lcl_cbm_price,
+                    lcl_cbm_currency=item.lcl_cbm_currency,
+                    lcl_cbm_qty=item.lcl_cbm_qty,
+                    express_courier_applicable=item.express_courier_applicable,
+                    express_courier_price=item.express_courier_price,
+                    express_courier_currency=item.express_courier_currency,
+                    eur_atr_applicable=item.eur_atr_applicable,
+                    eur_atr_price=item.eur_atr_price,
+                    eur_atr_currency=item.eur_atr_currency,
+                    solas_vgm_applicable=item.solas_vgm_applicable,
+                    solas_vgm_price=item.solas_vgm_price,
+                    solas_vgm_currency=item.solas_vgm_currency,
+                    vgm_notification_applicable=item.vgm_notification_applicable,
+                    vgm_notification_price=item.vgm_notification_price,
+                    vgm_notification_currency=item.vgm_notification_currency,
+                    telex_release_applicable=item.telex_release_applicable,
+                    telex_release_price=item.telex_release_price,
+                    telex_release_currency=item.telex_release_currency,
+                    insurance_applicable=item.insurance_applicable,
+                    insurance_price=item.insurance_price,
+                    insurance_currency=item.insurance_currency,
+                    booking_cancellation_applicable=item.booking_cancellation_applicable,
+                    booking_cancellation_price=item.booking_cancellation_price,
+                    booking_cancellation_currency=item.booking_cancellation_currency,
+                    ics2_filing_fee_applicable=item.ics2_filing_fee_applicable,
+                    ics2_filing_fee_price=item.ics2_filing_fee_price,
+                    ics2_filing_fee_currency=item.ics2_filing_fee_currency,
+                    others_fee_applicable=item.others_fee_applicable,
+                    others_fee_price=item.others_fee_price,
+                    others_fee_currency=item.others_fee_currency,
+                    document_fees_applicable=item.document_fees_applicable,
+                    document_fees_price=item.document_fees_price,
+                    document_fees_currency=item.document_fees_currency,
+                    waiver_letter_fee_applicable=item.waiver_letter_fee_applicable,
+                    waiver_letter_fee_price=item.waiver_letter_fee_price,
+                    waiver_letter_fee_currency=item.waiver_letter_fee_currency,
+                    dthc_applicable=item.dthc_applicable,
+                    dthc_price=item.dthc_price,
+                    dthc_currency=item.dthc_currency,
+                    storage_per_week_applicable=item.storage_per_week_applicable,
+                    storage_per_week_price=item.storage_per_week_price,
+                    storage_per_week_currency=item.storage_per_week_currency,
+                    extra_day_storage_applicable=item.extra_day_storage_applicable,
+                    extra_day_storage_price=item.extra_day_storage_price,
+                    extra_day_storage_currency=item.extra_day_storage_currency,
+                    clearance_fee_applicable=item.clearance_fee_applicable,
+                    clearance_fee_price=item.clearance_fee_price,
+                    clearance_fee_currency=item.clearance_fee_currency,
+                    inspection_fee_applicable=item.inspection_fee_applicable,
+                    inspection_fee_price=item.inspection_fee_price,
+                    inspection_fee_currency=item.inspection_fee_currency,
+                    inland_transport_fee_applicable=item.inland_transport_fee_applicable,
+                    inland_transport_fee_price=item.inland_transport_fee_price,
+                    inland_transport_fee_currency=item.inland_transport_fee_currency,
+                    port_expenses_applicable=item.port_expenses_applicable,
+                    port_expenses_price=item.port_expenses_price,
+                    port_expenses_currency=item.port_expenses_currency,
+                )
+                db.add(cloned_item)
+
+        db.commit()
+        db.refresh(cloned_session)
+        return ShippingScenarioService._enrich_session_response(db, cloned_session)
+

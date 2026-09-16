@@ -17,6 +17,8 @@ import '../../../core/services/display_name_resolver.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
+import '../screens/shipping_scenarios_screen.dart';
 
 class SavedScenariosRegistryTab extends ConsumerStatefulWidget {
   final void Function(ShippingEvaluationModel session) onEditSession;
@@ -58,6 +60,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
     List<ImportFileModel> importFiles,
   ) {
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final totalSessions = state.sessions.length;
     final activeSessions = state.sessions.where((s) => s.isActive).length;
     final avgTransitAll = totalSessions > 0
@@ -70,38 +73,45 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
       children: [
         // ─── Top Summary Cards ───────────────────────────────────────────────
         Container(
-          color: AppTheme.charcoal,
+          color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.spaceBetween,
             children: [
-              _histStatCard(
-                icon: Icons.folder_copy_rounded,
-                label: l.totalStudiesMetric,
-                value: '$totalSessions',
-                color: AppTheme.cobalt,
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _histStatCard(
+                    icon: Icons.folder_copy_rounded,
+                    label: l.totalStudiesMetric,
+                    value: '$totalSessions',
+                    color: AppTheme.cobalt,
+                  ),
+                  _histStatCard(
+                    icon: Icons.check_circle_rounded,
+                    label: l.activeStatus,
+                    value: '$activeSessions',
+                    color: AppTheme.emerald,
+                  ),
+                  _histStatCard(
+                    icon: Icons.schedule_rounded,
+                    label: l.avgTransitMetric,
+                    value: avgTransitAll > 0 ? '${avgTransitAll.toStringAsFixed(1)} d' : '-',
+                    color: Colors.purple.shade300,
+                  ),
+                  _histStatCard(
+                    icon: Icons.recommend_rounded,
+                    label: l.withRecommendationMetric,
+                    value: '$withRecommendation',
+                    color: Colors.orange.shade300,
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              _histStatCard(
-                icon: Icons.check_circle_rounded,
-                label: l.activeStatus,
-                value: '$activeSessions',
-                color: AppTheme.emerald,
-              ),
-              const SizedBox(width: 10),
-              _histStatCard(
-                icon: Icons.schedule_rounded,
-                label: l.avgTransitMetric,
-                value: avgTransitAll > 0 ? '${avgTransitAll.toStringAsFixed(1)} d' : '-',
-                color: Colors.purple.shade300,
-              ),
-              const SizedBox(width: 10),
-              _histStatCard(
-                icon: Icons.recommend_rounded,
-                label: l.withRecommendationMetric,
-                value: '$withRecommendation',
-                color: Colors.orange.shade300,
-              ),
-              const Spacer(),
               // Force Refresh button
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
@@ -131,87 +141,115 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2))],
+            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+            boxShadow: [BoxShadow(color: isDark ? Colors.black26 : Colors.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2))],
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: l.searchStudiesHint,
-                    prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.cobalt),
-                    suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: _searchController,
-                      builder: (context, val, _) {
-                        return val.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 18),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  ref.read(shippingScenariosProvider.notifier).setSearchQuery('');
-                                },
-                              )
-                            : const SizedBox.shrink();
-                      },
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5)),
-                    isDense: true,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 750;
+              final searchField = TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: l.searchStudiesHint,
+                  prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.cobalt),
+                  suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _searchController,
+                    builder: (context, val, _) {
+                      return val.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () {
+                                _searchController.clear();
+                                ref.read(shippingScenariosProvider.notifier).setSearchQuery('');
+                              },
+                            )
+                          : const SizedBox.shrink();
+                    },
                   ),
-                  onChanged: (v) {
-                    ref.read(shippingScenariosProvider.notifier).setSearchQuery(v.trim());
-                  },
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF1E2631) : Colors.grey.shade50,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5)),
+                  isDense: true,
                 ),
-              ),
-              const SizedBox(width: 16),
-              Row(
+                onChanged: (v) {
+                  ref.read(shippingScenariosProvider.notifier).setSearchQuery(v.trim());
+                },
+              );
+
+              final actionWidgets = <Widget>[
+                FilterChip(
+                  avatar: Icon(
+                    state.showInactive ? Icons.visibility_off : Icons.visibility,
+                    size: 16,
+                    color: state.showInactive ? AppTheme.crimson : Colors.grey,
+                  ),
+                  label: Text(
+                    state.showInactive ? l.showDeleted : l.hideDeleted,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: state.showInactive ? AppTheme.crimson : (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                      fontWeight: state.showInactive ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  selected: state.showInactive,
+                  selectedColor: AppTheme.crimson.withOpacity(0.12),
+                  checkmarkColor: AppTheme.crimson,
+                  onSelected: (val) => ref.read(shippingScenariosProvider.notifier).toggleShowInactive(val),
+                ),
+                ElevatedButton.icon(
+                  key: const ValueKey('registrySearchAndCloneStudyBtn'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.wcagCobalt,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.control_point_duplicate_rounded, size: 16),
+                  label: Text(l.searchAndCloneStudyBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () => _openSearchAndCloneStudyDialog(context, state.sessions),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cobalt.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${state.sessions.length}',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                  ),
+                ),
+              ];
+
+              if (isCompact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    searchField,
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: actionWidgets,
+                    ),
+                  ],
+                );
+              }
+
+              return Row(
                 children: [
-                  const Icon(Icons.filter_alt_outlined, size: 18, color: Colors.grey),
-                  const SizedBox(width: 6),
-                  FilterChip(
-                    avatar: Icon(
-                      state.showInactive ? Icons.visibility_off : Icons.visibility,
-                      size: 16,
-                      color: state.showInactive ? AppTheme.crimson : Colors.grey,
-                    ),
-                    label: Text(
-                      state.showInactive ? l.showDeleted : l.hideDeleted,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: state.showInactive ? AppTheme.crimson : Colors.grey.shade700,
-                        fontWeight: state.showInactive ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                    selected: state.showInactive,
-                    selectedColor: AppTheme.crimson.withOpacity(0.12),
-                    checkmarkColor: AppTheme.crimson,
-                    onSelected: (val) => ref.read(shippingScenariosProvider.notifier).toggleShowInactive(val),
-                  ),
+                  Expanded(child: searchField),
+                  const SizedBox(width: 12),
+                  ...actionWidgets.map((w) => Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: w)),
                 ],
-              ),
-              const SizedBox(width: 8),
-              // Sessions count chip
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${state.sessions.length}',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                ),
-              ),
-            ],
+              );
+            },
           ),
         ),
-
         // ─── Data Table ──────────────────────────────────────────────────────
         Expanded(
           child: state.isLoading
@@ -240,25 +278,31 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                         ],
                       ),
                     )
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                      child: Card(
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: Colors.grey.shade200),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: DataTable(
-                            headingRowHeight: 48,
-                            dataRowMinHeight: 52,
-                            dataRowMaxHeight: 60,
-                            horizontalMargin: 16,
-                            columnSpacing: 20,
-                            dividerThickness: 0.5,
-                            headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxWidth < 768) {
+                          return _buildMobileStudiesCardList(context, state.sessions, importFiles);
+                        }
+                        return SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                          child: Card(
+                            elevation: 2,
+                            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: DataTable(
+                                headingRowHeight: 48,
+                                dataRowMinHeight: 52,
+                                dataRowMaxHeight: 60,
+                                horizontalMargin: 16,
+                                columnSpacing: 20,
+                                dividerThickness: 0.5,
+                                headingRowColor: WidgetStateProperty.all(isDark ? const Color(0xFF141A22) : AppTheme.charcoal),
                             headingTextStyle: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -293,10 +337,10 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                               final sess = entry.value;
                               final isEven = idx.isEven;
                               final rowColor = !sess.isActive
-                                  ? Colors.red.shade50
+                                  ? (isDark ? const Color(0xFF3B1E22) : Colors.red.shade50)
                                   : isEven
-                                      ? Colors.white
-                                      : Colors.grey.shade50;
+                                      ? (isDark ? AppTheme.darkCardBackground : Colors.white)
+                                      : (isDark ? const Color(0xFF1E2631) : Colors.grey.shade50);
 
                               final isArabic = Localizations.localeOf(context).languageCode == 'ar';
                               final rawFileCode = sess.importFileCode ?? (sess.importFileId != null ? 'IMP-${sess.importFileId}' : '—');
@@ -315,44 +359,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                     RowActionsPill(
                                       onView: () => _showSessionDetailsDialog(context, sess, importFiles),
                                       onEdit: () => widget.onEditSession(sess),
+                                      onClone: () => _openCloneStudyReviewDialog(context, sess),
                                       onPrint: () => _showPrintReportDialog(context, sess, importFiles),
-                                      onDelete: () async {
-                                        if (sess.isActive) {
-                                          final confirm = await showDialog<bool>(
-                                            context: context,
-                                            builder: (ctx) => AlertDialog(
-                                              title: Row(
-                                                children: [
-                                                  const Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
-                                                  const SizedBox(width: 8),
-                                                  Text(l.confirmDelete, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                                ],
-                                              ),
-                                              content: Text(
-                                                '${l.confirmDeleteStudyMessage} (${sess.sessionCode})',
-                                                style: const TextStyle(fontSize: 13),
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () => Navigator.pop(ctx, false),
-                                                  child: Text(l.cancel),
-                                                ),
-                                                ElevatedButton.icon(
-                                                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
-                                                  icon: const Icon(Icons.delete_rounded, size: 16),
-                                                  label: Text(l.delete),
-                                                  onPressed: () => Navigator.pop(ctx, true),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                          if (confirm == true) {
-                                            await ref.read(shippingScenariosProvider.notifier).deleteSession(sess.sessionId!);
-                                          }
-                                        } else {
-                                          await ref.read(shippingScenariosProvider.notifier).restoreSession(sess.sessionId!);
-                                        }
-                                      },
+                                      onDelete: () => _handleDeleteOrRestore(context, sess, l),
                                     ),
                                   ),
 
@@ -626,7 +635,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                           ),
                         ),
                       ),
-                    ),
+                    );
+                  },
+                ),
         ),
       ],
     );
@@ -1355,4 +1366,332 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
       ),
     );
   }
+
+  Future<void> _handleDeleteOrRestore(BuildContext context, ShippingEvaluationModel sess, AppLocalizations l) async {
+    if (sess.isActive) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
+              const SizedBox(width: 8),
+              Text(l.confirmDelete, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Text(
+            '${l.confirmDeleteStudyMessage} (${sess.sessionCode})',
+            style: const TextStyle(fontSize: 13),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l.cancel),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
+              icon: const Icon(Icons.delete_rounded, size: 16),
+              label: Text(l.delete),
+              onPressed: () => Navigator.pop(ctx, true),
+            ),
+          ],
+        ),
+      );
+      if (confirm == true) {
+        await ref.read(shippingScenariosProvider.notifier).deleteSession(sess.sessionId!);
+      }
+    } else {
+      await ref.read(shippingScenariosProvider.notifier).restoreSession(sess.sessionId!);
+    }
+  }
+
+  void _openCloneStudyReviewDialog(BuildContext context, ShippingEvaluationModel source) {
+    final l = context.l10n;
+    final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
+    final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
+    final copySuffix = isArabic ? ' (نسخة)' : ' (Copy)';
+    final initialName = '${source.title ?? source.sessionCode}$copySuffix';
+
+    final copiedMap = <String, String>{
+      l.shippingCarrierOptions: '${source.items.length}',
+      l.crdLabel: source.cargoReadyDate,
+    };
+    if (source.recommendedScenarioProvider != null) {
+      copiedMap[l.recommendedLineMetric] = source.recommendedScenarioProvider!;
+    }
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: isArabic ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: textDir,
+          child: CloneEntityReviewDialog(
+            entityType: l.cloneStudyDialogTitle,
+            sourceCode: source.sessionCode,
+            suggestedNewCode: '${source.sessionCode}-CLONE',
+            sourceTitle: initialName,
+            copiedFieldsSummary: copiedMap,
+            mandatorilyResetFields: [
+              l.cloneFieldStudyCodeGenerated,
+              l.cloneFieldImportFileReset,
+              l.cloneFieldPoReset,
+              l.cloneFieldSelectionReset,
+            ],
+            onConfirm: ({
+              required String newCode,
+              required String newTitle,
+              required bool copyLineItems,
+              required bool copyAttachments,
+              String? notes,
+            }) async {
+              final sId = source.sessionId;
+              if (sId == null) return;
+              final messenger = ScaffoldMessenger.of(context);
+              final cloned = await ref.read(shippingScenariosProvider.notifier).cloneSession(
+                sId,
+                newTitle: newTitle,
+                remarks: notes,
+                unlinkImportFile: true,
+                unlinkPo: true,
+                copyCarrierOptions: copyLineItems,
+              );
+              if (cloned != null) {
+                widget.onEditSession(cloned);
+                widget.onSwitchToEvaluator();
+                messenger.hideCurrentSnackBar();
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(l.cloneStudySuccess(cloned.sessionCode)),
+                    backgroundColor: AppTheme.wcagEmerald,
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openSearchAndCloneStudyDialog(BuildContext context, List<ShippingEvaluationModel> sessions) {
+    final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
+    final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: isArabic ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: textDir,
+          child: SearchAndCloneStudyDialog(
+            sessions: sessions,
+            onSelectStudy: (session) {
+              Navigator.of(dialogCtx).pop();
+              _openCloneStudyReviewDialog(context, session);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileStudiesCardList(
+    BuildContext context,
+    List<ShippingEvaluationModel> sessions,
+    List<ImportFileModel> importFiles,
+  ) {
+    final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
+      itemCount: sessions.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final sess = sessions[index];
+        final rawFileCode = sess.importFileCode ?? (sess.importFileId != null ? 'IMP-${sess.importFileId}' : null);
+        final shipmentTitle = (rawFileCode != null && rawFileCode != '—')
+            ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isArabic)
+            : null;
+
+        return Card(
+          elevation: 2,
+          color: !sess.isActive
+              ? (isDark ? const Color(0xFF3B1E22) : Colors.red.shade50)
+              : (isDark ? AppTheme.darkCardBackground : Colors.white),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: !sess.isActive
+                  ? Colors.red.withOpacity(0.4)
+                  : (isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header: Icon + Code + Active Badge
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundColor: AppTheme.cobalt.withOpacity(0.15),
+                      child: const Icon(Icons.alt_route, color: AppTheme.cobalt, size: 16),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: CopyableText(
+                        sess.sessionCode,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: sess.isActive ? AppTheme.emerald.withOpacity(0.15) : AppTheme.crimson.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        sess.isActive ? l.activeStatus : (isArabic ? 'معطل' : 'Inactive'),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: sess.isActive ? AppTheme.emerald : AppTheme.crimson,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Title
+                if (sess.title != null && sess.title!.isNotEmpty) ...[
+                  Text(
+                    sess.title!,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                ],
+
+                // Linked Import File / PO
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    if (rawFileCode != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cobalt.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                        ),
+                        child: Text(
+                          '📁 $rawFileCode${shipmentTitle != null ? " ($shipmentTitle)" : ""}',
+                          style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    if (sess.poNumber != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.emerald.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppTheme.emerald.withOpacity(0.2)),
+                        ),
+                        child: Text(
+                          'PO: ${sess.poNumber}',
+                          style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Metrics wrap: Options count, Transit, WH Date, Recommended Carrier
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E2631) : Colors.blueGrey.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        l.optionsCount(sess.items.length),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? AppTheme.darkTextSecondary : Colors.blueGrey.shade700,
+                        ),
+                      ),
+                    ),
+                    if (sess.avgExpectedTransitDays > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '⏱️ ${sess.avgExpectedTransitDays.toStringAsFixed(1)} d',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.purple.shade400),
+                        ),
+                      ),
+                    if (sess.recommendedScenarioProvider != null && sess.recommendedScenarioProvider!.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppTheme.emerald.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          '⭐ ${sess.recommendedScenarioProvider}',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                        ),
+                      ),
+                    if (sess.cargoReadyDate.isNotEmpty)
+                      Text(
+                        '📅 CRD: ${sess.cargoReadyDate}',
+                        style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                const Divider(height: 1),
+                const SizedBox(height: 6),
+
+                // Actions Pill
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    RowActionsPill(
+                      onView: () => _showSessionDetailsDialog(context, sess, importFiles),
+                      onEdit: () => widget.onEditSession(sess),
+                      onClone: () => _openCloneStudyReviewDialog(context, sess),
+                      onPrint: () => _showPrintReportDialog(context, sess, importFiles),
+                      onDelete: () => _handleDeleteOrRestore(context, sess, l),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
 }

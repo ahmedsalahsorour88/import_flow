@@ -73,7 +73,12 @@ def _attach_import_file_metadata(db: Session, record: CargoShippingRecord) -> Ca
             setattr(record, "company_name", imp_file.company_name)
     return record
 
-def create_cargo_shipping_service(db: Session, schema: CargoShippingCreate, auto_upsert: bool = False) -> CargoShippingRecord:
+def create_cargo_shipping_service(
+    db: Session,
+    schema: CargoShippingCreate,
+    auto_upsert: bool = False,
+    auto_advance_lifecycle: bool = True,
+) -> CargoShippingRecord:
     # 1. Check import file exists
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id, ImportFile.is_active == True).first()
     if not imp_file:
@@ -84,7 +89,7 @@ def create_cargo_shipping_service(db: Session, schema: CargoShippingCreate, auto
     if existing:
         if auto_upsert:
             update_schema = CargoShippingUpdate(**schema.model_dump(exclude_unset=True))
-            return update_cargo_shipping_service(db, existing.cargo_shipping_id, update_schema)
+            return update_cargo_shipping_service(db, existing.cargo_shipping_id, update_schema, auto_advance_lifecycle=auto_advance_lifecycle)
         else:
             raise HTTPException(
                 status_code=400,
@@ -107,6 +112,20 @@ def create_cargo_shipping_service(db: Session, schema: CargoShippingCreate, auto
         record.is_crd_validated = validate_crd_against_cutoff(schema.crd_date, schema.cargo_cutoff_date)
         db.commit()
         db.refresh(record)
+
+    # 5. Centralized Lifecycle Stage Sync (STEP_07 -> STEP_08)
+    if auto_advance_lifecycle and record.import_file_id:
+        try:
+            from modules.lifecycle_board.service import sync_cargo_shipping_lifecycle_stage
+            sync_cargo_shipping_lifecycle_stage(
+                db=db,
+                import_file_id=record.import_file_id,
+                cargo_shipping_code=record.cargo_shipping_code,
+                container_count=len(processed_containers or []),
+                is_final_completed=True,
+            )
+        except Exception:
+            pass
 
     return _attach_import_file_metadata(db, record)
 
@@ -335,7 +354,12 @@ def advance_cargox_stage_service(db: Session, record_id: int, target_stage: str)
     db.refresh(record)
     return _attach_import_file_metadata(db, record)
 
-def update_cargo_shipping_service(db: Session, record_id: int, schema: CargoShippingUpdate) -> CargoShippingRecord:
+def update_cargo_shipping_service(
+    db: Session,
+    record_id: int,
+    schema: CargoShippingUpdate,
+    auto_advance_lifecycle: bool = True,
+) -> CargoShippingRecord:
     processed_containers = None
     if schema.containers_loading_data is not None:
         validate_container_reuse_conflict(db, schema.containers_loading_data, current_record_id=record_id)
@@ -354,6 +378,20 @@ def update_cargo_shipping_service(db: Session, record_id: int, schema: CargoShip
         updated.is_crd_validated = validate_crd_against_cutoff(updated.crd_date, updated.cargo_cutoff_date)
         db.commit()
         db.refresh(updated)
+
+    # Centralized Lifecycle Stage Sync (STEP_07 -> STEP_08)
+    if auto_advance_lifecycle and updated.import_file_id:
+        try:
+            from modules.lifecycle_board.service import sync_cargo_shipping_lifecycle_stage
+            sync_cargo_shipping_lifecycle_stage(
+                db=db,
+                import_file_id=updated.import_file_id,
+                cargo_shipping_code=updated.cargo_shipping_code,
+                container_count=len(updated.containers_loading_data or []),
+                is_final_completed=True,
+            )
+        except Exception:
+            pass
 
     return _attach_import_file_metadata(db, updated)
 

@@ -137,6 +137,8 @@ void main() {
         'estimated_clearance_fees_egp': 50000.0,
         'estimated_grand_total_egp': 3350000.0,
         'exchange_rate': 50.0,
+        'broker_id': 34,
+        'broker_name': 'Nabil Naseef .ACC',
       };
 
       final prefill = BudgetPrefillModel.fromJson(json);
@@ -144,6 +146,8 @@ void main() {
       expect(prefill.importFileId, 10);
       expect(prefill.supplierName, 'Shanghai Machinery Ltd');
       expect(prefill.swiftCode, 'ICBKCNBJ');
+      expect(prefill.brokerId, 34);
+      expect(prefill.brokerName, 'Nabil Naseef .ACC');
       expect(prefill.linkedPos.length, 2);
       expect(prefill.linkedPos[0].poNumber, 'PO-001');
       expect(prefill.linkedPos[0].paymentTerms, 'Advance 30%');
@@ -196,6 +200,61 @@ void main() {
       expect(serialized['swift_reference_no'], 'SWIFT-DE-889900');
       expect(serialized['swift_processing_days'], 3);
       expect(serialized['swift_variance_status'], 'Matched');
+    });
+
+    test('SwiftFieldModel and SwiftBatchModel serialization and validation', () {
+      final fieldJson = {
+        'id': 1,
+        'batch_id': 10,
+        'field_key': 'amount',
+        'swift_field_code': ':32A:',
+        'field_label': 'المبلغ المحول',
+        'raw_ocr_text': '260818U5D43704,00',
+        'parsed_value': '43704.0',
+        'confidence_score': 0.95,
+        'is_edited_by_user': false,
+        'edited_value': null,
+        'final_value': '43704.0',
+        'is_mandatory': true,
+        'is_empty': false,
+      };
+
+      final field = SwiftFieldModel.fromJson(fieldJson);
+      expect(field.fieldKey, 'amount');
+      expect(field.swiftFieldCode, ':32A:');
+      expect(field.finalValue, '43704.0');
+      expect(field.isMandatory, true);
+      expect(field.confidenceScore, 0.95);
+
+      final editedField = field.copyWith(
+        editedValue: '43704.00',
+        finalValue: '43704.00',
+        isEditedByUser: true,
+        confidenceScore: 1.0,
+      );
+      expect(editedField.finalValue, '43704.00');
+      expect(editedField.isEditedByUser, true);
+      expect(editedField.confidenceScore, 1.0);
+
+      final batchJson = {
+        'batch_id': 10,
+        'batch_code': 'SWF-20260914-001',
+        'source_filename': 'swift_advice.txt',
+        'source_file_type': 'Text File',
+        'raw_source_text': 'RAW SWIFT TEXT',
+        'status': 'EXTRACTED_PENDING_REVIEW',
+        'fields': [fieldJson],
+        'all_mandatory_valid': true,
+        'missing_mandatory_fields': <String>[],
+      };
+
+      final batch = SwiftBatchModel.fromJson(batchJson);
+      expect(batch.batchId, 10);
+      expect(batch.batchCode, 'SWF-20260914-001');
+      expect(batch.status, 'EXTRACTED_PENDING_REVIEW');
+      expect(batch.allMandatoryValid, true);
+      expect(batch.fields.length, 1);
+      expect(batch.fields.first.fieldKey, 'amount');
     });
   });
 }

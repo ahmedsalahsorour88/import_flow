@@ -367,6 +367,7 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
                         child: DataTable(
                           headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                           columns: [
+                            DataColumn(label: Text(l.customsClearanceColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text(l.customsClearanceColClearanceCode, style: const TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text(l.customsClearanceColDecl46, style: const TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text(l.customsClearanceColCustomsOffice, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -377,7 +378,6 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
                             DataColumn(label: Text(l.customsClearanceColPaymentStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text(l.finalDutyColBankReceipt, style: const TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text(l.finalDutyColReleasePermit, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.customsClearanceColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                           ],
                           rows: filtered.map((r) {
                             final isPaid = r.paymentStatus == 'Paid & Verified';
@@ -392,6 +392,46 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
 
                             return DataRow(
                               cells: [
+                                // Actions
+                                DataCell(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.charcoal),
+                                        tooltip: l.finalDutyCopyRowSummaryBtn,
+                                        onPressed: () => _copyRowSummary(r, l),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: isPaid ? Colors.indigo : AppTheme.emerald,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                        ),
+                                        icon: Icon(isPaid ? Icons.verified : Icons.payment, size: 13),
+                                        label: Text(
+                                          isPaid ? l.customsClearanceBtnPaymentDetails : l.customsClearanceBtnPayReconcile,
+                                          style: const TextStyle(fontSize: 11),
+                                        ),
+                                        onPressed: widget.onPay != null ? () => widget.onPay!(r) : null,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      OutlinedButton.icon(
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: AppTheme.cobalt,
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                        ),
+                                        icon: const Icon(Icons.assignment_turned_in, size: 13),
+                                        label: Text(l.customsClearanceBtnFinalRelease, style: const TextStyle(fontSize: 11)),
+                                        onPressed: widget.onRelease != null ? () => widget.onRelease!(r) : null,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
                                 // Clearance Code badge
                                 DataCell(
                                   CopyableTableCell(
@@ -571,46 +611,6 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
                                             ),
                                           )
                                         : const Text('-', style: TextStyle(color: Colors.grey)),
-                                  ),
-                                ),
-
-                                // Actions
-                                DataCell(
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.charcoal),
-                                        tooltip: l.finalDutyCopyRowSummaryBtn,
-                                        onPressed: () => _copyRowSummary(r, l),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: isPaid ? Colors.indigo : AppTheme.emerald,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                        ),
-                                        icon: Icon(isPaid ? Icons.verified : Icons.payment, size: 13),
-                                        label: Text(
-                                          isPaid ? l.customsClearanceBtnPaymentDetails : l.customsClearanceBtnPayReconcile,
-                                          style: const TextStyle(fontSize: 11),
-                                        ),
-                                        onPressed: widget.onPay != null ? () => widget.onPay!(r) : null,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      OutlinedButton.icon(
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: AppTheme.cobalt,
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                        ),
-                                        icon: const Icon(Icons.assignment_turned_in, size: 13),
-                                        label: Text(l.customsClearanceBtnFinalRelease, style: const TextStyle(fontSize: 11)),
-                                        onPressed: widget.onRelease != null ? () => widget.onRelease!(r) : null,
-                                      ),
-                                    ],
                                   ),
                                 ),
                               ],

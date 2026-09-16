@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/app_shimmer_skeleton.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/critical_alert_banner.dart';
+import '../../../core/widgets/page_header.dart';
 import '../../demurrage_detention/screens/demurrage_detention_screen.dart';
 import '../../import_documentation/screens/central_docs_archive_screen.dart';
 import '../../import_documentation/screens/customs_declaration46_screen.dart';
@@ -51,7 +53,9 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   final Map<String, String> _stepPhases = {
     'STEP_01': '1', 'STEP_02': '1', 'STEP_03': '1',
     'STEP_04': '2', 'STEP_05': '2',
-    'STEP_06': '3', 'STEP_07': '3', 'STEP_08': '3', 'STEP_09': '3',
+    'STEP_06': '3', 'STEP_07': '3', 'STEP_08': '3',
+    'STEP_08_PO': '3', 'STEP_08_BL': '3', 'STEP_08_MATCH': '3', 'STEP_08_COO': '3', 'STEP_08_COC': '3',
+    'STEP_09': '3',
     'STEP_10': '4', 'STEP_11': '4', 'STEP_12': '4',
     'STEP_13': '5', 'STEP_14': '5', 'STEP_15': '5', 'STEP_16': '5', 'STEP_17': '5', 'STEP_18': '5',
     'STEP_19': '6', 'STEP_20': '6', 'STEP_21': '6',
@@ -92,30 +96,15 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final density = ref.watch(displayDensityProvider);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF141A22) : AppTheme.charcoal,
+      appBar: PageHeader(
+        icon: _viewModeIndex == 0 ? Icons.view_kanban_outlined : Icons.radar_outlined,
+        iconColor: AppTheme.cobalt,
+        title: _viewModeIndex == 0 ? l10n.lifecycleBoardTitle : l10n.viewModeLiveRadar,
         elevation: 2,
-        title: Row(
-          children: [
-            Icon(
-              _viewModeIndex == 0 ? Icons.view_kanban_outlined : Icons.radar_outlined,
-              color: AppTheme.cobalt,
-              size: 22,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                _viewModeIndex == 0 ? l10n.lifecycleBoardTitle : l10n.viewModeLiveRadar,
-                style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
         actions: [
           // Dual View Switcher Segmented Control
           Container(
@@ -174,14 +163,14 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                         children: [
                           Icon(
                             Icons.refresh,
-                            size: 11,
+                            size: density.buttonIconSize - 4,
                             color: seconds <= 10 ? AppTheme.orange : Colors.white60,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             '${seconds}s',
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 11.0,
                               color: seconds <= 10 ? AppTheme.orange : Colors.white60,
                               fontWeight: FontWeight.bold,
                             ),
@@ -195,7 +184,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
             const SizedBox(width: 4),
           ],
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
+            icon: Icon(Icons.refresh, color: Colors.white, size: density.buttonIconSize),
             tooltip: l10n.refreshLiveBoardTooltip,
             onPressed: _refreshAll,
           ),
@@ -763,7 +752,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
               children: [
                 Text(
                   title,
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade700, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 11.0, color: Colors.grey.shade700, fontWeight: FontWeight.bold),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -784,7 +773,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
     final isSelected = _selectedRiskFilter == value;
     return FilterChip(
       selected: isSelected,
-      label: Text(label, style: TextStyle(fontSize: 10.5, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.white : color)),
+      label: Text(label, style: TextStyle(fontSize: 11.0, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.white : color)),
       selectedColor: color,
       backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
       checkmarkColor: Colors.white,
@@ -804,6 +793,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
           child: SingleChildScrollView(
             controller: _radarVerticalScrollController,
             scrollDirection: Axis.vertical,
+            padding: const EdgeInsets.only(bottom: 72),
             child: SingleChildScrollView(
               controller: _radarHorizontalScrollController,
               scrollDirection: Axis.horizontal,
@@ -902,7 +892,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                             children: [
                                               Text(
                                                 item.importFileCode,
-                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 9.5),
+                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.0),
                                               ),
                                               const SizedBox(width: 3),
                                               const Icon(Icons.copy, size: 9, color: Colors.white70),
@@ -916,14 +906,14 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                       const SizedBox(width: 4),
                                       Text(
                                         '${item.shipmentMode} | ${item.incotermCode}',
-                                        style: TextStyle(fontSize: 9.5, color: Colors.grey.shade600),
+                                        style: TextStyle(fontSize: 11.0, color: Colors.grey.shade600),
                                       ),
                                     ],
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     '${item.companyName} → ${item.supplierName}',
-                                    style: TextStyle(fontSize: 9.5, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal, fontWeight: FontWeight.w500),
+                                    style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal, fontWeight: FontWeight.w500),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -947,14 +937,14 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                       const SizedBox(width: 4),
                                       Text(
                                         '${item.carrierName ?? l10n.colCarrierUnderPrep} (${item.vesselName ?? "-"})',
-                                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                        style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                       ),
                                     ],
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     '${l10n.colBillOfLadingPrefix}: ${item.blNumber ?? l10n.colCarrierUnderPrep} | ${item.polName ?? "-"} → ${item.podName ?? "-"}',
-                                    style: TextStyle(fontSize: 9.5, color: Colors.grey.shade600),
+                                    style: TextStyle(fontSize: 11.0, color: Colors.grey.shade600),
                                   ),
                                 ],
                               ),
@@ -985,7 +975,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                           const SizedBox(width: 4),
                                           Text(
                                             l10n.daysRemainingToEta(item.etaCountdownDays),
-                                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                            style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                                           ),
                                         ],
                                       ),
@@ -1005,17 +995,17 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                           const SizedBox(width: 4),
                                           Text(
                                             l10n.daysInPort(item.etaCountdownDays!.abs()),
-                                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF8E44AD)),
+                                            style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Color(0xFF8E44AD)),
                                           ),
                                         ],
                                       ),
                                     )
                                   else
-                                    Text(item.arrivalStatus, style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
+                                    Text(item.arrivalStatus, style: TextStyle(fontSize: 11.0, color: Colors.grey.shade700)),
                                   const SizedBox(height: 2),
                                   Text(
                                     '${l10n.colEtaPrefix}: ${item.eta ?? "-"}',
-                                    style: TextStyle(fontSize: 9.5, color: Colors.grey.shade500),
+                                    style: TextStyle(fontSize: 11.0, color: Colors.grey.shade500),
                                   ),
                                 ],
                               ),
@@ -1046,7 +1036,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                           item.accumulatedDemurrageFx > 0
                                               ? l10n.demurrageIncurredBadge
                                               : l10n.freeDaysRemainingBadge(item.freeDaysRemaining),
-                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: riskColor),
+                                          style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: riskColor),
                                         ),
                                       ),
                                       const SizedBox(width: 4),
@@ -1063,7 +1053,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                         ? l10n.demurrageFeesFormatted(item.accumulatedDemurrageFx.toStringAsFixed(0), item.accumulatedDemurrageEgp.toStringAsFixed(0))
                                         : l10n.freeDaysConsumed(item.usedFreeDays, item.freeDaysTotal),
                                     style: TextStyle(
-                                      fontSize: 9.5,
+                                      fontSize: 11.0,
                                       fontWeight: item.accumulatedDemurrageFx > 0 ? FontWeight.bold : FontWeight.normal,
                                       color: item.accumulatedDemurrageFx > 0 ? AppTheme.crimson : Colors.grey.shade600,
                                     ),
@@ -1096,7 +1086,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                         const SizedBox(width: 3),
                                         Text(
                                           item.sampleTestStatus,
-                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: sampleColor),
+                                          style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: sampleColor),
                                         ),
                                       ],
                                     ),
@@ -1104,7 +1094,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                   const SizedBox(height: 2),
                                   Text(
                                     item.labReceiptNumber != null ? '${item.regulatoryAgency ?? "GOEIC"} | ${item.labReceiptNumber}' : (item.regulatoryAgency ?? "-"),
-                                    style: TextStyle(fontSize: 9.5, color: Colors.grey.shade600),
+                                    style: TextStyle(fontSize: 11.0, color: Colors.grey.shade600),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -1130,12 +1120,12 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                       children: [
                                         Text(
                                           '${item.docReadinessPercent.toStringAsFixed(0)}%',
-                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: docColor),
+                                          style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: docColor),
                                         ),
                                         const SizedBox(width: 4),
                                         Text(
                                           '(${item.verifiedDocumentsCount}/${item.totalRequiredDocuments})',
-                                          style: TextStyle(fontSize: 9.5, color: Colors.grey.shade600),
+                                          style: TextStyle(fontSize: 11.0, color: Colors.grey.shade600),
                                         ),
                                       ],
                                     ),
@@ -1271,7 +1261,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                   Expanded(
                     child: Text(
                       l10n.lifecyclePhaseName(phase.phaseId, phase.titleAr, phase.titleEn),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.0),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1284,7 +1274,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                     ),
                     child: Text(
                       '${phase.totalActiveShipments}',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.0),
                     ),
                   ),
                 ],
@@ -1341,7 +1331,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                           child: Text(
                             localizedName,
                             style: TextStyle(
-                              fontSize: 9.5,
+                              fontSize: 11.0,
                               fontWeight: isStepSelected || count > 0 ? FontWeight.bold : FontWeight.w500,
                               color: isStepSelected ? headerColor : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                             ),
@@ -1358,7 +1348,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                           child: Text(
                             '$count',
                             style: TextStyle(
-                              fontSize: 9,
+                              fontSize: 11.0,
                               fontWeight: FontWeight.bold,
                               color: count > 0 ? headerColor : Colors.grey.shade600,
                             ),
@@ -1431,7 +1421,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
               ),
               child: Text(
                 l10n.shipmentsCountFormatted(filteredCount),
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
               ),
             ),
             const SizedBox(width: 12),
@@ -1567,6 +1557,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
           child: SingleChildScrollView(
             controller: _verticalScrollController,
             scrollDirection: Axis.vertical,
+            padding: const EdgeInsets.only(bottom: 72),
             child: SingleChildScrollView(
               controller: _horizontalScrollController,
               scrollDirection: Axis.horizontal,
@@ -1580,17 +1571,17 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                     columnSpacing: 14,
                     horizontalMargin: 10,
                     columns: [
-                      DataColumn(label: Text(l10n.operationalTsvHeaderShipmentName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colPreviousStep, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colCurrentStep, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colNextStep, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colImportCompany, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colForeignSupplier, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colPurchaseOrder, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colModeAndIncoterm, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colEstimatedValue, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colNotesAndActivities, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colActionsAndAdvance, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.operationalTsvHeaderShipmentName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colPreviousStep, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colCurrentStep, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colNextStep, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colImportCompany, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colForeignSupplier, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colPurchaseOrder, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colModeAndIncoterm, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colEstimatedValue, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colNotesAndActivities, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colActionsAndAdvance, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                     ],
                     rows: shipments.map((s) {
                       final phaseStr = _stepPhases[s.stepCode] ?? '1';
@@ -1642,7 +1633,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                             children: [
                                               Text(
                                                 s.importFileCode,
-                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 9.5),
+                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.0),
                                               ),
                                               const SizedBox(width: 3),
                                               const Icon(Icons.copy_rounded, size: 9, color: Colors.white70),
@@ -1660,7 +1651,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                           ),
                                           child: Text(
                                             l10n.onHoldStatusTag,
-                                            style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                                            style: const TextStyle(color: Colors.white, fontSize: 11.0, fontWeight: FontWeight.bold),
                                           ),
                                         ),
                                       ],
@@ -1676,7 +1667,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                               rowSummary: rowSummary,
                               child: Text(
                                 cleanPrevStep,
-                                style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500),
+                                style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1703,7 +1694,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                         cleanCurStep,
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 10.5,
+                                          fontSize: 11.0,
                                           color: isOnHold ? AppTheme.crimson : stepColor,
                                         ),
                                         maxLines: 1,
@@ -1721,7 +1712,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                               rowSummary: rowSummary,
                               child: Text(
                                 cleanNextStep,
-                                style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.w500),
+                                style: const TextStyle(fontSize: 11.0, color: AppTheme.cobalt, fontWeight: FontWeight.w500),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1731,21 +1722,21 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                             CopyableTableCell(
                               value: s.companyName,
                               rowSummary: rowSummary,
-                              child: Text(s.companyName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : null)),
+                              child: Text(s.companyName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : null)),
                             ),
                           ),
                           DataCell(
                             CopyableTableCell(
                               value: s.supplierName,
                               rowSummary: rowSummary,
-                              child: Text(s.supplierName, style: TextStyle(fontSize: 10.5, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800)),
+                              child: Text(s.supplierName, style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800)),
                             ),
                           ),
                           DataCell(
                             CopyableTableCell(
                               value: s.poNumber ?? l10n.notSpecifiedOption,
                               rowSummary: rowSummary,
-                              child: Text(s.poNumber ?? l10n.notSpecifiedOption, style: TextStyle(fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : null)),
+                              child: Text(s.poNumber ?? l10n.notSpecifiedOption, style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : null)),
                             ),
                           ),
                           DataCell(
@@ -1760,7 +1751,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                 ),
                                 child: Text(
                                   '${s.shipmentMode} | ${s.incotermCode}',
-                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800),
+                                  style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800),
                                 ),
                               ),
                             ),
@@ -1783,7 +1774,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                 constraints: const BoxConstraints(maxWidth: 200),
                                 child: Text(
                                   s.notes ?? l10n.notesUnderFollowupFallback,
-                                  style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                                  style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -1811,7 +1802,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                               icon: const Icon(Icons.play_circle_outline, size: 13, color: Colors.white),
                               label: Text(
                                 l10n.executeAndAdvanceStepBtn,
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.0),
                               ),
                             ),
                           ),

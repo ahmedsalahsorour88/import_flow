@@ -3,16 +3,19 @@ FastAPI Router for Financial & Management Approval (BP-012 & BP-013)
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Header, Query
 from sqlalchemy.orm import Session
 
 from database.database import get_db
+from modules.auth.permissions import resolve_user
 from modules.financial_approval.schemas import (
     PaymentRequestCreate,
+    ClonePaymentRequestRequest,
     PaymentRequestUpdate,
     PaymentRequestResponse,
     SwiftReconciliationRequest,
     ImportBudgetCreate,
+    CloneImportBudgetRequest,
     ImportBudgetUpdate,
     ImportBudgetResponse,
     BudgetPrefillResponse,
@@ -20,6 +23,18 @@ from modules.financial_approval.schemas import (
     SmartSwiftFileExtractRequest,
     SmartSwiftExtractResponse,
     SmartSwiftReconcileRequest,
+    SwiftFieldResponse,
+    SwiftBatchResponse,
+    SwiftFieldUpdateRequest,
+    SwiftBatchConfirmRequest,
+    SwiftBatchConfirmResponse,
+    SwiftBatchMatchResponse,
+    SwiftBatchReconcileRequest,
+    BudgetVarianceLogResponse,
+    BudgetVarianceOverrideRequest,
+    BudgetVarianceSettingResponse,
+    BudgetVarianceSettingUpdate,
+    BudgetSyncResultResponse,
 )
 import modules.financial_approval.service as service
 
@@ -85,6 +100,101 @@ def smart_reconcile_swift(
     payload: SmartSwiftReconcileRequest, db: Session = Depends(get_db)
 ):
     return service.smart_reconcile_swift_service(db, payload)
+
+
+# --- SWIFT EXTRACTION REVIEW LAYER ENDPOINTS ---
+@router.post(
+    "/swift/extract-for-review",
+    response_model=SwiftBatchResponse,
+    summary="Extracts SWIFT fields and persists a new batch in EXTRACTED_PENDING_REVIEW status",
+)
+def extract_swift_for_review(
+    payload: SmartSwiftExtractRequest, db: Session = Depends(get_db)
+):
+    return service.extract_swift_for_review_service(
+        db=db,
+        raw_text=payload.raw_text,
+        filename="pasted_swift_text.txt",
+        file_type="Text Input",
+    )
+
+
+@router.get(
+    "/swift/review-batch/{batch_id}",
+    response_model=SwiftBatchResponse,
+    summary="Get batch review details, all fields, confidence scores, and mandatory validation status",
+)
+def get_swift_batch_review(
+    batch_id: int, db: Session = Depends(get_db)
+):
+    return service.get_swift_batch_review_service(db, batch_id)
+
+
+@router.put(
+    "/swift/review-batch/{batch_id}/field/{field_key}",
+    response_model=SwiftBatchResponse,
+    summary="Update an individual field value in an extracted SWIFT batch and log OCR audit trail",
+)
+def update_swift_batch_field(
+    batch_id: int,
+    field_key: str,
+    payload: SwiftFieldUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    return service.update_swift_batch_field_service(db, batch_id, field_key, payload)
+
+
+@router.post(
+    "/swift/review-batch/{batch_id}/re-extract-field/{field_key}",
+    response_model=SwiftBatchResponse,
+    summary="Re-extract a single field from the batch source text using parser regex",
+)
+def re_extract_swift_batch_field(
+    batch_id: int,
+    field_key: str,
+    db: Session = Depends(get_db),
+):
+    return service.re_extract_single_field_service(db, batch_id, field_key)
+
+
+@router.post(
+    "/swift/review-batch/{batch_id}/confirm",
+    response_model=SwiftBatchConfirmResponse,
+    summary="Confirm all extracted & edited SWIFT fields. Transitions batch to REVIEWED_CONFIRMED",
+)
+def confirm_swift_batch_review(
+    batch_id: int,
+    payload: SwiftBatchConfirmRequest,
+    db: Session = Depends(get_db),
+):
+    return service.confirm_swift_batch_review_service(db, batch_id, payload)
+
+
+@router.post(
+    "/swift/review-batch/{batch_id}/match",
+    response_model=SwiftBatchMatchResponse,
+    summary="Match a confirmed SWIFT batch against payment requests strictly using final_value. Requires REVIEWED_CONFIRMED",
+)
+def match_reviewed_swift_batch(
+    batch_id: int,
+    target_payment_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+):
+    return service.match_reviewed_batch_service(db, batch_id, target_payment_id)
+
+
+@router.post(
+    "/swift/review-batch/{batch_id}/reconcile",
+    response_model=PaymentRequestResponse,
+    summary="Reconcile a confirmed SWIFT batch against a payment request strictly using final_value. Requires REVIEWED_CONFIRMED",
+)
+def reconcile_reviewed_swift_batch(
+    batch_id: int,
+    payload: SwiftBatchReconcileRequest,
+    db: Session = Depends(get_db),
+):
+    return service.reconcile_reviewed_batch_service(db, batch_id, payload)
+
 
 
 
@@ -185,6 +295,20 @@ def reconcile_swift_payment(
     return service.reconcile_swift_service(db, payment_id, payload)
 
 
+@router.post(
+    "/payment-requests/{payment_id}/clone",
+    response_model=PaymentRequestResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Clone a payment request into a new Draft record with mandatory reset invariants",
+)
+def clone_payment_request(
+    payment_id: int,
+    payload: ClonePaymentRequestRequest,
+    db: Session = Depends(get_db),
+):
+    return service.clone_payment_request_service(db, payment_id, payload)
+
+
 @router.delete("/payment-requests/{payment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def soft_delete_payment_request(payment_id: int, db: Session = Depends(get_db)):
     success = service.soft_delete_payment_request_service(db, payment_id)
@@ -244,6 +368,100 @@ def approve_import_budget(
     db: Session = Depends(get_db),
 ):
     return service.approve_import_budget_service(db, budget_id, approved_by)
+
+
+@router.post(
+    "/import-budgets/{budget_id}/clone",
+    response_model=ImportBudgetResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Clone an import budget into a new record with mandatory reset invariants",
+)
+def clone_import_budget(
+    budget_id: int,
+    payload: CloneImportBudgetRequest,
+    db: Session = Depends(get_db),
+):
+    return service.clone_import_budget_service(db, budget_id, payload)
+
+
+@router.post(
+    "/import-budgets/{budget_id}/sync",
+    response_model=BudgetSyncResultResponse,
+    summary="Synchronize import budget with live upstream costs following enterprise SoD, status machine, and revision rules",
+)
+def sync_import_budget(
+    budget_id: int,
+    justification_note: Optional[str] = Query(None, description="Optional written justification note for overriding hard block"),
+    authorization: Optional[str] = Header(None),
+    x_user_role: Optional[str] = Header(None),
+    x_user_name: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
+    current_user = resolve_user(db, authorization=authorization, x_user_role=x_user_role, x_user_name=x_user_name)
+    return service.sync_budget_with_upstream_service(
+        db, budget_id, current_user=current_user, override_justification=justification_note
+    )
+
+
+@router.post(
+    "/import-budgets/{budget_id}/override-variance",
+    response_model=ImportBudgetResponse,
+    summary="Override Hard Block variance by providing an authorized written justification",
+)
+def override_budget_variance(
+    budget_id: int,
+    payload: BudgetVarianceOverrideRequest,
+    authorization: Optional[str] = Header(None),
+    x_user_role: Optional[str] = Header(None),
+    x_user_name: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
+    current_user = resolve_user(db, authorization=authorization, x_user_role=x_user_role, x_user_name=x_user_name)
+    return service.override_budget_variance_service(
+        db, budget_id, current_user=current_user, justification_note=payload.justification_note
+    )
+
+
+@router.get(
+    "/import-budgets/{budget_id}/variance-logs",
+    response_model=List[BudgetVarianceLogResponse],
+    summary="List all recorded variance audit logs for a budget",
+)
+def get_budget_variance_logs(budget_id: int, db: Session = Depends(get_db)):
+    return service.get_budget_variance_logs_service(db, budget_id)
+
+
+@router.get(
+    "/settings/variance-threshold",
+    response_model=BudgetVarianceSettingResponse,
+    summary="Get current variance threshold percentage configuration",
+)
+def get_variance_threshold_setting(db: Session = Depends(get_db)):
+    val = service.get_variance_threshold_service(db)
+    from modules.financial_approval.model import BudgetVarianceSetting
+    setting = db.query(BudgetVarianceSetting).filter(
+        BudgetVarianceSetting.setting_key == "variance_threshold_percentage"
+    ).first()
+    return setting
+
+
+@router.put(
+    "/settings/variance-threshold",
+    response_model=BudgetVarianceSettingResponse,
+    summary="Update variance threshold percentage configuration",
+)
+def update_variance_threshold_setting(
+    payload: BudgetVarianceSettingUpdate,
+    authorization: Optional[str] = Header(None),
+    x_user_role: Optional[str] = Header(None),
+    x_user_name: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
+    current_user = resolve_user(db, authorization=authorization, x_user_role=x_user_role, x_user_name=x_user_name)
+    return service.update_variance_threshold_service(
+        db, payload.threshold_percentage, updated_by=current_user.username if current_user else "Admin"
+    )
+
 
 
 @router.get(

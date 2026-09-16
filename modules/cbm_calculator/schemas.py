@@ -139,3 +139,11 @@ class LinkToPORequest(BaseModel):
     import_file_id: Optional[int] = None
     po_id: Optional[int] = None
     project_id: Optional[int] = None
+
+
+class CloneCBMCalculationRequest(BaseModel):
+    new_code: Optional[str] = None
+    new_title: Optional[str] = None
+    copy_items: bool = True
+    notes: Optional[str] = None
+

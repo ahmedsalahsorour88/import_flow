@@ -1236,6 +1236,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
             child: DataTable(
               headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
               columns: [
+                DataColumn(label: Text(l.customsDeclColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                 DataColumn(label: Text(l.customsDeclColDeclarationNo, style: const TextStyle(fontWeight: FontWeight.bold))),
                 DataColumn(label: Text(l.customsDeclColFileNumber, style: const TextStyle(fontWeight: FontWeight.bold))),
                 DataColumn(label: Text(l.customsDeclColSupplier, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -1243,13 +1244,19 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                 DataColumn(label: Text(l.customsDeclCifValueLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
                 DataColumn(label: Text(l.customsDeclTotalDutiesLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
                 DataColumn(label: Text(l.customsDeclColDeclarationStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(l.customsDeclColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
               ],
               rows: assessments.map((a) {
                 final rowSummary = '${a.declarationNo}\t${a.primaryNameWithCode}\t${a.supplierName}\t${a.hsCode}\t${a.cifEgp.toStringAsFixed(2)}\t${a.totalDutiesEgp.toStringAsFixed(2)}\t${a.registrationDate}\t${a.status}';
 
                 return DataRow(
                   cells: [
+                    DataCell(
+                      IconButton(
+                        icon: const Icon(Icons.analytics_outlined, color: Colors.indigo),
+                        tooltip: l.customsDeclViewAssessmentTooltip,
+                        onPressed: () => _showTariffAssessmentDialog(a, l),
+                      ),
+                    ),
                     DataCell(
                       CopyableTableCell(
                         value: a.declarationNo,
@@ -1313,13 +1320,6 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                           ),
                           child: Text(a.status, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
                         ),
-                      ),
-                    ),
-                    DataCell(
-                      IconButton(
-                        icon: const Icon(Icons.analytics_outlined, color: Colors.indigo),
-                        tooltip: l.customsDeclViewAssessmentTooltip,
-                        onPressed: () => _showTariffAssessmentDialog(a, l),
                       ),
                     ),
                   ],

@@ -472,20 +472,21 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                             ),
                             child: Table(
                               columnWidths: const {
-                                0: FixedColumnWidth(120),
-                                1: FlexColumnWidth(3),
-                                2: FlexColumnWidth(2.5),
-                                3: FlexColumnWidth(2),
-                                4: FixedColumnWidth(110),
-                                5: FixedColumnWidth(130),
-                                6: FixedColumnWidth(95),
-                                7: FixedColumnWidth(140),
+                                0: FixedColumnWidth(140),
+                                1: FixedColumnWidth(120),
+                                2: FlexColumnWidth(3),
+                                3: FlexColumnWidth(2.5),
+                                4: FlexColumnWidth(2),
+                                5: FixedColumnWidth(110),
+                                6: FixedColumnWidth(130),
+                                7: FixedColumnWidth(95),
                               },
                               children: [
                                 // Header
                                 TableRow(
                                   decoration: const BoxDecoration(color: AppTheme.charcoal),
                                   children: [
+                                    l10n.actionsCol,
                                     l10n.projectCodeCol,
                                     l10n.projectNameAndOwnerCol,
                                     l10n.companyAndSupplierCol,
@@ -493,7 +494,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                     l10n.budgetUsdCol,
                                     l10n.capabilitiesCol,
                                     l10n.statusCol,
-                                    l10n.actionsCol,
                                   ]
                                       .map((h) => Padding(
                                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -530,6 +530,62 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                       color: isEven ? Colors.white : Colors.grey.shade50,
                                     ),
                                     children: [
+                                      // Actions
+                                      _cell(
+                                        value: p.projectCode,
+                                        rowSummary: rowSummary,
+                                        child: RowActionsPill(
+                                          onView: () {
+                                            if (p.projectId != null) {
+                                              RowHistoryDialog.show(
+                                                context,
+                                                entityType: 'Project',
+                                                entityId: p.projectId!,
+                                                entityTitle: p.projectName,
+                                              );
+                                            }
+                                          },
+                                          onEdit: () => _showProjectDialog(context, project: p),
+                                          onPrint: () {
+                                            final summary = _buildProjectSummary(context, p);
+                                            CopyHelper.copy(context, summary, customMessage: l10n.projectCopySummarySuccess);
+                                          },
+                                          printTooltip: l10n.projectCopySummaryBtn,
+                                          onDelete: () async {
+                                            final confirm = await showDialog<bool>(
+                                              context: context,
+                                              builder: (ctx) => SelectionArea(
+                                                child: AlertDialog(
+                                                  title: Text(l10n.confirmActionTitle),
+                                                  content: Text(isActive
+                                                      ? l10n.confirmDeactivateProject(p.projectName)
+                                                      : l10n.confirmActivateProject(p.projectName)),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () => Navigator.pop(ctx, false),
+                                                      child: Text(l10n.cancel),
+                                                    ),
+                                                    ElevatedButton(
+                                                      onPressed: () => Navigator.pop(ctx, true),
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald,
+                                                      ),
+                                                      child: Text(
+                                                        isActive ? l10n.deactivateBtn : l10n.activateBtn,
+                                                        style: const TextStyle(color: Colors.white),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            );
+                                            if (confirm == true && p.projectId != null) {
+                                              ref.read(projectsProvider.notifier).toggleActive(p.projectId!, isActive);
+                                            }
+                                          },
+                                          deleteTooltip: isActive ? l10n.deactivateProjectTooltip : l10n.activateProjectTooltip,
+                                        ),
+                                      ),
                                       // Code
                                       _cell(
                                         value: p.projectCode,
@@ -659,62 +715,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                         child: _statusBadge(context, p.status),
                                       ),
 
-                                      // Actions
-                                      _cell(
-                                        value: p.projectCode,
-                                        rowSummary: rowSummary,
-                                        child: RowActionsPill(
-                                          onView: () {
-                                            if (p.projectId != null) {
-                                              RowHistoryDialog.show(
-                                                context,
-                                                entityType: 'Project',
-                                                entityId: p.projectId!,
-                                                entityTitle: p.projectName,
-                                              );
-                                            }
-                                          },
-                                          onEdit: () => _showProjectDialog(context, project: p),
-                                          onPrint: () {
-                                            final summary = _buildProjectSummary(context, p);
-                                            CopyHelper.copy(context, summary, customMessage: l10n.projectCopySummarySuccess);
-                                          },
-                                          printTooltip: l10n.projectCopySummaryBtn,
-                                          onDelete: () async {
-                                            final confirm = await showDialog<bool>(
-                                              context: context,
-                                              builder: (ctx) => SelectionArea(
-                                                child: AlertDialog(
-                                                  title: Text(l10n.confirmActionTitle),
-                                                  content: Text(isActive
-                                                      ? l10n.confirmDeactivateProject(p.projectName)
-                                                      : l10n.confirmActivateProject(p.projectName)),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () => Navigator.pop(ctx, false),
-                                                      child: Text(l10n.cancel),
-                                                    ),
-                                                    ElevatedButton(
-                                                      onPressed: () => Navigator.pop(ctx, true),
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald,
-                                                      ),
-                                                      child: Text(
-                                                        isActive ? l10n.deactivateBtn : l10n.activateBtn,
-                                                        style: const TextStyle(color: Colors.white),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            );
-                                            if (confirm == true && p.projectId != null) {
-                                              ref.read(projectsProvider.notifier).toggleActive(p.projectId!, isActive);
-                                            }
-                                          },
-                                          deleteTooltip: isActive ? l10n.deactivateProjectTooltip : l10n.activateProjectTooltip,
-                                        ),
-                                      ),
+
                                     ],
                                   );
                                 }),

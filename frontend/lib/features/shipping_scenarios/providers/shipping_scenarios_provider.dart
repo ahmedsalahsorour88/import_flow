@@ -165,6 +165,45 @@ class ShippingScenariosNotifier extends StateNotifier<ShippingScenariosState> {
       return false;
     }
   }
+
+  Future<ShippingEvaluationModel?> cloneSession(
+    int sessionId, {
+    String? newTitle,
+    DateTime? cargoReadyDate,
+    bool unlinkImportFile = true,
+    bool unlinkPo = true,
+    bool copyCarrierOptions = true,
+    String? remarks,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/shipping-scenarios/$sessionId/clone',
+        data: {
+          if (newTitle != null && newTitle.trim().isNotEmpty) 'new_title': newTitle.trim(),
+          if (cargoReadyDate != null) 'cargo_ready_date': cargoReadyDate.toIso8601String().substring(0, 10),
+          'unlink_import_file': unlinkImportFile,
+          'unlink_po': unlinkPo,
+          'copy_carrier_options': copyCarrierOptions,
+          if (remarks != null && remarks.trim().isNotEmpty) 'remarks': remarks.trim(),
+        },
+      );
+      await fetchSessions();
+      if (response.data is Map<String, dynamic>) {
+        return ShippingEvaluationModel.fromJson(response.data as Map<String, dynamic>);
+      }
+      return null;
+    } catch (e) {
+      String msg = e.toString();
+      if (e is DioException && e.response?.data != null) {
+        final data = e.response!.data;
+        if (data is Map && data.containsKey('detail')) {
+          msg = data['detail'].toString();
+        }
+      }
+      state = state.copyWith(errorMessage: msg);
+      return null;
+    }
+  }
 }
 
 final shippingScenariosDioProvider = Provider<Dio>((ref) {

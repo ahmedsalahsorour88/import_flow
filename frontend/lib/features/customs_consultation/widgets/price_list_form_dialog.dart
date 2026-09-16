@@ -11,6 +11,74 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
 
+String getCategoryLabel(String category, BuildContext context) {
+  final isAr = Localizations.localeOf(context).languageCode == 'ar';
+  final clean = category.split('(').first.trim();
+  switch (clean) {
+    case 'Clearance Fees':
+      return isAr ? 'أتعاب تخليص' : 'Clearance Fees';
+    case 'Procedures & Approvals':
+      return isAr ? 'إجراءات وموافقات' : 'Procedures & Approvals';
+    case 'Inland Transport':
+      return isAr ? 'نقل داخلي' : 'Inland Transport';
+    case 'Port & Handling':
+      return isAr ? 'موانئ ومناولة' : 'Port & Handling';
+    case 'Other Fees':
+      return isAr ? 'مصاريف أخرى' : 'Other Fees';
+    default:
+      if (isAr) {
+        final match = RegExp(r'\(([\u0600-\u06FF\s]+)\)').firstMatch(category);
+        if (match != null) return match.group(1)!.trim();
+        return clean;
+      } else {
+        return clean;
+      }
+  }
+}
+
+String getUnitLabel(String unit, BuildContext context) {
+  final isAr = Localizations.localeOf(context).languageCode == 'ar';
+  final clean = unit.split('(').first.trim().toLowerCase().replaceAll(' ', '_');
+  switch (clean) {
+    case 'fixed':
+      return isAr ? 'مبلغ مقطوع' : 'Fixed Amount';
+    case 'per_container':
+      return isAr ? 'لكل حاوية' : 'Per Container';
+    case 'per_invoice':
+      return isAr ? 'لكل فاتورة' : 'Per Invoice';
+    case 'per_ton':
+      return isAr ? 'لكل طن' : 'Per Ton';
+    case 'per_truck':
+    case 'per_vehicle':
+      return isAr ? 'لكل شاحنة' : 'Per Truck';
+    case 'per_day':
+      return isAr ? 'لكل يوم' : 'Per Day';
+    case 'per_night':
+      return isAr ? 'لكل ليلة' : 'Per Night';
+    case 'per_inspection':
+      return isAr ? 'لكل كشف' : 'Per Inspection';
+    case 'per_shipment':
+      return isAr ? 'لكل شحنة' : 'Per Shipment';
+    case 'per_declaration':
+      return isAr ? 'لكل شهادة إفراج' : 'Per Declaration';
+    case 'per_bl':
+      return isAr ? 'لكل بوليصة شحن' : 'Per Bill of Lading';
+    case 'per_sample':
+      return isAr ? 'لكل عينة' : 'Per Sample';
+    case 'per_certificate':
+      return isAr ? 'لكل شهادة' : 'Per Certificate';
+    default:
+      if (isAr) {
+        final match = RegExp(r'\(([\u0600-\u06FF\s]+)\)').firstMatch(unit);
+        if (match != null) return match.group(1)!.trim();
+        final arabicOnly = unit.replaceAll(RegExp(r'[a-zA-Z\(\)]'), '').trim();
+        return arabicOnly.isNotEmpty ? arabicOnly : unit.split('(').first.trim();
+      } else {
+        return unit.split('(').first.trim();
+      }
+  }
+}
+
 void showPriceListFormDialog(
   BuildContext context,
   WidgetRef ref, {
@@ -19,6 +87,7 @@ void showPriceListFormDialog(
   Map<String, dynamic>? initialExtractedData,
 }) {
   final l = context.l10n;
+  final isAr = Localizations.localeOf(context).languageCode == 'ar';
   if (brokersList.isEmpty && existingPriceList == null) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(l.noBrokersRegistered), backgroundColor: Colors.orange),
@@ -28,8 +97,8 @@ void showPriceListFormDialog(
 
   final isEditing = existingPriceList != null;
   int? selectedBroker = existingPriceList?.brokerId ?? (brokersList.isNotEmpty ? brokersList.first.providerId : null);
-  final titleCtrl = TextEditingController(text: existingPriceList?.title ?? (initialExtractedData?['title'] ?? 'بيان أسعار التخليص والنقل لميناء الإسكندرية لعام 2026'));
-  final portCtrl = TextEditingController(text: existingPriceList?.portName ?? (initialExtractedData?['port_name'] ?? 'ميناء الإسكندرية والدخيلة'));
+  final titleCtrl = TextEditingController(text: existingPriceList?.title ?? (initialExtractedData?['title'] ?? (isAr ? 'بيان أسعار التخليص والنقل لميناء الإسكندرية لعام 2026' : 'Customs Clearance & Inland Transport Price List 2026')));
+  final portCtrl = TextEditingController(text: existingPriceList?.portName ?? (initialExtractedData?['port_name'] ?? (isAr ? 'ميناء الإسكندرية والدخيلة' : 'Alexandria & El-Dekheila Port')));
   final notesCtrl = TextEditingController(text: existingPriceList?.notes ?? (initialExtractedData?['notes'] ?? ''));
   final dateCtrl = TextEditingController(text: existingPriceList?.effectiveFrom ?? (initialExtractedData?['effective_from'] ?? DateTime.now().toIso8601String().split('T').first));
   int version = existingPriceList?.version ?? 1;
@@ -292,13 +361,13 @@ void showPriceListFormDialog(
             'code': extItem['code'],
             'is_uncoded': extItem['is_uncoded'] == true,
             'expense_name': extName,
-            'category': extItem['category']?.toString() ?? 'Other Fees (مصاريف أخرى)',
-            'unit_type': ((extItem['pricing_unit'] ?? extItem['unit_type'])?.toString()) ?? 'Per Shipment (لكل شحنة)',
+            'category': (extItem['category']?.toString() ?? 'Other Fees').split('(').first.trim(),
+            'unit_type': (((extItem['pricing_unit'] ?? extItem['unit_type'])?.toString()) ?? 'Per Shipment').split('(').first.trim(),
             'standard_price': extPrice,
             'currency': extItem['currency']?.toString() ?? 'EGP',
             'min_price': (extItem['min_price'] as num?)?.toDouble(),
             'max_price': (extItem['max_price'] as num?)?.toDouble(),
-            'notes': extItem['notes']?.toString() ?? 'مستخرج آلياً من مقايسة التخليص',
+            'notes': extItem['notes']?.toString() ?? '',
             'is_active': true,
           });
         }
@@ -370,6 +439,7 @@ void showPriceListFormDialog(
   String itemSearchQuery = '';
   String selectedCategoryFilter = 'All';
   bool isSaving = false;
+  String? dialogErrorMessage;
   int? activeRowIndex;
 
   showDialog(
@@ -509,375 +579,592 @@ void showPriceListFormDialog(
           final customPriceCtrl = TextEditingController(text: initialPrice != null && initialPrice > 0 ? initialPrice.toStringAsFixed(0) : '1000');
           final customNotesCtrl = TextEditingController();
 
-          // For mode 1 (new permanent code)
-          final newCodeCtrl = TextEditingController();
+          // For mode 1 (new code or standard reference code)
+          final customCodeCtrl = TextEditingController();
           final newNameArCtrl = TextEditingController(text: initialName ?? '');
           final newNameEnCtrl = TextEditingController();
+
+          // Determine intelligent default reference code based on initialName
+          String selectedReferenceCode = 'OTHER-CLIENT-PAID';
           String newCategory = initialCategory ?? 'Other Fees';
           String newUnit = 'fixed';
           String customCurrency = 'EGP';
           bool isSubmitting = false;
 
+          final initialLower = (initialName ?? '').toLowerCase();
+          if (initialLower.contains('نقل') || initialLower.contains('شاحن') || initialLower.contains('سيارة') || initialLower.contains('تريلا')) {
+            selectedReferenceCode = 'INL-CUSTOM-TRK';
+            newCategory = 'Inland Transport';
+            newUnit = 'per_truck';
+          } else if (initialLower.contains('أتعاب') || initialLower.contains('اتعاب') || initialLower.contains('تخليص')) {
+            selectedReferenceCode = 'CLR-CUSTOM-FEE';
+            newCategory = 'Clearance Fees';
+            newUnit = 'per_shipment';
+          } else if (initialLower.contains('أرضيات') || initialLower.contains('ارضيات') || initialLower.contains('حراسة') || initialLower.contains('غرامات') || initialLower.contains('تأخير')) {
+            selectedReferenceCode = 'OTHER-STORAGE';
+            newCategory = 'Other Fees';
+            newUnit = 'per_day';
+          } else if (initialLower.contains('عمال') || initialLower.contains('كلارك') || initialLower.contains('تعتيق')) {
+            selectedReferenceCode = 'OTHER-LABOR';
+            newCategory = 'Port & Handling';
+            newUnit = 'fixed';
+          } else if (initialLower.contains('موانئ') || initialLower.contains('ابوقير') || initialLower.contains('محطة') || initialLower.contains('تفريغ') || initialLower.contains('ساحة')) {
+            selectedReferenceCode = 'PORT-CUSTOM-EXP';
+            newCategory = 'Port & Handling';
+            newUnit = 'per_container';
+          } else if (initialLower.contains('موافقة') || initialLower.contains('إجراء') || initialLower.contains('فحص') || initialLower.contains('زراعة') || initialLower.contains('واردات')) {
+            selectedReferenceCode = 'PROC-CUSTOM-DOC';
+            newCategory = 'Procedures & Approvals';
+            newUnit = 'fixed';
+          } else if (initialLower.contains('عمول') || initialLower.contains('نثريات') || initialLower.contains('إكرام')) {
+            selectedReferenceCode = 'OTHER-COMMISSION';
+            newCategory = 'Other Fees';
+            newUnit = 'fixed';
+          }
+
           await showDialog(
             context: ctx,
             builder: (c) => StatefulBuilder(
-              builder: (c, setInnerState) => AlertDialog(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                title: const Row(
-                  children: [
-                    Icon(Icons.qr_code_2, color: AppTheme.cobalt, size: 24),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text('تكويد المصروفات الجمركية المرجعية', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-                content: SizedBox(
-                  width: 520,
-                  child: SingleChildScrollView(
-                    child: Form(
-                      key: formKey,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Mode selector tabs
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 14),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: () => setInnerState(() => activeMode = 0),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: activeMode == 0 ? AppTheme.cobalt : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          '🔗 ربط كمرادف لبند معتمد',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                            color: activeMode == 0 ? Colors.white : AppTheme.charcoal,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: () => setInnerState(() => activeMode = 1),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: activeMode == 1 ? AppTheme.cobalt : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          '➕ تسجيل كود جديد بالكتالوج',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                            color: activeMode == 1 ? Colors.white : AppTheme.charcoal,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+              builder: (c, setInnerState) {
+                final isAr = Localizations.localeOf(c).languageCode == 'ar';
 
-                          if (activeMode == 0) ...[
-                            // Mode 0: Alias mapping
-                            SearchableDropdownField<String?>(
-                              value: selectedCanonicalCode,
-                              labelText: 'البند المعتمد في الكتالوج *',
-                              searchHintText: 'ابحث في بنود الكتالوج المعتمدة...',
-                              items: catalogItems.map((ci) => SearchableDropdownItem<String?>(
-                                value: ci.code,
-                                label: '${ci.code} — ${ci.canonicalNameAr}',
-                              )).toList(),
-                              onChanged: (v) => setInnerState(() => selectedCanonicalCode = v),
-                            ),
-                            const SizedBox(height: 10),
-                            TextFormField(
-                              controller: aliasPatternCtrl,
-                              validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى كتابة الاسم أو المرادف كما ورد في المقايسة' : null,
-                              decoration: const InputDecoration(
-                                labelText: 'الاسم أو المرادف في المستند *',
-                                hintText: 'مثال: عوائد تفريغ ميناء / كارتة / أتعاب استثنائية',
-                                isDense: true,
-                                border: OutlineInputBorder(),
+                // Prepare reference codes for searchable dropdown
+                final referenceCodeItems = <SearchableDropdownItem<String>>[
+                  SearchableDropdownItem(
+                    value: 'OTHER-CLIENT-PAID',
+                    label: 'OTHER-CLIENT-PAID — ${isAr ? "مصاريف مؤداة بمعرفة العميل" : "Client-Paid Expenses"}',
+                    subtitle: '${getCategoryLabel("Other Fees", c)} | ${getUnitLabel("fixed", c)}',
+                    icon: Icons.person_pin_outlined,
+                  ),
+                  SearchableDropdownItem(
+                    value: 'OTHER-FEES',
+                    label: 'OTHER-FEES — ${isAr ? "مصاريف ورسوم إضافية عامة" : "General Other Fees"}',
+                    subtitle: '${getCategoryLabel("Other Fees", c)} | ${getUnitLabel("fixed", c)}',
+                    icon: Icons.attach_money_rounded,
+                  ),
+                  SearchableDropdownItem(
+                    value: 'OTHER-STORAGE',
+                    label: 'OTHER-STORAGE — ${isAr ? "أرضيات وحراسات وتخزين" : "Storage & Demurrage"}',
+                    subtitle: '${getCategoryLabel("Other Fees", c)} | ${getUnitLabel("per_day", c)}',
+                    icon: Icons.warehouse_rounded,
+                  ),
+                  SearchableDropdownItem(
+                    value: 'OTHER-LABOR',
+                    label: 'OTHER-LABOR — ${isAr ? "عمالة وتعتيق وكلارك ومناولة" : "Labor & Handling"}',
+                    subtitle: '${getCategoryLabel("Port & Handling", c)} | ${getUnitLabel("fixed", c)}',
+                    icon: Icons.handyman_rounded,
+                  ),
+                  SearchableDropdownItem(
+                    value: 'OTHER-COMMISSION',
+                    label: 'OTHER-COMMISSION — ${isAr ? "عمولات ونثريات وإكراميات" : "Commissions & Tips"}',
+                    subtitle: '${getCategoryLabel("Other Fees", c)} | ${getUnitLabel("fixed", c)}',
+                    icon: Icons.local_activity_rounded,
+                  ),
+                  SearchableDropdownItem(
+                    value: 'CLR-CUSTOM-FEE',
+                    label: 'CLR-CUSTOM-FEE — ${isAr ? "أتعاب تخليص إضافية استثنائية" : "Exceptional Clearance Fee"}',
+                    subtitle: '${getCategoryLabel("Clearance Fees", c)} | ${getUnitLabel("per_shipment", c)}',
+                    icon: Icons.receipt_long_rounded,
+                  ),
+                  SearchableDropdownItem(
+                    value: 'INL-CUSTOM-TRK',
+                    label: 'INL-CUSTOM-TRK — ${isAr ? "نقل داخلي أو شاحنة إضافية" : "Inland Transport Custom"}',
+                    subtitle: '${getCategoryLabel("Inland Transport", c)} | ${getUnitLabel("per_truck", c)}',
+                    icon: Icons.local_shipping_rounded,
+                  ),
+                  SearchableDropdownItem(
+                    value: 'PROC-CUSTOM-DOC',
+                    label: 'PROC-CUSTOM-DOC — ${isAr ? "إجراءات وموافقات إضافية" : "Additional Approvals"}',
+                    subtitle: '${getCategoryLabel("Procedures & Approvals", c)} | ${getUnitLabel("fixed", c)}',
+                    icon: Icons.verified_user_rounded,
+                  ),
+                  SearchableDropdownItem(
+                    value: 'PORT-CUSTOM-EXP',
+                    label: 'PORT-CUSTOM-EXP — ${isAr ? "رسوم ومصاريف موانئ ومحطات" : "Port Terminal Expenses"}',
+                    subtitle: '${getCategoryLabel("Port & Handling", c)} | ${getUnitLabel("per_container", c)}',
+                    icon: Icons.anchor_rounded,
+                  ),
+                  ...catalogItems.map((ci) => SearchableDropdownItem<String>(
+                    value: ci.code,
+                    label: '${ci.code} — ${isAr ? ci.canonicalNameAr : (ci.canonicalNameEn?.isNotEmpty == true ? ci.canonicalNameEn! : ci.canonicalNameAr)}',
+                    subtitle: '${getCategoryLabel(ci.category, c)} | ${getUnitLabel(ci.unitType, c)}',
+                    icon: Icons.qr_code_rounded,
+                  )),
+                  SearchableDropdownItem(
+                    value: 'CUSTOM',
+                    label: isAr ? '➕ كود مرجعي مخصص جديد...' : '➕ New Custom Reference Code...',
+                    subtitle: isAr ? 'إدخال كود يدوي جديد' : 'Enter custom code manually',
+                    icon: Icons.edit_note_rounded,
+                  ),
+                ];
+
+                return AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  title: Row(
+                    children: [
+                      const Icon(Icons.qr_code_2, color: AppTheme.cobalt, size: 24),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l.customsExpenseCodingTitle,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  content: SelectionArea(
+                    child: SizedBox(
+                      width: 530,
+                      child: SingleChildScrollView(
+                        child: Form(
+                          key: formKey,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Mode selector tabs
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 14),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: InkWell(
+                                        onTap: () => setInnerState(() => activeMode = 0),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: activeMode == 0 ? AppTheme.cobalt : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              l.linkAsAliasTab,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: activeMode == 0 ? Colors.white : AppTheme.charcoal,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: InkWell(
+                                        onTap: () => setInnerState(() => activeMode = 1),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: activeMode == 1 ? AppTheme.cobalt : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              l.registerNewCatalogCodeTab,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: activeMode == 1 ? Colors.white : AppTheme.charcoal,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ] else ...[
-                            // Mode 1: New code
-                            Row(
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: TextFormField(
-                                    controller: newCodeCtrl,
+
+                              if (activeMode == 0) ...[
+                                // Mode 0: Alias mapping
+                                SearchableDropdownField<String?>(
+                                  value: selectedCanonicalCode,
+                                  labelText: l.approvedCatalogItemLabel,
+                                  searchHintText: l.searchApprovedCatalogHint,
+                                  items: catalogItems.map((ci) => SearchableDropdownItem<String?>(
+                                    value: ci.code,
+                                    label: '${ci.code} — ${isAr ? ci.canonicalNameAr : (ci.canonicalNameEn?.isNotEmpty == true ? ci.canonicalNameEn! : ci.canonicalNameAr)}',
+                                    subtitle: '${getCategoryLabel(ci.category, c)} | ${getUnitLabel(ci.unitType, c)}',
+                                  )).toList(),
+                                  onChanged: (v) => setInnerState(() => selectedCanonicalCode = v),
+                                ),
+                                const SizedBox(height: 10),
+                                TextFormField(
+                                  controller: aliasPatternCtrl,
+                                  validator: (v) => (v == null || v.trim().isEmpty) ? l.documentAliasLabel : null,
+                                  decoration: InputDecoration(
+                                    labelText: l.documentAliasLabel,
+                                    hintText: l.documentAliasHint,
+                                    isDense: true,
+                                    border: const OutlineInputBorder(),
+                                  ),
+                                ),
+                              ] else ...[
+                                // Mode 1: Searchable Reference Code Dropdown
+                                SearchableDropdownField<String>(
+                                  value: selectedReferenceCode,
+                                  labelText: l.referenceItemCodeLabel,
+                                  searchHintText: l.searchReferenceCodeHint,
+                                  items: referenceCodeItems,
+                                  onChanged: (v) {
+                                    if (v == null) return;
+                                    setInnerState(() {
+                                      selectedReferenceCode = v;
+                                      // Intelligently auto-populate category, unit and default name
+                                      if (v == 'OTHER-CLIENT-PAID') {
+                                        newCategory = 'Other Fees';
+                                        newUnit = 'fixed';
+                                        if (newNameArCtrl.text.isEmpty) newNameArCtrl.text = 'مصاريف مؤداة بمعرفة العميل';
+                                        if (newNameEnCtrl.text.isEmpty) newNameEnCtrl.text = 'Client-Paid Expenses';
+                                      } else if (v == 'OTHER-FEES') {
+                                        newCategory = 'Other Fees';
+                                        newUnit = 'fixed';
+                                        if (newNameArCtrl.text.isEmpty) newNameArCtrl.text = 'مصاريف ورسوم إضافية';
+                                      } else if (v == 'OTHER-STORAGE') {
+                                        newCategory = 'Other Fees';
+                                        newUnit = 'per_day';
+                                        if (newNameArCtrl.text.isEmpty) newNameArCtrl.text = 'أرضيات وحراسات وتخزين';
+                                      } else if (v == 'OTHER-LABOR') {
+                                        newCategory = 'Port & Handling';
+                                        newUnit = 'fixed';
+                                        if (newNameArCtrl.text.isEmpty) newNameArCtrl.text = 'عمالة وتعتيق وكلارك';
+                                      } else if (v == 'OTHER-COMMISSION') {
+                                        newCategory = 'Other Fees';
+                                        newUnit = 'fixed';
+                                        if (newNameArCtrl.text.isEmpty) newNameArCtrl.text = 'عمولات ونثريات وإكراميات';
+                                      } else if (v == 'CLR-CUSTOM-FEE') {
+                                        newCategory = 'Clearance Fees';
+                                        newUnit = 'per_shipment';
+                                        if (newNameArCtrl.text.isEmpty) newNameArCtrl.text = 'أتعاب تخليص إضافية استثنائية';
+                                      } else if (v == 'INL-CUSTOM-TRK') {
+                                        newCategory = 'Inland Transport';
+                                        newUnit = 'per_truck';
+                                        if (newNameArCtrl.text.isEmpty) newNameArCtrl.text = 'نقل داخلي وشاحنة إضافية';
+                                      } else if (v == 'PROC-CUSTOM-DOC') {
+                                        newCategory = 'Procedures & Approvals';
+                                        newUnit = 'fixed';
+                                        if (newNameArCtrl.text.isEmpty) newNameArCtrl.text = 'إجراءات وموافقات رقابية إضافية';
+                                      } else if (v == 'PORT-CUSTOM-EXP') {
+                                        newCategory = 'Port & Handling';
+                                        newUnit = 'per_container';
+                                        if (newNameArCtrl.text.isEmpty) newNameArCtrl.text = 'مصاريف موانئ ومحطات إضافية';
+                                      } else {
+                                        final matched = catalogItems.where((ci) => ci.code == v).firstOrNull;
+                                        if (matched != null) {
+                                          newCategory = matched.category;
+                                          newUnit = matched.unitType;
+                                          if (newNameArCtrl.text.isEmpty) newNameArCtrl.text = matched.canonicalNameAr;
+                                          if (newNameEnCtrl.text.isEmpty && matched.canonicalNameEn != null) newNameEnCtrl.text = matched.canonicalNameEn!;
+                                        }
+                                      }
+                                    });
+                                  },
+                                ),
+                                if (selectedReferenceCode == 'CUSTOM') ...[
+                                  const SizedBox(height: 10),
+                                  TextFormField(
+                                    controller: customCodeCtrl,
                                     textCapitalization: TextCapitalization.characters,
                                     validator: (v) {
-                                      if (v == null || v.trim().isEmpty) return 'يرجى إدخال كود فريد';
-                                      if (!RegExp(r'^[A-Z0-9]+(-[A-Z0-9]+)+$').hasMatch(v.trim().toUpperCase())) {
-                                        return 'الصيغة غير صالحة (مثال: OTHER-CLARK-01)';
-                                      }
+                                      if (selectedReferenceCode != 'CUSTOM') return null;
+                                      if (v == null || v.trim().isEmpty) return l.selectReferenceCodeRequired;
                                       return null;
                                     },
-                                    decoration: const InputDecoration(
-                                      labelText: 'كود البند المرجعي *',
+                                    decoration: InputDecoration(
+                                      labelText: l.referenceItemCodeLabel,
                                       hintText: 'OTHER-SPECIAL-01',
                                       isDense: true,
-                                      border: OutlineInputBorder(),
+                                      border: const OutlineInputBorder(),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  flex: 3,
-                                  child: SearchableDropdownField<String>(
-                                    value: newCategory,
-                                    labelText: 'الفئة الرسمية *',
-                                    items: const [
-                                      SearchableDropdownItem(value: 'Clearance Fees', label: 'Clearance Fees (أتعاب تخليص)'),
-                                      SearchableDropdownItem(value: 'Procedures & Approvals', label: 'Procedures & Approvals (إجراءات وموافقات)'),
-                                      SearchableDropdownItem(value: 'Inland Transport', label: 'Inland Transport (نقل داخلي)'),
-                                      SearchableDropdownItem(value: 'Port & Handling', label: 'Port & Handling (موانئ ومناولة)'),
-                                      SearchableDropdownItem(value: 'Other Fees', label: 'Other Fees (مصاريف أخرى)'),
-                                    ],
-                                    onChanged: (v) => setInnerState(() => newCategory = v ?? newCategory),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            TextFormField(
-                              controller: newNameArCtrl,
-                              validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال الاسم العربي المعتمد للبند' : null,
-                              decoration: const InputDecoration(
-                                labelText: 'الاسم العربي المعتمد للبند *',
-                                isDense: true,
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: TextFormField(
-                                    controller: newNameEnCtrl,
-                                    decoration: const InputDecoration(
-                                      labelText: 'الاسم بالإنجليزية (اختياري)',
-                                      isDense: true,
-                                      border: OutlineInputBorder(),
+                                ],
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 3,
+                                      child: SearchableDropdownField<String>(
+                                        value: newCategory,
+                                        labelText: l.officialCategoryLabel,
+                                        items: [
+                                          SearchableDropdownItem(value: 'Clearance Fees', label: getCategoryLabel('Clearance Fees', c)),
+                                          SearchableDropdownItem(value: 'Procedures & Approvals', label: getCategoryLabel('Procedures & Approvals', c)),
+                                          SearchableDropdownItem(value: 'Inland Transport', label: getCategoryLabel('Inland Transport', c)),
+                                          SearchableDropdownItem(value: 'Port & Handling', label: getCategoryLabel('Port & Handling', c)),
+                                          SearchableDropdownItem(value: 'Other Fees', label: getCategoryLabel('Other Fees', c)),
+                                        ],
+                                        onChanged: (v) => setInnerState(() => newCategory = v ?? newCategory),
+                                      ),
                                     ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  flex: 2,
-                                  child: SearchableDropdownField<String>(
-                                    value: newUnit,
-                                    labelText: 'نوع الوحدة *',
-                                    items: const [
-                                      SearchableDropdownItem(value: 'fixed', label: 'مبلغ مقطوع (fixed)'),
-                                      SearchableDropdownItem(value: 'per_container', label: 'لكل حاوية (per_container)'),
-                                      SearchableDropdownItem(value: 'per_invoice', label: 'لكل فاتورة (per_invoice)'),
-                                      SearchableDropdownItem(value: 'per_ton', label: 'لكل طن (per_ton)'),
-                                      SearchableDropdownItem(value: 'per_truck', label: 'لكل شاحنة (per_truck)'),
-                                      SearchableDropdownItem(value: 'per_day', label: 'لكل يوم (per_day)'),
-                                      SearchableDropdownItem(value: 'per_shipment', label: 'لكل شحنة (per_shipment)'),
-                                      SearchableDropdownItem(value: 'per_declaration', label: 'لكل شهادة (per_declaration)'),
-                                      SearchableDropdownItem(value: 'per_bl', label: 'لكل بوليصة (per_bl)'),
-                                    ],
-                                    onChanged: (v) => setInnerState(() => newUnit = v ?? newUnit),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: customPriceCtrl,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                  validator: (v) {
-                                    if (v == null || v.trim().isEmpty) return 'يرجى تحديد السعر';
-                                    if (double.tryParse(v.trim()) == null) return 'السعر غير صالح';
-                                    return null;
-                                  },
-                                  decoration: const InputDecoration(
-                                    labelText: 'السعر المعتمد *',
-                                    isDense: true,
-                                    border: OutlineInputBorder(),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                width: 100,
-                                child: SearchableDropdownField<String>(
-                                  value: customCurrency,
-                                  items: const [
-                                    SearchableDropdownItem(value: 'EGP', label: 'EGP'),
-                                    SearchableDropdownItem(value: 'USD', label: 'USD'),
-                                    SearchableDropdownItem(value: 'EUR', label: 'EUR'),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      flex: 2,
+                                      child: SearchableDropdownField<String>(
+                                        value: newUnit,
+                                        labelText: l.unitTypeLabel,
+                                        items: [
+                                          SearchableDropdownItem(value: 'fixed', label: getUnitLabel('fixed', c)),
+                                          SearchableDropdownItem(value: 'per_container', label: getUnitLabel('per_container', c)),
+                                          SearchableDropdownItem(value: 'per_invoice', label: getUnitLabel('per_invoice', c)),
+                                          SearchableDropdownItem(value: 'per_ton', label: getUnitLabel('per_ton', c)),
+                                          SearchableDropdownItem(value: 'per_truck', label: getUnitLabel('per_truck', c)),
+                                          SearchableDropdownItem(value: 'per_day', label: getUnitLabel('per_day', c)),
+                                          SearchableDropdownItem(value: 'per_shipment', label: getUnitLabel('per_shipment', c)),
+                                          SearchableDropdownItem(value: 'per_declaration', label: getUnitLabel('per_declaration', c)),
+                                          SearchableDropdownItem(value: 'per_bl', label: getUnitLabel('per_bl', c)),
+                                        ],
+                                        onChanged: (v) => setInnerState(() => newUnit = v ?? newUnit),
+                                      ),
+                                    ),
                                   ],
-                                  onChanged: (v) => setInnerState(() => customCurrency = v ?? 'EGP'),
+                                ),
+                                const SizedBox(height: 10),
+                                TextFormField(
+                                  controller: newNameArCtrl,
+                                  validator: (v) => (v == null || v.trim().isEmpty) ? l.fillApprovedArabicNameRequired : null,
+                                  decoration: InputDecoration(
+                                    labelText: l.canonicalArabicNameLabel,
+                                    isDense: true,
+                                    border: const OutlineInputBorder(),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                TextFormField(
+                                  controller: newNameEnCtrl,
+                                  decoration: InputDecoration(
+                                    labelText: l.canonicalEnglishNameOptionalLabel,
+                                    isDense: true,
+                                    border: const OutlineInputBorder(),
+                                  ),
+                                ),
+                              ],
+
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: customPriceCtrl,
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      validator: (v) {
+                                        if (v == null || v.trim().isEmpty) return l.pleaseEnterItemPrice;
+                                        if (double.tryParse(v.trim()) == null) return l.invalidItemPrice;
+                                        return null;
+                                      },
+                                      decoration: InputDecoration(
+                                        labelText: l.approvedPriceLabel,
+                                        isDense: true,
+                                        border: const OutlineInputBorder(),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 100,
+                                    child: SearchableDropdownField<String>(
+                                      value: customCurrency,
+                                      items: const [
+                                        SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                                        SearchableDropdownItem(value: 'USD', label: 'USD'),
+                                        SearchableDropdownItem(value: 'EUR', label: 'EUR'),
+                                      ],
+                                      onChanged: (v) => setInnerState(() => customCurrency = v ?? 'EGP'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              TextFormField(
+                                controller: customNotesCtrl,
+                                decoration: InputDecoration(
+                                  labelText: l.itemNotesAndConditionsLabel,
+                                  isDense: true,
+                                  border: const OutlineInputBorder(),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
-                          TextFormField(
-                            controller: customNotesCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'ملاحظات وشروط البند',
-                              isDense: true,
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء')),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-                    icon: isSubmitting
-                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Icon(Icons.check, size: 16),
-                    label: Text(activeMode == 0 ? 'حفظ وتكويد المرادف' : 'تسجيل الكود بالكتالوج'),
-                    onPressed: isSubmitting
-                        ? null
-                        : () async {
-                            if (!formKey.currentState!.validate()) return;
-                            setInnerState(() => isSubmitting = true);
-                            final price = double.tryParse(customPriceCtrl.text.trim()) ?? 0.0;
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(c),
+                      child: Text(l.cancel),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+                      icon: isSubmitting
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.check, size: 16),
+                      label: Text(activeMode == 0 ? l.saveAndMapAliasBtn : l.registerCodeInCatalogBtn),
+                      onPressed: isSubmitting
+                          ? null
+                          : () async {
+                              if (!formKey.currentState!.validate()) return;
+                              setInnerState(() => isSubmitting = true);
+                              final price = double.tryParse(customPriceCtrl.text.trim()) ?? 0.0;
 
-                            if (activeMode == 0) {
-                              // Mode 0: Alias pattern mapping
-                              final code = selectedCanonicalCode;
-                              final alias = aliasPatternCtrl.text.trim();
-                              if (code != null && alias.isNotEmpty) {
-                                await ref.read(expenseCatalogProvider.notifier).addPattern(code, alias);
-                                final matchedCatItem = catalogItems.firstWhere((it) => it.code == code, orElse: () => catalogItems.first);
+                              if (activeMode == 0) {
+                                // Mode 0: Alias pattern mapping
+                                final code = selectedCanonicalCode;
+                                final alias = aliasPatternCtrl.text.trim();
+                                if (code != null && alias.isNotEmpty) {
+                                  try {
+                                    await ref.read(expenseCatalogProvider.notifier).addPattern(code, alias);
+                                    final matchedCatItem = catalogItems.where((it) => it.code == code).firstOrNull ?? (catalogItems.isNotEmpty ? catalogItems.first : null);
 
-                                setDlgState(() {
-                                  selectedCategoryFilter = 'All';
-                                  itemSearchQuery = '';
-                                  if (targetItem != null) {
-                                    targetItem['code'] = code;
-                                    targetItem['is_uncoded'] = false;
-                                    targetItem['canonical_name_ar'] = matchedCatItem.canonicalNameAr;
-                                    if (price > 0) targetItem['standard_price'] = price;
+                                    setDlgState(() {
+                                      selectedCategoryFilter = 'All';
+                                      itemSearchQuery = '';
+                                      if (targetItem != null) {
+                                        targetItem['code'] = code;
+                                        targetItem['is_uncoded'] = false;
+                                        if (matchedCatItem != null) targetItem['canonical_name_ar'] = matchedCatItem.canonicalNameAr;
+                                        if (price > 0) targetItem['standard_price'] = price;
+                                      } else {
+                                        itemsState.insert(0, {
+                                          'expense_type_id': null,
+                                          'code': code,
+                                          'expense_name': alias,
+                                          'canonical_name_ar': matchedCatItem?.canonicalNameAr ?? alias,
+                                          'category': matchedCatItem?.category ?? 'Other Fees',
+                                          'unit_type': matchedCatItem?.unitType ?? 'fixed',
+                                          'standard_price': price,
+                                          'currency': customCurrency,
+                                          'min_price': null,
+                                          'max_price': null,
+                                          'notes': customNotesCtrl.text.trim(),
+                                          'is_uncoded': false,
+                                          'is_active': true,
+                                        });
+                                      }
+                                    });
+
+                                    if (c.mounted) Navigator.pop(c);
+                                    if (ctx.mounted) {
+                                      ScaffoldMessenger.of(ctx).showSnackBar(
+                                        SnackBar(
+                                          content: Text(l.itemCodedSuccessfullyToast(alias, code)),
+                                          backgroundColor: AppTheme.emerald,
+                                          duration: const Duration(seconds: 3),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (c.mounted) {
+                                      ScaffoldMessenger.of(c).showSnackBar(
+                                        SnackBar(content: Text('❌ $e'), backgroundColor: AppTheme.crimson),
+                                      );
+                                    }
+                                  }
+                                }
+                              } else {
+                                // Mode 1: New reference code or standard code
+                                final finalCode = selectedReferenceCode == 'CUSTOM'
+                                    ? customCodeCtrl.text.trim().toUpperCase()
+                                    : selectedReferenceCode.trim().toUpperCase();
+
+                                if (finalCode.isEmpty) {
+                                  if (c.mounted) {
+                                    ScaffoldMessenger.of(c).showSnackBar(
+                                      SnackBar(content: Text(l.selectReferenceCodeRequired), backgroundColor: Colors.red),
+                                    );
+                                  }
+                                  setInnerState(() => isSubmitting = false);
+                                  return;
+                                }
+
+                                final nameAr = newNameArCtrl.text.trim();
+                                final nameEn = newNameEnCtrl.text.trim();
+
+                                final isAlreadyInCatalog = catalogItems.any((ci) => ci.code.toUpperCase() == finalCode);
+
+                                try {
+                                  if (isAlreadyInCatalog) {
+                                    // Add recognition pattern so no 409 conflict occurs
+                                    if (nameAr.isNotEmpty) {
+                                      await ref.read(expenseCatalogProvider.notifier).addPattern(finalCode, nameAr);
+                                    }
                                   } else {
-                                    itemsState.insert(0, {
-                                      'expense_type_id': null,
-                                      'code': code,
-                                      'expense_name': alias,
-                                      'canonical_name_ar': matchedCatItem.canonicalNameAr,
-                                      'category': matchedCatItem.category,
-                                      'unit_type': matchedCatItem.unitType,
-                                      'standard_price': price,
-                                      'currency': customCurrency,
-                                      'min_price': null,
-                                      'max_price': null,
-                                      'notes': customNotesCtrl.text.trim(),
-                                      'is_uncoded': false,
-                                      'is_active': true,
+                                    await ref.read(expenseCatalogProvider.notifier).createItem({
+                                      'code': finalCode,
+                                      'canonical_name_ar': nameAr,
+                                      if (nameEn.isNotEmpty) 'canonical_name_en': nameEn,
+                                      'category': newCategory,
+                                      'unit_type': newUnit,
+                                      'allow_composite': false,
+                                      'recognition_patterns': [nameAr],
                                     });
                                   }
-                                });
 
-                                if (c.mounted) Navigator.pop(c);
-                                if (ctx.mounted) {
-                                  ScaffoldMessenger.of(ctx).showSnackBar(
-                                  SnackBar(
-                                    content: Text('✨ تم تكويد "$alias" وربطه بنجاح بالكود المرجعي $code'),
-                                    backgroundColor: AppTheme.emerald,
-                                    duration: const Duration(seconds: 3),
-                                  ),
-                                );
-                                }
-                              }
-                            } else {
-                              // Mode 1: New code
-                              final newCode = newCodeCtrl.text.trim().toUpperCase();
-                              final nameAr = newNameArCtrl.text.trim();
-                              final nameEn = newNameEnCtrl.text.trim();
-
-                              await ref.read(expenseCatalogProvider.notifier).createItem({
-                                'code': newCode,
-                                'canonical_name_ar': nameAr,
-                                if (nameEn.isNotEmpty) 'canonical_name_en': nameEn,
-                                'category': newCategory,
-                                'unit_type': newUnit,
-                                'allow_composite': false,
-                                'recognition_patterns': [nameAr],
-                              });
-
-                              setDlgState(() {
-                                selectedCategoryFilter = 'All';
-                                itemSearchQuery = '';
-                                if (targetItem != null) {
-                                  targetItem['code'] = newCode;
-                                  targetItem['is_uncoded'] = false;
-                                  targetItem['canonical_name_ar'] = nameAr;
-                                  if (price > 0) targetItem['standard_price'] = price;
-                                } else {
-                                  itemsState.insert(0, {
-                                    'expense_type_id': null,
-                                    'code': newCode,
-                                    'expense_name': nameAr,
-                                    'canonical_name_ar': nameAr,
-                                    'category': newCategory,
-                                    'unit_type': newUnit,
-                                    'standard_price': price,
-                                    'currency': customCurrency,
-                                    'min_price': null,
-                                    'max_price': null,
-                                    'notes': customNotesCtrl.text.trim(),
-                                    'is_uncoded': false,
-                                    'is_active': true,
+                                  setDlgState(() {
+                                    selectedCategoryFilter = 'All';
+                                    itemSearchQuery = '';
+                                    if (targetItem != null) {
+                                      targetItem['code'] = finalCode;
+                                      targetItem['is_uncoded'] = false;
+                                      targetItem['canonical_name_ar'] = nameAr;
+                                      targetItem['category'] = newCategory;
+                                      targetItem['unit_type'] = newUnit;
+                                      if (price > 0) targetItem['standard_price'] = price;
+                                    } else {
+                                      itemsState.insert(0, {
+                                        'expense_type_id': null,
+                                        'code': finalCode,
+                                        'expense_name': nameAr,
+                                        'canonical_name_ar': nameAr,
+                                        'category': newCategory,
+                                        'unit_type': newUnit,
+                                        'standard_price': price,
+                                        'currency': customCurrency,
+                                        'min_price': null,
+                                        'max_price': null,
+                                        'notes': customNotesCtrl.text.trim(),
+                                        'is_uncoded': false,
+                                        'is_active': true,
+                                      });
+                                    }
                                   });
-                                }
-                              });
 
-                              if (c.mounted) Navigator.pop(c);
-                              if (ctx.mounted) {
-                                ScaffoldMessenger.of(ctx).showSnackBar(
-                                SnackBar(
-                                  content: Text('✨ تم تسجيل الكود المرجعي الجديد $newCode بالكتالوج بنجاح'),
-                                  backgroundColor: AppTheme.emerald,
-                                  duration: const Duration(seconds: 3),
-                                ),
-                              );
+                                  if (c.mounted) Navigator.pop(c);
+                                  if (ctx.mounted) {
+                                    ScaffoldMessenger.of(ctx).showSnackBar(
+                                      SnackBar(
+                                        content: Text(l.itemRegisteredInCatalogToast(finalCode)),
+                                        backgroundColor: AppTheme.emerald,
+                                        duration: const Duration(seconds: 3),
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  String errStr = e.toString();
+                                  if (e is DioException) {
+                                    final d = e.response?.data;
+                                    if (d is Map && d.containsKey('detail')) {
+                                      errStr = d['detail'].toString();
+                                    }
+                                  }
+                                  if (c.mounted) {
+                                    ScaffoldMessenger.of(c).showSnackBar(
+                                      SnackBar(content: Text('❌ $errStr'), backgroundColor: AppTheme.crimson),
+                                    );
+                                  }
+                                }
                               }
-                            }
-                          },
-                  ),
-                ],
-              ),
+                              if (c.mounted) {
+                                setInnerState(() => isSubmitting = false);
+                              }
+                            },
+                    ),
+                  ],
+                );
+              },
             ),
           );
         }
@@ -939,194 +1226,274 @@ void showPriceListFormDialog(
             child: Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Container(
-            width: dialogWidth,
-            height: dialogHeight,
-            padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title Header & AI Extract Button
-                Row(
-                  children: [
-                    Icon(isEditing ? Icons.edit_note : Icons.add_circle, color: AppTheme.cobalt, size: 26),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        isEditing ? l.editPriceListTitle(existingPriceList.title) : l.createPriceListTitle,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6C5CE7),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      icon: const Icon(Icons.auto_awesome, color: Colors.amber, size: 16),
-                      label: const Text('✨ استخراج ذكي من ملف (Word/PDF/Text)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                      onPressed: extractFromDocument,
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      icon: const Icon(Icons.close, color: Colors.grey),
-                    ),
-                  ],
-                ),
-                const Divider(height: 16),
-
-                // Header Form Inputs (Broker, Title, Port, Effective Date, Notes)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.charcoal.withOpacity(0.03),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
+              child: SelectionArea(
+                child: Container(
+                  width: dialogWidth,
+                  height: dialogHeight,
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Title Header & AI Extract Button
                       Row(
                         children: [
-                          if (!isEditing)
-                            Expanded(
-                              flex: 2,
-                              child: SearchableDropdownField<int?>(
-                                value: selectedBroker,
-                                labelText: '${l.responsibleCustomsBroker} *',
-                                searchHintText: l.searchBrokerHint,
-                                items: brokersList.map((b) => SearchableDropdownItem<int?>(value: b.providerId, label: b.partnerName)).toList(),
-                                onChanged: (v) => setDlgState(() => selectedBroker = v),
-                              ),
-                            )
-                          else
-                            Expanded(
-                              flex: 2,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey.shade300)),
-                                child: Text('${l.responsibleCustomsBroker}: ${existingPriceList.brokerName}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                              ),
-                            ),
+                          Icon(isEditing ? Icons.edit_note : Icons.add_circle, color: AppTheme.cobalt, size: 26),
                           const SizedBox(width: 10),
                           Expanded(
-                            flex: 3,
-                            child: TextFormField(
-                              controller: titleCtrl,
-                              decoration: InputDecoration(labelText: l.priceListTitleField, isDense: true, border: const OutlineInputBorder()),
+                            child: Text(
+                              isEditing ? l.editPriceListTitle(existingPriceList.title) : l.createPriceListTitle,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              controller: portCtrl,
-                              decoration: InputDecoration(labelText: l.targetPortField, isDense: true, border: const OutlineInputBorder()),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF6C5CE7),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
+                            icon: const Icon(Icons.auto_awesome, color: Colors.amber, size: 16),
+                            label: Text(l.smartFileExtractionBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                            onPressed: extractFromDocument,
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              controller: dateCtrl,
-                              decoration: InputDecoration(labelText: '${l.effectiveDateField} 📅', isDense: true, border: const OutlineInputBorder()),
-                            ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            icon: const Icon(Icons.close, color: Colors.grey),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: notesCtrl,
-                        decoration: InputDecoration(labelText: l.generalTermsAndNotesField, isDense: true, border: const OutlineInputBorder()),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
+                      const Divider(height: 16),
 
-                // Table Toolbar: Search, Category Filter & Quick Actions
-                Row(
-                  children: [
-                    // Search Box
-                    SizedBox(
-                      width: 200,
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: l.searchExpenseCatalogHint,
-                          prefixIcon: const Icon(Icons.search, size: 16),
-                          isDense: true,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      if (dialogErrorMessage != null) ...[
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.shade400),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  dialogErrorMessage!,
+                                  style: TextStyle(color: Colors.red.shade900, fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close, size: 16, color: Colors.red),
+                                onPressed: () => setDlgState(() => dialogErrorMessage = null),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                            ],
+                          ),
                         ),
-                        onChanged: (v) => setDlgState(() => itemSearchQuery = v),
+                      ],
+
+                      // Header Form Inputs (Broker, Title, Port, Effective Date, Notes)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.charcoal.withOpacity(0.03),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                if (!isEditing)
+                                  Expanded(
+                                    flex: 2,
+                                    child: SearchableDropdownField<int?>(
+                                      value: selectedBroker,
+                                      labelText: '${l.responsibleCustomsBroker} *',
+                                      searchHintText: l.searchBrokerHint,
+                                      items: brokersList.map((b) => SearchableDropdownItem<int?>(value: b.providerId, label: b.partnerName)).toList(),
+                                      onChanged: (v) => setDlgState(() => selectedBroker = v),
+                                    ),
+                                  )
+                                else
+                                  Expanded(
+                                    flex: 2,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey.shade300)),
+                                      child: Text('${l.responsibleCustomsBroker}: ${existingPriceList.brokerName}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                    ),
+                                  ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 3,
+                                  child: TextFormField(
+                                    controller: titleCtrl,
+                                    decoration: InputDecoration(labelText: l.priceListTitleField, isDense: true, border: const OutlineInputBorder()),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 2,
+                                  child: TextFormField(
+                                    controller: portCtrl,
+                                    decoration: InputDecoration(labelText: l.targetPortField, isDense: true, border: const OutlineInputBorder()),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 2,
+                                  child: TextFormField(
+                                    controller: dateCtrl,
+                                    decoration: InputDecoration(
+                                      labelText: '${l.effectiveDateField} 📅',
+                                      isDense: true,
+                                      border: const OutlineInputBorder(),
+                                      suffixIcon: IconButton(
+                                        icon: const Icon(Icons.calendar_month, size: 18),
+                                        tooltip: l.selectDateTooltip,
+                                        onPressed: () async {
+                                          final cur = DateTime.tryParse(dateCtrl.text.trim()) ?? DateTime.now();
+                                          final picked = await showDatePicker(
+                                            context: ctx,
+                                            initialDate: cur,
+                                            firstDate: DateTime(2020),
+                                            lastDate: DateTime(2035),
+                                          );
+                                          if (picked != null) {
+                                            final f = '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                                            setDlgState(() => dateCtrl.text = f);
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: notesCtrl,
+                              decoration: InputDecoration(labelText: l.generalTermsAndNotesField, isDense: true, border: const OutlineInputBorder()),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Category Filter
-                    SizedBox(
-                      width: 220,
-                      child: SearchableDropdownField<String>(
-                        value: selectedCategoryFilter,
-                        labelText: l.filterCategoryLabel,
-                        items: [
-                          SearchableDropdownItem(value: 'All', label: l.allCategoriesItem),
-                          const SearchableDropdownItem(value: 'Clearance Fees', label: 'Clearance Fees (أتعاب تخليص)'),
-                          const SearchableDropdownItem(value: 'Procedures & Approvals', label: 'Procedures & Approvals (إجراءات وموافقات)'),
-                          const SearchableDropdownItem(value: 'Inland Transport', label: 'Inland Transport (نقل داخلي)'),
-                          const SearchableDropdownItem(value: 'Port & Handling', label: 'Port & Handling (موانئ ومناولة)'),
-                          const SearchableDropdownItem(value: 'Other Fees', label: 'Other Fees (مصاريف أخرى)'),
-                        ],
-                        onChanged: (v) => setDlgState(() => selectedCategoryFilter = v ?? 'All'),
+                      const SizedBox(height: 12),
+
+                      // Table Toolbar: Search, Category Filter & Quick Actions
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minWidth: dialogWidth - 36),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Search Box
+                                  SizedBox(
+                                    width: 180,
+                                    child: TextField(
+                                      decoration: InputDecoration(
+                                        hintText: l.searchExpenseCatalogHint,
+                                        prefixIcon: const Icon(Icons.search, size: 16),
+                                        isDense: true,
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      ),
+                                      onChanged: (v) => setDlgState(() => itemSearchQuery = v),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Category Filter
+                                  SizedBox(
+                                    width: 200,
+                                    child: SearchableDropdownField<String>(
+                                      value: selectedCategoryFilter,
+                                      labelText: l.filterCategoryLabel,
+                                      items: [
+                                        SearchableDropdownItem(value: 'All', label: l.allCategoriesItem),
+                                        SearchableDropdownItem(value: 'Clearance Fees', label: getCategoryLabel('Clearance Fees', ctx)),
+                                        SearchableDropdownItem(value: 'Procedures & Approvals', label: getCategoryLabel('Procedures & Approvals', ctx)),
+                                        SearchableDropdownItem(value: 'Inland Transport', label: getCategoryLabel('Inland Transport', ctx)),
+                                        SearchableDropdownItem(value: 'Port & Handling', label: getCategoryLabel('Port & Handling', ctx)),
+                                        SearchableDropdownItem(value: 'Other Fees', label: getCategoryLabel('Other Fees', ctx)),
+                                      ],
+                                      onChanged: (v) => setDlgState(() => selectedCategoryFilter = v ?? 'All'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(width: 10),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Add Custom Item Button
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.cobalt,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    ),
+                                    onPressed: () => showAddCustomItemDialog(),
+                                    icon: const Icon(Icons.qr_code_2, size: 15),
+                                    label: Text(l.addCustomItemOrAliasBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  // Quick Fill Button
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppTheme.cobalt,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                    ),
+                                    onPressed: () {
+                                      setDlgState(() {
+                                        for (var itm in itemsState) {
+                                          final name = itm['expense_name'] as String;
+                                          for (var entry in standardRatesMap.entries) {
+                                            if (name.contains(entry.key) || entry.key.contains(name)) {
+                                              itm['standard_price'] = entry.value;
+                                              break;
+                                            }
+                                          }
+                                        }
+                                      });
+                                      ScaffoldMessenger.of(ctx).showSnackBar(
+                                        SnackBar(content: Text('⚡ ${l.standardRatesFilledToast}'), backgroundColor: AppTheme.cobalt),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.flash_on, size: 14),
+                                    label: Text(l.fillStandardRatesBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  // Zero Out Button
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.red.shade800,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                    ),
+                                    onPressed: () {
+                                      setDlgState(() {
+                                        for (var itm in itemsState) {
+                                          itm['standard_price'] = 0.0;
+                                        }
+                                      });
+                                    },
+                                    icon: const Icon(Icons.clear_all, size: 14),
+                                    label: Text(l.zeroOutRatesBtn, style: const TextStyle(fontSize: 11)),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                    const Spacer(),
-                    // Add Custom Item Button
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
-                      onPressed: () => showAddCustomItemDialog(),
-                      icon: const Icon(Icons.qr_code_2, size: 15),
-                      label: const Text('➕ تكويد بند جديد أو ربط مرادف', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(width: 6),
-                    // Quick Fill Button
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(foregroundColor: AppTheme.cobalt),
-                      onPressed: () {
-                        setDlgState(() {
-                          for (var itm in itemsState) {
-                            final name = itm['expense_name'] as String;
-                            for (var entry in standardRatesMap.entries) {
-                              if (name.contains(entry.key) || entry.key.contains(name)) {
-                                itm['standard_price'] = entry.value;
-                                break;
-                              }
-                            }
-                          }
-                        });
-                        ScaffoldMessenger.of(ctx).showSnackBar(
-                          SnackBar(content: Text('⚡ ${l.standardRatesFilledToast}'), backgroundColor: AppTheme.cobalt),
-                        );
-                      },
-                      icon: const Icon(Icons.flash_on, size: 14),
-                      label: Text(l.fillStandardRatesBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(width: 6),
-                    // Zero Out Button
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(foregroundColor: Colors.red.shade800),
-                      onPressed: () {
-                        setDlgState(() {
-                          for (var itm in itemsState) {
-                            itm['standard_price'] = 0.0;
-                          }
-                        });
-                      },
-                      icon: const Icon(Icons.clear_all, size: 14),
-                      label: Text(l.zeroOutRatesBtn, style: const TextStyle(fontSize: 11)),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 8),
 
                 // Interactive Items Table
@@ -1174,12 +1541,12 @@ void showPriceListFormDialog(
                                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                 margin: const EdgeInsets.only(left: 6),
                                                 decoration: BoxDecoration(color: AppTheme.crimson, borderRadius: BorderRadius.circular(4)),
-                                                child: const Row(
+                                                child: Row(
                                                   mainAxisSize: MainAxisSize.min,
                                                   children: [
-                                                    Icon(Icons.warning_amber_rounded, color: Colors.white, size: 10),
-                                                    SizedBox(width: 2),
-                                                    Text('بحاجة لتكويد', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                                                    const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 10),
+                                                    const SizedBox(width: 2),
+                                                    Text(l.needsCodingBadge, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
                                                   ],
                                                 ),
                                               ),
@@ -1189,7 +1556,7 @@ void showPriceListFormDialog(
                                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                               margin: const EdgeInsets.only(left: 6),
                                               decoration: BoxDecoration(color: Colors.amber.shade700, borderRadius: BorderRadius.circular(4)),
-                                              child: const Text('بند مخصص', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                                              child: Text(l.customItemBadge, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
                                             ),
                                           Expanded(
                                             child: Text(
@@ -1200,7 +1567,7 @@ void showPriceListFormDialog(
                                         ],
                                       ),
                                       Text(
-                                        '${(itm['category'] as String).split('(').first.trim()} | ${itm['unit_type']}',
+                                        '${getCategoryLabel(itm['category']?.toString() ?? '', ctx)} | ${getUnitLabel(itm['unit_type']?.toString() ?? '', ctx)}',
                                         style: const TextStyle(fontSize: 10, color: Colors.grey),
                                       ),
                                     ],
@@ -1267,7 +1634,7 @@ void showPriceListFormDialog(
                                 if (isCustomItem)
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                                    tooltip: 'حذف البند المخصص',
+                                    tooltip: l.deleteCustomItemTooltip,
                                     onPressed: () => setDlgState(() => itemsState.removeAt(realIdx)),
                                   ),
                               ],
@@ -1309,87 +1676,129 @@ void showPriceListFormDialog(
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                           ),
                           onPressed: isSaving ? null : () async {
+                            setDlgState(() => dialogErrorMessage = null);
+
                             final title = titleCtrl.text.trim();
                             if (title.isEmpty) {
-                              ScaffoldMessenger.of(ctx).showSnackBar(
-                                SnackBar(content: Text(l.priceListTitleRequired), backgroundColor: Colors.red),
-                              );
+                              setDlgState(() => dialogErrorMessage = l.priceListTitleRequired);
                               return;
                             }
 
                             if (selectedBroker == null) {
-                              ScaffoldMessenger.of(ctx).showSnackBar(
-                                SnackBar(content: Text(l.selectBrokerRequired), backgroundColor: Colors.orange),
-                              );
+                              setDlgState(() => dialogErrorMessage = l.selectBrokerRequired);
                               return;
                             }
-
-                            final broker = brokersList.firstWhere(
-                              (element) => element.providerId == selectedBroker,
-                              orElse: () => null,
-                            );
-                            final brokerName = broker?.partnerName ?? (existingPriceList?.brokerName ?? 'مستخلص');
-
-                            final itemsPayload = itemsState.map((itm) => {
-                              if (itm['item_id'] != null) 'item_id': itm['item_id'],
-                              'expense_type_id': itm['expense_type_id'],
-                              'expense_name': itm['expense_name'],
-                              'category': itm['category'],
-                              'unit_type': itm['unit_type'] ?? 'Per Shipment',
-                              'standard_price': itm['standard_price'] ?? 0.0,
-                              'currency': itm['currency'] ?? 'EGP',
-                              'min_price': itm['min_price'],
-                              'max_price': itm['max_price'],
-                              'notes': itm['notes'] ?? '',
-                              'is_active': itm['is_active'] ?? true,
-                            }).toList();
 
                             setDlgState(() => isSaving = true);
 
                             try {
+                              dynamic matchedBroker;
+                              for (final b in brokersList) {
+                                if (b.providerId == selectedBroker) {
+                                  matchedBroker = b;
+                                  break;
+                                }
+                              }
+                              final brokerName = matchedBroker?.partnerName ?? (existingPriceList?.brokerName ?? (isAr ? 'مستخلص جمركي' : 'Customs Broker'));
+
+                              String cleanDate(String input) {
+                                if (input.trim().isEmpty) {
+                                  final now = DateTime.now();
+                                  return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+                                }
+                                var s = input.trim();
+                                const arDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+                                for (int i = 0; i < 10; i++) {
+                                  s = s.replaceAll(arDigits[i], '$i');
+                                }
+                                s = s.replaceAll('/', '-');
+                                return s;
+                              }
+                              final effDate = cleanDate(dateCtrl.text);
+
+                              double parseDouble(dynamic val) {
+                                if (val == null) return 0.0;
+                                if (val is num) return val.toDouble();
+                                return double.tryParse(val.toString()) ?? 0.0;
+                              }
+
+                              double? parseNullableDouble(dynamic val) {
+                                if (val == null) return null;
+                                if (val is num) return val.toDouble();
+                                return double.tryParse(val.toString());
+                              }
+
+                              final List<Map<String, dynamic>> itemsPayload = [];
+                              for (var itm in itemsState) {
+                                final expName = (itm['expense_name']?.toString() ?? '').trim();
+                                if (expName.isEmpty) continue;
+
+                                var cat = (itm['category']?.toString() ?? 'Other Fees').trim();
+                                if (cat.contains('(')) {
+                                  cat = cat.split('(').first.trim();
+                                }
+                                if (cat.isEmpty) cat = 'Other Fees';
+
+                                var unit = (itm['unit_type']?.toString() ?? 'Per Shipment').trim();
+                                if (unit.contains('(')) {
+                                  unit = unit.split('(').first.trim();
+                                }
+                                if (unit.isEmpty) unit = 'Per Shipment';
+
+                                final stdPrice = parseDouble(itm['standard_price']);
+
+                                itemsPayload.add({
+                                  if (isEditing && itm['item_id'] != null) 'item_id': itm['item_id'],
+                                  'expense_type_id': itm['expense_type_id'],
+                                  'expense_name': expName,
+                                  'category': cat,
+                                  'unit_type': unit,
+                                  'standard_price': stdPrice,
+                                  'currency': itm['currency']?.toString() ?? 'EGP',
+                                  'min_price': parseNullableDouble(itm['min_price']),
+                                  'max_price': parseNullableDouble(itm['max_price']),
+                                  'notes': itm['notes']?.toString() ?? '',
+                                  'is_active': itm['is_active'] ?? true,
+                                });
+                              }
+
+                              final payload = {
+                                'title': title,
+                                'broker_id': selectedBroker,
+                                'broker_name': brokerName,
+                                'port_name': portCtrl.text.trim().isNotEmpty ? portCtrl.text.trim() : null,
+                                'effective_from': effDate,
+                                'version': isEditing ? version : 1,
+                                'is_active': isEditing ? existingPriceList.isActive : true,
+                                'notes': notesCtrl.text.trim().isNotEmpty ? notesCtrl.text.trim() : null,
+                                'items': itemsPayload,
+                              };
+
                               if (isEditing) {
                                 await ref.read(brokerPriceListsProvider.notifier).updatePriceList(
                                   existingPriceList.priceListId,
-                                  {
-                                    'title': title,
-                                    'broker_id': selectedBroker,
-                                    'broker_name': brokerName,
-                                    'port_name': portCtrl.text.trim(),
-                                    'effective_from': dateCtrl.text.trim().isNotEmpty ? dateCtrl.text.trim() : DateTime.now().toIso8601String().split('T').first,
-                                    'version': version,
-                                    'is_active': existingPriceList.isActive,
-                                    'notes': notesCtrl.text.trim(),
-                                    'items': itemsPayload,
-                                  },
+                                  payload,
                                 );
-                                ref.invalidate(brokerPriceListsProvider);
-                                await ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
-                                if (ctx.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('✅ ${l.priceListUpdatedSuccess}'), backgroundColor: AppTheme.emerald),
-                                  );
-                                }
                               } else {
-                                await ref.read(brokerPriceListsProvider.notifier).createPriceList({
-                                  'title': title,
-                                  'broker_id': selectedBroker,
-                                  'broker_name': brokerName,
-                                  'port_name': portCtrl.text.trim(),
-                                  'effective_from': dateCtrl.text.trim().isNotEmpty ? dateCtrl.text.trim() : DateTime.now().toIso8601String().split('T').first,
-                                  'version': 1,
-                                  'is_active': true,
-                                  'notes': notesCtrl.text.trim(),
-                                  'items': itemsPayload,
-                                });
-                                ref.invalidate(brokerPriceListsProvider);
-                                await ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
-                                if (ctx.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('✅ ${l.priceListCreatedSuccess}'), backgroundColor: AppTheme.emerald),
-                                  );
-                                }
+                                await ref.read(brokerPriceListsProvider.notifier).createPriceList(payload);
                               }
-                              if (ctx.mounted) Navigator.pop(ctx);
+
+                              if (ctx.mounted) {
+                                Navigator.of(ctx, rootNavigator: true).pop();
+                              }
+
+                              ref.invalidate(brokerPriceListsProvider);
+
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(isEditing ? '✅ ${l.priceListUpdatedSuccess}' : '✅ ${l.priceListCreatedSuccess}'),
+                                    backgroundColor: AppTheme.emerald,
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(seconds: 4),
+                                  ),
+                                );
+                              }
                             } catch (e) {
                               String errorMsg = e.toString();
                               if (e is DioException) {
@@ -1399,17 +1808,11 @@ void showPriceListFormDialog(
                                 } else if (resData != null) {
                                   errorMsg = resData.toString();
                                 } else {
-                                  errorMsg = e.message ?? 'فشل الاتصال بالخادم';
+                                  errorMsg = e.message ?? (isAr ? 'فشل الاتصال بالخادم' : 'Server connection failed');
                                 }
                               }
                               if (ctx.mounted) {
-                                ScaffoldMessenger.of(ctx).showSnackBar(
-                                  SnackBar(
-                                    content: Text('❌ تعذر الحفظ: $errorMsg'),
-                                    backgroundColor: AppTheme.crimson,
-                                    duration: const Duration(seconds: 4),
-                                  ),
-                                );
+                                setDlgState(() => dialogErrorMessage = '❌ ${(isAr ? 'تعذر الحفظ' : 'Failed to save')}: $errorMsg');
                               }
                             } finally {
                               if (ctx.mounted) {
@@ -1426,7 +1829,7 @@ void showPriceListFormDialog(
                               : const Icon(Icons.save, color: Colors.white, size: 18),
                           label: Text(
                             isSaving
-                                ? 'جاري الحفظ...'
+                                ? l.saving
                                 : (isEditing ? l.savePriceListEditsBtn : l.createAndSavePriceListBtn),
                             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                           ),
@@ -1441,7 +1844,8 @@ void showPriceListFormDialog(
         ),
       ),
     ),
-  );
+  ),
+);
 },
 ),
 );

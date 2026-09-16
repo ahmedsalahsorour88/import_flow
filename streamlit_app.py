@@ -1,6 +1,6 @@
 """
 ImportFlow ERP — Operations & Lifecycle Board (Streamlit Dashboard)
-لوحة متابعة وتتبع مراحل الشحنات الاستيرادية (5 مستويات كبرى - 21 خطوة تشغيلية)
+لوحة متابعة وتتبع مراحل الشحنات الاستيرادية (6 مراحل كبرى - 25 خطوة تشغيلية)
 """
 
 import streamlit as st
@@ -678,11 +678,11 @@ st.markdown("""
 <div class="main-title-container">
     <div>
         <div class="main-title-text">🚢 ImportFlow ERP — Operations & Lifecycle Board</div>
-        <div class="main-sub-text">لوحة التحكم ومتابعة حركة الشحنات الاستيرادية (المستويات الـ 6 الكبرى — 21 خطوة تشغيلية)</div>
+        <div class="main-sub-text">لوحة التحكم ومتابعة حركة الشحنات الاستيرادية (المستويات الـ 6 الكبرى — 25 خطوة تشغيلية)</div>
     </div>
     <div style="text-align: right;">
         <span style="background: rgba(255,255,255,0.1); padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 600;">
-            🟢 النظام متصل بقاعدة البيانات الحية (importflow.db)
+            🟢 النظام متصل بقاعدة البيانات الحية (sorour_logistics.db)
         </span>
     </div>
 </div>

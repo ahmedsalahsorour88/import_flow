@@ -59,7 +59,7 @@ class VerticalStageScaffold extends StatelessWidget {
         children: [
           // Top Header Bar
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: AppTheme.charcoal,
               boxShadow: [
@@ -70,26 +70,28 @@ class VerticalStageScaffold extends StatelessWidget {
                 ),
               ],
             ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: headerColor.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: headerColor.withOpacity(0.5)),
-                  ),
-                  child: Icon(headerIcon, color: headerColor, size: 22),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Wrap(
+            child: LayoutBuilder(
+              builder: (context, headerConstraints) {
+                final isNarrow = headerConstraints.maxWidth < 1000;
+
+                final iconAndTitle = Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: headerColor.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: headerColor.withOpacity(0.5)),
+                      ),
+                      child: Icon(headerIcon, color: headerColor, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Wrap(
                         crossAxisAlignment: WrapCrossAlignment.center,
                         spacing: 8,
+                        runSpacing: 4,
                         children: [
                           Text(
                             Directionality.of(context) == TextDirection.rtl ? titleAr : titleEn,
@@ -99,6 +101,8 @@ class VerticalStageScaffold extends StatelessWidget {
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.2,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           if (stageCode.isNotEmpty)
                             Container(
@@ -119,38 +123,87 @@ class VerticalStageScaffold extends StatelessWidget {
                             ),
                         ],
                       ),
+                    ),
+                  ],
+                );
+
+                if (isNarrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          iconAndTitle,
+                          const BackToDashboardButton(),
+                        ],
+                      ),
+                      if (showStageLifecycleControls) ...[
+                        const SizedBox(height: 8),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: ShipmentStageLifecycleControl(
+                            importFileId: selectedImportFileId,
+                            stageName: Directionality.of(context) == TextDirection.rtl ? titleAr : titleEn,
+                            stageCode: stageCode,
+                            onStatusChanged: onShipmentStatusChanged,
+                          ),
+                        ),
+                      ],
+                      if (headerActions != null) ...[
+                        const SizedBox(height: 8),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: headerActions!,
+                          ),
+                        ),
+                      ],
                     ],
-                  ),
-                ),
+                  );
+                }
 
-                // Stage Hold / Resume Lifecycle Control
-                if (showStageLifecycleControls) ...[
-                  ShipmentStageLifecycleControl(
-                    importFileId: selectedImportFileId,
-                    stageName: Directionality.of(context) == TextDirection.rtl ? titleAr : titleEn,
-                    stageCode: stageCode,
-                    onStatusChanged: onShipmentStatusChanged,
-                  ),
-                  const SizedBox(width: 10),
-                ],
-
-                if (headerActions != null) ...[
-                  Flexible(
-                    child: ScrollConfiguration(
-                      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: headerActions!,
+                return Row(
+                  children: [
+                    Expanded(child: iconAndTitle),
+                    if (showStageLifecycleControls) ...[
+                      Flexible(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: ShipmentStageLifecycleControl(
+                            importFileId: selectedImportFileId,
+                            stageName: Directionality.of(context) == TextDirection.rtl ? titleAr : titleEn,
+                            stageCode: stageCode,
+                            onStatusChanged: onShipmentStatusChanged,
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                ],
-                const BackToDashboardButton(),
-              ],
+                      const SizedBox(width: 10),
+                    ],
+                    if (headerActions != null) ...[
+                      Flexible(
+                        child: ScrollConfiguration(
+                          behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: headerActions!,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    const BackToDashboardButton(),
+                  ],
+                );
+              },
             ),
           ),
 
@@ -167,12 +220,66 @@ class VerticalStageScaffold extends StatelessWidget {
 
           // Main Horizontal Workspace: Vertical Sub-Nav Sidebar + Expanded Content Area
           Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Vertical Sub-Navigation Sidebar (Ultra-Compact)
-                Container(
-                  width: 215,
+            child: LayoutBuilder(
+              builder: (context, workspaceConstraints) {
+                final isMobileNav = workspaceConstraints.maxWidth < 700;
+
+                if (isMobileNav) {
+                  return Column(
+                    children: [
+                      // Horizontal Compact Tabs Strip
+                      Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+                        ),
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          itemCount: tabs.length,
+                          itemBuilder: (context, index) {
+                            final tab = tabs[index];
+                            final isSelected = selectedIndex == index;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ChoiceChip(
+                                label: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(tab.icon, size: 14, color: isSelected ? Colors.white : AppTheme.cobalt),
+                                    const SizedBox(width: 4),
+                                    Text(Directionality.of(context) == TextDirection.rtl ? tab.titleAr : tab.titleEn),
+                                    if (tab.badge != null) ...[
+                                      const SizedBox(width: 4),
+                                      tab.badge!,
+                                    ],
+                                  ],
+                                ),
+                                selected: isSelected,
+                                selectedColor: headerColor,
+                                labelStyle: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: isSelected ? Colors.white : AppTheme.charcoal,
+                                ),
+                                onSelected: (_) => onTabSelected(index),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      Expanded(child: body),
+                    ],
+                  );
+                }
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Vertical Sub-Navigation Sidebar (Ultra-Compact)
+                    Container(
+                      width: 215,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     border: Border(
@@ -294,10 +401,12 @@ class VerticalStageScaffold extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
+            );
+          },
+        ),
       ),
-    );
+    ],
+  ),
+);
   }
 }

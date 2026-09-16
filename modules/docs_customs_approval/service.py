@@ -11,6 +11,7 @@ from sqlalchemy import func
 from modules.docs_customs_approval.model import (
     CustomsDocumentApproval,
     DiscrepancyRectificationTicket,
+    DocsCustomsApprovalSession,
 )
 from modules.docs_customs_approval.schemas import (
     CustomsDocumentApprovalCreate,
@@ -22,6 +23,8 @@ from modules.docs_customs_approval.schemas import (
     DiscrepancyTicketCreate,
     DiscrepancyTicketUpdate,
     DiscrepancyTicketResolve,
+    DocsCustomsApprovalSessionCreate,
+    DocsCustomsApprovalSessionUpdate,
 )
 import modules.docs_customs_approval.repository as repo
 import modules.docs_customs_approval.validators as validators
@@ -427,3 +430,69 @@ def list_rectification_tickets_service(
     search: Optional[str] = None,
 ) -> List[DiscrepancyRectificationTicket]:
     return repo.list_tickets(db, include_inactive, import_file_id, approval_id, status, severity, search)
+
+
+# --- Docs Customs Approval Sessions Services (STEP-09) ---
+
+def create_customs_approval_session_service(
+    db: Session, payload: DocsCustomsApprovalSessionCreate
+) -> DocsCustomsApprovalSession:
+    import_file = validators.validate_import_file_exists(db, payload.import_file_id)
+    file_code = import_file.custom_file_number or import_file.import_file_code or f"IMP-{payload.import_file_id}"
+
+    existing = repo.get_session_by_file_id(db, payload.import_file_id, include_drafts=True)
+    if existing and (existing.is_draft or payload.is_draft):
+        for k, v in payload.model_dump(exclude_unset=True).items():
+            setattr(existing, k, v)
+        existing.import_file_code = file_code
+        existing.updated_at = datetime.now(timezone.utc)
+        session_res = repo.update_session(db, existing)
+    else:
+        code = repo.generate_session_code(db)
+        data = payload.model_dump(exclude_unset=True)
+        session_obj = DocsCustomsApprovalSession(
+            session_code=code,
+            import_file_code=file_code,
+            **data,
+        )
+        session_res = repo.create_session(db, session_obj)
+
+    # If final certification (not draft), advance lifecycle from STEP_09 to STEP_10!
+    if not payload.is_draft:
+        try:
+            from modules.lifecycle_board.service import transition_stage_activity_service
+            transition_stage_activity_service(
+                db=db,
+                import_file_id=payload.import_file_id,
+                completed_step_code="STEP_09",
+                target_step_codes=["STEP_10"],
+                notes=f"اعتماد الموافقة الجمركية على الأوراق والمستندات رسمياً بالجلسة ({session_res.session_code}) ونقل الشحنة إلى المرحلة الرابعة (منصة CargoX وتحصيل الأصول).",
+                performed_by=payload.created_by or "Customs Broker",
+            )
+        except Exception:
+            pass
+
+        import_file.current_module = "STEP_10 رفع ومتابعة مستندات CargoX"
+        import_file.next_action = "STEP_10 رفع المسودات المعتمدة وشهادات التحليل على منصة CargoX الرقمية"
+        if (import_file.progress_percent or 0.0) < 60.0:
+            import_file.progress_percent = 60.0
+        db.commit()
+        db.refresh(import_file)
+
+    return session_res
+
+
+def list_customs_approval_sessions_service(
+    db: Session,
+    import_file_id: Optional[int] = None,
+    is_draft: Optional[bool] = None,
+    search: Optional[str] = None,
+) -> List[DocsCustomsApprovalSession]:
+    return repo.list_sessions(db, import_file_id, is_draft, search)
+
+
+def get_customs_approval_session_service(
+    db: Session, session_id: int
+) -> Optional[DocsCustomsApprovalSession]:
+    return repo.get_session_by_id(db, session_id)
+

@@ -93,11 +93,7 @@ def download_suppliers_excel_template():
         'notes': 'Registered under Decree 43',
     }
     content = MasterDataExportImportHelper.create_excel_template(cols, sample)
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=Foreign_Suppliers_Template.xlsx"},
-    )
+    return MasterDataExportImportHelper.as_excel_response("Foreign_Suppliers_Template.xlsx", content)
 
 
 @supplier_router.post("/import-excel")
@@ -120,9 +116,6 @@ async def import_excel_suppliers(file: UploadFile = File(...), db: Session = Dep
                 errors.append(f"Row {idx}: Missing required company_name or foreign_exporter_id.")
                 continue
 
-            def parse_bool(v):
-                return str(v).lower() in ['true', '1', 'yes', 'نعم', 't']
-
             schema = SupplierCreate(
                 company_name=c_name,
                 supplier_type=r.get('supplier_type') or 'Manufacturer',
@@ -137,9 +130,9 @@ async def import_excel_suppliers(file: UploadFile = File(...), db: Session = Dep
                 email=r.get('email'),
                 secondary_email=r.get('secondary_email'),
                 website=r.get('website'),
-                has_iso=parse_bool(r.get('has_iso')),
-                registered_decree_43=parse_bool(r.get('registered_decree_43')),
-                white_list_registered=parse_bool(r.get('white_list_registered')),
+                has_iso=MasterDataExportImportHelper.parse_bool_safe(r.get('has_iso')),
+                registered_decree_43=MasterDataExportImportHelper.parse_bool_safe(r.get('registered_decree_43')),
+                white_list_registered=MasterDataExportImportHelper.parse_bool_safe(r.get('white_list_registered')),
                 brands=r.get('brands'),
                 notes=r.get('notes'),
             )

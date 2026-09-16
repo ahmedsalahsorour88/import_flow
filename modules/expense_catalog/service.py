@@ -75,7 +75,7 @@ class ExpenseCatalogService:
         clean_pat = pattern.strip()
         if not clean_pat:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Recognition pattern cannot be empty.",
             )
         item = ExpenseCatalogService.get_item(db, code)

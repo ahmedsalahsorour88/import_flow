@@ -88,6 +88,20 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
     }
   }
 
+  Future<PaymentRequestModel?> clonePaymentRequest(int paymentId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/financial-approval/payment-requests/$paymentId/clone',
+        data: payload,
+      );
+      final cloned = PaymentRequestModel.fromJson(response.data);
+      await fetchPaymentRequests();
+      return cloned;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<PaymentRequestModel?> approvePaymentRequest(int paymentId) async {
     try {
       final response = await _dio.post(
@@ -209,6 +223,107 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
           if (ibanAccountNo != null) 'iban_account_no': ibanAccountNo,
           if (swiftReconciliationNotes != null) 'swift_reconciliation_notes': swiftReconciliationNotes,
           'auto_execute': autoExecute,
+        },
+      );
+      final reconciled = PaymentRequestModel.fromJson(response.data);
+      await fetchPaymentRequests();
+      return reconciled;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<SwiftBatchModel> getSwiftBatch(int batchId) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/financial-approval/swift/review-batch/$batchId',
+      );
+      return SwiftBatchModel.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<SwiftBatchModel> updateSwiftBatchField({
+    required int batchId,
+    required String fieldKey,
+    required String value,
+    String userName = 'admin',
+  }) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.baseUrl}/financial-approval/swift/review-batch/$batchId/field/$fieldKey',
+        data: {
+          'value': value,
+          'user_name': userName,
+        },
+      );
+      return SwiftBatchModel.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<SwiftBatchModel> reExtractSwiftBatchField({
+    required int batchId,
+    required String fieldKey,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/financial-approval/swift/review-batch/$batchId/re-extract-field/$fieldKey',
+      );
+      return SwiftBatchModel.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> confirmSwiftBatchReview({
+    required int batchId,
+    String userName = 'admin',
+  }) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/financial-approval/swift/review-batch/$batchId/confirm',
+        data: {
+          'user_name': userName,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> matchReviewedSwiftBatch({
+    required int batchId,
+    int? targetPaymentId,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/financial-approval/swift/review-batch/$batchId/match',
+        queryParameters: {
+          if (targetPaymentId != null) 'target_payment_id': targetPaymentId,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<PaymentRequestModel?> reconcileReviewedSwiftBatch({
+    required int batchId,
+    required int paymentId,
+    String? notes,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/financial-approval/swift/review-batch/$batchId/reconcile',
+        data: {
+          'payment_id': paymentId,
+          'auto_execute': true,
+          if (notes != null) 'notes': notes,
         },
       );
       final reconciled = PaymentRequestModel.fromJson(response.data);
@@ -354,6 +469,21 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
     }
   }
 
+  Future<ImportBudgetModel?> cloneImportBudget(int budgetId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/financial-approval/import-budgets/$budgetId/clone',
+        data: payload,
+      );
+      final cloned = ImportBudgetModel.fromJson(response.data);
+      await fetchImportBudgets();
+      return cloned;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+
   Future<BudgetPrefillModel?> fetchBudgetPrefill(int importFileId) async {
     try {
       final response = await _dio.get(
@@ -362,6 +492,50 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
       return BudgetPrefillModel.fromJson(response.data);
     } catch (e) {
       return null;
+    }
+  }
+
+  Future<BudgetSyncResultModel?> syncBudgetWithUpstream(int budgetId, {String? justificationNote}) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (justificationNote != null && justificationNote.trim().isNotEmpty) {
+        queryParams['justification_note'] = justificationNote.trim();
+      }
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/financial-approval/import-budgets/$budgetId/sync',
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
+      final result = BudgetSyncResultModel.fromJson(response.data);
+      await fetchImportBudgets();
+      return result;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<ImportBudgetModel?> overrideBudgetVariance(int budgetId, String justificationNote) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/financial-approval/import-budgets/$budgetId/override-variance',
+        data: {'justification_note': justificationNote},
+      );
+      final updated = ImportBudgetModel.fromJson(response.data);
+      await fetchImportBudgets();
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<BudgetVarianceLogModel>> fetchBudgetVarianceLogs(int budgetId) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/financial-approval/import-budgets/$budgetId/variance-logs',
+      );
+      final List<dynamic> data = response.data;
+      return data.map((json) => BudgetVarianceLogModel.fromJson(json)).toList();
+    } catch (e) {
+      return [];
     }
   }
 }

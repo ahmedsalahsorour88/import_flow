@@ -11,6 +11,8 @@ abstract class AppLocalizations {
     return _AppLocalizationsScope.of(context);
   }
 
+  bool get isArabic => this is AppLocalizationsAr;
+
   // ── Navigation / Sidebar ─────────────────────────────────────────────────
   String get appTitle;
   String get appSubtitle;
@@ -457,6 +459,15 @@ abstract class AppLocalizations {
   String get scenarioAllStackableTitle;
   String get scenarioAllNonStackableTitle;
   String get scenarioMixedStackingTitle;
+  String get saveContainerImageTooltip;
+  String get exportContainerExcelTooltip;
+  String get exportContainerPdfTooltip;
+  String get saveContainerImageDialogTitle;
+  String get exportContainerExcelDialogTitle;
+  String get exportContainerPdfDialogTitle;
+  String get containerImageCaptureError;
+  String get containerExportError;
+  String get closePlannerBtn;
   String get savedShippingStudiesTitle;
   String get date;
   String get shipmentCategoryLabel;
@@ -1037,6 +1048,35 @@ abstract class AppLocalizations {
   String get selectBrokerRequired;
   String get priceListUpdatedSuccess;
   String get priceListCreatedSuccess;
+  String get customsExpenseCodingTitle;
+  String get linkAsAliasTab;
+  String get registerNewCatalogCodeTab;
+  String get approvedCatalogItemLabel;
+  String get searchApprovedCatalogHint;
+  String get documentAliasLabel;
+  String get documentAliasHint;
+  String get referenceItemCodeLabel;
+  String get searchReferenceCodeHint;
+  String get officialCategoryLabel;
+  String get canonicalArabicNameLabel;
+  String get canonicalEnglishNameOptionalLabel;
+  String get unitTypeLabel;
+  String get approvedPriceLabel;
+  String get itemNotesAndConditionsLabel;
+  String get saveAndMapAliasBtn;
+  String get registerCodeInCatalogBtn;
+  String itemCodedSuccessfullyToast(dynamic alias, dynamic code);
+  String itemRegisteredInCatalogToast(dynamic code);
+  String get needsCodingBadge;
+  String get customItemBadge;
+  String get deleteCustomItemTooltip;
+  String get addCustomItemOrAliasBtn;
+  String get smartFileExtractionBtn;
+  String get fillApprovedArabicNameRequired;
+  String get selectReferenceCodeRequired;
+  String get pleaseEnterItemPrice;
+  String get invalidItemPrice;
+  String get selectDateTooltip;
   String get showArchivedChip;
   String get hideArchivedChip;
   String get restoreConsultationTitle;
@@ -1243,6 +1283,22 @@ abstract class AppLocalizations {
   String get originalDocsTsvHeaderAuditor;
   String get originalDocsTsvHeaderStatus;
   String get originalDocsTsvHeaderRemarks;
+  String get courierAlertsHeader;
+  String courierAlertCriticalCount(dynamic count);
+  String courierAlertWarningCount(dynamic count);
+  String get courierTrackingRegistryTab;
+  String get sessionsRegistryTab;
+  String get confirmCourierDeliveryBtn;
+  String get courierDeliveryProofDialogTitle;
+  String get courierReceiptDateLabel;
+  String get courierReceiptTimeLabel;
+  String get courierReceivedByLabel;
+  String get courierPodRefLabel;
+  String get markAssociatedDocsReceivedLabel;
+  String get courierReceiptRecordedSuccess;
+  String daysInTransitLabel(dynamic days);
+  String get filterStatusInTransit;
+  String get filterStatusDelivered;
   String get originalDocsRegistryDossierTitle;
   String get originalDocsRegistryTsvHeaderCode;
   String get originalDocsRegistryTsvHeaderFile;
@@ -1666,6 +1722,18 @@ abstract class AppLocalizations {
 
   // ── Screen 11: Nafeza ACID Operations ───────────────────────────────────
   String get nafezaAcidTitle;
+  String get searchAndCloneAcidBtn;
+  String get searchAndCloneAcidDialogTitle;
+  String get searchAcidHint;
+  String get noAcidsFound;
+  String get cloneAcidSuccess;
+  String get acidClonedResetNotice;
+  String get importFromPreviousAcidSessionBtn;
+  String get rawTextImportedSuccess;
+  String get cloneAcidRecordTooltip;
+  String get copyDiscrepancyReportBtn;
+  String get discrepancyReportCopiedSuccess;
+  String get emptyComparisonHint;
   String get acidRequestTab;
   String get smartMtsParserTab;
   String get discrepancyMatrixTab;
@@ -1823,6 +1891,13 @@ abstract class AppLocalizations {
   String get bankProcessingStatusBadge;
   String get form4SavedSuccess;
   String get form4SaveError;
+  String get searchAndCloneBankForm4Btn;
+  String get searchAndCloneBankForm4DialogTitle;
+  String get searchBankForm4Hint;
+  String get noBankForm4Found;
+  String get cloneBankForm4Success;
+  String get bankForm4ClonedResetNotice;
+  String get cloneBankForm4RecordTooltip;
 
   // ── Screen 18: Draft B/L Review ──────────────────────────────────────────
   String get draftBlStage0ReviewSheet;
@@ -1973,6 +2048,13 @@ abstract class AppLocalizations {
   String get draftBlNoLetterGeneratedYet;
   String get draftBlRegistryUpdatedSuccess;
   String draftBlPreviewSessionSnack(int id, String blNo);
+  String get searchAndCloneDraftBlBtn;
+  String get searchAndCloneDraftBlDialogTitle;
+  String get searchDraftBlHint;
+  String get noDraftBlFound;
+  String get cloneDraftBlSuccess;
+  String get draftBlClonedResetNotice;
+  String get cloneDraftBlRecordTooltip;
 
   // ── Screen 19: Draft COO / EUR.1 Review (coo_review_tab.dart & visual_draft_coo_sheet.dart) ───
   String get cooStage1Requirements;
@@ -2086,6 +2168,14 @@ abstract class AppLocalizations {
   String cooExcelSavedSuccess(String path);
   String get cooDetailsExporterLabel;
   String get cooDetailsImporterLabel;
+  String get searchAndCloneCooBtn;
+  String get searchAndCloneCooDialogTitle;
+  String get searchCooHint;
+  String get noCooReviewsFound;
+  String get cloneCooSuccess;
+  String get cooClonedResetNotice;
+  String get cloneCooRecordTooltip;
+  String get cooRegistrySearchHint;
 
   // ── Screen 20: Customs Docs Approval (CustomsDocumentApprovalTab) ─────────
   String get customsApprovalSelectFileForMatrixWarning;
@@ -2207,6 +2297,16 @@ abstract class AppLocalizations {
   String get customsApprovalDefaultLegalOfficer;
   String get customsApprovalDefaultComplianceOfficer;
 
+  // Screen 20: Search & Clone Customs Document Approvals
+  String get searchAndCloneCustomsApprovalBtn;
+  String get searchAndCloneCustomsApprovalDialogTitle;
+  String get searchCustomsApprovalHint;
+  String get noCustomsApprovalsFound;
+  String get cloneCustomsApprovalSuccess;
+  String get customsApprovalClonedResetNotice;
+  String get cloneApprovalRecordTooltip;
+  String get cloneTicketRecordTooltip;
+
   // ── Screen 21: PO & Packing Reconciliation ───────────────────────────────
   String get poRecSampleLoadedSuccess;
   String poRecFileSelected(String name, String sizeKb);
@@ -2248,6 +2348,7 @@ abstract class AppLocalizations {
   String get poRecFinalPackingListNoLabel;
   String get poRecFinalPackingListNoHint;
   String get poRecRequired;
+  String get poRecTotalSummaryRow;
 
   String get poRecKpiTotalInvoice;
   String get poRecKpiTotalPackages;
@@ -2358,6 +2459,7 @@ abstract class AppLocalizations {
   String get poRecHistoryCopyReportButton;
   String poRecHistoryDetailsModalTitle(String code);
   String get poRecHistoryDetailsCertifiedItemsTitle;
+  String get poRecHistoryDetailsCertifiedPackingTitle;
   String get poRecHistoryLoadInEditorButton;
   String get poRecDiff;
   String get poRecMissingInPacking;
@@ -2392,6 +2494,18 @@ abstract class AppLocalizations {
   String get poRecReportCertifiedBy;
   String get poRecReportCsvHeader;
   String get poRecReportPreviewTitle;
+
+  // Screen 21: Search & Clone PO Reconciliation Sessions
+  String get searchAndClonePoReconBtn;
+  String get searchAndClonePoReconDialogTitle;
+  String get searchPoReconHint;
+  String get noPoReconFound;
+  String get clonePoReconSuccess;
+  String get poReconClonedResetNotice;
+  String get clonePoReconRecordTooltip;
+  String get copyPoReconBtn;
+  String get exportPoReconExcelBtn;
+  String get exportPoReconPdfBtn;
 
   // ── Screen 23: Customs Declaration 46 ──────────────────────────────────────
   String get customsDeclStageTitle;
@@ -6517,6 +6631,7 @@ abstract class AppLocalizations {
   String get swiftColRequestedAmount;
   String get swiftColTransferredAmount;
   String get swiftColVarianceStatus;
+  String get swiftChargesLabel;
   String get swiftColSwiftRef;
   String get swiftColActions;
 
@@ -7889,6 +8004,126 @@ abstract class AppLocalizations {
   String get cloneConsultationDialogTitle;
   String get clonePriceListActionTooltip;
   String get cloneRowActionTooltip;
+  String get clonePurchaseOrderDialogTitle;
+  String get searchAndClonePoBtn;
+  String get searchAndClonePoDialogTitle;
+  String get searchAndClonePoSubtitle;
+  String get searchByPoOrSupplierOrItemHint;
+  String get noMatchingPosFound;
+  String clonePoSuccess(dynamic code);
+  String clonePoError(dynamic error);
+  String get cloneRowItemTooltip;
+  String get clonePackingItemTooltip;
+  String get lineItemClonedSuccess;
+  String get packingItemClonedSuccess;
+  String get cloneFieldAllocationsReset;
+  String get cloneFieldShipmentUnlinked;
+  String get searchAndCloneCbmBtn;
+  String get cloneCbmDialogTitle;
+  String get searchAndCloneCbmDialogTitle;
+  String get searchAndCloneCbmSubtitle;
+  String get searchByCalcCodeOrTitleHint;
+  String get noMatchingCalcsFound;
+  String cloneCbmSuccess(dynamic code);
+  String cloneCbmError(dynamic error);
+  String get cloneQuickItemTooltip;
+  String get cargoItemClonedSuccess;
+  String get cloneFieldCalcCodeGenerated;
+  String get cloneFieldImportFileReset;
+  String get cloneFieldPoReset;
+
+  // ── Screen 4 Shipping Scenarios Clone & Responsive Keys ─────────────────────
+  String get searchAndCloneStudyBtn;
+  String get cloneStudyDialogTitle;
+  String get searchAndCloneStudyDialogTitle;
+  String get searchAndCloneStudySubtitle;
+  String get searchByStudyCodeOrTitleHint;
+  String get noMatchingStudiesFound;
+  String cloneStudySuccess(dynamic code);
+  String cloneStudyError(dynamic error);
+  String get cloneCarrierOptionTooltip;
+  String get carrierOptionClonedSuccess;
+  String get cloneFieldStudyCodeGenerated;
+  String get cloneFieldSelectionReset;
+  String get carrierOptionHeader;
+
+  // ── Screen 6 Customs Consultation Clone & Responsive Keys ───────────────────
+  String get searchAndCloneConsultationBtn;
+  String get searchAndCloneConsultationDialogTitle;
+  String get searchAndCloneConsultationSubtitle;
+  String get searchByConsultationCodeOrTitleHint;
+  String get noMatchingConsultationsFound;
+  String cloneConsultationSuccess(dynamic code);
+  String cloneConsultationError(dynamic error);
+  String get cloneChecklistItemTooltip;
+  String get checklistItemClonedSuccess;
+  String get cloneFieldConsultationCodeGenerated;
+  String get cloneFieldChecklistReset;
+  String get cloneConsultationTooltip;
+  String get searchAndCloneConsultationTooltip;
+
+  // ── Screen 8 Financial Approval (Payment Requests) Clone & Responsive Keys ───
+  String get searchAndClonePaymentRequestBtn;
+  String get searchAndClonePaymentRequestDialogTitle;
+  String get searchAndClonePaymentRequestSubtitle;
+  String get searchByPaymentCodeOrSupplierHint;
+  String get noMatchingPaymentRequestsFound;
+  String clonePaymentRequestSuccess(dynamic code);
+  String clonePaymentRequestError(dynamic error);
+  String get clonePaymentRequestTooltip;
+  String get searchAndClonePaymentTooltip;
+  String get clonePaymentRequestDialogTitle;
+  String get cloneFieldPaymentCodeGenerated;
+  String get cloneFieldBankingDetailsCopied;
+  String get cloneFieldPaymentStatusReset;
+  String get cloneFieldSwiftReceiptReset;
+  String get clonePoAllocationTooltip;
+  String get poAllocationClonedSuccess;
+
+  // ── Screen 9 Financial Approval (Import Budget) Clone & Responsive Keys ───
+  String get searchAndCloneBudgetBtn;
+  String get searchAndCloneBudgetDialogTitle;
+  String get searchAndCloneBudgetSubtitle;
+  String get searchByBudgetCodeOrTitleHint;
+  String get noMatchingBudgetsFound;
+  String cloneBudgetSuccess(dynamic code);
+  String cloneBudgetError(dynamic error);
+  String get cloneBudgetTooltip;
+  String get searchAndCloneBudgetTooltip;
+  String get cloneBudgetDialogTitle;
+  String get cloneFieldBudgetCodeGenerated;
+  String get cloneFieldBudgetStatusReset;
+  String get cloneFieldCertificationsReset;
+  String get cloneFieldExchangeRatesCopied;
+
+  // ── Import Files Search, Clone & Dialogs Hardening ─────────────────────────
+  String get searchAndCloneImportFileBtn;
+  String get searchAndCloneImportFileDialogTitle;
+  String get searchAndCloneImportFileSubtitle;
+  String get searchAndCloneImportFileHint;
+  String resultsWithCount(dynamic count);
+  String get noMatchingShipmentsFound;
+  String get cloneFieldAcidReset;
+  String get portsOfLoadingAndDischarge;
+  String get smartChecklistTooltip;
+  String get moreToolsTooltip;
+  String confirmDeleteImportFilePrompt(dynamic code);
+  String get cloneBtn;
+  String get selectCompanyValidation;
+  String get selectSupplierValidation;
+  String get ownerFieldRequired;
+  String get ownerFieldHint;
+  String get containerStackableTab;
+  String get containerNonStackableTab;
+  String get containerMixedTab;
+  String get woodenFloorPallets;
+  String get internalDimensionsPrefix;
+  String get containerOptionsAnalysisTitle;
+  String get closeDiagramBtn;
+  String get approvedRecommendationPrefix;
+  String get oversizedItemsWarning;
+  String get failedToFetchRfqData;
+  String get generatingRfqTemplatesLoading;
 
   // ── KB-GUIDE-012 Smart Shipment Experience Guide & Reference Card ───────────
   String get experienceGuideTitle;
@@ -8065,6 +8300,54 @@ abstract class AppLocalizations {
   String get darkMode;
   String get lightMode;
   String get systemMode;
+
+  // ── Desktop Command Palette (Ctrl + K) ──
+  String get commandPaletteTitle;
+  String get commandPaletteSearchHint;
+  String get commandPaletteCategoryScreens;
+  String get commandPaletteCategoryActions;
+  String get commandPaletteCategoryRecords;
+  String get commandPaletteNoResults;
+  String get commandPaletteKeyboardNavHint;
+  String get commandPaletteShortcutTooltip;
+  String get commandPaletteOpenScreenAction;
+  String get commandPaletteQuickAction;
+
+  // ── Desktop Shortcuts & Power-User Suite ──
+  String get keyboardShortcutsTitle;
+  String get keyboardShortcutsSubtitle;
+  String get shortcutsCategoryNavigation;
+  String get shortcutsCategoryOperations;
+  String get shortcutsCategoryProductivity;
+  String get shortcutCommandPalette;
+  String get shortcutNextTab;
+  String get shortcutPreviousTab;
+  String get shortcutCloseTab;
+  String get shortcutToggleFullscreen;
+  String get shortcutEscape;
+  String get shortcutSave;
+  String get shortcutNewRecord;
+  String get shortcutCloneRow;
+  String get shortcutSearchTable;
+  String get shortcutShowHelp;
+  String get fullscreenEnabledToast;
+  String get fullscreenDisabledToast;
+
+  // ── Unsaved Changes Guard ──
+  String get unsavedChangesTitle;
+  String get unsavedChangesMessage;
+  String get unsavedChangesDiscardBtn;
+  String get unsavedChangesSaveBtn;
+  String get unsavedChangesCancelBtn;
+  String get unsavedChangesBadgeTooltip;
+
+  // ── Enterprise Multi-Pane Layout ──
+  String get multiPaneSelectPrompt;
+  String get multiPaneCollapseSidebar;
+  String get multiPaneExpandSidebar;
+  String get multiPaneBackToList;
+  String get multiPaneSidebarTitle;
+  String get multiPaneDetailsTitle;
 }
 
 

@@ -36,6 +36,14 @@ class PaymentRequestCreate(PaymentRequestBase):
     pass
 
 
+class ClonePaymentRequestRequest(BaseModel):
+    new_title: Optional[str] = None
+    target_supplier_id: Optional[int] = None
+    new_requested_amount: Optional[float] = None
+    unlink_import_file: bool = False
+    remarks: Optional[str] = None
+
+
 class PaymentRequestUpdate(BaseModel):
     title: Optional[str] = None
     import_file_id: Optional[int] = None
@@ -114,6 +122,15 @@ class ImportBudgetCreate(ImportBudgetBase):
     pass
 
 
+class CloneImportBudgetRequest(BaseModel):
+    new_title: Optional[str] = None
+    target_import_file_id: Optional[int] = None
+    unlink_import_file: bool = False
+    new_exchange_rate: Optional[float] = None
+    remarks: Optional[str] = None
+
+
+
 class ImportBudgetUpdate(BaseModel):
     title: Optional[str] = None
     import_file_id: Optional[int] = None
@@ -140,6 +157,13 @@ class ImportBudgetResponse(ImportBudgetBase):
     budget_status: str
     approved_by: Optional[str] = None
     approved_date: Optional[date] = None
+    parent_budget_id: Optional[int] = None
+    revision_number: int = 1
+    last_variance_check: Optional[datetime] = None
+    has_unresolved_variance: bool = False
+    variance_override_reason: Optional[str] = None
+    variance_overridden_by: Optional[str] = None
+    upstream_modified_by: Optional[str] = None
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -186,11 +210,89 @@ class BudgetPrefillResponse(BaseModel):
     
     estimated_customs_duties_egp: float = 0.0
     estimated_clearance_fees_egp: float = 0.0
+    broker_id: Optional[int] = None
+    broker_name: Optional[str] = None
     estimated_grand_total_egp: float = 0.0
     exchange_rate: float = 50.0
 
 
 # --- SMART AI SWIFT MT103 EXTRACTOR & RECONCILER SCHEMAS ---
+class SwiftFieldResponse(BaseModel):
+    id: int
+    batch_id: int
+    field_key: str
+    swift_field_code: Optional[str] = None
+    field_label: str
+    raw_ocr_text: Optional[str] = None
+    parsed_value: Optional[str] = None
+    confidence_score: float = 0.0
+    is_edited_by_user: bool = False
+    edited_value: Optional[str] = None
+    final_value: Optional[str] = None
+    is_mandatory: bool = False
+    is_empty: bool = False
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SwiftBatchResponse(BaseModel):
+    batch_id: int
+    batch_code: str
+    source_filename: Optional[str] = None
+    source_file_type: Optional[str] = None
+    raw_source_text: str
+    normalized_text: Optional[str] = None
+    status: str
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    matched_payment_id: Optional[int] = None
+    reconciled_at: Optional[datetime] = None
+    fields: List[SwiftFieldResponse] = []
+    all_mandatory_valid: bool = False
+    missing_mandatory_fields: List[str] = []
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SwiftFieldUpdateRequest(BaseModel):
+    value: str = Field(..., description="New value for the field entered by user")
+    user_name: Optional[str] = Field("admin", description="Username performing edit")
+
+
+class SwiftBatchConfirmRequest(BaseModel):
+    user_name: Optional[str] = Field("admin", description="Username confirming the batch review")
+
+
+class SwiftBatchConfirmResponse(BaseModel):
+    success: bool
+    batch_id: int
+    batch_code: str
+    status: str
+    message: str
+    confirmed_fields: dict
+    batch: SwiftBatchResponse
+
+
+class SwiftBatchMatchResponse(BaseModel):
+    success: bool
+    batch_id: int
+    status: str
+    matched_payment_request: Optional[dict] = None
+    candidate_matches: List[dict] = []
+    confirmed_fields: dict
+
+
+class SwiftBatchReconcileRequest(BaseModel):
+    payment_id: int
+    auto_execute: bool = True
+    notes: Optional[str] = None
+    user_name: Optional[str] = "admin"
+
+
 class SmartSwiftExtractRequest(BaseModel):
     raw_text: str = Field(..., min_length=1, description="Raw SWIFT MT103 block or bank transfer advice text")
     target_payment_id: Optional[int] = Field(None, description="Optional target payment request ID to match specifically")
@@ -211,6 +313,8 @@ class SmartSwiftExtractResponse(BaseModel):
     detected_filename: Optional[str] = None
     detected_file_type: Optional[str] = None
     error: Optional[str] = None
+    batch_id: Optional[int] = None
+    batch: Optional[SwiftBatchResponse] = None
 
 
 class SmartSwiftReconcileRequest(BaseModel):
@@ -225,4 +329,54 @@ class SmartSwiftReconcileRequest(BaseModel):
     iban_account_no: Optional[str] = None
     swift_reconciliation_notes: Optional[str] = None
     auto_execute: bool = True
+
+
+# --- BUDGET VARIANCE & REVISION SCHEMAS ---
+class BudgetVarianceLogResponse(BaseModel):
+    id: int
+    budget_id: int
+    import_file_id: int
+    field_name: str
+    old_value: float
+    new_value: float
+    variance_amount: float
+    variance_percentage: float
+    threshold_percentage: float
+    is_hard_block: bool
+    detected_at: datetime
+    modified_by: Optional[str] = None
+    resolved_at: Optional[datetime] = None
+    resolved_by: Optional[str] = None
+    resolution_type: str
+    justification_note: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BudgetVarianceOverrideRequest(BaseModel):
+    justification_note: str = Field(..., min_length=5, description="Written justification required to override hard block")
+
+
+class BudgetVarianceSettingResponse(BaseModel):
+    setting_id: int
+    setting_key: str
+    setting_value: str
+    description: Optional[str] = None
+    updated_by: Optional[str] = None
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BudgetVarianceSettingUpdate(BaseModel):
+    threshold_percentage: float = Field(..., gt=0.0, le=100.0, description="Variance threshold percentage e.g. 5.0")
+
+
+class BudgetSyncResultResponse(BaseModel):
+    budget: ImportBudgetResponse
+    action_taken: str  # 'auto_updated', 'revalidation_required', 'revision_created'
+    revision_created: bool = False
+    original_budget_status: Optional[str] = None
+    variance_logs: List[BudgetVarianceLogResponse] = []
+    message: str
 

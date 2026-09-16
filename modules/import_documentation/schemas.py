@@ -494,6 +494,7 @@ class DraftBLReviewBase(BaseModel):
     broker_approval_date: Optional[datetime] = None
     broker_approval_notes: Optional[str] = None
     status: str = "AUTO_COMPARISON_RUN"
+    is_draft: Optional[bool] = False
     reviewed_by: Optional[str] = None
     reviewed_at: Optional[datetime] = None
     approved_by: Optional[str] = None
@@ -533,6 +534,7 @@ class DraftBLReviewUpdate(BaseModel):
     broker_approval_date: Optional[datetime] = None
     broker_approval_notes: Optional[str] = None
     status: Optional[str] = None
+    is_draft: Optional[bool] = None
     reviewed_by: Optional[str] = None
     reviewed_at: Optional[datetime] = None
     approved_by: Optional[str] = None
@@ -581,6 +583,7 @@ class CertificateOfOriginReviewBase(BaseModel):
     has_critical_mismatch: bool = False
     override_reason: Optional[str] = None
     status: str = "Draft Generated"
+    is_draft: Optional[bool] = False
     reviewed_by: Optional[str] = None
     reviewed_at: Optional[datetime] = None
 
@@ -606,6 +609,7 @@ class CertificateOfOriginReviewUpdate(BaseModel):
     has_critical_mismatch: Optional[bool] = None
     override_reason: Optional[str] = None
     status: Optional[str] = None
+    is_draft: Optional[bool] = None
     reviewed_by: Optional[str] = None
     reviewed_at: Optional[datetime] = None
 
@@ -859,6 +863,63 @@ class InvoiceBLSyncRequest(BaseModel):
     sync_to_po: bool = True
     sync_to_shipping: bool = True
     notes: Optional[str] = None
+
+
+class InvoiceBLMatchSessionBase(BaseModel):
+    import_file_id: int
+    import_file_code: Optional[str] = None
+    invoice_number: Optional[str] = None
+    bl_number: Optional[str] = None
+    packing_list_number: Optional[str] = None
+    acid_number: Optional[str] = None
+    match_score_percentage: float = 0.0
+    overall_status: str = "FULLY_MATCHED"
+    is_safe_for_certification: bool = True
+    is_draft: bool = False
+    critical_discrepancies_count: int = 0
+    warning_discrepancies_count: int = 0
+    comparison_matrix: Optional[List[Dict[str, Any]]] = None
+    invoice_data: Optional[Dict[str, Any]] = None
+    bl_data: Optional[Dict[str, Any]] = None
+    packing_list_data: Optional[Dict[str, Any]] = None
+    correction_letter: Optional[str] = None
+    notes: Optional[str] = None
+    certified_by: Optional[str] = None
+
+
+class InvoiceBLMatchSessionCreate(InvoiceBLMatchSessionBase):
+    pass
+
+
+class InvoiceBLMatchSessionUpdate(BaseModel):
+    invoice_number: Optional[str] = None
+    bl_number: Optional[str] = None
+    packing_list_number: Optional[str] = None
+    acid_number: Optional[str] = None
+    match_score_percentage: Optional[float] = None
+    overall_status: Optional[str] = None
+    is_safe_for_certification: Optional[bool] = None
+    is_draft: Optional[bool] = None
+    critical_discrepancies_count: Optional[int] = None
+    warning_discrepancies_count: Optional[int] = None
+    comparison_matrix: Optional[List[Dict[str, Any]]] = None
+    invoice_data: Optional[Dict[str, Any]] = None
+    bl_data: Optional[Dict[str, Any]] = None
+    packing_list_data: Optional[Dict[str, Any]] = None
+    correction_letter: Optional[str] = None
+    notes: Optional[str] = None
+    certified_by: Optional[str] = None
+
+
+class InvoiceBLMatchSessionResponse(InvoiceBLMatchSessionBase):
+    session_id: int
+    session_code: str
+    import_file_code: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class POReconciliationSessionBase(BaseModel):

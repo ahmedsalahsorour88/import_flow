@@ -5,7 +5,13 @@ Database Repository for Financial & Management Approval (BP-012 & BP-013)
 from datetime import datetime, date, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from modules.financial_approval.model import PaymentRequestSession, ImportBudgetApproval
+from modules.financial_approval.model import (
+    PaymentRequestSession,
+    ImportBudgetApproval,
+    SwiftExtractionBatch,
+    SwiftExtractionField,
+    OcrCorrectionsLog,
+)
 from modules.financial_approval.schemas import (
     PaymentRequestCreate,
     PaymentRequestUpdate,
@@ -197,10 +203,15 @@ def create_import_budget(db: Session, schema: ImportBudgetCreate) -> ImportBudge
         import_file_id=schema.import_file_id,
         po_id=schema.po_id,
         project_id=schema.project_id,
+        invoice_amount_foreign=schema.invoice_amount_foreign,
+        invoice_currency=schema.invoice_currency,
         invoice_amount_egp=schema.invoice_amount_egp,
+        freight_cost_foreign=schema.freight_cost_foreign,
+        freight_currency=schema.freight_currency,
         freight_cost_egp=schema.freight_cost_egp,
         customs_duties_egp=schema.customs_duties_egp,
         clearance_inland_egp=schema.clearance_inland_egp,
+        exchange_rate=schema.exchange_rate,
         total_budget_egp=total_budget,
         budget_status="Pending Review",
         notes=schema.notes,
@@ -295,3 +306,193 @@ def restore_import_budget(db: Session, budget_id: int) -> bool:
     item.updated_at = datetime.now(timezone.utc)
     db.commit()
     return True
+
+
+# --- SWIFT EXTRACTION BATCH REPOSITORY ---
+def generate_swift_batch_code(db: Session) -> str:
+    """Generates unique SWIFT Batch Code in format SWF-YYYYMMDD-XXX."""
+    date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+    prefix = f"SWF-{date_str}-"
+
+    last_record = (
+        db.query(SwiftExtractionBatch)
+        .filter(SwiftExtractionBatch.batch_code.like(f"{prefix}%"))
+        .order_by(SwiftExtractionBatch.batch_id.desc())
+        .first()
+    )
+
+    if not last_record:
+        return f"{prefix}001"
+
+    last_code = last_record.batch_code
+    try:
+        sequence_num = int(last_code.split("-")[-1])
+        new_seq = sequence_num + 1
+    except (ValueError, IndexError):
+        new_seq = 1
+
+    return f"{prefix}{new_seq:03d}"
+
+
+def create_swift_extraction_batch(
+    db: Session,
+    raw_source_text: str,
+    normalized_text: str | None,
+    source_filename: str | None,
+    source_file_type: str | None,
+    fields_breakdown: list[dict],
+) -> SwiftExtractionBatch:
+    """
+    Creates a new SWIFT Extraction Batch in status 'EXTRACTED_PENDING_REVIEW'
+    and populates all extracted field rows.
+    """
+    batch_code = generate_swift_batch_code(db)
+    batch = SwiftExtractionBatch(
+        batch_code=batch_code,
+        source_filename=source_filename,
+        source_file_type=source_file_type,
+        raw_source_text=raw_source_text,
+        normalized_text=normalized_text,
+        status="EXTRACTED_PENDING_REVIEW",
+    )
+    db.add(batch)
+    db.flush()
+
+    for item in fields_breakdown:
+        p_val = item.get("parsed_value")
+        # Ensure string representation
+        if p_val is not None:
+            p_val_str = str(p_val)
+        else:
+            p_val_str = ""
+
+        is_empty = not bool(p_val_str.strip())
+        field = SwiftExtractionField(
+            batch_id=batch.batch_id,
+            field_key=item.get("field_key", ""),
+            swift_field_code=item.get("swift_field_code"),
+            field_label=item.get("field_label", ""),
+            raw_ocr_text=item.get("raw_ocr_text"),
+            parsed_value=p_val_str,
+            confidence_score=float(item.get("confidence_score", 0.0)),
+            is_edited_by_user=False,
+            edited_value=None,
+            final_value=p_val_str,
+            is_mandatory=bool(item.get("is_mandatory", False)),
+            is_empty=is_empty,
+        )
+        db.add(field)
+
+    db.commit()
+    db.refresh(batch)
+    return batch
+
+
+def get_swift_extraction_batch(db: Session, batch_id: int) -> SwiftExtractionBatch | None:
+    """Retrieves a batch by batch_id with all its fields."""
+    return (
+        db.query(SwiftExtractionBatch)
+        .filter(SwiftExtractionBatch.batch_id == batch_id)
+        .first()
+    )
+
+
+def update_swift_batch_field(
+    db: Session,
+    batch_id: int,
+    field_key: str,
+    new_value: str,
+    user_name: str = "admin",
+) -> SwiftExtractionField | None:
+    """
+    Updates an individual field in a batch:
+    - Sets is_edited_by_user = True
+    - Sets edited_value and final_value
+    - Updates confidence_score to 1.0 (since human reviewed/provided it)
+    - Records an entry in ocr_corrections_log
+    """
+    field = (
+        db.query(SwiftExtractionField)
+        .filter(
+            SwiftExtractionField.batch_id == batch_id,
+            SwiftExtractionField.field_key == field_key,
+        )
+        .first()
+    )
+    if not field:
+        return None
+
+    cleaned_val = new_value.strip()
+    orig_val = field.final_value or field.parsed_value or ""
+
+    # Log the correction if changed
+    if orig_val != cleaned_val:
+        log_entry = OcrCorrectionsLog(
+            batch_id=batch_id,
+            field_key=field_key,
+            original_value=orig_val,
+            corrected_value=cleaned_val,
+            corrected_by=user_name,
+            corrected_at=datetime.now(timezone.utc),
+        )
+        db.add(log_entry)
+
+    field.edited_value = cleaned_val
+    field.final_value = cleaned_val
+    field.is_edited_by_user = True
+    field.is_empty = not bool(cleaned_val)
+    field.confidence_score = 1.0
+    field.updated_at = datetime.now(timezone.utc)
+
+    # Also touch batch updated_at
+    batch = db.query(SwiftExtractionBatch).filter(SwiftExtractionBatch.batch_id == batch_id).first()
+    if batch:
+        batch.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(field)
+    return field
+
+
+def confirm_swift_batch_review(
+    db: Session,
+    batch_id: int,
+    user_name: str = "admin",
+) -> SwiftExtractionBatch | None:
+    """
+    Marks a batch as 'REVIEWED_CONFIRMED' with reviewer info and timestamp.
+    """
+    batch = get_swift_extraction_batch(db, batch_id)
+    if not batch:
+        return None
+
+    batch.status = "REVIEWED_CONFIRMED"
+    batch.reviewed_by = user_name
+    batch.reviewed_at = datetime.now(timezone.utc)
+    batch.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(batch)
+    return batch
+
+
+def update_swift_batch_status(
+    db: Session,
+    batch_id: int,
+    status: str,
+    matched_payment_id: int | None = None,
+) -> SwiftExtractionBatch | None:
+    """Updates batch status and optional matched payment ID."""
+    batch = get_swift_extraction_batch(db, batch_id)
+    if not batch:
+        return None
+
+    batch.status = status
+    if matched_payment_id:
+        batch.matched_payment_id = matched_payment_id
+    if status == "RECONCILED":
+        batch.reconciled_at = datetime.now(timezone.utc)
+    batch.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(batch)
+    return batch
+

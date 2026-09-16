@@ -89,6 +89,45 @@ class ContainerPackingResult {
 
   int get edgePlacedCount => placedItems.where((p) => p.isStandingOnEdge).length;
   int get flatPlacedCount => placedItems.where((p) => !p.isStandingOnEdge).length;
+
+  List<GroupedPlacedItem> get groupedItems => ContainerRequirementEngine.groupPlacedItems(placedItems);
+
+  String get placedItemsSummary {
+    if (placedItems.isEmpty) return '-';
+    final groups = groupedItems;
+    return groups.map((g) => '${g.itemCodeOrDesc} (${g.count})').join(', ');
+  }
+}
+
+/// Represents an aggregated grouping of placed cargo items in a container.
+/// - Cartons / standard items are aggregated by item code / description.
+/// - Pallets are aggregated ONLY if their length, width, and height are identical.
+class GroupedPlacedItem {
+  final String itemCodeOrDesc;
+  final String packageType;
+  final double length;
+  final double width;
+  final double height;
+  final double totalWeight;
+  final double unitWeight;
+  final int count;
+  final bool isStackable;
+  final bool isPallet;
+
+  GroupedPlacedItem({
+    required this.itemCodeOrDesc,
+    required this.packageType,
+    required this.length,
+    required this.width,
+    required this.height,
+    required this.totalWeight,
+    required this.unitWeight,
+    required this.count,
+    required this.isStackable,
+    required this.isPallet,
+  });
+
+  double get volumeM3 => (length * width * height * count) / 1000000;
 }
 
 class ContainerSpec {
@@ -191,6 +230,53 @@ class ContainerRequirementEngine {
     ContainerSpec(code: '40HC', name: "40' High Cube Container", internalVolumeCbm: 76.4, maxPayloadKg: 26500.0, internalLength: 1203.0, internalWidth: 235.0, internalHeight: 269.0),
     ContainerSpec(code: '45HC', name: "45' High Cube Container", internalVolumeCbm: 86.0, maxPayloadKg: 27700.0, internalLength: 1355.6, internalWidth: 235.2, internalHeight: 269.8),
   ];
+
+  /// Groups placed cargo items according to the enterprise aggregation protocol:
+  /// - Cartons / standard items are aggregated by item code / description.
+  /// - Pallets are aggregated ONLY if their length, width, and height are identical.
+  static List<GroupedPlacedItem> groupPlacedItems(List<PlacedItem> placedItems) {
+    final Map<String, List<PlacedItem>> groups = {};
+
+    for (final p in placedItems) {
+      final pkgType = (p.item.packageType ?? '').toLowerCase();
+      final isPallet = pkgType.contains('pallet') || pkgType.contains('بالت');
+
+      // If pallet: group ONLY if length, width, height are identical
+      // If carton/package: group by item description / code
+      final String key;
+      if (isPallet) {
+        key = 'PALLET_${p.length.round()}_${p.width.round()}_${p.height.round()}_${p.item.isStackable}';
+      } else {
+        final desc = p.item.description ?? p.item.itemId;
+        final cleanCode = desc.contains('(') ? desc.split('(').first.trim() : desc.trim();
+        key = 'CARTON_${cleanCode}_${p.length.round()}_${p.width.round()}_${p.height.round()}_${p.item.isStackable}';
+      }
+
+      groups.putIfAbsent(key, () => []).add(p);
+    }
+
+    return groups.values.map((list) {
+      final first = list.first;
+      final pkgType = (first.item.packageType ?? '').toLowerCase();
+      final isPallet = pkgType.contains('pallet') || pkgType.contains('بالت');
+      final desc = first.item.description ?? first.item.itemId;
+      final cleanDesc = desc.contains('(') ? desc.split('(').first.trim() : desc.trim();
+      final totalWeight = list.fold<double>(0.0, (sum, item) => sum + item.item.weight);
+
+      return GroupedPlacedItem(
+        itemCodeOrDesc: cleanDesc,
+        packageType: first.item.packageType ?? 'Carton',
+        length: first.length,
+        width: first.width,
+        height: first.height,
+        totalWeight: totalWeight,
+        unitWeight: list.isNotEmpty ? (totalWeight / list.length) : first.item.weight,
+        count: list.length,
+        isStackable: first.item.isStackable,
+        isPallet: isPallet,
+      );
+    }).toList();
+  }
 
   /// Smart Shipment Mode Recommendation Rules
   static ShipmentModeRecommendation recommendShipmentMode({

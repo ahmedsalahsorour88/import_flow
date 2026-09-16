@@ -429,6 +429,15 @@ void main() {
       expect(ar.poRecGrossPrefix, isNotEmpty);
       expect(en.poRecGrossPrefix, isNotEmpty);
     });
+
+    test('Screen 22 Enhancements: Final Packing List optional label and Totals / Certified Packing keys', () {
+      expect(ar.poRecFinalPackingListNoLabel, contains('اختياري'));
+      expect(en.poRecFinalPackingListNoLabel.toLowerCase(), contains('optional'));
+      expect(ar.poRecTotalSummaryRow, equals('الإجمالي الكلي'));
+      expect(en.poRecTotalSummaryRow, equals('Totals'));
+      expect(ar.poRecHistoryDetailsCertifiedPackingTitle, contains('قائمة التعبئة'));
+      expect(en.poRecHistoryDetailsCertifiedPackingTitle, contains('Packing List'));
+    });
   });
 }
 

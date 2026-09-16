@@ -350,6 +350,49 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
+                                    RowActionsPill(
+                                      onView: () => _showAddEditDialog(r),
+                                      onEdit: () => _showAddEditDialog(r),
+                                      onPrint: () {
+                                        final buffer = StringBuffer();
+                                        buffer.writeln('${context.l10n.warehouseReceivingColGrnCode}: ${r.grnCode}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingColWarehouse}: ${r.warehouseName}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingColStatus}: ${r.status}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingTruckAndDriver}: ${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})');
+                                        buffer.writeln('${context.l10n.warehouseReceivingArrivalDatetime}: ${r.arrivalDatetime.replaceFirst("T", " ").split(".")[0]}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingInspector}: ${r.inspectorName}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingDiscrepancyStatus}: ${r.discrepancyType}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingMetricInvoiced}: ${r.totalInvoicedQty}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingMetricAccepted}: ${r.totalAcceptedQty}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingMetricShortage}: ${r.totalShortageQty}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingMetricDamaged}: ${r.totalDamagedQty}');
+                                        CopyHelper.copy(
+                                          context,
+                                          buffer.toString(),
+                                          customMessage: context.l10n.warehouseReceivingPrintReceiptSuccess(r.grnCode),
+                                        );
+                                      },
+                                      onDelete: () async {
+                                        final confirm = await showDialog<bool>(
+                                          context: context,
+                                          builder: (c) => AlertDialog(
+                                            title: Text(context.l10n.warehouseReceivingDeleteTitle),
+                                            content: Text(context.l10n.warehouseReceivingDeleteConfirmMessage),
+                                            actions: [
+                                              TextButton(onPressed: () => Navigator.pop(c, false), child: Text(context.l10n.cancel)),
+                                              TextButton(onPressed: () => Navigator.pop(c, true), child: Text(context.l10n.delete, style: const TextStyle(color: AppTheme.crimson))),
+                                            ],
+                                          ),
+                                        );
+                                        if (confirm == true) {
+                                          ref.read(warehouseReceivingProvider.notifier).softDeleteRecord(r.receivingId);
+                                        }
+                                      },
+                                      viewTooltip: context.l10n.warehouseReceivingViewTooltip,
+                                      editTooltip: context.l10n.warehouseReceivingEditTooltip,
+                                      printTooltip: context.l10n.warehouseReceivingPrintTooltip,
+                                      deleteTooltip: context.l10n.warehouseReceivingDeleteTooltip,
+                                    ),
                                           const Icon(Icons.lock, size: 13, color: AppTheme.crimson),
                                           const SizedBox(width: 4),
                                           Text(
@@ -429,7 +472,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                 child: Wrap(
                                   spacing: 8,
                                   runSpacing: 8,
-                                  alignment: WrapAlignment.end,
+                                  alignment: WrapAlignment.start,
                                   crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
                                     if (isDraft) ...[
@@ -478,49 +521,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                         }
                                       },
                                     ),
-                                    RowActionsPill(
-                                      onView: () => _showAddEditDialog(r),
-                                      onEdit: () => _showAddEditDialog(r),
-                                      onPrint: () {
-                                        final buffer = StringBuffer();
-                                        buffer.writeln('${context.l10n.warehouseReceivingColGrnCode}: ${r.grnCode}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingColWarehouse}: ${r.warehouseName}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingColStatus}: ${r.status}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingTruckAndDriver}: ${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})');
-                                        buffer.writeln('${context.l10n.warehouseReceivingArrivalDatetime}: ${r.arrivalDatetime.replaceFirst("T", " ").split(".")[0]}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingInspector}: ${r.inspectorName}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingDiscrepancyStatus}: ${r.discrepancyType}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingMetricInvoiced}: ${r.totalInvoicedQty}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingMetricAccepted}: ${r.totalAcceptedQty}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingMetricShortage}: ${r.totalShortageQty}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingMetricDamaged}: ${r.totalDamagedQty}');
-                                        CopyHelper.copy(
-                                          context,
-                                          buffer.toString(),
-                                          customMessage: context.l10n.warehouseReceivingPrintReceiptSuccess(r.grnCode),
-                                        );
-                                      },
-                                      onDelete: () async {
-                                        final confirm = await showDialog<bool>(
-                                          context: context,
-                                          builder: (c) => AlertDialog(
-                                            title: Text(context.l10n.warehouseReceivingDeleteTitle),
-                                            content: Text(context.l10n.warehouseReceivingDeleteConfirmMessage),
-                                            actions: [
-                                              TextButton(onPressed: () => Navigator.pop(c, false), child: Text(context.l10n.cancel)),
-                                              TextButton(onPressed: () => Navigator.pop(c, true), child: Text(context.l10n.delete, style: const TextStyle(color: AppTheme.crimson))),
-                                            ],
-                                          ),
-                                        );
-                                        if (confirm == true) {
-                                          ref.read(warehouseReceivingProvider.notifier).softDeleteRecord(r.receivingId);
-                                        }
-                                      },
-                                      viewTooltip: context.l10n.warehouseReceivingViewTooltip,
-                                      editTooltip: context.l10n.warehouseReceivingEditTooltip,
-                                      printTooltip: context.l10n.warehouseReceivingPrintTooltip,
-                                      deleteTooltip: context.l10n.warehouseReceivingDeleteTooltip,
-                                    ),
+
                                   ],
                                 ),
                               ),

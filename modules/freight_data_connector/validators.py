@@ -5,23 +5,23 @@ from fastapi import HTTPException, status
 def validate_rate_slabs(slabs: List[Dict[str, Any]], currency_label: str = "USD") -> None:
     if not slabs:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Rate slabs list cannot be empty for {currency_label}."
         )
     for idx, s in enumerate(slabs):
         if "from_day" not in s or "rate_per_day" not in s:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Slab #{idx+1} must contain 'from_day' and 'rate_per_day'."
             )
         if s["from_day"] < 1:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Slab #{idx+1} 'from_day' must be >= 1."
             )
         if s["rate_per_day"] < 0:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Slab #{idx+1} rate must be non-negative."
             )
 

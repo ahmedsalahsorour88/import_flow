@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/customs_consultation_model.dart';
 import '../../currencies/models/currency_model.dart';
 import 'broker_cost_row.dart';
@@ -16,6 +17,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
   final VoidCallback onToggleExpanded;
   final ValueChanged<String> onCategoryChanged;
   final VoidCallback onAddCustomExpense;
+  final VoidCallback? onReloadPriceList;
   final VoidCallback onApplyAll;
   final VoidCallback onDisableAll;
   final Function(int, CustomsBrokerQuoteItemModel) onUpdateItem;
@@ -32,6 +34,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
     required this.onToggleExpanded,
     required this.onCategoryChanged,
     required this.onAddCustomExpense,
+    this.onReloadPriceList,
     required this.onApplyAll,
     required this.onDisableAll,
     required this.onUpdateItem,
@@ -40,6 +43,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     if (selectedBrokerId == null) {
       return Card(
         elevation: 2,
@@ -85,7 +89,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
     final totalBrokerFees = brokerQuoteItems.fold(0.0, (sum, itm) => sum + (itm.isApplicable ? itm.totalAmount : 0.0));
     final appliedCount = brokerQuoteItems.where((i) => i.isApplicable).length;
 
-    final categories = [
+    final baseCategories = [
       'All',
       'Clearance Fees',
       'Procedures & Approvals',
@@ -93,10 +97,41 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
       'Port & Handling',
       'Other Fees',
     ];
+    final itemCats = brokerQuoteItems.map((i) => i.category.trim()).where((c) => c.isNotEmpty).toSet();
+    final categories = [
+      ...baseCategories,
+      ...itemCats.where((c) => !baseCategories.contains(c) && !baseCategories.any((b) => b != 'All' && c.contains(b))),
+    ];
+
+    String getCategoryLabel(String cat) {
+      if (cat == 'All') return l.allCategoriesItem;
+      if (!isAr) return cat;
+      switch (cat) {
+        case 'Clearance Fees':
+          return 'أتعاب التخليص';
+        case 'Procedures & Approvals':
+          return 'إجراءات وموافقات';
+        case 'Inland Transport':
+          return 'نقل داخلي';
+        case 'Port & Handling':
+          return 'مصاريف ومناولة الميناء';
+        case 'Port Handling & Storage':
+          return 'مناولة وتخزين بالميناء';
+        case 'Other Fees':
+          return 'رسوم ومصاريف أخرى';
+        default:
+          return cat;
+      }
+    }
 
     final filteredItems = categoryFilter == 'All'
         ? brokerQuoteItems
-        : brokerQuoteItems.where((i) => i.category.contains(categoryFilter)).toList();
+        : brokerQuoteItems.where((i) {
+            if (categoryFilter == 'Port & Handling') {
+              return i.category.contains('Port');
+            }
+            return i.category.trim() == categoryFilter || i.category.contains(categoryFilter);
+          }).toList();
 
     return Card(
       elevation: 3,
@@ -127,6 +162,31 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (onReloadPriceList != null) ...[
+                  IconButton(
+                    icon: const Icon(Icons.refresh, color: AppTheme.cobalt, size: 20),
+                    tooltip: l.liveRefresh,
+                    onPressed: onReloadPriceList,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                IconButton(
+                  icon: const Icon(Icons.copy_all, color: AppTheme.cobalt, size: 20),
+                  tooltip: isAr ? 'نسخ بنود الأسعار' : 'Copy Quote Items',
+                  onPressed: () {
+                    final buffer = StringBuffer();
+                    buffer.writeln('Item\tCategory\tUnit\tPrice\tCurrency\tQty\tApplicable\tTotal');
+                    for (final itm in brokerQuoteItems) {
+                      buffer.writeln('${itm.expenseName}\t${itm.category}\t${itm.unitType}\t${itm.unitPrice}\t${itm.currency}\t${itm.qty}\t${itm.isApplicable}\t${itm.totalAmount}');
+                    }
+                    CopyHelper.copy(
+                      context,
+                      buffer.toString(),
+                      customMessage: isAr ? 'تم نسخ جميع بنود الأسعار إلى الحافظة' : 'Copied all quote items to clipboard',
+                    );
+                  },
+                ),
+                const SizedBox(width: 4),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(foregroundColor: AppTheme.cobalt),
                   onPressed: onAddCustomExpense,
@@ -155,7 +215,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                       child: Row(
                         children: categories.map((cat) {
                           final isSelected = categoryFilter == cat;
-                          final label = cat == 'All' ? l.allCategoriesItem : cat;
+                          final label = getCategoryLabel(cat);
                           return Padding(
                             padding: const EdgeInsets.only(left: 6),
                             child: ChoiceChip(

@@ -32,6 +32,17 @@ class CargoXValidators:
 
     @staticmethod
     def validate_envelope_creation(payload: CargoXEnvelopeCreate) -> None:
+        if getattr(payload, "is_draft", False):
+            # Progressive Draft: minimal non-blocking validation
+            if not payload.importer_company_name or not payload.importer_company_name.strip():
+                if not payload.acid_number or not payload.acid_number.strip():
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="يجب إدخال اسم الشركة المستوردة أو رقم ACID لحفظ مسودة المظروف.",
+                    )
+            return
+
+
         CargoXValidators.validate_acid_number(payload.acid_number)
         CargoXValidators.validate_cargox_id(payload.supplier_cargox_id)
         if not payload.importer_company_name.strip():
@@ -44,6 +55,7 @@ class CargoXValidators:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="اسم المورد الأجنبي مطلوب.",
             )
+
 
     @staticmethod
     def validate_ready_for_customs_transfer(envelope: CargoXEnvelope) -> None:

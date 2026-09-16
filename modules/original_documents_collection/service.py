@@ -19,6 +19,10 @@ from .schemas import (
     OriginalDocumentsAutoPopulateResponse,
     CourierEntry,
     OriginalDocumentItem,
+    CourierReceiptProofRequest,
+    CourierAlertItem,
+    CourierAlertsResponse,
+    CourierFlatItemResponse,
 )
 
 
@@ -466,3 +470,265 @@ class OriginalDocumentsCollectionService:
         wb.save(output)
         output.seek(0)
         return output.getvalue()
+
+    @staticmethod
+    def build_carrier_tracking_url(company: str, awb: str) -> str:
+        clean_awb = awb.strip()
+        c = (company or "").upper()
+        if "DHL" in c:
+            return f"https://www.dhl.com/en/express/tracking.html?AWB={clean_awb}"
+        elif "FEDEX" in c:
+            return f"https://www.fedex.com/fedextrack/?trknbr={clean_awb}"
+        elif "ARAMEX" in c:
+            return f"https://www.aramex.com/track/results?mode=0&ShipmentNumber={clean_awb}"
+        elif "UPS" in c:
+            return f"https://www.ups.com/track?tracknum={clean_awb}"
+        elif "NAQEL" in c:
+            return f"https://www.naqelexpress.com/tracking?trackNumbers={clean_awb}"
+        elif "SMSA" in c:
+            return f"https://www.smsaexpress.com/track?trackNumber={clean_awb}"
+        return f"https://www.google.com/search?q={company}+{clean_awb}+tracking"
+
+    @staticmethod
+    def confirm_courier_receipt(
+        db: Session,
+        request: CourierReceiptProofRequest,
+        username: str = "ADMIN",
+    ) -> OriginalDocumentsCollectionResponse:
+        session = OriginalDocumentsCollectionRepository.get_by_import_file(db, request.import_file_id)
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"جلسة تحصيل المستندات الأصلية للشحنة برقم {request.import_file_id} غير موجودة.",
+            )
+
+        import copy
+        couriers = copy.deepcopy(session.couriers_list or [])
+        found_courier = False
+        target_awb = request.courier_no.strip().upper()
+
+        for c in couriers:
+            current_awb = (c.get("courier_no") or "").strip().upper()
+            if current_awb == target_awb or (target_awb in current_awb and len(target_awb) > 4):
+                found_courier = True
+                c["is_received"] = True
+                c["received_date"] = request.received_date
+                if request.received_time:
+                    c["received_time"] = request.received_time
+                c["received_by"] = request.received_by
+                c["status"] = "DELIVERED"
+                if request.pod_reference:
+                    c["pod_reference"] = request.pod_reference
+                if request.notes:
+                    existing_notes = c.get("notes") or ""
+                    c["notes"] = f"{existing_notes} | {request.notes}".strip(" |")
+                c["tracking_url"] = OriginalDocumentsCollectionService.build_carrier_tracking_url(
+                    c.get("courier_company") or "DHL", c.get("courier_no") or ""
+                )
+                break
+
+        if not found_courier:
+            # If courier wasn't in the list, append it as delivered
+            couriers.append({
+                "courier_no": request.courier_no.strip(),
+                "courier_company": "DHL",
+                "dispatch_date": request.received_date,
+                "is_received": True,
+                "received_date": request.received_date,
+                "received_time": request.received_time,
+                "received_by": request.received_by,
+                "pod_reference": request.pod_reference,
+                "status": "DELIVERED",
+                "notes": request.notes or "Added upon delivery proof confirmation",
+                "tracking_url": OriginalDocumentsCollectionService.build_carrier_tracking_url(
+                    "DHL", request.courier_no.strip()
+                ),
+            })
+
+        docs = copy.deepcopy(session.documents_list or [])
+
+        if request.mark_documents_received:
+            for d in docs:
+                doc_awb = (d.get("courier_no") or "").strip().upper()
+                if doc_awb == target_awb or (target_awb in doc_awb and len(target_awb) > 4) or not doc_awb:
+                    d["is_received"] = True
+                    if not d.get("received_date"):
+                        d["received_date"] = request.received_date
+                    if d.get("status") in ["Pending", "In Transit"]:
+                        d["status"] = "Received"
+
+        total_count = len(docs)
+        received_count = sum(1 for d in docs if d.get("is_received", False))
+        verified_count = sum(1 for d in docs if d.get("is_verified", False))
+        pending_count = total_count - received_count
+        completion_pct = round((verified_count / total_count * 100.0), 1) if total_count > 0 else 0.0
+
+        status_val = session.status
+        if verified_count == total_count and total_count > 0:
+            status_val = "FULLY_VERIFIED"
+        elif received_count == total_count and total_count > 0:
+            status_val = "FULLY_RECEIVED"
+        elif received_count > 0:
+            status_val = "PARTIALLY_RECEIVED"
+
+        updates = {
+            "couriers_list": couriers,
+            "documents_list": docs,
+            "status": status_val,
+            "total_documents_count": total_count,
+            "received_documents_count": received_count,
+            "verified_documents_count": verified_count,
+            "pending_documents_count": pending_count,
+            "completion_percentage": completion_pct,
+            "updated_by": username,
+        }
+
+        saved = OriginalDocumentsCollectionRepository.update(db, session, updates)
+        return OriginalDocumentsCollectionResponse.model_validate(saved)
+
+    @staticmethod
+    def get_courier_alerts(db: Session) -> CourierAlertsResponse:
+        sessions = OriginalDocumentsCollectionRepository.get_all(db, limit=500)
+        today = datetime.now(timezone.utc).date()
+
+        alerts: List[CourierAlertItem] = []
+        total_active_couriers = 0
+        pending_count = 0
+        delayed_count = 0
+        delivered_count = 0
+
+        for s in sessions:
+            for c in (s.couriers_list or []):
+                total_active_couriers += 1
+                c_no = c.get("courier_no") or ""
+                c_company = c.get("courier_company") or "DHL"
+                is_rcv = c.get("is_received", False)
+                disp_str = c.get("dispatch_date")
+
+                if is_rcv:
+                    delivered_count += 1
+                    continue
+
+                pending_count += 1
+                days = 0
+                if disp_str:
+                    try:
+                        clean_disp = disp_str.strip().split("T")[0]
+                        disp_date = datetime.strptime(clean_disp, "%Y-%m-%d").date()
+                        days = (today - disp_date).days
+                        if days < 0:
+                            days = 0
+                    except Exception:
+                        days = 0
+
+                level = "INFO"
+                if days >= 5:
+                    level = "CRITICAL"
+                    delayed_count += 1
+                    msg_ar = f"طرد {c_company} رقم ({c_no}) مرسل منذ {days} أيام للشحنة {s.import_file_code} وتجاوز المهلة المقررة (SLA)"
+                    msg_en = f"Courier {c_company} ({c_no}) in transit for {days} days on shipment {s.import_file_code} — SLA breached!"
+                elif days >= 3:
+                    level = "WARNING"
+                    delayed_count += 1
+                    msg_ar = f"طرد {c_company} رقم ({c_no}) مرسل منذ {days} أيام للشحنة {s.import_file_code} ويقترب من مهلة التسليم"
+                    msg_en = f"Courier {c_company} ({c_no}) in transit for {days} days on shipment {s.import_file_code} — approaching SLA threshold"
+                else:
+                    level = "INFO"
+                    msg_ar = f"طرد {c_company} رقم ({c_no}) قيد التوصيل للشحنة {s.import_file_code} (منذ {days} يوم)"
+                    msg_en = f"Courier {c_company} ({c_no}) in transit for shipment {s.import_file_code} ({days} days elapsed)"
+
+                alerts.append(
+                    CourierAlertItem(
+                        courier_no=c_no,
+                        courier_company=c_company,
+                        import_file_id=s.import_file_id,
+                        import_file_code=s.import_file_code,
+                        acid_number=s.acid_number,
+                        importer_name=s.importer_name,
+                        supplier_name=s.supplier_name,
+                        dispatch_date=disp_str,
+                        days_in_transit=days,
+                        alert_level=level,
+                        alert_message_ar=msg_ar,
+                        alert_message_en=msg_en,
+                    )
+                )
+
+        # Sort alerts: CRITICAL first, then WARNING, then INFO, then by days descending
+        level_order = {"CRITICAL": 0, "WARNING": 1, "INFO": 2}
+        alerts.sort(key=lambda a: (level_order.get(a.alert_level, 3), -a.days_in_transit))
+
+        return CourierAlertsResponse(
+            total_active_couriers=total_active_couriers,
+            pending_receipt_count=pending_count,
+            delayed_count=delayed_count,
+            delivered_count=delivered_count,
+            alerts=alerts,
+        )
+
+    @staticmethod
+    def get_all_couriers_flat(db: Session) -> List[CourierFlatItemResponse]:
+        sessions = OriginalDocumentsCollectionRepository.get_all(db, limit=500)
+        today = datetime.now(timezone.utc).date()
+        result: List[CourierFlatItemResponse] = []
+
+        for s in sessions:
+            docs = s.documents_list or []
+            for c in (s.couriers_list or []):
+                c_no = (c.get("courier_no") or "").strip()
+                c_comp = c.get("courier_company") or "DHL"
+                is_rcv = c.get("is_received", False)
+                disp_str = c.get("dispatch_date")
+
+                days = 0
+                if disp_str:
+                    try:
+                        clean_disp = disp_str.strip().split("T")[0]
+                        disp_date = datetime.strptime(clean_disp, "%Y-%m-%d").date()
+                        days = (today - disp_date).days
+                        if days < 0:
+                            days = 0
+                    except Exception:
+                        days = 0
+
+                status_val = "IN_TRANSIT"
+                if is_rcv:
+                    status_val = "DELIVERED"
+                elif days >= 4:
+                    status_val = "DELAYED"
+                elif days > 0:
+                    status_val = "IN_TRANSIT"
+                else:
+                    status_val = "DISPATCHED"
+
+                matched_docs_count = sum(
+                    1 for d in docs if (d.get("courier_no") or "").strip().upper() == c_no.upper() and c_no
+                )
+
+                tracking_url = c.get("tracking_url") or OriginalDocumentsCollectionService.build_carrier_tracking_url(
+                    c_comp, c_no
+                )
+
+                result.append(
+                    CourierFlatItemResponse(
+                        courier_no=c_no,
+                        courier_company=c_comp,
+                        import_file_id=s.import_file_id,
+                        import_file_code=s.import_file_code,
+                        importer_name=s.importer_name,
+                        supplier_name=s.supplier_name,
+                        dispatch_date=disp_str,
+                        is_received=is_rcv,
+                        received_date=c.get("received_date"),
+                        received_time=c.get("received_time"),
+                        received_by=c.get("received_by"),
+                        tracking_url=tracking_url,
+                        pod_reference=c.get("pod_reference"),
+                        status=status_val,
+                        days_in_transit=days,
+                        associated_docs_count=matched_docs_count,
+                        notes=c.get("notes"),
+                    )
+                )
+
+        return result

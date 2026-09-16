@@ -1306,8 +1306,11 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                     const Text('Customs office: Vilnius regional customs office', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w500)),
                     const Text('Issuing country or territory: Lithuania', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w500)),
                     const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1353,8 +1356,11 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                       style: TextStyle(fontSize: 8.5, height: 1.25),
                     ),
                     const SizedBox(height: 14),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

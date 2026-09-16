@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../providers/docs_customs_approval_provider.dart';
 import '../providers/import_documentation_provider.dart';
 import '../widgets/coo_review_tab.dart';
 import '../widgets/customs_document_approval_tab.dart';
@@ -12,6 +14,10 @@ import '../widgets/draft_bl_review_tab.dart';
 import '../widgets/inspection_review_tab.dart';
 import '../widgets/invoice_bl_matcher_tab.dart';
 import '../widgets/po_reconciliation_tab.dart';
+import '../widgets/search_and_clone_customs_approval_dialog.dart';
+import '../widgets/search_and_clone_po_reconciliation_dialog.dart';
+import '../widgets/search_and_clone_draft_bl_dialog.dart';
+import '../widgets/search_and_clone_coo_dialog.dart';
 import '../../cargo_insurance/screens/cargo_insurance_screen.dart';
 import '../widgets/formal_letter_generator_dialog.dart';
 
@@ -41,6 +47,9 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
   // NOTE: Original Docs Collection & CargoX have been moved to OriginalDocsAndCargoXScreen (Phase 4)
   int _selectedSubTab = 0;
   int? _selectedImportFileId;
+  final GlobalKey<CustomsDocumentApprovalTabState> _customsApprovalTabKey = GlobalKey<CustomsDocumentApprovalTabState>();
+  final GlobalKey<POReconciliationTabState> _poReconciliationTabKey = GlobalKey<POReconciliationTabState>();
+  final GlobalKey<COOReviewTabState> _cooReviewTabKey = GlobalKey<COOReviewTabState>();
 
   @override
   void initState() {
@@ -80,6 +89,82 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
         _selectedImportFileId = files.first.importFileId;
       });
     }
+  }
+
+  void _openSearchAndCloneDialog() {
+    if (_selectedSubTab == 0) {
+      if (_customsApprovalTabKey.currentState != null) {
+        _customsApprovalTabKey.currentState!.openSearchAndCloneDialog();
+      } else {
+        final approvals = ref.read(docsCustomsApprovalProvider).valueOrNull ?? [];
+        showDialog(
+          context: context,
+          builder: (ctx) => SearchAndCloneCustomsApprovalDialog(
+            items: approvals,
+            onSelectItem: (item) {
+              setState(() {
+                _selectedSubTab = 0;
+                _selectedImportFileId = item.importFileId;
+              });
+            },
+          ),
+        );
+      }
+      return;
+    }
+    if (_selectedSubTab == 1) {
+      if (_poReconciliationTabKey.currentState != null) {
+        _poReconciliationTabKey.currentState!.openSearchAndCloneDialog();
+      } else {
+        final sessions = ref.read(poReconciliationSessionsProvider).valueOrNull ?? [];
+        showDialog(
+          context: context,
+          builder: (ctx) => SearchAndClonePoReconciliationDialog(
+            sessions: sessions,
+            onSelectSession: (s) {
+              setState(() {
+                _selectedSubTab = 1;
+                _selectedImportFileId = s.importFileId;
+              });
+            },
+          ),
+        );
+      }
+      return;
+    }
+    if (_selectedSubTab == 4) {
+      if (_cooReviewTabKey.currentState != null) {
+        _cooReviewTabKey.currentState!.openSearchAndCloneDialog();
+      } else {
+        final cooReviews = ref.read(cooReviewsProvider).valueOrNull ?? [];
+        showDialog(
+          context: context,
+          builder: (ctx) => SearchAndCloneCooDialog(
+            reviews: cooReviews,
+            onSelectReview: (r) {
+              setState(() {
+                _selectedSubTab = 4;
+                _selectedImportFileId = r.importFileId ?? _selectedImportFileId;
+              });
+            },
+          ),
+        );
+      }
+      return;
+    }
+
+    final allReviews = ref.read(draftBLReviewsProvider).valueOrNull ?? [];
+    showDialog(
+      context: context,
+      builder: (ctx) => SearchAndCloneDraftBlDialog(
+        reviews: allReviews,
+        onSelectReview: (r) {
+          setState(() {
+            _selectedSubTab = 2; // Jump to Draft B/L Review Tab
+          });
+        },
+      ),
+    );
   }
 
   @override
@@ -123,45 +208,73 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
       ),
     ];
 
-    return VerticalStageScaffold(
-      stageCode: 'PHASE-3',
-      titleEn: 'Shipment Draft Documents Review',
-      titleAr: 'مراجعة وتدقيق مسودات مستندات الشحن — المرحلة 3',
-      headerIcon: Icons.folder_open_outlined,
-      headerColor: AppTheme.emerald,
-      tabs: tabs,
-      selectedIndex: _selectedSubTab,
-      onTabSelected: (index) => setState(() => _selectedSubTab = index),
-      selectedImportFileId: _selectedImportFileId,
-      onShipmentStatusChanged: _refreshData,
-      headerActions: [
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: AppTheme.charcoal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-          onPressed: () => FormalLetterGeneratorDialog.show(context, importFileId: _selectedImportFileId),
-          icon: const Icon(Icons.description, size: 16, color: AppTheme.cobalt),
-          label: Text(context.l10n.formalLetterDialogTitle),
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyD, control: true): _openSearchAndCloneDialog,
+      },
+      child: Focus(
+        autofocus: true,
+        child: VerticalStageScaffold(
+          stageCode: 'PHASE-3',
+          titleEn: 'Shipment Draft Documents Review',
+          titleAr: 'مراجعة وتدقيق مسودات مستندات الشحن — المرحلة 3',
+          headerIcon: Icons.folder_open_outlined,
+          headerColor: AppTheme.emerald,
+          tabs: tabs,
+          selectedIndex: _selectedSubTab,
+          onTabSelected: (index) => setState(() => _selectedSubTab = index),
+          selectedImportFileId: _selectedImportFileId,
+          onShipmentStatusChanged: _refreshData,
+          headerActions: [
+            IconButton(
+              key: Key(_selectedSubTab == 0
+                  ? 'searchAndCloneCustomsApprovalBtn'
+                  : (_selectedSubTab == 1
+                      ? 'searchAndClonePoReconBtn'
+                      : (_selectedSubTab == 4 ? 'searchAndCloneCooBtn' : 'searchAndCloneDraftBlBtn'))),
+              icon: const Icon(Icons.copy_all, color: Colors.white70),
+              tooltip: _selectedSubTab == 0
+                  ? context.l10n.searchAndCloneCustomsApprovalBtn
+                  : (_selectedSubTab == 1
+                      ? context.l10n.searchAndClonePoReconBtn
+                      : (_selectedSubTab == 4 ? context.l10n.searchAndCloneCooBtn : context.l10n.searchAndCloneDraftBlBtn)),
+              onPressed: _openSearchAndCloneDialog,
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppTheme.charcoal,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              onPressed: () => FormalLetterGeneratorDialog.show(context, importFileId: _selectedImportFileId),
+              icon: const Icon(Icons.description, size: 16, color: AppTheme.cobalt),
+              label: Text(context.l10n.formalLetterDialogTitle),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.white70),
+              tooltip: context.l10n.refresh,
+              onPressed: _refreshData,
+            ),
+          ],
+          body: _buildCurrentSubTabContent(),
         ),
-        const SizedBox(width: 8),
-        IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: context.l10n.refresh,
-          onPressed: _refreshData,
-        ),
-      ],
-      body: _buildCurrentSubTabContent(),
+      ),
     );
   }
 
   Widget _buildCurrentSubTabContent() {
     switch (_selectedSubTab) {
       case 0:
-        return CustomsDocumentApprovalTab(initialImportFileId: _selectedImportFileId);
+        return CustomsDocumentApprovalTab(
+          key: _customsApprovalTabKey,
+          initialImportFileId: _selectedImportFileId,
+        );
       case 1:
-        return POReconciliationTab(initialImportFileId: _selectedImportFileId);
+        return POReconciliationTab(
+          key: _poReconciliationTabKey,
+          initialImportFileId: _selectedImportFileId,
+        );
       case 2:
         return DraftBLReviewTab(initialImportFileId: _selectedImportFileId);
       case 3:
@@ -174,7 +287,10 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
           },
         );
       case 4:
-        return COOReviewTab(initialImportFileId: _selectedImportFileId);
+        return COOReviewTab(
+          key: _cooReviewTabKey,
+          initialImportFileId: _selectedImportFileId,
+        );
       case 5:
         return InspectionReviewTab(initialImportFileId: _selectedImportFileId);
       case 6:
@@ -184,7 +300,10 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
           isEmbedded: true,
         );
       default:
-        return CustomsDocumentApprovalTab(initialImportFileId: _selectedImportFileId);
+        return CustomsDocumentApprovalTab(
+          key: _customsApprovalTabKey,
+          initialImportFileId: _selectedImportFileId,
+        );
     }
   }
 }

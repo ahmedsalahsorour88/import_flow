@@ -23,7 +23,7 @@ from modules.lifecycle_board.schemas import (
 )
 import modules.lifecycle_board.service as service
 
-router = APIRouter(prefix="/api/v1/lifecycle-board", tags=["Shipment Lifecycle Board (6 Phases / 21 Steps)"])
+router = APIRouter(prefix="/api/v1/lifecycle-board", tags=["Shipment Lifecycle Board (6 Phases / 25 Steps)"])
 
 
 # ─── Configurable Step Risk & Settings Endpoints (Addendum: Section 10) ───

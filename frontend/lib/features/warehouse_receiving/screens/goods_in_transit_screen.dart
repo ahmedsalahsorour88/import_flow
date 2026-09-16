@@ -320,6 +320,7 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                             child: DataTable(
                               headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                               columns: [
+                                DataColumn(label: Text(l.gitColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l.gitColFileCode, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l.gitColPoNumber, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l.gitColItemCode, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -329,7 +330,6 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                                 DataColumn(label: Text(l.gitColContainers, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l.gitColCertifiedDate, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l.gitColLedgerStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text(l.gitColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                               ],
                               rows: filteredItems.map((item) {
                                 final allFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
@@ -343,6 +343,22 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                                     '$shipTitle\t${item.poNumber}\t${item.itemCode}\t${item.itemName}\t${item.invoicedQty.toStringAsFixed(0)}\t${item.packagesCount} ${item.packageType}\t${item.containersCount} × ${item.containerType}\t${item.certifiedDate}\t$statusStr';
 
                                 return DataRow(cells: [
+                                  DataCell(
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.copy_rounded, size: 18, color: AppTheme.cobalt),
+                                          tooltip: l.gitCopyRowSummaryBtn,
+                                          onPressed: () => CopyHelper.copy(
+                                            context,
+                                            rowSummary,
+                                            customMessage: l.gitCopyRowSummarySuccess,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                   // Import File Code badge
                                   DataCell(
                                     CopyableTableCell(
@@ -510,23 +526,6 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  ),
-                                  // Quick Row Copy Action
-                                  DataCell(
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.copy_rounded, size: 18, color: AppTheme.cobalt),
-                                          tooltip: l.gitCopyRowSummaryBtn,
-                                          onPressed: () => CopyHelper.copy(
-                                            context,
-                                            rowSummary,
-                                            customMessage: l.gitCopyRowSummarySuccess,
-                                          ),
-                                        ),
-                                      ],
                                     ),
                                   ),
                                 ]);

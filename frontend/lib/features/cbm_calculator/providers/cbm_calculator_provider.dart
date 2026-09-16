@@ -184,6 +184,31 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
       return false;
     }
   }
+
+  Future<CBMCalculationModel?> cloneCalculation(
+    int calcId, {
+    String? newCode,
+    String? newTitle,
+    bool copyItems = true,
+    String? notes,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/cbm-calculator/$calcId/clone',
+        data: {
+          if (newCode != null && newCode.isNotEmpty) 'new_code': newCode,
+          if (newTitle != null && newTitle.isNotEmpty) 'new_title': newTitle,
+          'copy_items': copyItems,
+          if (notes != null) 'notes': notes,
+        },
+      );
+      await fetchCalculations();
+      return CBMCalculationModel.fromJson(response.data);
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to clone calculation: ${e.toString()}');
+      return null;
+    }
+  }
 }
 
 final cbmDioProvider = Provider<Dio>((ref) {

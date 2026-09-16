@@ -9,11 +9,15 @@ import 'consultation_status_badges.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/row_actions_pill.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
+import 'search_and_clone_consultation_dialog.dart';
 import 'package:printing/printing.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../import_files/models/import_file_model.dart';
 import '../services/customs_consultation_pdf_service.dart';
 import '../services/customs_export_service.dart';
+
 class SavedConsultationsTab extends ConsumerStatefulWidget {
   final Function(CustomsConsultationModel) onEdit;
   final Function(BuildContext, CustomsConsultationModel) onViewDetails;
@@ -42,21 +46,240 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
     super.dispose();
   }
 
+  void _openCloneConsultationReviewDialog(BuildContext context, CustomsConsultationModel source) {
+    final l = context.l10n;
+    final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
+    final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
+    final copySuffix = isArabic ? ' (نسخة)' : ' (Copy)';
+    final initialTitle = '${source.title}$copySuffix';
+
+    final copiedMap = <String, String>{
+      l.customsBrokerLabel: source.brokerName.isNotEmpty ? source.brokerName : '—',
+      l.customsInspectionReadiness: '${source.checklistItems.length} ${l.itemsAndDocsCount}',
+    };
+    if (source.estimatedDutiesEgp > 0) {
+      copiedMap[l.totalTaxesAndDutiesCol] = '${source.estimatedDutiesEgp.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}';
+    }
+    if (source.brokerQuoteItems.isNotEmpty) {
+      copiedMap[l.clearanceBrokerFeeItem] = '${source.brokerQuoteItems.length}';
+    }
+
+    final mandatorilyReset = <String>[
+      l.cloneFieldConsultationCodeGenerated,
+      l.cloneFieldImportFileReset,
+      l.cloneFieldChecklistReset,
+      l.cloneFieldStatusDraftBadge,
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AppLocalizationsProvider(
+        locale: isArabic ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: textDir,
+          child: CloneEntityReviewDialog(
+            entityType: l.cloneConsultationDialogTitle,
+            sourceCode: source.consultationCode,
+            sourceTitle: initialTitle,
+            suggestedNewCode: '${source.consultationCode}-CLONE',
+            copiedFieldsSummary: copiedMap,
+            mandatorilyResetFields: mandatorilyReset,
+            allowCopyLineItems: true,
+            onConfirm: ({
+              required String newCode,
+              required String newTitle,
+              required bool copyLineItems,
+              required bool copyAttachments,
+              String? notes,
+            }) async {
+              final messenger = ScaffoldMessenger.of(context);
+              final payload = {
+                'new_consultation_code': newCode,
+                'new_title': newTitle,
+                'copy_checklist_items': copyLineItems,
+                'copy_broker_quote_items': copyLineItems,
+                'notes': notes,
+              };
+              try {
+                final cloned = await ref.read(customsConsultationsProvider.notifier).cloneConsultation(
+                  source.consultationId,
+                  payload,
+                );
+                if (cloned != null) {
+                  widget.onEdit(cloned);
+                  messenger.hideCurrentSnackBar();
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('✨ ${l.cloneConsultationSuccess(cloned.consultationCode)}'),
+                      backgroundColor: AppTheme.wcagEmerald,
+                    ),
+                  );
+                }
+              } catch (e) {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('❌ ${l.cloneConsultationError(e.toString())}'),
+                    backgroundColor: AppTheme.crimson,
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openSearchAndCloneConsultationDialog(BuildContext context, List<CustomsConsultationModel> consultations) {
+    final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
+    final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: isArabic ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: textDir,
+          child: SearchAndCloneConsultationDialog(
+            consultations: consultations,
+            onSelectConsultation: (consultation) {
+              Navigator.of(dialogCtx).pop();
+              _openCloneConsultationReviewDialog(context, consultation);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleDeleteOrRestore(BuildContext context, CustomsConsultationModel session) async {
+    final l = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    if (session.isActive == false) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.restore_from_trash_rounded, color: Colors.green, size: 22),
+              const SizedBox(width: 8),
+              Text(l.restoreConsultationTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Text(
+            l.restoreConsultationMsg(session.consultationCode, session.title),
+            style: const TextStyle(fontSize: 13),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l.cancel),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+              icon: const Icon(Icons.restore_rounded, size: 16),
+              label: Text(l.restoreAndActivateBtn),
+              onPressed: () => Navigator.pop(ctx, true),
+            ),
+          ],
+        ),
+      );
+      if (confirm == true) {
+        try {
+          await ref.read(customsConsultationsProvider.notifier).restoreConsultation(session.consultationId);
+          if (mounted) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text('♻️ ${l.restoreConsultationSuccess(session.consultationCode)}'),
+                backgroundColor: AppTheme.emerald,
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text('❌ $e'),
+                backgroundColor: AppTheme.crimson,
+              ),
+            );
+          }
+        }
+      }
+    } else {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
+              const SizedBox(width: 8),
+              Text(l.deleteConsultationTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Text(
+            l.deleteConsultationMsg(session.consultationCode, session.title),
+            style: const TextStyle(fontSize: 13),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l.cancel),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.crimson,
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.delete_rounded, size: 16),
+              label: Text(l.deleteAndArchiveBtn),
+              onPressed: () => Navigator.pop(ctx, true),
+            ),
+          ],
+        ),
+      );
+      if (confirm == true) {
+        try {
+          await ref.read(customsConsultationsProvider.notifier).softDeleteConsultation(session.consultationId);
+          if (mounted) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text('🗑️ ${l.deleteConsultationSuccess(session.consultationCode)}'),
+                backgroundColor: AppTheme.emerald,
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text('❌ $e'),
+                backgroundColor: AppTheme.crimson,
+              ),
+            );
+          }
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final egpLabel = isArabic ? 'ج.م' : 'EGP';
     final consultationsState = ref.watch(customsConsultationsProvider);
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
-    return // TAB 2: SAVED CONSULTATIONS HISTORY REGISTRY (Premium Design)
-        consultationsState.when(
+
+    return consultationsState.when(
       loading: () => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const CircularProgressIndicator(color: AppTheme.cobalt),
             const SizedBox(height: 16),
-            Text(l.loading,
-                style: const TextStyle(color: Colors.grey)),
+            Text(l.loading, style: const TextStyle(color: Colors.grey)),
           ],
         ),
       ),
@@ -69,57 +292,264 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
         final filtered = sessions.where((s) {
           final rawFileCode = s.importFileCode ?? (s.importFileId != null ? 'IMP-${s.importFileId}' : '');
           final shipmentTitle = rawFileCode.isNotEmpty
-              ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: Localizations.localeOf(context).languageCode == 'ar')
+              ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isArabic)
               : '';
           final matchQuery = _searchQuery.isEmpty ||
-              s.consultationCode
-                  .toLowerCase()
-                  .contains(_searchQuery.toLowerCase()) ||
-              s.title
-                  .toLowerCase()
-                  .contains(_searchQuery.toLowerCase()) ||
-              s.brokerName
-                  .toLowerCase()
-                  .contains(_searchQuery.toLowerCase()) ||
-              rawFileCode
-                  .toLowerCase()
-                  .contains(_searchQuery.toLowerCase()) ||
-              shipmentTitle
-                  .toLowerCase()
-                  .contains(_searchQuery.toLowerCase());
-          final matchStatus =
-              _statusFilter == 'All' || s.overallStatus == _statusFilter;
+              s.consultationCode.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              s.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              s.brokerName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              rawFileCode.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              shipmentTitle.toLowerCase().contains(_searchQuery.toLowerCase());
+          final matchStatus = _statusFilter == 'All' || s.overallStatus == _statusFilter;
           return matchQuery && matchStatus;
         }).toList();
 
         // Aggregate metrics for header strip
         final totalCount = sessions.length;
-        final readyCount = sessions
-            .where((s) => s.overallStatus == 'Clearance Ready')
-            .length;
-        final blockedCount = sessions
-            .where(
-                (s) => s.overallStatus == 'Blocked' || s.hasBlockingIssues)
-            .length;
+        final readyCount = sessions.where((s) => s.overallStatus == 'Clearance Ready').length;
+        final blockedCount = sessions.where((s) => s.overallStatus == 'Blocked' || s.hasBlockingIssues).length;
         final avgReadiness = sessions.isEmpty
             ? 0.0
-            : sessions.fold(
-                    0.0, (s, c) => s + c.readinessPercentage) /
-                sessions.length;
+            : sessions.fold(0.0, (s, c) => s + c.readinessPercentage) / sessions.length;
 
-              return SelectionArea(
-                child: Column(
-                children: [
-                  // ── Metrics & Toolbar Strip ──────────────────────────────
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.charcoal.withOpacity(0.03),
-                      border:
-                          Border(bottom: BorderSide(color: Colors.grey.shade200)),
-                    ),
-                    child: Wrap(
+        // Metric Badges List
+        final metricBadges = [
+          ConsultationMetricBadge(
+            title: l.totalStudiesMetric,
+            value: '$totalCount',
+            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+          ),
+          ConsultationMetricBadge(
+            title: l.clearanceReadyStatus,
+            value: '$readyCount',
+            color: AppTheme.emerald,
+          ),
+          ConsultationMetricBadge(
+            title: l.openBlockingIssues,
+            value: '$blockedCount',
+            color: blockedCount > 0 ? AppTheme.crimson : Colors.grey,
+          ),
+          ConsultationMetricBadge(
+            title: l.avgReadinessMetric,
+            value: '${avgReadiness.toStringAsFixed(0)}%',
+            color: AppTheme.cobalt,
+          ),
+        ];
+
+        // Search Input Widget
+        final searchWidget = TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: l.searchConsultationsHint,
+            prefixIcon: const Icon(Icons.search, size: 18),
+            suffixIcon: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _searchController,
+              builder: (context, val, _) {
+                return val.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 16),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : const SizedBox.shrink();
+              },
+            ),
+            filled: true,
+            fillColor: isDark ? const Color(0xFF1E2631) : Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            isDense: true,
+          ),
+          onChanged: (v) => setState(() => _searchQuery = v),
+        );
+
+        // Status Dropdown Widget
+        final statusWidget = SearchableDropdownField<String>(
+          value: _statusFilter,
+          labelText: l.statusFilterLabel,
+          items: [
+            SearchableDropdownItem(value: 'All', label: l.allStatuses),
+            SearchableDropdownItem(value: 'Pending Review', label: l.statusPendingReview),
+            SearchableDropdownItem(value: 'In Progress', label: l.statusInProgress),
+            SearchableDropdownItem(value: 'Action Required', label: l.statusActionRequired),
+            SearchableDropdownItem(value: 'Clearance Ready', label: l.statusClearanceReady),
+            SearchableDropdownItem(value: 'Blocked', label: l.statusBlocked),
+          ],
+          onChanged: (v) => setState(() => _statusFilter = v!),
+        );
+
+        // Clone Button
+        final cloneButton = Tooltip(
+          message: l.searchAndCloneConsultationTooltip,
+          child: ElevatedButton.icon(
+            key: const ValueKey('searchAndCloneConsultationBtnTab1'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.cobalt,
+              foregroundColor: Colors.white,
+              elevation: 1,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.control_point_duplicate_rounded, size: 16),
+            label: Text(
+              l.searchAndCloneConsultationBtn,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+            onPressed: () => _openSearchAndCloneConsultationDialog(context, sessions),
+          ),
+        );
+
+        // Filter Chip & Counter
+        final filterChipWidget = FilterChip(
+          avatar: Icon(_showInactive ? Icons.visibility_off : Icons.visibility, size: 16),
+          label: Text(_showInactive ? l.hideArchivedChip : l.showArchivedChip),
+          selected: _showInactive,
+          selectedColor: isDark ? Colors.red.shade900.withOpacity(0.5) : Colors.red.shade100,
+          onSelected: (val) {
+            setState(() => _showInactive = val);
+            ref.read(customsConsultationsProvider.notifier).fetchConsultations(includeInactive: val);
+          },
+        );
+
+        final countBadgeWidget = Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppTheme.cobalt.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            '${filtered.length}',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+          ),
+        );
+
+        // Export Action Buttons
+        final exportButtons = [
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+            onPressed: () => CustomsExportService.exportConsultationsLogTsv(
+              context: context,
+              sessions: filtered,
+              shipments: importFiles,
+            ),
+            icon: const Icon(Icons.table_view_outlined, size: 15, color: Colors.blueGrey),
+            label: Text(l.customsTaxExportTsvBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+            onPressed: () => CustomsExportService.exportConsultationsLogExcel(
+              context: context,
+              sessions: filtered,
+              shipments: importFiles,
+            ),
+            icon: const Icon(Icons.description_outlined, size: 15, color: AppTheme.emerald),
+            label: Text(l.customsTaxExportExcelBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+            onPressed: () => CustomsConsultationPdfService.printOrPreviewConsultationsLogPdf(context, filtered),
+            icon: const Icon(Icons.picture_as_pdf_outlined, size: 15, color: AppTheme.crimson),
+            label: Text(l.customsTaxPrintPdfBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+            onPressed: () => CustomsExportService.copyConsultationsLogDossier(
+              context: context,
+              sessions: filtered,
+              shipments: importFiles,
+            ),
+            icon: const Icon(Icons.copy_all_outlined, size: 15, color: AppTheme.cobalt),
+            label: Text(l.customsTaxCopyDossierBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
+        ];
+
+        return SelectionArea(
+          child: Column(
+            children: [
+              // ── Metrics & Toolbar Strip ──────────────────────────────
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.03),
+                  border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200)),
+                ),
+                child: LayoutBuilder(
+                  builder: (context, tbConstraints) {
+                    final isMobile = tbConstraints.maxWidth < 700;
+
+                    if (isMobile) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // 1. Metric badges in compact horizontal scroll
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: metricBadges.map((b) => Padding(padding: const EdgeInsets.only(right: 8), child: b)).toList(),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+
+                          // 2. Search & Filter Row
+                          Row(
+                            children: [
+                              Expanded(flex: 3, child: searchWidget),
+                              const SizedBox(width: 8),
+                              Expanded(flex: 2, child: statusWidget),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+
+                          // 3. Clone & Actions row
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                cloneButton,
+                                const SizedBox(width: 8),
+                                filterChipWidget,
+                                const SizedBox(width: 8),
+                                countBadgeWidget,
+                                const SizedBox(width: 8),
+                                ...exportButtons.map((b) => Padding(padding: const EdgeInsets.only(right: 6), child: b)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+
+                    // Desktop / Tablet layout
+                    return Wrap(
                       spacing: 10,
                       runSpacing: 10,
                       alignment: WrapAlignment.spaceBetween,
@@ -129,22 +559,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                         Wrap(
                           spacing: 8,
                           runSpacing: 6,
-                          children: [
-                            ConsultationMetricBadge(
-                                title: l.totalStudiesMetric, value: '$totalCount', color: AppTheme.charcoal),
-                            ConsultationMetricBadge(
-                                title: l.clearanceReadyStatus, value: '$readyCount', color: AppTheme.emerald),
-                            ConsultationMetricBadge(
-                                title: l.openBlockingIssues,
-                                value: '$blockedCount',
-                                color: blockedCount > 0
-                                    ? AppTheme.crimson
-                                    : Colors.grey),
-                            ConsultationMetricBadge(
-                                title: l.avgReadinessMetric,
-                                value: '${avgReadiness.toStringAsFixed(0)}%',
-                                color: AppTheme.cobalt),
-                          ],
+                          children: metricBadges,
                         ),
 
                         // Right group: Search & Filter Controls
@@ -153,187 +568,54 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                           runSpacing: 6,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            // Search field
-                            SizedBox(
-                              width: 220,
-                              child: TextField(
-                                controller: _searchController,
-                                decoration: InputDecoration(
-                                  hintText: l.searchConsultationsHint,
-                                  prefixIcon:
-                                      const Icon(Icons.search, size: 18),
-                                  suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                                    valueListenable: _searchController,
-                                    builder: (context, val, _) {
-                                      return val.text.isNotEmpty
-                                          ? IconButton(
-                                              icon: const Icon(Icons.clear, size: 16),
-                                              onPressed: () {
-                                                _searchController.clear();
-                                                setState(() => _searchQuery = '');
-                                              },
-                                            )
-                                          : const SizedBox.shrink();
-                                    },
-                                  ),
-                                  border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8)),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 10),
-                                  isDense: true,
-                                ),
-                                onChanged: (v) =>
-                                    setState(() => _searchQuery = v),
-                              ),
-                            ),
-                            // Status Filter
-                            SizedBox(
-                              width: 160,
-                              child: SearchableDropdownField<String>(
-                                value: _statusFilter,
-                                labelText: l.statusFilterLabel,
-                                items: [
-                                  SearchableDropdownItem(
-                                      value: 'All', label: l.allStatuses),
-                                  SearchableDropdownItem(
-                                      value: 'Pending Review',
-                                      label: l.statusPendingReview),
-                                  SearchableDropdownItem(
-                                      value: 'In Progress',
-                                      label: l.statusInProgress),
-                                  SearchableDropdownItem(
-                                      value: 'Action Required',
-                                      label: l.statusActionRequired),
-                                  SearchableDropdownItem(
-                                      value: 'Clearance Ready',
-                                      label: l.statusClearanceReady),
-                                  SearchableDropdownItem(
-                                      value: 'Blocked', label: l.statusBlocked),
-                                ],
-                                onChanged: (v) =>
-                                    setState(() => _statusFilter = v!),
-                              ),
-                            ),
-                            FilterChip(
-                              avatar: Icon(_showInactive ? Icons.visibility_off : Icons.visibility, size: 16),
-                              label: Text(_showInactive ? l.hideArchivedChip : l.showArchivedChip),
-                              selected: _showInactive,
-                              selectedColor: Colors.red.shade100,
-                              onSelected: (val) {
-                                setState(() => _showInactive = val);
-                                ref.read(customsConsultationsProvider.notifier).fetchConsultations(includeInactive: val);
-                              },
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: AppTheme.cobalt.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                '${filtered.length}',
-                                style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.cobalt),
-                              ),
-                            ),
-
-                            // 1. TSV Export Button
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.charcoal,
-                                side: BorderSide(color: Colors.grey.shade400),
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              ),
-                              onPressed: () => CustomsExportService.exportConsultationsLogTsv(
-                                context: context,
-                                sessions: filtered,
-                                shipments: importFiles,
-                              ),
-                              icon: const Icon(Icons.table_view_outlined, size: 15, color: Colors.blueGrey),
-                              label: Text(l.customsTaxExportTsvBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                            ),
-
-                            // 2. Excel Export Button
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.charcoal,
-                                side: BorderSide(color: Colors.grey.shade400),
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              ),
-                              onPressed: () => CustomsExportService.exportConsultationsLogExcel(
-                                context: context,
-                                sessions: filtered,
-                                shipments: importFiles,
-                              ),
-                              icon: const Icon(Icons.description_outlined, size: 15, color: AppTheme.emerald),
-                              label: Text(l.customsTaxExportExcelBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                            ),
-
-                            // 3. PDF Statement Print/Preview Button
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.charcoal,
-                                side: BorderSide(color: Colors.grey.shade400),
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              ),
-                              onPressed: () => CustomsConsultationPdfService.printOrPreviewConsultationsLogPdf(context, filtered),
-                              icon: const Icon(Icons.picture_as_pdf_outlined, size: 15, color: AppTheme.crimson),
-                              label: Text(l.customsTaxPrintPdfBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                            ),
-
-                            // 4. Dossier Copy Button
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.charcoal,
-                                side: BorderSide(color: Colors.grey.shade400),
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              ),
-                              onPressed: () => CustomsExportService.copyConsultationsLogDossier(
-                                context: context,
-                                sessions: filtered,
-                                shipments: importFiles,
-                              ),
-                              icon: const Icon(Icons.copy_all_outlined, size: 15, color: AppTheme.cobalt),
-                              label: Text(l.customsTaxCopyDossierBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                            ),
+                            cloneButton,
+                            SizedBox(width: 220, child: searchWidget),
+                            SizedBox(width: 160, child: statusWidget),
+                            filterChipWidget,
+                            countBadgeWidget,
+                            ...exportButtons,
                           ],
                         ),
                       ],
-                    ),
-                  ),
+                    );
+                  },
+                ),
+              ),
 
-                  // ── Data Table ──────────────────────────────────────────
-                  Expanded(
-                    child: filtered.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.folder_open_rounded,
-                                    size: 64, color: Colors.grey.shade300),
-                                const SizedBox(height: 16),
-                                Text(
-                                  l.noResultsFound,
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.grey.shade500,
-                                      fontWeight: FontWeight.w500),
-                                ),
-                              ],
+              // ── Data Content Area (Responsive: Desktop Table vs. Mobile Cards) ────
+              Expanded(
+                child: filtered.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.folder_open_rounded, size: 64, color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
+                            const SizedBox(height: 16),
+                            Text(
+                              l.noResultsFound,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          )
-                        : SingleChildScrollView(
-                            padding:
-                                const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                          ],
+                        ),
+                      )
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          if (constraints.maxWidth < 768) {
+                            return _buildMobileConsultationsList(filtered, importFiles, isDark, isArabic);
+                          }
+
+                          return SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                             child: Card(
                               elevation: 2,
+                              color: isDark ? AppTheme.darkCardBackground : Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                side:
-                                    BorderSide(color: Colors.grey.shade200),
+                                side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
                               ),
                               clipBehavior: Clip.antiAlias,
                               child: SingleChildScrollView(
@@ -346,7 +628,8 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                   columnSpacing: 20,
                                   dividerThickness: 0.5,
                                   headingRowColor: WidgetStateProperty.all(
-                                      AppTheme.charcoal),
+                                    isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
+                                  ),
                                   headingTextStyle: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
@@ -356,19 +639,20 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                   columns: [
                                     DataColumn(
                                       label: SizedBox(
-                                        width: 168,
+                                        width: 190,
                                         child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
+                                          mainAxisAlignment: MainAxisAlignment.center,
                                           children: [
-                                            const Icon(Icons.bolt_rounded,
-                                                size: 14, color: Colors.amber),
+                                            const Icon(Icons.bolt_rounded, size: 14, color: Colors.amber),
                                             const SizedBox(width: 4),
-                                            Text(l.actionsCol,
-                                                style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 12)),
+                                            Text(
+                                              l.actionsCol,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -376,30 +660,21 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                     DataColumn(label: Text('📋 ${l.studyCodeCol}')),
                                     DataColumn(label: Text('📁 ${l.linkImportFile}')),
                                     DataColumn(label: Text('📝 ${l.titleField}')),
-                                    DataColumn(
-                                        label: Text('🧑‍💼 ${l.customsBrokerLabel}')),
-                                    DataColumn(
-                                        label: Text('💰 ${l.customsDutyCol}')),
-                                    DataColumn(
-                                        label: Text('📊 ${l.customsInspectionReadiness}')),
+                                    DataColumn(label: Text('🧑‍💼 ${l.customsBrokerLabel}')),
+                                    DataColumn(label: Text('💰 ${l.customsDutyCol}')),
+                                    DataColumn(label: Text('📊 ${l.customsInspectionReadiness}')),
                                     DataColumn(label: Text('🔖 ${l.statusCol}')),
                                   ],
-
                                   rows: filtered.asMap().entries.map((entry) {
                                     final idx = entry.key;
                                     final session = entry.value;
                                     final isEven = idx.isEven;
-                                    final rowColor = isEven
-                                        ? Colors.white
-                                        : Colors.grey.shade50;
-                                    final readinessPct =
-                                        session.readinessPercentage;
-                                    final hasBlocking =
-                                        session.hasBlockingIssues ||
-                                            session.blockingIssuesCount > 0;
+                                    final rowColor = isDark
+                                        ? (isEven ? AppTheme.darkCardBackground : AppTheme.darkElevatedSurface)
+                                        : (isEven ? Colors.white : Colors.grey.shade50);
+                                    final readinessPct = session.readinessPercentage;
+                                    final hasBlocking = session.hasBlockingIssues || session.blockingIssuesCount > 0;
                                     final rawFileCode = session.importFileCode ?? (session.importFileId != null ? 'IMP-${session.importFileId}' : '—');
-                                    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-                                    final egpLabel = isArabic ? 'ج.م' : 'EGP';
                                     final shipmentTitle = (rawFileCode != '—')
                                         ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isArabic)
                                         : '—';
@@ -410,10 +685,8 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                         '${session.consultationCode} | $fileDisplay | ${session.title} | ${session.brokerName} | ${session.estimatedDutiesEgp.toStringAsFixed(0)} $egpLabel | ${readinessPct.toStringAsFixed(0)}% | ${session.overallStatus}';
 
                                     return DataRow(
-                                      color:
-                                          WidgetStateProperty.all(rowColor),
-                                      onSelectChanged: (_) =>
-                                          widget.onViewDetails(context, session),
+                                      color: WidgetStateProperty.all(rowColor),
+                                      onSelectChanged: (_) => widget.onViewDetails(context, session),
                                       cells: [
                                         // ⚡ 1. Actions
                                         DataCell(
@@ -421,128 +694,18 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               RowActionsPill(
-                                                onView: () =>
-                                                    widget.onViewDetails(context, session),
-                                                onEdit: () =>
-                                                    widget.onEdit(
-                                                        session),
+                                                onView: () => widget.onViewDetails(context, session),
+                                                onEdit: () => widget.onEdit(session),
+                                                onClone: () => _openCloneConsultationReviewDialog(context, session),
+                                                cloneTooltip: l.cloneConsultationTooltip,
                                                 onPrint: () {
                                                   Printing.layoutPdf(
-                                                    onLayout: (format) =>
-                                                        CustomsConsultationPdfService.generateConsultationPdf(session),
+                                                    onLayout: (format) => CustomsConsultationPdfService.generateConsultationPdf(session),
                                                     name: 'Customs_Consultation_${session.consultationCode}',
                                                   );
                                                 },
-                                                onDelete: () async {
-                                               final messenger = ScaffoldMessenger.of(context);
-                                               if (session.isActive == false) {
-                                                 final confirm = await showDialog<bool>(
-                                                   context: context,
-                                                   builder: (ctx) => AlertDialog(
-                                                     title: Row(
-                                                       children: [
-                                                         const Icon(Icons.restore_from_trash_rounded, color: Colors.green, size: 22),
-                                                         const SizedBox(width: 8),
-                                                         Text(l.restoreConsultationTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                                       ],
-                                                     ),
-                                                     content: Text(
-                                                       l.restoreConsultationMsg(session.consultationCode, session.title),
-                                                       style: const TextStyle(fontSize: 13),
-                                                     ),
-                                                     actions: [
-                                                       TextButton(
-                                                         onPressed: () => Navigator.pop(ctx, false),
-                                                         child: Text(l.cancel),
-                                                       ),
-                                                       ElevatedButton.icon(
-                                                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-                                                         icon: const Icon(Icons.restore_rounded, size: 16),
-                                                         label: Text(l.restoreAndActivateBtn),
-                                                         onPressed: () => Navigator.pop(ctx, true),
-                                                       ),
-                                                     ],
-                                                   ),
-                                                 );
-                                                 if (confirm == true) {
-                                                   try {
-                                                     await ref.read(customsConsultationsProvider.notifier).restoreConsultation(session.consultationId);
-                                                     if (mounted) {
-                                                       messenger.showSnackBar(
-                                                         SnackBar(
-                                                           content: Text('♻️ ${l.restoreConsultationSuccess(session.consultationCode)}'),
-                                                           backgroundColor: AppTheme.emerald,
-                                                         ),
-                                                       );
-                                                     }
-                                                   } catch (e) {
-                                                     if (mounted) {
-                                                       messenger.showSnackBar(
-                                                         SnackBar(
-                                                           content: Text('❌ $e'),
-                                                           backgroundColor: AppTheme.crimson,
-                                                         ),
-                                                       );
-                                                     }
-                                                   }
-                                                 }
-                                               } else {
-                                                 final confirm = await showDialog<bool>(
-                                                   context: context,
-                                                   builder: (ctx) => AlertDialog(
-                                                     title: Row(
-                                                       children: [
-                                                         const Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
-                                                         const SizedBox(width: 8),
-                                                         Text(l.deleteConsultationTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                                       ],
-                                                     ),
-                                                     content: Text(
-                                                       l.deleteConsultationMsg(session.consultationCode, session.title),
-                                                       style: const TextStyle(fontSize: 13),
-                                                     ),
-                                                     actions: [
-                                                       TextButton(
-                                                         onPressed: () => Navigator.pop(ctx, false),
-                                                         child: Text(l.cancel),
-                                                       ),
-                                                       ElevatedButton.icon(
-                                                         style: ElevatedButton.styleFrom(
-                                                           backgroundColor: AppTheme.crimson,
-                                                           foregroundColor: Colors.white,
-                                                         ),
-                                                         icon: const Icon(Icons.delete_rounded, size: 16),
-                                                         label: Text(l.deleteAndArchiveBtn),
-                                                         onPressed: () => Navigator.pop(ctx, true),
-                                                       ),
-                                                     ],
-                                                   ),
-                                                 );
-                                                 if (confirm == true) {
-                                                   try {
-                                                     await ref.read(customsConsultationsProvider.notifier).softDeleteConsultation(session.consultationId);
-                                                     if (mounted) {
-                                                       messenger.showSnackBar(
-                                                         SnackBar(
-                                                           content: Text('🗑️ ${l.deleteConsultationSuccess(session.consultationCode)}'),
-                                                           backgroundColor: AppTheme.emerald,
-                                                         ),
-                                                       );
-                                                     }
-                                                   } catch (e) {
-                                                     if (mounted) {
-                                                       messenger.showSnackBar(
-                                                         SnackBar(
-                                                           content: Text('❌ $e'),
-                                                           backgroundColor: AppTheme.crimson,
-                                                         ),
-                                                       );
-                                                     }
-                                                   }
-                                                 }
-                                               }
-                                             },
-                                             deleteTooltip: session.isActive == false ? l.restoreDeletedTooltip : l.deleteStudyTooltip,
+                                                onDelete: () => _handleDeleteOrRestore(context, session),
+                                                deleteTooltip: session.isActive == false ? l.restoreDeletedTooltip : l.deleteStudyTooltip,
                                               ),
                                               const SizedBox(width: 4),
                                               IconButton(
@@ -589,7 +752,11 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                               children: [
                                                 Text(
                                                   shipmentTitle,
-                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12.5,
+                                                    color: isDark ? AppTheme.darkTextPrimary : null,
+                                                  ),
                                                 ),
                                                 if (rawFileCode != '—' && rawFileCode != shipmentTitle) ...[
                                                   const SizedBox(height: 2),
@@ -626,7 +793,10 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                 session.title,
                                                 overflow: TextOverflow.ellipsis,
                                                 maxLines: 2,
-                                                style: const TextStyle(fontSize: 12),
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: isDark ? AppTheme.darkTextPrimary : null,
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -643,12 +813,19 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                               children: [
                                                 Text(
                                                   session.brokerName,
-                                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 12,
+                                                    color: isDark ? AppTheme.darkTextPrimary : null,
+                                                  ),
                                                 ),
                                                 if (session.brokerContactPerson != null)
                                                   Text(
                                                     session.brokerContactPerson!,
-                                                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                                    ),
                                                   ),
                                               ],
                                             ),
@@ -716,7 +893,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                     child: LinearProgressIndicator(
                                                       value: (readinessPct / 100).clamp(0.0, 1.0),
                                                       minHeight: 6,
-                                                      backgroundColor: Colors.grey.shade200,
+                                                      backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
                                                       valueColor: AlwaysStoppedAnimation<Color>(
                                                         readinessPct >= 80 ? AppTheme.emerald : (readinessPct >= 50 ? Colors.orange : AppTheme.crimson),
                                                       ),
@@ -725,7 +902,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                   const SizedBox(height: 3),
                                                   Text(
                                                     l.approvedDocsCountBadge(session.approvedDocumentsCount, session.totalDocumentsCount),
-                                                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                                                    style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
                                                   ),
                                                 ],
                                               ),
@@ -747,13 +924,220 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                 ),
                               ),
                             ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileConsultationsList(
+    List<CustomsConsultationModel> sessions,
+    List<ImportFileModel> importFiles,
+    bool isDark,
+    bool isArabic,
+  ) {
+    final l = context.l10n;
+    final egpLabel = isArabic ? 'ج.م' : 'EGP';
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+      itemCount: sessions.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final session = sessions[index];
+        final rawFileCode = session.importFileCode ?? (session.importFileId != null ? 'IMP-${session.importFileId}' : '—');
+        final shipmentTitle = (rawFileCode != '—')
+            ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isArabic)
+            : '—';
+        final fileDisplay = (shipmentTitle != '—' && shipmentTitle != rawFileCode)
+            ? '$shipmentTitle ($rawFileCode)'
+            : shipmentTitle;
+        final readinessPct = session.readinessPercentage;
+        final hasBlocking = session.hasBlockingIssues || session.blockingIssuesCount > 0;
+        final rowSummary =
+            '${session.consultationCode} | $fileDisplay | ${session.title} | ${session.brokerName} | ${session.estimatedDutiesEgp.toStringAsFixed(0)} $egpLabel | ${readinessPct.toStringAsFixed(0)}% | ${session.overallStatus}';
+
+        return Card(
+          elevation: 2,
+          color: isDark ? AppTheme.darkCardBackground : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => widget.onViewDetails(context, session),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Row 1: Code & Status
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cobalt.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+                        ),
+                        child: Text(
+                          session.consultationCode,
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12),
+                        ),
+                      ),
+                      const Spacer(),
+                      ConsultationStatusBadge(status: session.overallStatus),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Row 2: Title
+                  Text(
+                    session.title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+
+                  // Row 3: Import File & Broker
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 4,
+                    children: [
+                      if (rawFileCode != '—')
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.folder_outlined, size: 14, color: isDark ? AppTheme.darkTextSecondary : Colors.blueGrey),
+                            const SizedBox(width: 4),
+                            Text(
+                              fileDisplay,
+                              style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.blueGrey.shade800),
+                            ),
+                          ],
+                        ),
+                      if (session.brokerName.isNotEmpty)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.person_outline, size: 14, color: isDark ? AppTheme.darkTextSecondary : Colors.blueGrey),
+                            const SizedBox(width: 4),
+                            Text(
+                              session.brokerName,
+                              style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.blueGrey.shade800),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Row 4: Duties Badge & Readiness
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (session.estimatedDutiesEgp > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.crimson.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
                           ),
+                          child: Text(
+                            '${session.estimatedDutiesEgp.toStringAsFixed(0)} $egpLabel',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 11),
+                          ),
+                        )
+                      else
+                        const SizedBox.shrink(),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${readinessPct.toStringAsFixed(0)}%',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                              color: readinessPct >= 80 ? AppTheme.emerald : (readinessPct >= 50 ? Colors.orange : AppTheme.crimson),
+                            ),
+                          ),
+                          if (hasBlocking) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: AppTheme.crimson.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                l.blockingIssuesBadge(session.blockingIssuesCount),
+                                style: const TextStyle(color: AppTheme.crimson, fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: (readinessPct / 100).clamp(0.0, 1.0),
+                      minHeight: 5,
+                      backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        readinessPct >= 80 ? AppTheme.emerald : (readinessPct >= 50 ? Colors.orange : AppTheme.crimson),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Divider(height: 1),
+                  const SizedBox(height: 6),
+
+                  // Row 5: Actions
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      RowActionsPill(
+                        onView: () => widget.onViewDetails(context, session),
+                        onEdit: () => widget.onEdit(session),
+                        onClone: () => _openCloneConsultationReviewDialog(context, session),
+                        cloneTooltip: l.cloneConsultationTooltip,
+                        onPrint: () {
+                          Printing.layoutPdf(
+                            onLayout: (format) => CustomsConsultationPdfService.generateConsultationPdf(session),
+                            name: 'Customs_Consultation_${session.consultationCode}',
+                          );
+                        },
+                        onDelete: () => _handleDeleteOrRestore(context, session),
+                        deleteTooltip: session.isActive == false ? l.restoreDeletedTooltip : l.deleteStudyTooltip,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
+                        tooltip: l.copyTooltip,
+                        onPressed: () => CopyHelper.copy(context, rowSummary, customMessage: l.customsTaxCopyRowSuccess),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            );
-          },
-          );
+            ),
+          ),
+        );
+      },
+    );
   }
 }
-

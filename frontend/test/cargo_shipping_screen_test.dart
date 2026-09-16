@@ -229,12 +229,138 @@ void main() {
     expect(find.textContaining('تخصيص الحاوية بواسطة الخط الملاحي'), findsNWidgets(2));
   });
 
+  testWidgets('Auto-Complete button triggers full milestone generation and final save', (tester) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final mockNotifier = _MockCargoShippingNotifier([]);
+    final container = ProviderContainer(
+      overrides: [
+        cargoShippingProvider.overrideWith((ref) => mockNotifier),
+        importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([
+          ImportFileModel(
+            importFileId: 1,
+            importFileCode: '6701068100-HSR',
+            companyId: 1,
+            companyName: 'ECO ASSOCIATES',
+            supplierName: 'Siemens Mobility',
+            currentModule: 'Cargo Shipping',
+            currentStage: 'Cargo Preparation',
+            nextAction: 'Track Containers',
+            status: 'Active',
+            createdAt: '2026-08-16T00:00:00',
+            updatedAt: '2026-08-16T00:00:00',
+          )
+        ])),
+        freightBookingProvider.overrideWith((ref) => _MockFreightBookingNotifier([])),
+        purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([])),
+      ],
+    );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Directionality(
+              textDirection: TextDirection.rtl,
+              child: AppLocalizationsProvider(
+                locale: Locale('ar'),
+                child: CargoShippingScreen(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    // Select import file
+    await tester.tap(find.textContaining('اختر ملف الشحنة...'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('ECO ASSOCIATES').last, warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    // Find and tap Smart Simulation button
+    final smartSimBtn = find.textContaining('Smart Simulation');
+    expect(smartSimBtn, findsOneWidget);
+    await tester.tap(smartSimBtn);
+    await tester.pumpAndSettle();
+
+    // Verify milestones are populated in the UI but NOT submitted yet
+    expect(mockNotifier.createCalled, isFalse);
+    expect(find.textContaining('تمت المحاكاة الذكية'), findsOneWidget);
+
+    // Now tap Final Save button
+    final finalSaveBtn = find.textContaining('حفظ واعتماد إنهاء المرحلة (STEP-07)');
+    expect(finalSaveBtn, findsOneWidget);
+    await tester.ensureVisible(finalSaveBtn);
+    await tester.tap(finalSaveBtn, warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    // Verify createRecord was called with GATED_IN_AT_PORT
+    expect(mockNotifier.createCalled || mockNotifier.updateCalled, isTrue);
+    final payload = mockNotifier.lastPayload!;
+    final containers = payload['containers_loading_data'] as List;
+    expect(containers.first['tracking_status'], equals('GATED_IN_AT_PORT'));
+  });
+
 }
 
 class _MockCargoShippingNotifier extends CargoShippingNotifier {
   final List<CargoShippingModel> initialRecords;
+  bool createCalled = false;
+  bool updateCalled = false;
+  Map<String, dynamic>? lastPayload;
+
   _MockCargoShippingNotifier(this.initialRecords) : super(Dio()) {
     state = AsyncValue.data(initialRecords);
+  }
+
+  @override
+  Future<CargoShippingModel?> createRecord(Map<String, dynamic> payload) async {
+    createCalled = true;
+    lastPayload = payload;
+    final model = CargoShippingModel(
+      cargoShippingId: 99,
+      cargoShippingCode: 'SHP-TEST-99',
+      importFileId: payload['import_file_id'] as int,
+      containersLoadingData: (payload['containers_loading_data'] as List)
+          .map((c) => ContainerLoadingModel.fromJson(c as Map<String, dynamic>))
+          .toList(),
+      courierTrackingData: CourierTrackingModel(),
+      cargoxExchangeData: CargoXExchangeModel(),
+      status: 'Cargo Ready',
+      owner: 'Kamal',
+      isActive: true,
+      createdAt: '2026-08-16T00:00:00',
+      updatedAt: '2026-08-16T00:00:00',
+    );
+    return model;
+  }
+
+  @override
+  Future<CargoShippingModel?> updateRecord(int recordId, Map<String, dynamic> payload) async {
+    updateCalled = true;
+    lastPayload = payload;
+    final model = CargoShippingModel(
+      cargoShippingId: recordId,
+      cargoShippingCode: 'SHP-TEST-$recordId',
+      importFileId: payload['import_file_id'] as int,
+      containersLoadingData: (payload['containers_loading_data'] as List)
+          .map((c) => ContainerLoadingModel.fromJson(c as Map<String, dynamic>))
+          .toList(),
+      courierTrackingData: CourierTrackingModel(),
+      cargoxExchangeData: CargoXExchangeModel(),
+      status: 'Cargo Ready',
+      owner: 'Kamal',
+      isActive: true,
+      createdAt: '2026-08-16T00:00:00',
+      updatedAt: '2026-08-16T00:00:00',
+    );
+    return model;
   }
 
   @override

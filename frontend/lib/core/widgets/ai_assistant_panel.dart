@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,8 +9,62 @@ import '../../core/theme/app_theme.dart';
 import 'copyable_data_helper.dart';
 import 'shipment_lifecycle_navigator.dart';
 
-/// A persistent floating AI Import Assistant panel that overlays all screens.
-/// Appears as a draggable button that opens a chat panel when tapped.
+/// Docked side panel version of the AI Assistant for Desktop screens (>= 1200px).
+/// Sits directly in the HomeScreen layout Row alongside the main content Expanded view,
+/// pushing/shrinking the table and forms so they are NEVER covered by floating overlays.
+class AiAssistantDockedPanel extends ConsumerStatefulWidget {
+  const AiAssistantDockedPanel({super.key});
+
+  @override
+  ConsumerState<AiAssistantDockedPanel> createState() => _AiAssistantDockedPanelState();
+}
+
+class _AiAssistantDockedPanelState extends ConsumerState<AiAssistantDockedPanel> {
+  bool _isMaximized = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(aiAssistantProvider);
+    final isDark = AppTheme.isDark(context);
+    final width = _isMaximized ? 560.0 : 420.0;
+
+    return Directionality(
+      textDirection: state.isArabic ? TextDirection.rtl : TextDirection.ltr,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        width: width,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          border: Border(
+            left: BorderSide(
+              color: isDark ? AppTheme.darkBorder : const Color(0xFFCBD5E1),
+              width: 1.5,
+            ),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(-2, 0),
+            ),
+          ],
+        ),
+        child: AiAssistantChatPanel(
+          isDocked: true,
+          isMaximized: _isMaximized,
+          onToggleMaximize: () => setState(() => _isMaximized = !_isMaximized),
+          onClose: () => ref.read(aiAssistantProvider.notifier).togglePanel(),
+        ),
+      ),
+    );
+  }
+}
+
+/// A persistent floating AI Import Assistant overlay.
+/// When collapsed, renders the orange circular launcher button in the bottom-right corner.
+/// On desktop (>=1200px), opening the assistant docks it into the main layout Row.
+/// On smaller screens (<1200px), opens as a modal panel with a dimmed backdrop.
 class AiAssistantOverlay extends ConsumerStatefulWidget {
   const AiAssistantOverlay({super.key});
 
@@ -22,9 +77,7 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
   late final AnimationController _panelController;
   late final Animation<double> _panelAnimation;
   late final Animation<double> _fadeAnimation;
-  final TextEditingController _inputCtrl = TextEditingController();
-  final ScrollController _scrollCtrl = ScrollController();
-  final FocusNode _focusNode = FocusNode();
+  Timer? _greetingTimer;
   bool _greetingDismissed = false;
   bool _isMaximized = false;
 
@@ -37,14 +90,19 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
     );
     _panelAnimation = CurvedAnimation(parent: _panelController, curve: Curves.easeOutCubic);
     _fadeAnimation = CurvedAnimation(parent: _panelController, curve: Curves.easeIn);
+
+    // Auto-dismiss greeting bubble after 7 seconds
+    _greetingTimer = Timer(const Duration(seconds: 7), () {
+      if (mounted) {
+        ref.read(aiAssistantProvider.notifier).dismissGreeting();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _greetingTimer?.cancel();
     _panelController.dispose();
-    _inputCtrl.dispose();
-    _scrollCtrl.dispose();
-    _focusNode.dispose();
     super.dispose();
   }
 
@@ -54,31 +112,9 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
     final isOpen = ref.read(aiAssistantProvider).isPanelOpen;
     if (isOpen) {
       _panelController.forward();
-      Future.delayed(const Duration(milliseconds: 350), _scrollToBottom);
     } else {
       _panelController.reverse();
     }
-  }
-
-  void _scrollToBottom() {
-    if (_scrollCtrl.hasClients) {
-      _scrollCtrl.animateTo(
-        _scrollCtrl.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
-  }
-
-  Future<void> _sendMessage(String text) async {
-    if (text.trim().isEmpty) return;
-    _inputCtrl.clear();
-    await ref.read(aiAssistantProvider.notifier).sendMessage(text);
-    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
-  }
-
-  void _copyToClipboard(String text, String successMsg) {
-    CopyHelper.copy(context, text, customMessage: successMsg);
   }
 
   // ─── Build ──────────────────────────────────────────────────────────────────
@@ -86,6 +122,9 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(aiAssistantProvider);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth >= 1200;
+    final isGreetingDismissed = state.isGreetingDismissed || _greetingDismissed;
 
     // Sync animation when panel state changes externally
     if (state.isPanelOpen && _panelController.status == AnimationStatus.dismissed) {
@@ -94,11 +133,27 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
       _panelController.reverse();
     }
 
+    // On Desktop (>= 1200px), when panel is open, it docks into the HomeScreen layout Row!
+    if (isDesktop && state.isPanelOpen) {
+      return const SizedBox.shrink();
+    }
+
     return Stack(
       alignment: Alignment.bottomRight,
       children: [
-        // ── Chat Panel ──────────────────────────────────────────────────────
-        if (state.isPanelOpen)
+        // ── Modal Barrier for screens < 1200px when panel is open ────────────
+        if (!isDesktop && state.isPanelOpen)
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _togglePanel,
+              child: Container(
+                color: Colors.black38,
+              ),
+            ),
+          ),
+
+        // ── Chat Panel (Floating Modal on < 1200px) ─────────────────────────
+        if (!isDesktop && state.isPanelOpen)
           Positioned(
             bottom: 80,
             right: 16,
@@ -113,7 +168,7 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
           ),
 
         // ── Greeting Bubble (Exact match to user's uploaded image) ───────────
-        if (!state.isPanelOpen && !_greetingDismissed)
+        if (!state.isPanelOpen && !isGreetingDismissed)
           Positioned(
             bottom: 80,
             right: 16,
@@ -171,7 +226,11 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
                       ),
                     ),
                     InkWell(
-                      onTap: () => setState(() => _greetingDismissed = true),
+                      onTap: () {
+                        _greetingTimer?.cancel();
+                        ref.read(aiAssistantProvider.notifier).dismissGreeting();
+                        setState(() => _greetingDismissed = true);
+                      },
                       borderRadius: BorderRadius.circular(12),
                       child: Padding(
                         padding: const EdgeInsets.all(2.0),
@@ -182,7 +241,12 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
                 ),
                 const SizedBox(height: 6),
                 InkWell(
-                  onTap: _togglePanel,
+                  onTap: () {
+                    _greetingTimer?.cancel();
+                    ref.read(aiAssistantProvider.notifier).dismissGreeting();
+                    setState(() => _greetingDismissed = true);
+                    _togglePanel();
+                  },
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -340,24 +404,94 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
-          child: SelectionArea(
-            child: Column(
-              children: [
-                _buildPanelHeader(state),
-                if (state.isNavigatorOpen)
-                  ShipmentLifecycleNavigator(
-                    onSendMessage: _sendMessage,
-                  ),
-                Expanded(
-                  child: state.hasApiKey
-                      ? _buildMessageList(state)
-                      : _buildApiKeySetup(state),
-                ),
-                if (state.hasApiKey) _buildActiveContextBadge(state),
-                if (state.hasApiKey) _buildInputBar(state),
-              ],
-            ),
+          child: AiAssistantChatPanel(
+            isDocked: false,
+            isMaximized: _isMaximized,
+            onToggleMaximize: () => setState(() => _isMaximized = !_isMaximized),
+            onClose: _togglePanel,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The core chat interface and logic, used both inside the docked desktop side panel
+/// and within the floating modal overlay on smaller screens.
+class AiAssistantChatPanel extends ConsumerStatefulWidget {
+  final bool isDocked;
+  final bool isMaximized;
+  final VoidCallback? onToggleMaximize;
+  final VoidCallback? onClose;
+
+  const AiAssistantChatPanel({
+    super.key,
+    this.isDocked = false,
+    this.isMaximized = false,
+    this.onToggleMaximize,
+    this.onClose,
+  });
+
+  @override
+  ConsumerState<AiAssistantChatPanel> createState() => _AiAssistantChatPanelState();
+}
+
+class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
+  final TextEditingController _inputCtrl = TextEditingController();
+  final ScrollController _scrollCtrl = ScrollController();
+  final FocusNode _focusNode = FocusNode();
+  bool _isMaximized = false;
+
+  @override
+  void dispose() {
+    _inputCtrl.dispose();
+    _scrollCtrl.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    if (_scrollCtrl.hasClients) {
+      _scrollCtrl.animateTo(
+        _scrollCtrl.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _sendMessage(String text) async {
+    if (text.trim().isEmpty) return;
+    _inputCtrl.clear();
+    await ref.read(aiAssistantProvider.notifier).sendMessage(text);
+    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+  }
+
+  void _copyToClipboard(String text, String successMsg) {
+    CopyHelper.copy(context, text, customMessage: successMsg);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(aiAssistantProvider);
+    return Directionality(
+      textDirection: state.isArabic ? TextDirection.rtl : TextDirection.ltr,
+      child: SelectionArea(
+        child: Column(
+          children: [
+            _buildPanelHeader(state),
+            if (state.isNavigatorOpen)
+              ShipmentLifecycleNavigator(
+                onSendMessage: _sendMessage,
+              ),
+            Expanded(
+              child: state.hasApiKey
+                  ? _buildMessageList(state)
+                  : _buildApiKeySetup(state),
+            ),
+            if (state.hasApiKey) _buildActiveContextBadge(state),
+            if (state.hasApiKey) _buildInputBar(state),
+          ],
         ),
       ),
     );
@@ -415,24 +549,22 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
           ),
           const SizedBox(width: 4),
           // "My Shipments" / "شحناتي" Lifecycle Navigator Toggle Button
-          IconButton(
+          _buildHeaderAction(
             icon: Icon(
               state.isNavigatorOpen ? Icons.alt_route_rounded : Icons.alt_route_outlined,
               color: state.isNavigatorOpen ? Colors.amberAccent : Colors.white,
-              size: 18,
+              size: 17,
             ),
             tooltip: isAr ? l.aiAssistantMyShipmentsTooltip : 'My Shipments (Lifecycle Navigator)',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
             onPressed: () => ref.read(aiAssistantProvider.notifier).toggleNavigator(),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 4),
           // Language selector toggle pill (Rule 2: Starting default & switcher, Rule 1: Dynamic detection also updates state)
           Container(
-            height: 24,
+            height: 22,
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.18),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(11),
               border: Border.all(color: Colors.white24),
             ),
             child: Row(
@@ -447,14 +579,12 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
               ],
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 3),
           // Copy full conversation transcript dossier button
           if (state.hasApiKey && state.messages.isNotEmpty)
-            IconButton(
+            _buildHeaderAction(
               icon: const Icon(Icons.copy_all_rounded, color: Colors.white70, size: 16),
               tooltip: isAr ? l.aiAssistantCopyTranscriptTooltip : 'Copy full conversation transcript',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
               onPressed: () {
                 final buffer = StringBuffer();
                 buffer.writeln(isAr ? l.aiAssistantTitle : 'Smart Import Assistant');
@@ -475,50 +605,64 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
                 );
               },
             ),
-          const SizedBox(width: 4),
           // Clear chat
-          if (state.hasApiKey && state.messages.isNotEmpty)
-            IconButton(
+          if (state.hasApiKey && state.messages.isNotEmpty) ...[
+            const SizedBox(width: 2),
+            _buildHeaderAction(
               icon: const Icon(Icons.refresh_rounded, color: Colors.white70, size: 16),
               tooltip: isAr ? l.aiAssistantClearChatTooltip : 'Clear Chat',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
               onPressed: () => ref.read(aiAssistantProvider.notifier).clearChat(),
             ),
-          const SizedBox(width: 4),
+          ],
+          const SizedBox(width: 2),
           // API Key settings
-          IconButton(
+          _buildHeaderAction(
             icon: const Icon(Icons.key_outlined, color: Colors.white70, size: 16),
             tooltip: isAr ? l.aiAssistantApiKeySettingsTooltip : 'API Key Settings',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
             onPressed: () => _showApiKeyDialog(state.apiKey),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 2),
           // Maximize / Restore
-          IconButton(
+          _buildHeaderAction(
             icon: Icon(
-              _isMaximized ? Icons.close_fullscreen_rounded : Icons.open_in_full_rounded,
+              (widget.onToggleMaximize != null ? widget.isMaximized : _isMaximized)
+                  ? Icons.close_fullscreen_rounded
+                  : Icons.open_in_full_rounded,
               color: Colors.white70,
               size: 16,
             ),
-            tooltip: _isMaximized
+            tooltip: (widget.onToggleMaximize != null ? widget.isMaximized : _isMaximized)
                 ? (isAr ? l.aiAssistantRestoreTooltip : 'Restore size')
                 : (isAr ? l.aiAssistantExpandTooltip : 'Expand chat window'),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            onPressed: () => setState(() => _isMaximized = !_isMaximized),
+            onPressed: widget.onToggleMaximize ?? () => setState(() => _isMaximized = !_isMaximized),
           ),
           const SizedBox(width: 2),
           // Close
-          IconButton(
+          _buildHeaderAction(
             icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 16),
             tooltip: isAr ? l.aiAssistantCloseTooltip : 'Close',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            onPressed: _togglePanel,
+            onPressed: widget.onClose ?? () => ref.read(aiAssistantProvider.notifier).togglePanel(),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderAction({
+    required Widget icon,
+    required String tooltip,
+    required VoidCallback? onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      preferBelow: false,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
+          child: icon,
+        ),
       ),
     );
   }

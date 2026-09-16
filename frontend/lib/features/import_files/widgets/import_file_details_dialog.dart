@@ -7,7 +7,6 @@ import '../../../core/utils/import_file_po_linker.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../purchase_orders/models/purchase_order_model.dart' hide PackingListItemModel;
 import '../../../core/utils/container_requirement_engine.dart';
-import '../../../core/widgets/container_load_plan_painter.dart';
 import '../models/import_file_model.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 import '../widgets/close_shipment_dialog.dart';
@@ -15,6 +14,7 @@ import '../widgets/freight_rfq_dialog.dart';
 import '../../experience_guide/widgets/smart_shipment_reference_card.dart';
 import '../../experience_guide/widgets/add_guide_entry_dialog.dart';
 import '../../smart_checklists/widgets/smart_checklist_dialog.dart';
+import 'visual_container_load_planner_dialog.dart';
 
 
 
@@ -43,361 +43,14 @@ class ImportFileDetailsDialog extends ConsumerStatefulWidget {
 
 class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog> {
   void _showVisualLoadPlanDialog(BuildContext context, List<PurchaseOrderModel> pos) {
-    final l = context.l10n;
-    final file = widget.file;
-    final baseCargoItems = ImportFilePoLinker.buildCargoItems(
-      pos: pos,
-      file: file,
-      fallbackCbm: widget.totalPackingListCbm,
-      fallbackWeight: widget.totalPackingListWeight,
-    );
-
-    // Default active view mode: null = Actual/Mixed, true = All Stackable, false = All Non-Stackable
-    bool? activeStackingMode = baseCargoItems.any((i) => !i.isStackable) ? null : true;
-
     showDialog(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (dialogCtx, setDialogState) {
-            final isDark = AppTheme.isDark(context);
-            // Compute plan dynamically based on the selected mode
-            final plan = ContainerRequirementEngine.planShipment(
-              baseCargoItems,
-              forceStackable: activeStackingMode,
-            );
-
-            // Compute summary metrics for active plan
-            final totalPkgs = baseCargoItems.length;
-            final stackableInActive = activeStackingMode == true
-                ? totalPkgs
-                : (activeStackingMode == false ? 0 : baseCargoItems.where((c) => c.isStackable).length);
-            final nonStackableInActive = totalPkgs - stackableInActive;
-
-            final totalPlanWeight = plan.fold(0.0, (s, p) => s + p.totalWeight);
-            final totalPlanVolume = plan.fold(0.0, (s, p) => s + p.totalVolume);
-
-            // Determine container fleet text (e.g. 2 x 40HC or 2 x 40HC + 1 x 20GP)
-            final Map<String, int> containerCounts = {};
-            for (final p in plan) {
-              if (p.containerCode != 'FAILED') {
-                containerCounts[p.containerCode] = (containerCounts[p.containerCode] ?? 0) + 1;
-              }
-            }
-            final fleetSummaryText = containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
-
-            return AlertDialog(
-              title: Row(
-                children: [
-                  const Icon(Icons.view_in_ar, color: AppTheme.cobalt, size: 24),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      l.visualLoadPlannerTitle,
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.blue.shade900.withOpacity(0.3) : AppTheme.cobalt.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: isDark ? Colors.blue.shade700 : AppTheme.cobalt),
-                    ),
-                    child: Text(
-                      '$fleetSummaryText (${plan.length})',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt),
-                    ),
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: 980,
-                height: 640,
-                child: Column(
-                  children: [
-                    // 1. Scenario / Stacking Mode Switcher (All 3 required states)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkSurface : Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '🔄 ${l.cargoStackingScenariosTitle}:',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                          ),
-                          Row(
-                            children: [
-                              ChoiceChip(
-                                label: Text('📦 1. ${l.allStackableChip}'),
-                                selected: activeStackingMode == true,
-                                selectedColor: AppTheme.emerald,
-                                backgroundColor: isDark ? AppTheme.darkCardBackground : null,
-                                labelStyle: TextStyle(
-                                  color: activeStackingMode == true ? Colors.white : (isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                                onSelected: (val) {
-                                  if (val) setDialogState(() => activeStackingMode = true);
-                                },
-                              ),
-                              const SizedBox(width: 8),
-                              ChoiceChip(
-                                label: Text('🚫 2. ${l.allNonStackableChip}'),
-                                selected: activeStackingMode == false,
-                                selectedColor: Colors.orange.shade800,
-                                backgroundColor: isDark ? AppTheme.darkCardBackground : null,
-                                labelStyle: TextStyle(
-                                  color: activeStackingMode == false ? Colors.white : (isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                                onSelected: (val) {
-                                  if (val) setDialogState(() => activeStackingMode = false);
-                                },
-                              ),
-                              const SizedBox(width: 8),
-                              ChoiceChip(
-                                label: Text('🔀 3. ${l.mixedStackingChip}'),
-                                selected: activeStackingMode == null,
-                                selectedColor: AppTheme.cobalt,
-                                backgroundColor: isDark ? AppTheme.darkCardBackground : null,
-                                labelStyle: TextStyle(
-                                  color: activeStackingMode == null ? Colors.white : (isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                                onSelected: (val) {
-                                  if (val) setDialogState(() => activeStackingMode = null);
-                                },
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // 2. Metrics Strip
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.04),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              _buildFileMetricPill('📦', '$totalPkgs', AppTheme.cobalt, isDark: isDark),
-                              const SizedBox(width: 8),
-                              _buildFileMetricPill('⚖️', '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal, isDark: isDark),
-                              const SizedBox(width: 8),
-                              _buildFileMetricPill('📐', '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900, isDark: isDark),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              _buildFileMetricPill('✅ ${l.allStackableChip}', '$stackableInActive', Colors.green.shade800, isDark: isDark),
-                              const SizedBox(width: 8),
-                              _buildFileMetricPill('🚫 ${l.allNonStackableChip}', '$nonStackableInActive', Colors.red.shade800, isDark: isDark),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // 3. Table summary of container loads
-                    Table(
-                      border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                      columnWidths: const {
-                        0: FlexColumnWidth(1.2),
-                        1: FlexColumnWidth(1.8),
-                        2: FlexColumnWidth(1.2),
-                        3: FlexColumnWidth(1.2),
-                        4: FlexColumnWidth(2.4),
-                      },
-                      children: [
-                        TableRow(
-                          decoration: BoxDecoration(color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.08)),
-                          children: [
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.containerSpecType, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.packingListItemsCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.totalGrossWeightFromPl, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.spaceUtilizationPercent, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.currentPhaseStage, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                          ],
-                        ),
-                        ...plan.asMap().entries.map((entry) {
-                          final idx = entry.key + 1;
-                          final res = entry.value;
-                          final placedIds = res.placedItems.map((p) => p.item.itemId).join(', ');
-
-                          String statusText = '';
-                          if (res.containerCode == 'FAILED') {
-                            statusText = l.containerLoadFailed;
-                          } else {
-                            final nonStackInThis = res.placedItems.where((p) => !p.item.isStackable).length;
-                            if (nonStackInThis > 0) {
-                              statusText = '${l.allNonStackableChip}: $nonStackInThis';
-                            } else {
-                              statusText = '${l.containerGoodUtil} (${(res.totalVolume / res.spec.internalVolumeCbm * 100).toStringAsFixed(1)}%)';
-                            }
-                          }
-
-                          final double spaceUtil = res.spec.internalVolumeCbm > 0 ? (res.totalVolume / res.spec.internalVolumeCbm) * 100 : 0.0;
-
-                          return TableRow(
-
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: Text(
-                                  res.containerCode == 'FAILED' ? 'فشل الرص' : '$idx: ${res.spec.code}',
-                                  style: TextStyle(fontWeight: FontWeight.bold, color: res.containerCode == 'FAILED' ? (isDark ? Colors.red.shade300 : Colors.red) : (isDark ? Colors.lightBlueAccent : AppTheme.cobalt), fontSize: 11),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: Text(placedIds.isEmpty ? '-' : placedIds, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null)),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null)),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: Text('${spaceUtil.toStringAsFixed(1)}%', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.orange.shade300 : Colors.orange)),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: Text(
-                                  statusText,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: statusText.contains('فشل')
-                                        ? (isDark ? Colors.red.shade300 : Colors.red.shade800)
-                                        : (statusText.contains('غير قابل') ? (isDark ? Colors.amber.shade300 : Colors.brown.shade800) : (isDark ? Colors.green.shade300 : Colors.green.shade800)),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        }),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-
-                    // 4. Tab view or list for visual container layout drawings
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: plan.length,
-                        itemBuilder: (ctx, pIdx) {
-                          final res = plan[pIdx];
-                          if (res.containerCode == 'FAILED') {
-                            return Container(
-                              padding: const EdgeInsets.all(16),
-                              margin: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.shade300)),
-                              child: Text(
-                                'الأصناف التالية تفوق سعة حاويات الشحن: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
-                                style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                              ),
-                            );
-                          }
-
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            elevation: 3,
-                            color: isDark ? AppTheme.darkCardBackground : null,
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'مخطط الحاوية #${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
-                                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt),
-                                      ),
-                                      Row(
-                                        children: [
-                                          Text('🪵 طبالي خشبية أرضية', style: TextStyle(fontSize: 10, color: isDark ? Colors.amber.shade200 : Colors.brown, fontWeight: FontWeight.bold)),
-                                          const SizedBox(width: 10),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
-                                            child: Text('الأبعاد الداخلية: ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm', style: TextStyle(fontSize: 10, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt)),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-
-                                  // Side View (Left Wall Removed) - High Fidelity Realistic Container
-                                  Container(
-                                    height: 190,
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade900,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: CustomPaint(
-                                      painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
-                                      child: Container(),
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 10),
-
-                                  // Top View (Roof Removed)
-                                  Container(
-                                    height: 140,
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade900,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: CustomPaint(
-                                      painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
-                                      child: Container(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton.icon(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                  label: const Text('إغلاق المخطط'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (context) => VisualContainerLoadPlannerDialog(
+        file: widget.file,
+        linkedPOs: pos,
+        fallbackCbm: widget.totalPackingListCbm,
+        fallbackWeight: widget.totalPackingListWeight,
+      ),
     );
   }
 
@@ -437,6 +90,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
       context: context,
       builder: (context) {
         final isDark = AppTheme.isDark(context);
+        final l = context.l10n;
         return DefaultTabController(
           length: 3,
           child: AlertDialog(
@@ -449,12 +103,12 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'تحليل خيارات الحاويات وسيناريوهات التحميل',
+                        l.containerOptionsAnalysisTitle,
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : null),
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        'إجمالي الشحنة: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg',
+                        '${l.totalShipmentSummary}: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg',
                         style: TextStyle(fontSize: 12, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt, fontWeight: FontWeight.w600),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -470,14 +124,14 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                 children: [
                   Container(
                     color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
-                    child: const TabBar(
+                    child: TabBar(
                       indicatorColor: AppTheme.cobalt,
                       labelColor: Colors.white,
                       unselectedLabelColor: Colors.white70,
                       tabs: [
-                        Tab(icon: Icon(Icons.layers), text: '📦 1. قابل للرص (Stackable)'),
-                        Tab(icon: Icon(Icons.view_array), text: '🚫 2. غير قابل للرص (Non-Stackable)'),
-                        Tab(icon: Icon(Icons.shuffle), text: '🔀 3. مزيج يقبل ولا يقبل (Mixed)'),
+                        Tab(icon: const Icon(Icons.layers), text: l.containerStackableTab),
+                        Tab(icon: const Icon(Icons.view_array), text: l.containerNonStackableTab),
+                        Tab(icon: const Icon(Icons.shuffle), text: l.containerMixedTab),
                       ],
                     ),
                   ),
@@ -494,7 +148,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+              TextButton(onPressed: () => Navigator.pop(context), child: Text(l.closeDiagramBtn)),
             ],
           ),
         );
@@ -503,6 +157,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
   }
 
   Widget _buildComparisonTable(ContainerRecommendationResult rec, {bool isDark = false}) {
+    final l = context.l10n;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -522,7 +177,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               ),
             ),
             child: Text(
-              'التوصية المعتمدة: ${rec.recommendationSummary}',
+              '${l.approvedRecommendationPrefix}: ${rec.recommendationSummary}',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: rec.isStackable
@@ -1222,15 +877,16 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 totalPackingListWeight,
                               ),
                             ),
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.emerald,
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.cobalt,
+                                side: const BorderSide(color: AppTheme.cobalt),
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               ),
-                              icon: const Icon(Icons.view_in_ar, size: 14, color: Colors.white),
+                              icon: const Icon(Icons.view_in_ar, size: 14, color: AppTheme.cobalt),
                               label: Text(
                                 l.containerLoadPlanButton,
-                                style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                               ),
                               onPressed: () => _showVisualLoadPlanDialog(context, linkedPOs),
                             ),
@@ -1528,13 +1184,13 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
         ),
       ),
       actions: [
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.emerald,
-            foregroundColor: Colors.white,
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.cobalt,
+            side: const BorderSide(color: AppTheme.cobalt),
           ),
-          icon: const Icon(Icons.mark_email_unread_outlined, color: Colors.white, size: 16),
-          label: Text('🚀 ${l.freightRfqTooltip}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          icon: const Icon(Icons.mark_email_unread_outlined, color: AppTheme.cobalt, size: 16),
+          label: Text(l.freightRfqTooltip, style: const TextStyle(fontWeight: FontWeight.bold)),
           onPressed: () {
             FreightRfqDialog.show(
               context,

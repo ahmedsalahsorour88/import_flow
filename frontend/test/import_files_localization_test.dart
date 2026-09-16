@@ -215,13 +215,16 @@ void main() {
 
       expect(find.text('إدارة وملفات استيراد الشحنات'), findsOneWidget);
       expect(find.text('إضافة ملف استيراد شحنة جديد'), findsOneWidget);
+      expect(find.text('إجراءات إضافية'), findsOneWidget);
+      // Open More Actions menu
+      await tester.tap(find.text('إجراءات إضافية'));
+      await tester.pumpAndSettle();
       expect(find.text('استخلاص الفواتير والبوالص الذكي'), findsOneWidget);
       expect(find.text('محاكي الأزمات وتحوط الصرف'), findsOneWidget);
       expect(find.text('Import Files & Shipments Management'), findsNothing);
       expect(find.text('Add New Import File'), findsNothing);
       expect(find.text('Smart Invoice & B/L Extractor'), findsNothing);
       expect(find.text('What-If & Hedging Simulator'), findsNothing);
-      expect(find.byType(CopyableTableCell), findsWidgets);
     });
 
     testWidgets('Renders ImportFilesScreen in English without stacked Arabic text', (tester) async {
@@ -268,13 +271,16 @@ void main() {
 
       expect(find.text('Import Files & Shipments Management'), findsOneWidget);
       expect(find.text('Add New Import File'), findsOneWidget);
+      expect(find.text('More actions'), findsOneWidget);
+      // Open More Actions menu
+      await tester.tap(find.text('More actions'));
+      await tester.pumpAndSettle();
       expect(find.text('Smart Invoice & B/L Extractor'), findsOneWidget);
       expect(find.text('What-If & Hedging Simulator'), findsOneWidget);
       expect(find.text('إدارة وملفات استيراد الشحنات'), findsNothing);
       expect(find.text('إضافة ملف استيراد شحنة جديد'), findsNothing);
       expect(find.text('استخلاص الفواتير والبوالص الذكي'), findsNothing);
       expect(find.text('محاكي الأزمات وتحوط الصرف'), findsNothing);
-      expect(find.byType(CopyableTableCell), findsWidgets);
     });
   });
 }

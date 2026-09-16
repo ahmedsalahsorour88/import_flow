@@ -85,3 +85,60 @@ class DiscrepancyRectificationTicket(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
+class DocsCustomsApprovalSession(Base):
+    """
+    Certified Session for Docs Customs Approval Hub & Central Archive (STEP-09).
+    Holds the complete audit and sign-off record across all 5 core documents for an Import File.
+    """
+    __tablename__ = "docs_customs_approval_sessions"
+
+    session_id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
+    session_code: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
+
+    import_file_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("import_files.import_file_id"), nullable=False, index=True
+    )
+    import_file_code: Mapped[str] = mapped_column(String(100), nullable=True)
+    po_id: Mapped[int] = mapped_column(Integer, nullable=True)
+
+    overall_status: Mapped[str] = mapped_column(String(50), default="APPROVED")  # DRAFT, APPROVED, CONDITIONALLY_APPROVED, RECTIFICATION_REQUIRED, REJECTED
+    is_draft: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # 5 Documents References & Compliance Summaries
+    final_invoice_ref: Mapped[str] = mapped_column(String(100), nullable=True)
+    final_invoice_status: Mapped[str] = mapped_column(String(50), default="Approved")
+
+    final_pl_ref: Mapped[str] = mapped_column(String(100), nullable=True)
+    final_pl_status: Mapped[str] = mapped_column(String(50), default="Approved")
+
+    draft_bl_ref: Mapped[str] = mapped_column(String(100), nullable=True)
+    draft_bl_status: Mapped[str] = mapped_column(String(50), default="Approved")
+
+    coo_ref: Mapped[str] = mapped_column(String(100), nullable=True)
+    coo_status: Mapped[str] = mapped_column(String(50), default="Approved")
+
+    coc_ref: Mapped[str] = mapped_column(String(100), nullable=True)
+    coc_status: Mapped[str] = mapped_column(String(50), default="Waived / Not Required")
+
+    # Dual-Tier Signoffs
+    commercial_signoff_by: Mapped[str] = mapped_column(String(100), nullable=True)
+    commercial_signoff_date: Mapped[date] = mapped_column(Date, nullable=True)
+    customs_signoff_by: Mapped[str] = mapped_column(String(100), nullable=True)
+    customs_signoff_date: Mapped[date] = mapped_column(Date, nullable=True)
+    customs_broker_name: Mapped[str] = mapped_column(String(200), nullable=True)
+
+    discrepancies_count: Mapped[int] = mapped_column(Integer, default=0)
+    open_tickets_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Full JSON snapshot of archive state
+    session_snapshot: Mapped[dict] = mapped_column(JSON, nullable=True)
+    notes: Mapped[str] = mapped_column(Text, nullable=True)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_by: Mapped[str] = mapped_column(String(100), nullable=True, default="ADMIN")
+    updated_by: Mapped[str] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+

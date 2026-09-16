@@ -218,6 +218,142 @@ void main() {
       expect(resC.failureReason, contains('250 × 250 سم'));
       expect(resC.failureReason, contains('أقصى عرض مسموح للحاوية 235 سم'));
     });
+
+    test('Should aggregate 180 cartons of 12 distinct items into exactly 12 GroupedPlacedItem groups', () {
+      // 12 distinct items, each with 15 cartons = 180 cartons total
+      final List<PlacedItem> placed = [];
+      for (int itemIdx = 1; itemIdx <= 12; itemIdx++) {
+        for (int c = 1; c <= 15; c++) {
+          placed.add(
+            PlacedItem(
+              item: CargoItem(
+                itemId: 'ITEM-${itemIdx.toString().padLeft(3, '0')}',
+                description: 'Product Type $itemIdx',
+                length: 40.0 + itemIdx,
+                width: 30.0,
+                height: 25.0,
+                weight: 10.0,
+                isStackable: true,
+                packageType: 'Carton',
+              ),
+              x: c * 10.0,
+              y: 0,
+              z: 0,
+              length: 40.0 + itemIdx,
+              width: 30.0,
+              height: 25.0,
+            ),
+          );
+        }
+      }
+
+      final grouped = ContainerRequirementEngine.groupPlacedItems(placed);
+      expect(grouped.length, equals(12));
+      for (final g in grouped) {
+        expect(g.count, equals(15));
+        expect(g.packageType, equals('Carton'));
+        expect(g.totalWeight, equals(150.0));
+      }
+
+      // Check placedItemsSummary getter on ContainerPackingResult
+      final dummySpec = ContainerRequirementEngine.specs.first;
+      final packingResult = ContainerPackingResult(
+        fits: true,
+        spec: dummySpec,
+        containerCode: dummySpec.code,
+        placedItems: placed,
+        unplacedItems: [],
+        totalWeight: 1800.0,
+        totalVolume: 5.4,
+      );
+
+      expect(packingResult.groupedItems.length, equals(12));
+      expect(packingResult.placedItemsSummary, contains('Product Type 1 (15)'));
+      expect(packingResult.placedItemsSummary, contains('Product Type 12 (15)'));
+    });
+
+    test('Should group pallets ONLY if dimensions (L x W x H) are identical, and separate when dimensions differ', () {
+      final List<PlacedItem> pallets = [
+        // 3 Euro pallets (120 x 80 x 150)
+        for (int i = 1; i <= 3; i++)
+          PlacedItem(
+            item: CargoItem(
+              itemId: 'PAL-EUR-$i',
+              description: 'Euro Pallet',
+              length: 120,
+              width: 80,
+              height: 150,
+              weight: 500,
+              isStackable: false,
+              packageType: 'Pallet',
+            ),
+            x: i * 120.0,
+            y: 0,
+            z: 0,
+            length: 120,
+            width: 80,
+            height: 150,
+          ),
+        // 2 Industrial pallets (120 x 100 x 150) - different width
+        for (int i = 1; i <= 2; i++)
+          PlacedItem(
+            item: CargoItem(
+              itemId: 'PAL-IND-$i',
+              description: 'Industrial Pallet',
+              length: 120,
+              width: 100,
+              height: 150,
+              weight: 600,
+              isStackable: false,
+              packageType: 'Pallet',
+            ),
+            x: i * 120.0,
+            y: 100,
+            z: 0,
+            length: 120,
+            width: 100,
+            height: 150,
+          ),
+        // 1 Tall Euro pallet (120 x 80 x 180) - different height
+        PlacedItem(
+          item: CargoItem(
+            itemId: 'PAL-EUR-TALL',
+            description: 'Euro Pallet',
+            length: 120,
+            width: 80,
+            height: 180,
+            weight: 550,
+            isStackable: false,
+            packageType: 'Pallet',
+          ),
+          x: 0,
+          y: 0,
+          z: 0,
+          length: 120,
+          width: 80,
+          height: 180,
+        ),
+      ];
+
+      final grouped = ContainerRequirementEngine.groupPlacedItems(pallets);
+      // Expected groups:
+      // Group 1: Euro Pallet (120 x 80 x 150) -> count: 3
+      // Group 2: Industrial Pallet (120 x 100 x 150) -> count: 2
+      // Group 3: Euro Pallet (120 x 80 x 180) -> count: 1
+      expect(grouped.length, equals(3));
+
+      final euroGroup = grouped.firstWhere((g) => g.width == 80 && g.height == 150);
+      expect(euroGroup.count, equals(3));
+      expect(euroGroup.totalWeight, equals(1500.0));
+
+      final indGroup = grouped.firstWhere((g) => g.width == 100 && g.height == 150);
+      expect(indGroup.count, equals(2));
+      expect(indGroup.totalWeight, equals(1200.0));
+
+      final tallGroup = grouped.firstWhere((g) => g.width == 80 && g.height == 180);
+      expect(tallGroup.count, equals(1));
+      expect(tallGroup.totalWeight, equals(550.0));
+    });
   });
 }
 

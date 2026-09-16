@@ -42,6 +42,8 @@ def get_all_tariffs(
     db: Session,
     include_inactive: bool = False,
     search: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
 ) -> List[CustomsTariff]:
     query = db.query(CustomsTariff)
     if not include_inactive:
@@ -60,7 +62,12 @@ def get_all_tariffs(
                 CustomsTariff.customs_category.ilike(term),
             )
         )
-    return query.order_by(CustomsTariff.hs_code).all()
+    query = query.order_by(CustomsTariff.hs_code)
+    if skip > 0:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
 
 
 def create_tariff(db: Session, data: dict) -> CustomsTariff:

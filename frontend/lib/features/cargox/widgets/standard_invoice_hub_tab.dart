@@ -15,6 +15,7 @@ import '../providers/cargox_provider.dart';
 import '../services/cargox_pdf_service.dart';
 import 'dual_extraction_modal.dart';
 import 'package:printing/printing.dart';
+import 'package:dio/dio.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../services/cargox_export_service.dart';
 
@@ -24,6 +25,16 @@ String _formatDateTime(DateTime dt) {
     return str.substring(0, 16).replaceAll('T', ' ');
   }
   return str;
+}
+
+String _extractErrorMessage(dynamic err) {
+  if (err is DioException && err.response?.data != null) {
+    final data = err.response!.data;
+    if (data is Map && data['detail'] != null) {
+      return data['detail'].toString();
+    }
+  }
+  return err.toString();
 }
 
 class StandardInvoiceHubTab extends ConsumerStatefulWidget {
@@ -305,7 +316,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                                           setDialogState(() => isExtracting = false);
                                           if (!context.mounted) return;
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text(context.l10n.cargoxExtractionError(e)), backgroundColor: Colors.red),
+                                            SnackBar(content: Text(context.l10n.cargoxExtractionError(_extractErrorMessage(e))), backgroundColor: Colors.red),
                                           );
                                         }
                                       },
@@ -387,7 +398,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                                   setDialogState(() => isSavingCustomsTrack = false);
                                   if (!context.mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('خطأ أثناء حفظ المسار الجمركي: $e'), backgroundColor: Colors.red),
+                                    SnackBar(content: Text('خطأ أثناء حفظ المسار الجمركي: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red),
                                   );
                                 }
                               },
@@ -422,22 +433,19 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                                   if (!context.mounted) return;
                                   Navigator.of(ctx).pop();
 
-                                  final fileName = isZip
-                                      ? 'CargoX_Invoices_${file.importFileCode}_$selectedMode.zip'
-                                      : 'Phase4_CargoX_Standard_Invoice_${file.importFileCode}.xlsx';
-
-                                  await FileSaveHelper.saveBytes(
+                                  await FileSaveHelper.exportAndSaveFile(
                                     context: context,
                                     bytes: bytes,
-                                    defaultFileName: fileName,
-                                    dialogTitle: isZip ? 'حفظ أرشيف فواتير CargoX ZIP' : 'حفظ فاتورة CargoX القياسية Excel',
-                                    allowedExtensions: isZip ? ['zip'] : ['xlsx', 'xls'],
+                                    stageName: 'CargoX Blockchain & ACI Hub',
+                                    importFileNameOrCode: '${file.companyName} (${file.importFileCode})',
+                                    extension: isZip ? 'zip' : 'xlsx',
+                                    customDialogTitle: isZip ? 'حفظ أرشيف فواتير CargoX ZIP' : 'حفظ فاتورة CargoX القياسية Excel',
                                   );
                                 } catch (e) {
                                   setDialogState(() => isDownloading = false);
                                   if (!context.mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('${context.l10n.errorPrefix}: $e'), backgroundColor: Colors.red),
+                                    SnackBar(content: Text('${context.l10n.errorPrefix}: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red),
                                   );
                                 }
                               },
@@ -701,7 +709,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
     }
   }
 
-  Future<void> _handleSaveSession() async {
+  Future<void> _handleSaveSession({bool isDraft = false}) async {
     if (_selectedImportFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.standardInvoiceSelectFileFirstError), backgroundColor: Colors.red),
@@ -709,8 +717,9 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       return;
     }
 
+    final saveStatus = isDraft ? 'DRAFT' : _selectedStatus;
     final hasIssues = (_comparisonResult?.hasDiscrepancies ?? false) || (_comparisonResult?.hasCriticalMismatch ?? false);
-    if (_selectedStatus == 'APPROVED' && hasIssues) {
+    if (!isDraft && saveStatus == 'APPROVED' && hasIssues) {
       if (_overrideReasonController.text.trim().isEmpty) {
         _formKey.currentState?.validate();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -756,7 +765,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
         'has_discrepancies': _comparisonResult?.hasDiscrepancies ?? false,
         'has_critical_mismatch': _comparisonResult?.hasCriticalMismatch ?? false,
         'discrepancy_override_reason': _overrideReasonController.text.trim(),
-        'status': _selectedStatus,
+        'status': saveStatus,
         'notes': _notesController.text.trim(),
       };
 
@@ -764,13 +773,20 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       if (!mounted) return;
       setState(() {
         _existingSession = saved;
+        if (isDraft) {
+          _selectedStatus = 'DRAFT';
+        }
         _isSaving = false;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(context.l10n.standardInvoiceSessionSavedSuccess(saved.sessionCode)),
-          backgroundColor: const Color(0xFF27AE60),
+          content: Text(
+            isDraft
+                ? 'تم حفظ مسودة جلسة مراجعة الفاتورة بنجاح (${saved.sessionCode})'
+                : context.l10n.standardInvoiceSessionSavedSuccess(saved.sessionCode),
+          ),
+          backgroundColor: isDraft ? AppTheme.cobalt : const Color(0xFF27AE60),
         ),
       );
     } catch (e) {
@@ -1432,12 +1448,13 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
       final bytes = await notifier.downloadTrackExcel(track.trackId);
       if (!mounted) return;
-      await FileSaveHelper.saveBytes(
+      await FileSaveHelper.exportAndSaveFile(
         context: context,
         bytes: bytes,
-        defaultFileName: 'Customs_Invoice_${track.trackCode}.xlsx',
-        dialogTitle: 'حفظ ملف الفاتورة الجمركية Excel',
-        allowedExtensions: ['xlsx', 'xls'],
+        stageName: 'CargoX Blockchain & ACI Hub',
+        importFileNameOrCode: 'Customs Invoice (${track.trackCode})',
+        extension: 'xlsx',
+        customDialogTitle: 'حفظ ملف الفاتورة الجمركية Excel',
       );
     } catch (e) {
       if (!mounted) return;
@@ -1452,12 +1469,13 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
       final bytes = await notifier.downloadTrackPackingListExcel(track.trackId);
       if (!mounted) return;
-      await FileSaveHelper.saveBytes(
+      await FileSaveHelper.exportAndSaveFile(
         context: context,
         bytes: bytes,
-        defaultFileName: 'Customs_Packing_List_${track.trackCode}.xlsx',
-        dialogTitle: 'حفظ ملف قائمة التعبئة الجمركية Excel',
-        allowedExtensions: ['xlsx', 'xls'],
+        stageName: 'CargoX Blockchain & ACI Hub',
+        importFileNameOrCode: 'Customs Packing List (${track.trackCode})',
+        extension: 'xlsx',
+        customDialogTitle: 'حفظ ملف قائمة التعبئة الجمركية Excel',
       );
     } catch (e) {
       if (!mounted) return;
@@ -2302,21 +2320,42 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
             maxLines: 2,
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isSaving ? null : _handleSaveSession,
-              icon: _isSaving
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.save),
-              label: Text(context.l10n.standardInvoiceSaveSessionBtn),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF27AE60),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _isSaving ? null : () => _handleSaveSession(isDraft: true),
+                  icon: const Icon(Icons.save_outlined, size: 18, color: AppTheme.cobalt),
+                  label: const Text(
+                    'حفظ مؤقت للجلسة (Save Draft)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppTheme.cobalt),
+                    foregroundColor: AppTheme.cobalt,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                  onPressed: _isSaving ? null : () => _handleSaveSession(isDraft: false),
+                  icon: _isSaving
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.check_circle_outline, size: 18),
+                  label: Text(context.l10n.standardInvoiceSaveSessionBtn),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF27AE60),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

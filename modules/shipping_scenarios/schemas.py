@@ -304,3 +304,12 @@ class ShippingEvaluationResponse(ShippingEvaluationBase):
     recommended_scenario_provider: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CloneShippingEvaluationRequest(BaseModel):
+    new_title: Optional[str] = None
+    cargo_ready_date: Optional[date] = None
+    unlink_import_file: bool = True
+    unlink_po: bool = True
+    copy_carrier_options: bool = True
+    remarks: Optional[str] = None

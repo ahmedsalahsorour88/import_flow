@@ -345,17 +345,7 @@ def list_customs_tracks_by_file(
     """
     CGX-003: قائمة كافة النسخ الجمركية المحفوظة لملف استيراد معين.
     """
-    from .model import CargoXCustomsInvoiceTrack
-    tracks = (
-        db.query(CargoXCustomsInvoiceTrack)
-        .filter(
-            CargoXCustomsInvoiceTrack.import_file_id == import_file_id,
-            CargoXCustomsInvoiceTrack.is_active.is_(True),
-        )
-        .order_by(CargoXCustomsInvoiceTrack.track_id.desc())
-        .all()
-    )
-    return tracks
+    return CargoXStandardInvoiceService.list_customs_tracks_by_file(db, import_file_id)
 
 
 @router.get("/customs-track/{track_id}", response_model=CustomsInvoiceTrackResponse)
@@ -366,19 +356,7 @@ def get_customs_track_by_id(
     """
     الحصول على تفاصيل مسار جمركي معين.
     """
-    from .model import CargoXCustomsInvoiceTrack
-    track = (
-        db.query(CargoXCustomsInvoiceTrack)
-        .filter(
-            CargoXCustomsInvoiceTrack.track_id == track_id,
-            CargoXCustomsInvoiceTrack.is_active.is_(True),
-        )
-        .first()
-    )
-    if not track:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail=f"المسار الجمركي {track_id} غير موجود.")
-    return track
+    return CargoXStandardInvoiceService.get_customs_track_by_id(db, track_id)
 
 
 @router.put("/customs-track/{track_id}", response_model=CustomsInvoiceTrackResponse)
@@ -415,18 +393,7 @@ def export_customs_track_excel(
     """
     تحميل ملف Excel التجاري المعتمد الخاص بالمسار الجمركي.
     """
-    from .model import CargoXCustomsInvoiceTrack
-    track = (
-        db.query(CargoXCustomsInvoiceTrack)
-        .filter(
-            CargoXCustomsInvoiceTrack.track_id == track_id,
-            CargoXCustomsInvoiceTrack.is_active.is_(True),
-        )
-        .first()
-    )
-    if not track:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail=f"المسار الجمركي {track_id} غير موجود.")
+    track = CargoXStandardInvoiceService.get_customs_track_by_id(db, track_id)
 
     data = track.customs_invoice_data
     if isinstance(data, list) and len(data) > 0:
@@ -455,18 +422,7 @@ def export_customs_track_packing_list_excel(
     CGX-003/CGX-004: تحميل Excel قائمة التعبئة الجمركية.
     يدعم تحديد هيكل الطرود: by_hs_code | flat | by_pallet | by_carton.
     """
-    from .model import CargoXCustomsInvoiceTrack
-    track = (
-        db.query(CargoXCustomsInvoiceTrack)
-        .filter(
-            CargoXCustomsInvoiceTrack.track_id == track_id,
-            CargoXCustomsInvoiceTrack.is_active.is_(True),
-        )
-        .first()
-    )
-    if not track:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail=f"المسار الجمركي {track_id} غير موجود.")
+    track = CargoXStandardInvoiceService.get_customs_track_by_id(db, track_id)
 
     # استخدام customs_packing_list_data إن وجد، وإلا بناء من الفاتورة
     pl_data = track.customs_packing_list_data

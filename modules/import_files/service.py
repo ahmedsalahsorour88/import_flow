@@ -64,6 +64,36 @@ STEP_INITIAL_CONFIG = {
         "progress": 50.0,
         "next_action": "Obtain Customs Approval on Draft Documents",
     },
+    "STEP_08_PO": {
+        "module": "BP-008.1 PO & Packing Reconciliation",
+        "stage": "Phase 3 - Booking & Doc Prep",
+        "progress": 48.0,
+        "next_action": "Audit Commercial Invoice & Packing List vs PO",
+    },
+    "STEP_08_BL": {
+        "module": "BP-008.2 Draft B/L Review & Approval",
+        "stage": "Phase 3 - Booking & Doc Prep",
+        "progress": 50.0,
+        "next_action": "Review Draft B/L with Carrier & Issue Revisions",
+    },
+    "STEP_08_MATCH": {
+        "module": "BP-008.3 Smart Invoice vs B/L Match",
+        "stage": "Phase 3 - Booking & Doc Prep",
+        "progress": 52.0,
+        "next_action": "Verify Field Matching between Invoice & B/L",
+    },
+    "STEP_08_COO": {
+        "module": "BP-008.4 Draft COO & EUR.1 Review",
+        "stage": "Phase 3 - Booking & Doc Prep",
+        "progress": 54.0,
+        "next_action": "Audit Certificate of Origin & Preferential Trade Rules",
+    },
+    "STEP_08_COC": {
+        "module": "BP-008.5 Draft Inspection Review",
+        "stage": "Phase 3 - Booking & Doc Prep",
+        "progress": 55.0,
+        "next_action": "Audit Pre-shipment Inspection & Conformity Certificates",
+    },
     "STEP_09": {
         "module": "BP-009 Docs Customs Approval",
         "stage": "Phase 3 - Booking & Doc Prep",
@@ -97,14 +127,32 @@ STEP_INITIAL_CONFIG = {
     "STEP_14": {
         "module": "BP-014 Clearance Follow-up",
         "stage": "Phase 5 - Port Operations & Clearance",
-        "progress": 80.0,
+        "progress": 78.0,
         "next_action": "Inspect Cargo & Settle Customs Taxes",
+    },
+    "STEP_15": {
+        "module": "BP-015 Drawing Samples",
+        "stage": "Phase 5 - Port Operations & Clearance",
+        "progress": 80.0,
+        "next_action": "Track Regulatory & Lab Sample Test Results",
+    },
+    "STEP_16": {
+        "module": "BP-016 Cargo Discrepancy",
+        "stage": "Phase 5 - Port Operations & Clearance",
+        "progress": 82.0,
+        "next_action": "Verify Cargo Quantities & Reconcile Discrepancies",
     },
     "STEP_17": {
         "module": "BP-017 Final Customs Calculation",
         "stage": "Phase 5 - Port Operations & Clearance",
         "progress": 85.0,
         "next_action": "Pay Customs Duties & Release Cargo from Port",
+    },
+    "STEP_18": {
+        "module": "BP-018 Demurrage & Detention",
+        "stage": "Phase 5 - Port Operations & Clearance",
+        "progress": 88.0,
+        "next_action": "Track Container Demurrage & Free Time Expiry",
     },
     "STEP_19": {
         "module": "BP-019 Warehouse Receiving GRN",
@@ -189,7 +237,9 @@ def compute_file_formulas(
 
 
 
-def create_import_file_service(db: Session, payload: ImportFileCreate) -> ImportFile:
+def create_import_file_service(
+    db: Session, payload: ImportFileCreate, current_user: str = "System"
+) -> ImportFile:
     # 1. Validate custom file number uniqueness if provided
     validators.validate_custom_file_number_unique(db, payload.custom_file_number)
 
@@ -219,6 +269,10 @@ def create_import_file_service(db: Session, payload: ImportFileCreate) -> Import
     data_dict = payload.model_dump()
     data_dict["import_file_code"] = file_code
     data_dict["custom_file_number"] = custom_num
+    if not data_dict.get("created_by"):
+        data_dict["created_by"] = current_user
+    if not data_dict.get("owner"):
+        data_dict["owner"] = current_user
     data_dict.update(formulas)
 
     created_file = repo.create_import_file(db, data_dict)
@@ -994,12 +1048,22 @@ def clone_import_file_service(
             detail=f"ملف الاستيراد الأصلي '{import_file_id}' غير موجود.",
         )
 
-    # 1. Uniqueness check for target_import_file_code
-    existing_code = repo.get_import_file_by_code(db, payload.target_import_file_code)
+    target_code = payload.target_import_file_code or payload.new_import_file_code
+    if not target_code:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="كود ملف الاستيراد الجديد مطلوب.",
+        )
+
+    copy_invoices = payload.copy_invoices_data if payload.copy_items is None else payload.copy_items
+    copy_pls = payload.copy_packing_lists if payload.copy_items is None else payload.copy_items
+
+    # 1. Uniqueness check for target_code
+    existing_code = repo.get_import_file_by_code(db, target_code)
     if existing_code:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"كود ملف الاستيراد '{payload.target_import_file_code}' مستخدم بالفعل.",
+            detail=f"كود ملف الاستيراد '{target_code}' مستخدم بالفعل.",
         )
 
     # 2. Uniqueness check for target_custom_file_number if provided
@@ -1014,7 +1078,7 @@ def clone_import_file_service(
             )
 
     cloned_data = {
-        "import_file_code": payload.target_import_file_code,
+        "import_file_code": target_code,
         "custom_file_number": payload.target_custom_file_number,
         "company_id": original.company_id,
         "company_name": original.company_name,
@@ -1025,9 +1089,9 @@ def clone_import_file_service(
         "po_number": None,
         "po_ids": [],
         "pi_number": None,
-        "invoices_data": original.invoices_data if payload.copy_invoices_data else [],
-        "packing_lists_data": original.packing_lists_data if payload.copy_packing_lists else [],
-        "invoices_count": len(original.invoices_data) if (payload.copy_invoices_data and original.invoices_data) else 0,
+        "invoices_data": original.invoices_data if copy_invoices else [],
+        "packing_lists_data": original.packing_lists_data if copy_pls else [],
+        "invoices_count": len(original.invoices_data) if (copy_invoices and original.invoices_data) else 0,
         "extraction_preference": original.extraction_preference,
         "project_ids": original.project_ids or [],
         "project_names": original.project_names,

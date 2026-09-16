@@ -8,6 +8,7 @@ import '../providers/financial_approval_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../services/financial_export_service.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../widgets/swift_extraction_review_widget.dart';
 
 import 'package:flutter/services.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -57,6 +58,8 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
   String? _uploadedFileName;
   String? _detectedFileType;
   int? _uploadedFileSize;
+  SwiftBatchModel? _currentBatch;
+  bool _isMatchingUnlocked = false;
 
   @override
   void initState() {
@@ -239,6 +242,10 @@ ${l10n.swiftVariancesMetric}: $varianceCount
             _extractedSwift = res['parsed_swift'] as Map<String, dynamic>?;
             _matchedPayment = res['matched_payment_request'] as Map<String, dynamic>?;
             _detectedFileType = res['detected_file_type'] as String?;
+            if (res['batch'] != null) {
+              _currentBatch = SwiftBatchModel.fromJson(res['batch'] as Map<String, dynamic>);
+              _isMatchingUnlocked = _currentBatch!.status == 'REVIEWED_CONFIRMED' || _currentBatch!.status == 'RECONCILED';
+            }
             if (res['raw_text'] != null && (res['raw_text'] as String).isNotEmpty) {
               _rawSwiftTextController.text = res['raw_text'] as String;
             }
@@ -305,6 +312,10 @@ ${l10n.swiftVariancesMetric}: $varianceCount
           setState(() {
             _extractedSwift = res['parsed_swift'] as Map<String, dynamic>?;
             _matchedPayment = res['matched_payment_request'] as Map<String, dynamic>?;
+            if (res['batch'] != null) {
+              _currentBatch = SwiftBatchModel.fromJson(res['batch'] as Map<String, dynamic>);
+              _isMatchingUnlocked = _currentBatch!.status == 'REVIEWED_CONFIRMED' || _currentBatch!.status == 'RECONCILED';
+            }
             if (_matchedPayment != null && _matchedPayment!['payment_id'] != null) {
               _selectedPaymentIdForReconcile = _matchedPayment!['payment_id'] as int;
             }
@@ -353,18 +364,27 @@ ${l10n.swiftVariancesMetric}: $varianceCount
 
     setState(() => _isSmartReconciling = true);
     try {
-      final updated = await ref.read(paymentRequestsProvider.notifier).smartReconcileSwift(
-        paymentId: pay.paymentId,
-        rawText: _rawSwiftTextController.text.trim(),
-        swiftReferenceNo: swiftRef,
-        swiftReceiptDate: rawDate.toString().substring(0, 10),
-        swiftTransferredAmount: amt,
-        swiftTransferredCurrency: curr,
-        swiftCode: swiftCode,
-        ibanAccountNo: iban,
-        swiftReconciliationNotes: l10n.swiftScreenSubtitle,
-        autoExecute: true,
-      );
+      PaymentRequestModel? updated;
+      if (_currentBatch != null) {
+        updated = await ref.read(paymentRequestsProvider.notifier).reconcileReviewedSwiftBatch(
+          batchId: _currentBatch!.batchId,
+          paymentId: pay.paymentId,
+          notes: l10n.swiftScreenSubtitle,
+        );
+      } else {
+        updated = await ref.read(paymentRequestsProvider.notifier).smartReconcileSwift(
+          paymentId: pay.paymentId,
+          rawText: _rawSwiftTextController.text.trim(),
+          swiftReferenceNo: swiftRef,
+          swiftReceiptDate: rawDate.toString().substring(0, 10),
+          swiftTransferredAmount: amt,
+          swiftTransferredCurrency: curr,
+          swiftCode: swiftCode,
+          ibanAccountNo: iban,
+          swiftReconciliationNotes: l10n.swiftScreenSubtitle,
+          autoExecute: true,
+        );
+      }
 
       ref.read(importFilesProvider.notifier).fetchImportFiles();
 
@@ -1195,11 +1215,25 @@ ${l10n.swiftVariancesMetric}: $varianceCount
     if (matchedPay == null) {
       return Center(child: Text(l10n.swiftNoMatchingRecords));
     }
+    final targetPay = matchedPay;
 
     final score = _matchedPayment?['confidence_score'] ?? 100;
     final amtInfo = _matchedPayment?['amount_matching'] as Map<String, dynamic>?;
     final isAmtMatched = amtInfo?['is_matched'] ?? true;
     final variance = (amtInfo?['variance'] as num?)?.toDouble() ?? 0.0;
+
+    final benInfo = _matchedPayment?['beneficiary_matching'] as Map<String, dynamic>?;
+    final isBenMatched = benInfo?['is_matched'] ?? true;
+
+    final bankInfo = _matchedPayment?['bank_swift_matching'] as Map<String, dynamic>?;
+    final isSwiftMatched = bankInfo?['is_matched'] ?? (matchedPay.swiftCode == null || matchedPay.swiftCode == _extractedSwift!['beneficiary_bank_swift']);
+    final matchedBankType = bankInfo?['matched_bank_type'] as String?;
+
+    final accInfo = _matchedPayment?['account_iban_matching'] as Map<String, dynamic>?;
+    final isAccMatched = accInfo?['is_matched'] ?? true;
+
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final mismatchLabel = isAr ? 'غير متطابق' : 'Mismatch';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1249,8 +1283,8 @@ ${l10n.swiftVariancesMetric}: $varianceCount
           labelText: l10n.swiftTargetPaymentLabel,
           items: paymentsList.where((p) => p.isActive).map((p) {
             final allFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
-            final isAr = Localizations.localeOf(context).languageCode == 'ar';
-            final shipName = DisplayNameResolver.resolveShipmentNameByCode(p.importFileCode, shipments: allFiles, isArabic: isAr);
+            final isArLocale = Localizations.localeOf(context).languageCode == 'ar';
+            final shipName = DisplayNameResolver.resolveShipmentNameByCode(p.importFileCode, shipments: allFiles, isArabic: isArLocale);
             final shipBadge = (shipName.isNotEmpty && shipName != '-') ? ' [$shipName]' : '';
             return SearchableDropdownItem<int>(
               value: p.paymentId,
@@ -1280,34 +1314,110 @@ ${l10n.swiftVariancesMetric}: $varianceCount
             children: [
               _buildCompareRow(
                 '${l10n.swiftRequestedAmountLabel}:',
-                '${l10n.swiftRequestedAmountLabel}: ${matchedPay.requestedAmount.toStringAsFixed(2)} ${matchedPay.currencyCode}',
-                '${l10n.swiftTransferredAmountLabel}: ${_extractedSwift!['amount']} ${_extractedSwift!['currency']}',
+                '${matchedPay.requestedAmount.toStringAsFixed(2)} ${matchedPay.currencyCode}',
+                '${_extractedSwift!['amount']} ${_extractedSwift!['currency']}',
                 isAmtMatched,
-                variance == 0.0 ? l10n.swiftBadgeMatchedFull : l10n.swiftBadgeDeficit(variance.abs().toStringAsFixed(2), matchedPay.currencyCode),
+                isAmtMatched
+                    ? (variance == 0.0 ? l10n.swiftBadgeMatchedFull : l10n.swiftBadgeDeficit(variance.abs().toStringAsFixed(2), matchedPay.currencyCode))
+                    : mismatchLabel,
               ),
               const Divider(height: 12),
               _buildCompareRow(
                 l10n.swiftBeneficiaryLabel,
                 matchedPay.beneficiaryName ?? matchedPay.supplierName,
                 _extractedSwift!['beneficiary_name'] ?? '-',
-                true,
-                l10n.swiftBadgeMatchedFull,
+                isBenMatched,
+                isBenMatched ? l10n.swiftBadgeMatchedFull : mismatchLabel,
               ),
               const Divider(height: 12),
               _buildCompareRow(
-                '${l10n.swiftBankLabel} / SWIFT:',
+                isAr ? 'سويفت المستفيد (:57A):' : 'Beneficiary SWIFT (:57A):',
                 matchedPay.swiftCode ?? '-',
                 _extractedSwift!['beneficiary_bank_swift'] ?? '-',
-                matchedPay.swiftCode == null || matchedPay.swiftCode == _extractedSwift!['beneficiary_bank_swift'],
-                l10n.swiftBadgeMatchedFull,
+                isSwiftMatched && matchedBankType != 'SENDER_BANK',
+                (isSwiftMatched && matchedBankType != 'SENDER_BANK')
+                    ? l10n.swiftBadgeMatchedFull
+                    : (matchedBankType == 'SENDER_BANK'
+                        ? (isAr ? 'طابق بنك التحويل' : 'Matched Sender Bank')
+                        : mismatchLabel),
+                customBadgeBg: matchedBankType == 'SENDER_BANK' ? Colors.amber.shade50 : null,
+                customBadgeBorder: matchedBankType == 'SENDER_BANK' ? Colors.amber.shade300 : null,
+                customBadgeText: matchedBankType == 'SENDER_BANK' ? Colors.amber.shade900 : null,
+                trailingAction: (matchedPay.swiftCode != _extractedSwift!['beneficiary_bank_swift'] &&
+                        _extractedSwift!['beneficiary_bank_swift'] != null &&
+                        _extractedSwift!['beneficiary_bank_swift'].toString().isNotEmpty)
+                    ? InkWell(
+                        onTap: () async {
+                          final newSwift = _extractedSwift!['beneficiary_bank_swift'].toString();
+                          try {
+                            await ref.read(paymentRequestsProvider.notifier).updatePaymentRequest(
+                              targetPay.paymentId,
+                              {'swift_code': newSwift},
+                            );
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(isAr
+                                      ? 'تم تحديث سويفت طلب السداد إلى $newSwift بنجاح!'
+                                      : 'Payment Request SWIFT updated to $newSwift successfully!'),
+                                  backgroundColor: AppTheme.emerald,
+                                ),
+                              );
+                              _runSmartSwiftExtraction(targetPaymentId: targetPay.paymentId);
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(isAr ? 'فشل التحديث: $e' : 'Update failed: $e'),
+                                  backgroundColor: AppTheme.crimson,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.auto_fix_high, size: 13, color: AppTheme.cobalt),
+                            const SizedBox(width: 4),
+                            Text(
+                              isAr
+                                  ? 'تحديث سويفت طلب السداد إلى ${_extractedSwift!['beneficiary_bank_swift']} (انقر هنا)'
+                                  : 'Update Payment SWIFT to ${_extractedSwift!['beneficiary_bank_swift']}',
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                color: AppTheme.cobalt,
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : null,
               ),
+              if (_extractedSwift!['sender_bank_swift'] != null &&
+                  _extractedSwift!['sender_bank_swift'].toString().isNotEmpty) ...[
+                const Divider(height: 12),
+                _buildCompareRow(
+                  isAr ? 'بنك التحويل (مصر):' : 'Remitting Bank (EG):',
+                  _extractedSwift!['sender_bank_name'] ?? (isAr ? 'بنك التحويل في مصر' : 'Remitting Bank in Egypt'),
+                  _extractedSwift!['sender_bank_swift'],
+                  true,
+                  isAr ? 'البنك المنفذ' : 'Issuing Bank',
+                  customBadgeBg: Colors.blue.shade50,
+                  customBadgeBorder: Colors.blue.shade200,
+                  customBadgeText: Colors.blue.shade800,
+                ),
+              ],
               const Divider(height: 12),
               _buildCompareRow(
                 l10n.swiftAccountLabel,
                 matchedPay.ibanAccountNo ?? '-',
                 _extractedSwift!['beneficiary_account_or_iban'] ?? '-',
-                true,
-                l10n.swiftBadgeMatchedFull,
+                isAccMatched,
+                isAccMatched ? l10n.swiftBadgeMatchedFull : mismatchLabel,
               ),
             ],
           ),
@@ -1337,45 +1447,75 @@ ${l10n.swiftVariancesMetric}: $varianceCount
     );
   }
 
-  Widget _buildCompareRow(String label, String sysVal, String swiftVal, bool isMatch, String badgeText) {
-    return Row(
+  Widget _buildCompareRow(
+    String label,
+    String sysVal,
+    String swiftVal,
+    bool isMatch,
+    String badgeText, {
+    Color? customBadgeBg,
+    Color? customBadgeBorder,
+    Color? customBadgeText,
+    Widget? trailingAction,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(width: 110, child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-        Expanded(
-          child: InkWell(
-            onTap: () => CopyHelper.copy(context, sysVal),
-            child: Text(
-              sysVal,
-              style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+        Row(
+          children: [
+            SizedBox(width: 130, child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+            Expanded(
+              child: InkWell(
+                onTap: () => CopyHelper.copy(context, sysVal),
+                child: Text(
+                  sysVal,
+                  style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ),
-          ),
-        ),
-        const Icon(Icons.arrow_right_alt, color: Colors.grey, size: 16),
-        Expanded(
-          child: InkWell(
-            onTap: () => CopyHelper.copy(context, swiftVal),
-            child: Text(
-              swiftVal,
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isMatch ? AppTheme.emerald : AppTheme.crimson),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            const Icon(Icons.arrow_right_alt, color: Colors.grey, size: 16),
+            Expanded(
+              child: InkWell(
+                onTap: () => CopyHelper.copy(context, swiftVal),
+                child: Text(
+                  swiftVal,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isMatch ? AppTheme.emerald : (customBadgeText ?? AppTheme.crimson),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ),
-          ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: customBadgeBg ?? (isMatch ? Colors.green.shade50 : Colors.red.shade50),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: customBadgeBorder ?? (isMatch ? Colors.green.shade200 : Colors.red.shade200)),
+              ),
+              child: Text(
+                badgeText,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: customBadgeText ?? (isMatch ? Colors.green.shade800 : Colors.red.shade800),
+                ),
+              ),
+            ),
+          ],
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: isMatch ? Colors.green.shade50 : Colors.red.shade50,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: isMatch ? Colors.green.shade200 : Colors.red.shade200),
+        if (trailingAction != null) ...[
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 130),
+            child: trailingAction,
           ),
-          child: Text(
-            badgeText,
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isMatch ? Colors.green.shade800 : Colors.red.shade800),
-          ),
-        ),
+        ],
       ],
     );
   }
@@ -1617,6 +1757,8 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                 onPressed: () {
                                   _rawSwiftTextController.clear();
                                   setState(() {
+                                    _currentBatch = null;
+                                    _isMatchingUnlocked = false;
                                     _extractedSwift = null;
                                     _matchedPayment = null;
                                     _selectedPaymentIdForReconcile = null;
@@ -1633,8 +1775,92 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                     ],
                   ),
 
-                  // Results View if Extracted
-                  if (_extractedSwift != null) ...[
+                  // 1. SWIFT Extraction Review Layer (Mandatory Human Review)
+                  if (_currentBatch != null) ...[
+                    const SizedBox(height: 16),
+                    SwiftExtractionReviewWidget(
+                      initialBatch: _currentBatch!,
+                      onBatchConfirmed: (confirmedBatch) async {
+                        setState(() {
+                          _currentBatch = confirmedBatch;
+                          _isMatchingUnlocked = true;
+                        });
+                        try {
+                          final matchRes = await ref
+                              .read(paymentRequestsProvider.notifier)
+                              .matchReviewedSwiftBatch(
+                                batchId: confirmedBatch.batchId,
+                                targetPaymentId: _selectedPaymentIdForReconcile,
+                              );
+                          if (mounted && matchRes['success'] == true) {
+                            setState(() {
+                              _matchedPayment = matchRes['matched_payment_request'] as Map<String, dynamic>?;
+                              if (_matchedPayment != null && _matchedPayment!['payment_id'] != null) {
+                                _selectedPaymentIdForReconcile = _matchedPayment!['payment_id'] as int;
+                              }
+                            });
+                          }
+                        } catch (e) {
+                          debugPrint("Error matching reviewed batch: $e");
+                        }
+                      },
+                      onCancel: () {
+                        setState(() {
+                          _currentBatch = null;
+                          _isMatchingUnlocked = false;
+                          _extractedSwift = null;
+                          _matchedPayment = null;
+                        });
+                      },
+                    ),
+                  ],
+
+                  // 2. Matching Matrix Box (Only unlocked after user explicitly confirms the review!)
+                  if (_isMatchingUnlocked && _currentBatch != null) ...[
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.emerald, width: 2),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.lock_open, color: AppTheme.emerald, size: 20),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'مصفوفة المطابقة المالية المعتمدة (Matching Matrix)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: AppTheme.charcoal,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.emerald,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'البيانات مدققة ومؤكدة بشرياً',
+                                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _buildMatchingMatrixBox(paymentsList),
+                        ],
+                      ),
+                    ),
+                  ] else if (_currentBatch == null && _extractedSwift != null) ...[
+                    // Legacy fallback if no batch was returned
                     const SizedBox(height: 16),
                     const Divider(),
                     const SizedBox(height: 12),
@@ -1657,22 +1883,34 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.account_balance, color: AppTheme.cobalt, size: 18),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          l10n.swiftExtractorHeader,
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-                                        ),
-                                      ],
+                                    Expanded(
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.account_balance, color: AppTheme.cobalt, size: 18),
+                                          const SizedBox(width: 6),
+                                          Flexible(
+                                            child: Text(
+                                              l10n.swiftExtractorHeader,
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 1,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(color: AppTheme.cobalt, borderRadius: BorderRadius.circular(4)),
-                                      child: Text(
-                                        'Ref: ${_extractedSwift!['transaction_reference'] ?? l10n.swiftStatusUnregistered}',
-                                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(color: AppTheme.cobalt, borderRadius: BorderRadius.circular(4)),
+                                        child: Text(
+                                          'Ref: ${_extractedSwift!['transaction_reference'] ?? l10n.swiftStatusUnregistered}',
+                                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -1684,20 +1922,20 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                     const SizedBox(width: 8),
                                     _buildInfoField(l10n.swiftColSwiftDate, _extractedSwift!['value_date_formatted'] ?? _extractedSwift!['value_date'] ?? '-', AppTheme.charcoal),
                                     const SizedBox(width: 8),
-                                    _buildInfoField(l10n.swiftColVarianceStatus, _extractedSwift!['charge_details'] ?? 'SHA', Colors.teal),
+                                    _buildInfoField(l10n.swiftChargesLabel, _extractedSwift!['charge_details'] ?? 'SHA', Colors.teal),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                Text('${l10n.swiftExtractedReceiverPrefix} ${_extractedSwift!['beneficiary_name'] ?? "-"}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                Text('${l10n.swiftExtractedReceiverPrefix.replaceAll(':', '')}: ${_extractedSwift!['beneficiary_name'] ?? "-"}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    Expanded(child: Text('${l10n.swiftColSwiftRef}: ${_extractedSwift!['beneficiary_bank_swift'] ?? "-"}', style: const TextStyle(fontSize: 11))),
-                                    Expanded(child: Text('${l10n.swiftAccountLabel}: ${_extractedSwift!['beneficiary_account_or_iban'] ?? "-"}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                    Expanded(child: Text('${l10n.swiftCodeLabel.replaceAll(':', '')}: ${_extractedSwift!['beneficiary_bank_swift'] ?? "-"}', style: const TextStyle(fontSize: 11))),
+                                    Expanded(child: Text('${l10n.swiftAccountLabel.replaceAll(':', '')}: ${_extractedSwift!['beneficiary_account_or_iban'] ?? "-"}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
                                 const SizedBox(height: 6),
-                                Text('${l10n.swiftExtractedSenderPrefix}: ${_extractedSwift!['ordering_customer_name'] ?? "-"} (${_extractedSwift!['ordering_account_or_iban'] ?? "-"})', style: TextStyle(fontSize: 11, color: Colors.grey.shade800)),
+                                Text('${l10n.swiftExtractedSenderPrefix.replaceAll(':', '')}: ${_extractedSwift!['ordering_customer_name'] ?? "-"} (${_extractedSwift!['ordering_account_or_iban'] ?? "-"})', style: TextStyle(fontSize: 11, color: Colors.grey.shade800)),
                                 if (_extractedSwift!['pi_number'] != null || _extractedSwift!['payment_details'] != null) ...[
                                   const SizedBox(height: 4),
                                   Text('${l10n.swiftRequestTitleLabel} ${_extractedSwift!['pi_number'] ?? _extractedSwift!['payment_details']}', style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
@@ -1707,8 +1945,6 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                           ),
                         ),
                         const SizedBox(width: 14),
-
-                        // Right Box: Auto-Matching & Discrepancy Matrix
                         Expanded(
                           flex: 6,
                           child: Container(
@@ -1967,6 +2203,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                             child: DataTable(
                               headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                               columns: [
+                                DataColumn(label: Text(l10n.swiftColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l10n.swiftColPaymentCode, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l10n.swiftColBeneficiaryBank, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l10n.swiftColRequestDate, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -1976,7 +2213,6 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                 DataColumn(label: Text(l10n.swiftColTransferredAmount, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l10n.swiftColVarianceStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l10n.swiftColSwiftRef, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text(l10n.swiftColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                               ],
                               rows: filtered.map((pay) {
                                 final allFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
@@ -1987,6 +2223,36 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                 final rowSummary = '${pay.paymentCode} | $shipTitle | ${pay.beneficiaryName ?? pay.supplierName} | ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode} | ${pay.swiftReferenceNo ?? l10n.swiftPendingSwiftBadge}';
                                 return DataRow(
                                   cells: [
+                                    DataCell(
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: isReconciled ? AppTheme.cobalt : AppTheme.emerald,
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                            ),
+                                            icon: Icon(isReconciled ? Icons.edit : Icons.account_balance, color: Colors.white, size: 14),
+                                            label: Text(
+                                              isReconciled ? l10n.swiftEditBtn : l10n.swiftRegisterBtn,
+                                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                            ),
+                                            onPressed: () => _showSwiftReconciliationDialog(pay),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          IconButton(
+                                            icon: const Icon(Icons.visibility, color: AppTheme.charcoal, size: 18),
+                                            tooltip: l10n.swiftDetailsBtn,
+                                            onPressed: () => _showSwiftDetailsDialog(pay),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.copy, color: AppTheme.cobalt, size: 16),
+                                            tooltip: l10n.swiftCopyDossierBtn,
+                                            onPressed: () => _copyPaymentDossier(pay),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                     DataCell(
                                       CopyableTableCell(
                                         value: '${pay.paymentCode}${pay.importFileCode != null ? " / $shipTitle" : ""}',
@@ -2146,36 +2412,6 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                                 ],
                                               )
                                             : Text(l10n.swiftUnregistered, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          ElevatedButton.icon(
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: isReconciled ? AppTheme.cobalt : AppTheme.emerald,
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                            ),
-                                            icon: Icon(isReconciled ? Icons.edit : Icons.account_balance, color: Colors.white, size: 14),
-                                            label: Text(
-                                              isReconciled ? l10n.swiftEditBtn : l10n.swiftRegisterBtn,
-                                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                                            ),
-                                            onPressed: () => _showSwiftReconciliationDialog(pay),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          IconButton(
-                                            icon: const Icon(Icons.visibility, color: AppTheme.charcoal, size: 18),
-                                            tooltip: l10n.swiftDetailsBtn,
-                                            onPressed: () => _showSwiftDetailsDialog(pay),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(Icons.copy, color: AppTheme.cobalt, size: 16),
-                                            tooltip: l10n.swiftCopyDossierBtn,
-                                            onPressed: () => _copyPaymentDossier(pay),
-                                          ),
-                                        ],
                                       ),
                                     ),
                                   ],

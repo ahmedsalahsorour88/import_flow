@@ -451,6 +451,10 @@ class _StepConfigManagementScreenState
                 columnSpacing: 24,
                 columns: [
                   DataColumn(
+                      label: Text(l.stepConfigColActions,
+                          style:
+                              const TextStyle(fontWeight: FontWeight.bold))),
+                  DataColumn(
                       label: Text(l.stepConfigColPhaseCode,
                           style:
                               const TextStyle(fontWeight: FontWeight.bold))),
@@ -476,10 +480,6 @@ class _StepConfigManagementScreenState
                               const TextStyle(fontWeight: FontWeight.bold))),
                   DataColumn(
                       label: Text(l.stepConfigColLastModified,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(
-                      label: Text(l.stepConfigColActions,
                           style:
                               const TextStyle(fontWeight: FontWeight.bold))),
                 ],
@@ -512,6 +512,35 @@ class _StepConfigManagementScreenState
 
     return DataRow(
       cells: [
+        // 8. Actions (Quick Row Copy + Edit + Audit)
+        DataCell(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.copy_rounded,
+                    color: Color(0xFF2C3E50), size: 18),
+                tooltip: l.stepConfigCopyRowTooltip,
+                onPressed: () {
+                  CopyHelper.copy(context, rowSummary,
+                      customMessage: l.stepConfigCopyRowSuccess);
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit_note_rounded,
+                    color: AppTheme.flatCobalt, size: 22),
+                tooltip: l.stepConfigEditTooltip,
+                onPressed: () => _showEditDialog(context, cfg),
+              ),
+              IconButton(
+                icon: const Icon(Icons.history_rounded,
+                    color: Color(0xFF2C3E50), size: 20),
+                tooltip: l.stepConfigAuditTooltip,
+                onPressed: () => _showAuditDialog(context, cfg),
+              ),
+            ],
+          ),
+        ),
         // 1. Code & Phase
         DataCell(
           CopyableTableCell(
@@ -530,7 +559,7 @@ class _StepConfigManagementScreenState
                   child: Text(
                     'P${cfg.phaseId}',
                     style: const TextStyle(
-                        fontSize: 10,
+                        fontSize: 11.0,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF475569)),
                   ),
@@ -635,7 +664,7 @@ class _StepConfigManagementScreenState
                   child: Text(
                     role,
                     style: const TextStyle(
-                        fontSize: 10, color: Color(0xFF334155)),
+                        fontSize: 11.0, color: Color(0xFF334155)),
                   ),
                 );
               }).toList(),
@@ -721,41 +750,13 @@ class _StepConfigManagementScreenState
                 if (cfg.lastModifiedAt != null)
                   Text(cfg.lastModifiedAt!,
                       style: const TextStyle(
-                          fontSize: 10, color: Color(0xFF94A3B8))),
+                          fontSize: 11.0, color: Color(0xFF94A3B8))),
               ],
             ),
           ),
         ),
 
-        // 8. Actions (Quick Row Copy + Edit + Audit)
-        DataCell(
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.copy_rounded,
-                    color: Color(0xFF2C3E50), size: 18),
-                tooltip: l.stepConfigCopyRowTooltip,
-                onPressed: () {
-                  CopyHelper.copy(context, rowSummary,
-                      customMessage: l.stepConfigCopyRowSuccess);
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.edit_note_rounded,
-                    color: AppTheme.flatCobalt, size: 22),
-                tooltip: l.stepConfigEditTooltip,
-                onPressed: () => _showEditDialog(context, cfg),
-              ),
-              IconButton(
-                icon: const Icon(Icons.history_rounded,
-                    color: Color(0xFF2C3E50), size: 20),
-                tooltip: l.stepConfigAuditTooltip,
-                onPressed: () => _showAuditDialog(context, cfg),
-              ),
-            ],
-          ),
-        ),
+
       ],
     );
   }

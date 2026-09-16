@@ -4,10 +4,11 @@ FastAPI Router for Import Files Master & Tracking Module
 
 from typing import List, Optional
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session
 
 from database.database import get_db
+from utils.export_import_helper import MasterDataExportImportHelper
 from modules.import_files.schemas import (
     ImportFileCreate,
     ImportFileUpdate,
@@ -23,6 +24,8 @@ from modules.import_files.schemas import (
     CloneImportFileRequest,
 )
 import modules.import_files.service as service
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 
 router = APIRouter(prefix="/api/v1/import-files", tags=["Import Files Tracking"])
 
@@ -33,8 +36,13 @@ router = APIRouter(prefix="/api/v1/import-files", tags=["Import Files Tracking"]
     status_code=status.HTTP_201_CREATED,
     summary="Create a new Import File / Case Tracking record",
 )
-def create_import_file(payload: ImportFileCreate, db: Session = Depends(get_db)):
-    return service.create_import_file_service(db, payload)
+def create_import_file(
+    payload: ImportFileCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.create")),
+):
+    user_name = current_user.username if (current_user and hasattr(current_user, "username")) else "System"
+    return service.create_import_file_service(db, payload, current_user=user_name)
 
 
 @router.get(
@@ -58,6 +66,7 @@ def list_import_files(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.view")),
 ):
     return service.get_all_import_files_service(
         db,
@@ -101,6 +110,7 @@ def list_paginated_import_files(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.view")),
 ):
     return service.get_paginated_import_files_service(
         db,
@@ -135,6 +145,7 @@ def get_master_report(
     owner: Optional[str] = None,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.view")),
 ):
     return service.generate_master_report_service(
         db,
@@ -158,6 +169,7 @@ def get_operational_dashboard(
     broker_name: Optional[str] = None,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.view")),
 ):
     return service.get_operational_dashboard_data_service(
         db,
@@ -166,6 +178,80 @@ def get_operational_dashboard(
         broker_id=broker_id,
         broker_name=broker_name,
         search=search,
+    )
+
+
+@router.get("/export-excel", summary="Export all import files to Excel (XLSX)")
+def export_import_files_excel(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.view")),
+):
+    files = service.get_all_import_files_service(db, include_inactive=True)
+    headers = [
+        'File Code', 'Custom File No', 'Company Name', 'Supplier Name',
+        'PO Number', 'PI Number', 'Shipment Mode', 'Incoterm', 'Priority',
+        'Current Stage', 'Progress %', 'Next Action', 'Owner', 'Status',
+        'Estimated Cost', 'Currency', 'POL', 'POD', 'ACID Number', 'Form 4', 'Form 46'
+    ]
+    rows = []
+    for f in files:
+        rows.append([
+            f.import_file_code,
+            f.custom_file_number or '',
+            f.company_name,
+            f.supplier_name,
+            f.po_number or '',
+            f.pi_number or '',
+            f.shipment_mode,
+            f.incoterm_code,
+            f.priority,
+            f.current_stage,
+            f"{f.progress_percent:.0f}%",
+            f.next_action or '',
+            f.owner or '',
+            f.status,
+            f.estimated_cost,
+            f.estimated_cost_currency,
+            f.port_of_loading or '',
+            f.port_of_discharge or '',
+            f.acid_number or '',
+            f.form4_no or '',
+            f.form46_no or '',
+        ])
+    content = MasterDataExportImportHelper.export_to_excel("Import Files Master Tracking", headers, rows)
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=Import_Files_Report.xlsx"},
+    )
+
+
+@router.get("/export-pdf", summary="Export all import files to PDF")
+def export_import_files_pdf(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.view")),
+):
+    files = service.get_all_import_files_service(db, include_inactive=True)
+    headers = ['File / Code', 'Company', 'Supplier', 'PO/PI', 'Mode/Inco', 'Stage', 'Progress', 'Status']
+    rows = []
+    for f in files:
+        file_ref = f.custom_file_number or f.import_file_code
+        po_pi = f"{f.po_number or '-'}\n{f.pi_number or '-'}"
+        rows.append([
+            file_ref,
+            f.company_name,
+            f.supplier_name,
+            po_pi,
+            f"{f.shipment_mode} ({f.incoterm_code})",
+            f.current_stage,
+            f"{f.progress_percent:.0f}%",
+            f.status,
+        ])
+    content = MasterDataExportImportHelper.export_to_pdf("Import Files & Shipment Tracking", headers, rows)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=Import_Files_Report.pdf"},
     )
 
 
@@ -178,6 +264,7 @@ def get_freight_rfq_data(
     import_file_id: str,
     recipient_name: Optional[str] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.view")),
 ):
     if import_file_id.isdigit():
         fid = int(import_file_id)
@@ -200,7 +287,11 @@ def get_freight_rfq_data(
     response_model=ImportFileResponse,
     summary="Get single import file by ID or custom file number",
 )
-def get_import_file(import_file_id: str, db: Session = Depends(get_db)):
+def get_import_file(
+    import_file_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.view")),
+):
     if import_file_id.isdigit():
         item = service.get_import_file_by_id_service(db, int(import_file_id))
         if not item:
@@ -222,7 +313,10 @@ def get_import_file(import_file_id: str, db: Session = Depends(get_db)):
     summary="Update import file record",
 )
 def update_import_file(
-    import_file_id: int, payload: ImportFileUpdate, db: Session = Depends(get_db)
+    import_file_id: int,
+    payload: ImportFileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.edit")),
 ):
     return service.update_import_file_service(db, import_file_id, payload)
 
@@ -232,7 +326,11 @@ def update_import_file(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Soft delete an import file",
 )
-def soft_delete_import_file(import_file_id: int, db: Session = Depends(get_db)):
+def soft_delete_import_file(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.edit")),
+):
     success = service.soft_delete_import_file_service(db, import_file_id)
     if not success:
         raise HTTPException(
@@ -250,6 +348,7 @@ def close_shipment(
     import_file_id: int,
     payload: CloseShipmentSubmit,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.close")),
 ):
     return service.close_shipment_service(db, import_file_id, payload)
 
@@ -263,6 +362,7 @@ def reopen_shipment(
     import_file_id: int,
     payload: ReopenShipmentSubmit,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.edit")),
 ):
     return service.reopen_shipment_service(db, import_file_id, payload)
 
@@ -276,6 +376,7 @@ def hold_shipment(
     import_file_id: int,
     payload: HoldShipmentPayload,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.edit")),
 ):
     return service.hold_import_file_service(
         db,
@@ -296,6 +397,7 @@ def resume_shipment(
     import_file_id: int,
     payload: ResumeShipmentPayload,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.edit")),
 ):
     return service.resume_import_file_service(
         db,
@@ -314,11 +416,14 @@ def clone_shipment(
     import_file_id: int,
     payload: CloneImportFileRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.create")),
 ):
+    user_name = current_user.username if (current_user and hasattr(current_user, "username")) else "System"
     return service.clone_import_file_service(
         db,
         import_file_id=import_file_id,
         payload=payload,
+        current_user=user_name,
     )
 
 

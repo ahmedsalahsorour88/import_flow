@@ -1,3 +1,4 @@
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
@@ -12,7 +13,7 @@ class CargoXIntegrationClient:
 
     def __init__(self, mode: str = "MOCK", api_token: Optional[str] = None):
         self.mode = mode.upper()  # MOCK, STAGING, PRODUCTION
-        self.api_token = api_token or "CARGOX_DEMO_TOKEN_2026"
+        self.api_token = api_token or os.getenv("CARGOX_API_TOKEN", "CARGOX_DEMO_TOKEN_2026")
         self.signer = PKISignerService(mode=self.mode)
 
     def create_envelope(

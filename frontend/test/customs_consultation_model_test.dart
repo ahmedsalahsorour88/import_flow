@@ -307,6 +307,84 @@ void main() {
       expect(totalFobEgp, 647669.0);
       expect(totalDutyEgp, 38518.70);
     });
+
+    test('Should map active BrokerPriceList items to CustomsBrokerQuoteItemModel and calculate totals correctly', () {
+      final activePl = BrokerPriceListModel(
+        priceListId: 8,
+        priceListCode: 'PL-2026-008',
+        title: 'Alexandria Customs & Land Transport Price List 2026',
+        brokerId: 34,
+        brokerName: 'Nabil Naseef .ACC',
+        portName: 'Alexandria Port',
+        effectiveFrom: '2026-01-01',
+        isActive: true,
+        items: [
+          BrokerPriceListItemModel(
+            itemId: 1,
+            expenseTypeId: 1,
+            expenseName: 'Customs Clearance Fee',
+            category: 'Clearance Fees',
+            unitType: 'Per Invoice',
+            standardPrice: 1250.0,
+            currency: 'EGP',
+            isActive: true,
+          ),
+          BrokerPriceListItemModel(
+            itemId: 2,
+            expenseTypeId: 2,
+            expenseName: 'Container Demurrage 40ft',
+            category: 'Inland Transport',
+            unitType: 'Per Container',
+            standardPrice: 3600.0,
+            currency: 'EGP',
+            isActive: true,
+          ),
+          BrokerPriceListItemModel(
+            itemId: 3,
+            expenseTypeId: 3,
+            expenseName: 'Optional Storage Extra',
+            category: 'Other Fees',
+            unitType: 'Per Day',
+            standardPrice: 0.0,
+            currency: 'EGP',
+            isActive: true,
+          ),
+        ],
+      );
+
+      final quoteItems = <CustomsBrokerQuoteItemModel>[];
+      for (final itm in activePl.items) {
+        final isApplicable = itm.standardPrice > 0;
+        quoteItems.add(CustomsBrokerQuoteItemModel(
+          expenseTypeId: itm.expenseTypeId,
+          expenseName: itm.expenseName,
+          category: itm.category,
+          unitType: itm.unitType,
+          unitPrice: itm.standardPrice,
+          currency: itm.currency,
+          qty: 1.0,
+          isApplicable: isApplicable,
+          totalAmount: isApplicable ? (itm.standardPrice * 1.0) : 0.0,
+        ));
+      }
+
+      expect(quoteItems.length, 3);
+      expect(quoteItems[0].isApplicable, isTrue);
+      expect(quoteItems[0].totalAmount, 1250.0);
+      expect(quoteItems[1].isApplicable, isTrue);
+      expect(quoteItems[1].totalAmount, 3600.0);
+      expect(quoteItems[2].isApplicable, isFalse);
+      expect(quoteItems[2].totalAmount, 0.0);
+
+      // Verify total broker fees aggregation
+      final totalFees = quoteItems.fold(0.0, (sum, i) => sum + (i.isApplicable ? i.totalAmount : 0.0));
+      expect(totalFees, 4850.0);
+
+      // Verify apply all
+      final allApplied = quoteItems.map((i) => i.copyWith(isApplicable: true, totalAmount: i.unitPrice * i.qty)).toList();
+      final totalAfterApplyAll = allApplied.fold(0.0, (sum, i) => sum + (i.isApplicable ? i.totalAmount : 0.0));
+      expect(totalAfterApplyAll, 4850.0);
+    });
   });
 }
 

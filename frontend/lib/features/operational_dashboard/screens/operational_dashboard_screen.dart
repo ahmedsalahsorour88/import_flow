@@ -8,8 +8,12 @@ import '../../../core/services/display_name_resolver.dart';
 import '../../../core/providers/navigation_provider.dart';
 import '../../../core/performance/dispose_tracker.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/app_shimmer_skeleton.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/directional_icon.dart';
+import '../../../core/widgets/page_header.dart';
+import '../../../core/widgets/responsive_layout_builder.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../../import_files/models/import_file_model.dart';
@@ -66,8 +70,12 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       'steps': [
         {'code': 'STEP_06', 'name_ar': 'تأكيد الحجز الملاحي', 'name_en': 'Booking Confirmation'},
         {'code': 'STEP_07', 'name_ar': 'تخصيص وتوزيع الحاويات والبضائع', 'name_en': 'Container Allocation'},
-        {'code': 'STEP_08', 'name_ar': 'مراجعة مسودات المستندات', 'name_en': 'Draft Review'},
-        {'code': 'STEP_09', 'name_ar': 'الاعتماد النهائي للمستندات', 'name_en': 'Final Approval'},
+        {'code': 'STEP_08_PO', 'name_ar': 'مطابقة الفاتورة وقائمة التعبئة مع أمر الشراء', 'name_en': 'PO & Packing Reconciliation'},
+        {'code': 'STEP_08_BL', 'name_ar': 'مراجعة مسودة بوليصة الشحن (B/L)', 'name_en': 'Draft B/L Review & Approval'},
+        {'code': 'STEP_08_MATCH', 'name_ar': 'المطابقة الذكية بين الفاتورة والبوليصة', 'name_en': 'Smart Invoice vs B/L Match'},
+        {'code': 'STEP_08_COO', 'name_ar': 'مسودة شهادة المنشأ و EUR.1', 'name_en': 'Draft COO & EUR.1 Review'},
+        {'code': 'STEP_08_COC', 'name_ar': 'شهادات الفحص والتفتيش والمطابقة (COC)', 'name_en': 'Inspection Review & COC'},
+        {'code': 'STEP_09', 'name_ar': 'مركز اعتماد المستندات وتعديلات المورد', 'name_en': 'Docs Customs Approval Hub'},
       ],
     },
     {
@@ -115,15 +123,12 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   void initState() {
     super.initState();
     Future.microtask(() {
-      final dashboardState = ref.read(operationalDashboardProvider);
-      if (dashboardState.data is! AsyncLoading) {
-        ref.read(operationalDashboardProvider.notifier).fetchDashboard();
-      }
+      ref.invalidate(operationalDashboardProvider);
       ref.invalidate(lifecycleBoardSummaryProvider);
-      final tasksState = ref.read(smartTasksProvider);
-      if (!tasksState.isLoading && tasksState.tasks.isEmpty) {
-        ref.read(smartTasksProvider.notifier).fetchTasks();
-      }
+      ref.invalidate(smartTasksProvider);
+      ref.invalidate(shipmentUpdatesProvider);
+      ref.read(operationalDashboardProvider.notifier).fetchDashboard();
+      ref.read(smartTasksProvider.notifier).fetchTasks();
     });
   }
 
@@ -155,6 +160,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     final dashboardState = ref.watch(operationalDashboardProvider);
     final boardAsync = ref.watch(lifecycleBoardSummaryProvider);
     final notifier = ref.read(operationalDashboardProvider.notifier);
+    final density = ref.watch(displayDensityProvider);
     final l = context.l10n;
     final isArabic = ref.watch(localeProvider).languageCode == 'ar';
     final tasksState = ref.watch(smartTasksProvider);
@@ -167,26 +173,26 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       }
     }
 
-    final isDark = AppTheme.isDark(context);
-
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF141A22) : AppTheme.charcoal,
-        title: Row(
-          children: [
-            const Icon(Icons.dashboard_customize, color: AppTheme.cobalt),
-            const SizedBox(width: 10),
-            Text(l.operationalDashboardTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-          ],
-        ),
+      appBar: PageHeader(
+        title: l.operationalDashboardTitle,
+        icon: Icons.dashboard_customize,
+        iconColor: AppTheme.cobalt,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            icon: Icon(Icons.refresh, color: Colors.white, size: density.buttonIconSize),
             tooltip: l.refresh,
-            onPressed: () => notifier.fetchDashboard(),
+            onPressed: () {
+              ref.invalidate(operationalDashboardProvider);
+              ref.invalidate(lifecycleBoardSummaryProvider);
+              ref.invalidate(smartTasksProvider);
+              ref.invalidate(shipmentUpdatesProvider);
+              ref.read(operationalDashboardProvider.notifier).fetchDashboard();
+              ref.read(smartTasksProvider.notifier).fetchTasks();
+            },
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 6),
         ],
       ),
       body: SelectionArea(
@@ -195,7 +201,12 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                padding: EdgeInsets.fromLTRB(
+                  context.isMobile ? 12.0 : 20.0,
+                  context.isMobile ? 12.0 : 20.0,
+                  context.isMobile ? 12.0 : 20.0,
+                  0,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -205,7 +216,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       error: (_, __) => const SizedBox(),
                       data: (data) => Column(
                         children: [
-                          _buildKpiCardsBar(data),
+                          _buildKpiCardsBar(data, density),
                           const SizedBox(height: 16),
                           _buildStreamlitLauncherBanner(),
                           const SizedBox(height: 16),
@@ -219,16 +230,16 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       ),
                     ),
 
-                    // 1. Shipment Lifecycle Operations Board Summary (6 Phases / 21 Steps)
+                    // 1. Shipment Lifecycle Operations Board Summary (6 Phases / 25 Steps)
                     _buildLifecycleOperationsBoardSummary(context, ref, boardAsync, dashboardState, notifier),
                     const SizedBox(height: 16),
 
                     // 2. Control Bar (Priority Button Group, Customs Broker Dropdown & Debounced Search)
-                    _buildControlBar(l, dashboardState, notifier),
+                    _buildControlBar(l, dashboardState, notifier, density),
                     const SizedBox(height: 16),
 
                     // 3. Results Header & Count
-                    _buildResultsHeader(l, dashboardState),
+                    _buildResultsHeader(l, dashboardState, density),
                     const SizedBox(height: 12),
                   ],
                 ),
@@ -269,117 +280,139 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 );
               },
             ),
+
+            // 5. Mandatory Anti-Overlap Clearance (+72px buffer for floating AI Assistant / launcher)
+            const SliverToBoxAdapter(
+              child: SizedBox(height: 72),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildControlBar(AppLocalizations l, OperationalDashboardState dashboardState, OperationalDashboardNotifier notifier) {
+  Widget _buildControlBar(AppLocalizations l, OperationalDashboardState dashboardState, OperationalDashboardNotifier notifier, DisplayDensityMode density) {
     final isDark = AppTheme.isDark(context);
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            // Priority Button Group
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        padding: density.cardPadding,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isCompact = constraints.maxWidth < 600;
+            return Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Text(l.priority, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
-                const SizedBox(height: 6),
-                ToggleButtons(
-                  isSelected: _priorities.map((p) => dashboardState.selectedPriority == p).toList(),
-                  onPressed: (index) => notifier.setPriority(_priorities[index]),
-                  borderRadius: BorderRadius.circular(6),
-                  selectedColor: Colors.white,
-                  fillColor: AppTheme.cobalt,
-                  color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
-                  borderColor: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
-                  selectedBorderColor: AppTheme.cobalt,
-                  constraints: const BoxConstraints(minHeight: 36, minWidth: 60),
-                  children: _priorities.map((p) => Text(_getPriorityLabel(p, l), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))).toList(),
-                ),
-              ],
-            ),
-
-            // Customs Broker Dynamic Select Dropdown
-            dashboardState.data.when(
-              loading: () => const SizedBox(
-                width: 240,
-                child: ShimmerBox(width: 240, height: 40, borderRadius: 6),
-              ),
-              error: (_, __) => const SizedBox(),
-              data: (data) {
-                final brokers = data.availableBrokers;
-                return Column(
+                // Priority Button Group (Scrollable if constrained on mobile)
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(l.customsBrokerLabel, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                    Text(l.priority, style: TextStyle(fontWeight: FontWeight.bold, fontSize: DisplayDensityMode.clampFontSize(density.tableHeaderFontSize), color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                     const SizedBox(height: 6),
-                    SizedBox(
-                      width: 240,
-                      child: SearchableDropdownField<String>(
-                        value: dashboardState.selectedBrokerName ?? 'All',
-                        labelText: '',
-                        items: [
-                          SearchableDropdownItem(value: 'All', label: l.allBrokers),
-                          ...brokers.map((b) => SearchableDropdownItem(value: b.brokerName, label: b.brokerName)),
-                        ],
-                        onChanged: (val) => notifier.setBroker(val),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: ToggleButtons(
+                        isSelected: _priorities.map((p) => dashboardState.selectedPriority == p).toList(),
+                        onPressed: (index) => notifier.setPriority(_priorities[index]),
+                        borderRadius: BorderRadius.circular(6),
+                        selectedColor: Colors.white,
+                        fillColor: AppTheme.wcagCobalt,
+                        color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                        borderColor: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+                        selectedBorderColor: AppTheme.wcagCobalt,
+                        constraints: BoxConstraints(
+                          minHeight: density.isUltraCompact ? 28 : (density.isCompact ? 32 : 36),
+                          minWidth: density.isUltraCompact ? 48 : (density.isCompact ? 54 : 60),
+                        ),
+                        children: _priorities.map((p) => Text(_getPriorityLabel(p, l), style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(density.buttonFontSize), fontWeight: FontWeight.bold))).toList(),
                       ),
                     ),
                   ],
-                );
-              },
-            ),
+                ),
 
-            // Debounced Search Input (200-300ms)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(l.quickSearchLabel, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
-                const SizedBox(height: 6),
-                SizedBox(
-                  width: 260,
-                  height: 38,
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: l.dashboardSearchHint,
-                      prefixIcon: const Icon(Icons.search, size: 18),
-                      isDense: true,
-                      border: const OutlineInputBorder(),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                    ),
-                    onChanged: (val) => notifier.setSearchQuery(val),
+                // Customs Broker Dynamic Select Dropdown
+                dashboardState.data.when(
+                  loading: () => SizedBox(
+                    width: isCompact ? constraints.maxWidth : 240,
+                    child: ShimmerBox(width: 240, height: density.isUltraCompact ? 32 : (density.isCompact ? 36 : 40), borderRadius: 6),
                   ),
+                  error: (_, __) => const SizedBox(),
+                  data: (data) {
+                    final brokers = data.availableBrokers;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(l.customsBrokerLabel, style: TextStyle(fontWeight: FontWeight.bold, fontSize: DisplayDensityMode.clampFontSize(density.tableHeaderFontSize), color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                        const SizedBox(height: 6),
+                        SizedBox(
+                          width: isCompact ? constraints.maxWidth : 240,
+                          child: SearchableDropdownField<String>(
+                            value: dashboardState.selectedBrokerName ?? 'All',
+                            labelText: '',
+                            items: [
+                              SearchableDropdownItem(value: 'All', label: l.allBrokers),
+                              ...brokers.map((b) => SearchableDropdownItem(value: b.brokerName, label: b.brokerName)),
+                            ],
+                            onChanged: (val) => notifier.setBroker(val),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+
+                // Debounced Search Input (200-300ms)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l.quickSearchLabel, style: TextStyle(fontWeight: FontWeight.bold, fontSize: DisplayDensityMode.clampFontSize(density.tableHeaderFontSize), color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      width: isCompact ? constraints.maxWidth : 260,
+                      height: density.isUltraCompact ? 30 : (density.isCompact ? 34 : 38),
+                      child: TextField(
+                        controller: _searchController,
+                        style: TextStyle(fontSize: density.inputFontSize),
+                        decoration: InputDecoration(
+                          hintText: l.dashboardSearchHint,
+                          hintStyle: TextStyle(fontSize: density.inputFontSize),
+                          prefixIcon: Icon(Icons.search, size: density.buttonIconSize),
+                          isDense: true,
+                          border: const OutlineInputBorder(),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                        onChanged: (val) => notifier.setSearchQuery(val),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Reset Filters Button
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade700,
+                    padding: density.buttonPadding,
+                    visualDensity: density.visualDensity,
+                  ),
+                  onPressed: () {
+                    _searchController.clear();
+                    notifier.resetFilters();
+                  },
+                  icon: Icon(Icons.restart_alt, size: density.buttonIconSize, color: Colors.white),
+                  label: Text(l.resetFilters, style: TextStyle(color: Colors.white, fontSize: DisplayDensityMode.clampFontSize(density.buttonFontSize))),
                 ),
               ],
-            ),
-
-            // Reset Filters Button
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade700, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
-              onPressed: () {
-                _searchController.clear();
-                notifier.resetFilters();
-              },
-              icon: const Icon(Icons.restart_alt, size: 16, color: Colors.white),
-              label: Text(l.resetFilters, style: const TextStyle(color: Colors.white, fontSize: 12)),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildResultsHeader(AppLocalizations l, OperationalDashboardState dashboardState) {
+  Widget _buildResultsHeader(AppLocalizations l, OperationalDashboardState dashboardState, DisplayDensityMode density) {
     final isArabic = ref.watch(localeProvider).languageCode == 'ar';
     return dashboardState.data.maybeWhen(
       data: (dashboardData) {
@@ -407,16 +440,19 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 CopyableText(
                   '${l.matchingShipments}: $count ${l.shipmentCountUnit}',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.tableHeaderFontSize, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                 ),
                 Text(
                   '${l.lastUpdated}: $lastUpdated',
-                  style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                  style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(density.tableCellSecondaryFontSize), color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
                 ),
               ],
             ),
@@ -428,12 +464,12 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               children: [
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
+                    visualDensity: density.visualDensity,
                     foregroundColor: AppTheme.cobalt,
                     side: BorderSide(color: AppTheme.cobalt.withOpacity(0.4)),
                   ),
-                  icon: const Icon(Icons.table_view_outlined, size: 16, color: AppTheme.cobalt),
-                  label: Text(l.operationalExportTsvBtn, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  icon: Icon(Icons.table_view_outlined, size: density.buttonIconSize, color: AppTheme.cobalt),
+                  label: Text(l.operationalExportTsvBtn, style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(density.buttonFontSize), fontWeight: FontWeight.bold)),
                   onPressed: shipments.isEmpty
                       ? null
                       : () async {
@@ -446,12 +482,12 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 ),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
+                    visualDensity: density.visualDensity,
                     foregroundColor: AppTheme.emerald,
                     side: BorderSide(color: AppTheme.emerald.withOpacity(0.4)),
                   ),
-                  icon: const Icon(Icons.file_present_outlined, size: 16, color: AppTheme.emerald),
-                  label: Text(l.operationalExportExcelBtn, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  icon: Icon(Icons.file_present_outlined, size: density.buttonIconSize, color: AppTheme.emerald),
+                  label: Text(l.operationalExportExcelBtn, style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(density.buttonFontSize), fontWeight: FontWeight.bold)),
                   onPressed: shipments.isEmpty
                       ? null
                       : () async {
@@ -464,12 +500,12 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 ),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    foregroundColor: isDark ? Colors.purpleAccent.shade100 : Colors.purple.shade700,
-                    side: BorderSide(color: isDark ? Colors.purple.shade400 : Colors.purple.shade300),
+                    visualDensity: density.visualDensity,
+                    foregroundColor: AppTheme.crimson,
+                    side: BorderSide(color: AppTheme.crimson.withOpacity(0.4)),
                   ),
-                  icon: Icon(Icons.print_outlined, size: 16, color: isDark ? Colors.purpleAccent.shade100 : Colors.purple.shade700),
-                  label: Text(l.operationalExportPdfBtn, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  icon: Icon(Icons.print_outlined, size: density.buttonIconSize, color: AppTheme.crimson),
+                  label: Text(l.operationalExportPdfBtn, style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(density.buttonFontSize), fontWeight: FontWeight.bold)),
                   onPressed: shipments.isEmpty
                       ? null
                       : () async {
@@ -483,12 +519,12 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 ),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
+                    visualDensity: density.visualDensity,
                     foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                     side: BorderSide(color: isDark ? AppTheme.darkBorderLight : Colors.grey.shade400),
                   ),
-                  icon: Icon(Icons.copy_all_outlined, size: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                  label: Text(l.operationalCopyDossierBtn, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  icon: Icon(Icons.copy_all_outlined, size: density.buttonIconSize, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                  label: Text(l.operationalCopyDossierBtn, style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(density.buttonFontSize), fontWeight: FontWeight.bold)),
                   onPressed: shipments.isEmpty
                       ? null
                       : () {
@@ -583,71 +619,103 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                CopyableText(DisplayNameResolver.resolveShipmentName(s, isArabic: isArabic), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
-                if (s.customFileNumber != null && s.customFileNumber!.trim().isNotEmpty && s.customFileNumber!.trim() != s.importFileCode) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(isDark ? 0.25 : 0.1), borderRadius: BorderRadius.circular(6)),
-                    child: CopyableText(s.importFileCode, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt)),
-                  ),
-                ],
-                const SizedBox(width: 10),
-                CopyableText(s.companyName, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : Colors.grey.shade800)),
-                const SizedBox(width: 8),
-                CopyableText('→ ${s.supplierName}', style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
-                const Spacer(),
-                _buildPriorityBadge(s.priority, l),
-                const SizedBox(width: 6),
-                IconButton(
-                  icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
-                  tooltip: l.copyTooltip,
-                  onPressed: () {
-                    final shipmentTitle = DisplayNameResolver.resolveShipmentTitle(s, isArabic: isArabic, includeCodeSecondary: true);
-                    final text = '$shipmentTitle | ${s.companyName} → ${s.supplierName} | ${_formatStageName(s.currentModule, isArabic)}';
-                    CopyHelper.copy(context, text);
-                  },
-                ),
-              ],
-            ),
-            const Divider(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      CopyableText('${l.currentPhase}: ${_formatStageName(s.currentModule, isArabic)}', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null)),
-                      CopyableText('${l.operationalStep}: ${_formatStageName(s.currentStage, isArabic)}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      CopyableText('${l.customsBrokerLabel} ${s.brokerName ?? l.unassigned}', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null)),
-                      CopyableText('${l.purchaseOrder} ${s.poNumber ?? l.unassigned}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
-                    ],
-                  ),
-                ),
-
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
                   children: [
-                    CopyableText('${s.progressPercent.toStringAsFixed(0)}%', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 14)),
-                    SizedBox(
-                      width: 80,
-                      child: LinearProgressIndicator(value: s.progressPercent / 100.0, backgroundColor: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade200, color: AppTheme.emerald),
+                    CopyableText(DisplayNameResolver.resolveShipmentName(s, isArabic: isArabic), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                    if (s.customFileNumber != null && s.customFileNumber!.trim().isNotEmpty && s.customFileNumber!.trim() != s.importFileCode)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(color: AppTheme.wcagCobalt.withOpacity(isDark ? 0.25 : 0.1), borderRadius: BorderRadius.circular(6)),
+                        child: CopyableText(s.importFileCode, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? Colors.lightBlueAccent : AppTheme.wcagCobalt)),
+                      ),
+                    CopyableText(s.companyName, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : Colors.grey.shade800)),
+                    CopyableText('${DirectionalArrow.symbolForArabic(isArabic)} ${s.supplierName}', style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildPriorityBadge(s.priority, l),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.wcagCobalt),
+                      tooltip: l.copyTooltip,
+                      onPressed: () {
+                        final shipmentTitle = DisplayNameResolver.resolveShipmentTitle(s, isArabic: isArabic, includeCodeSecondary: true);
+                        final arrow = DirectionalArrow.symbolForArabic(isArabic);
+                        final text = '$shipmentTitle | ${s.companyName} $arrow ${s.supplierName} | ${_formatStageName(s.currentModule, isArabic)}';
+                        CopyHelper.copy(context, text);
+                      },
                     ),
                   ],
                 ),
               ],
             ),
+            const Divider(height: 20),
+            LayoutBuilder(
+              builder: (context, cardConstraints) {
+                final isNarrow = cardConstraints.maxWidth < 520;
+                final phaseColumn = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CopyableText('${l.currentPhase}: ${_formatStageName(s.currentModule, isArabic)}', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null)),
+                    CopyableText('${l.operationalStep}: ${_formatStageName(s.currentStage, isArabic)}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
+                  ],
+                );
+                final brokerColumn = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CopyableText('${l.customsBrokerLabel} ${s.brokerName ?? l.unassigned}', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null)),
+                    CopyableText('${l.purchaseOrder} ${s.poNumber ?? l.unassigned}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
+                  ],
+                );
+                final progressColumn = Column(
+                  crossAxisAlignment: isNarrow ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+                  children: [
+                    CopyableText('${s.progressPercent.toStringAsFixed(0)}%', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.wcagEmerald, fontSize: 14)),
+                    SizedBox(
+                      width: 80,
+                      child: LinearProgressIndicator(value: s.progressPercent / 100.0, backgroundColor: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade200, color: AppTheme.wcagEmerald),
+                    ),
+                  ],
+                );
+
+                if (isNarrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: phaseColumn),
+                          progressColumn,
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      brokerColumn,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: phaseColumn),
+                    Expanded(child: brokerColumn),
+                    progressColumn,
+                  ],
+                );
+              },
+            ),
             const SizedBox(height: 12),
-            // 3-Way Stage Pathway: Previous -> Current -> Next
+            // 3-Way Stage Pathway: Previous -> Current -> Next (Responsive & RTL mirrored)
             Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -656,10 +724,11 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
               ),
-              child: Row(
-                children: [
-                  // Previous Step
-                  Container(
+              child: LayoutBuilder(
+                builder: (context, pathwayConstraints) {
+                  final isCompactPathway = pathwayConstraints.maxWidth < 620;
+
+                  final prevStepWidget = Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade200,
@@ -668,71 +737,94 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.check_circle, size: 12, color: AppTheme.emerald),
+                        const Icon(Icons.check_circle, size: 12, color: AppTheme.wcagEmerald),
                         const SizedBox(width: 4),
                         CopyableText(
                           s.currentModule.contains('STEP_02') || s.currentModule.contains('Customs') || s.currentModule.contains('جمرك')
                               ? l.pathwayPrevFreightStudies
                               : l.pathwayPrevFilePlanning,
-                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                          style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
                         ),
                       ],
                     ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 6),
-                    child: Icon(Icons.arrow_forward, size: 14, color: AppTheme.cobalt),
-                  ),
-                  // Current Step
-                  Container(
+                  );
+
+                  final currentStepWidget = Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isDark ? AppTheme.cobalt.withOpacity(0.25) : AppTheme.cobalt.withOpacity(0.12),
+                      color: isDark ? AppTheme.wcagCobalt.withOpacity(0.25) : AppTheme.wcagCobalt.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt, width: 1.2),
+                      border: Border.all(color: isDark ? Colors.lightBlueAccent : AppTheme.wcagCobalt, width: 1.2),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.bolt, size: 13, color: AppTheme.cobalt),
+                        const Icon(Icons.bolt, size: 13, color: AppTheme.wcagCobalt),
                         const SizedBox(width: 4),
                         CopyableText(
                           '${l.pathwayCurrent}: ${_formatStageName(s.currentModule, isArabic)}',
-                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt),
+                          style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: isDark ? Colors.lightBlueAccent : AppTheme.wcagCobalt),
                         ),
                       ],
                     ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 6),
-                    child: Icon(Icons.arrow_forward, size: 14, color: AppTheme.orange),
-                  ),
-                  // Next Step
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF2E2419) : Colors.amber.shade50,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: isDark ? Colors.amber.shade700 : Colors.amber.shade700.withOpacity(0.5)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.arrow_circle_left_outlined, size: 13, color: isDark ? Colors.amber.shade300 : Colors.amber.shade900),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: CopyableText(
-                              '${l.pathwayNext}: ${s.nextAction.isNotEmpty ? _formatActionName(s.nextAction, s.currentModule, isArabic) : l.pathwayNextImportReqs}',
-                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isDark ? Colors.amber.shade300 : Colors.amber.shade900),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
+                  );
+
+                  final nextStepWidget = Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF2E2419) : Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: isDark ? Colors.amber.shade700 : Colors.amber.shade700.withOpacity(0.5)),
                     ),
-                  ),
-                ],
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(isArabic ? Icons.arrow_circle_left_outlined : Icons.arrow_circle_right_outlined, size: 13, color: isDark ? Colors.amber.shade300 : Colors.amber.shade900),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: CopyableText(
+                            '${l.pathwayNext}: ${s.nextAction.isNotEmpty ? _formatActionName(s.nextAction, s.currentModule, isArabic) : l.pathwayNextImportReqs}',
+                            style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: isDark ? Colors.amber.shade300 : Colors.amber.shade900),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (isCompactPathway) {
+                    return Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        prevStepWidget,
+                        const DirectionalIcon(Icons.arrow_forward, size: 14, color: AppTheme.wcagCobalt),
+                        currentStepWidget,
+                        const DirectionalIcon(Icons.arrow_forward, size: 14, color: AppTheme.wcagOrange),
+                        nextStepWidget,
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      prevStepWidget,
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6),
+                        child: DirectionalIcon(Icons.arrow_forward, size: 14, color: AppTheme.wcagCobalt),
+                      ),
+                      currentStepWidget,
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6),
+                        child: DirectionalIcon(Icons.arrow_forward, size: 14, color: AppTheme.wcagOrange),
+                      ),
+                      Expanded(
+                        child: nextStepWidget,
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
 
@@ -770,13 +862,16 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               ),
             ],
             const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.cobalt,
-                    side: const BorderSide(color: AppTheme.cobalt),
+                    foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
+                    side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   icon: const Icon(Icons.post_add_rounded, size: 14),
@@ -788,12 +883,11 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     initialTargetPhase: s.currentModule,
                   ),
                 ),
-                const SizedBox(width: 8),
                 if (s.status != 'Closed') ...[
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.orange,
-                      side: const BorderSide(color: AppTheme.orange),
+                      foregroundColor: isDark ? AppTheme.wcagOrange : AppTheme.orange,
+                      side: BorderSide(color: isDark ? AppTheme.wcagOrange : AppTheme.orange),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                     icon: const Icon(Icons.fast_forward_rounded, size: 14),
@@ -807,11 +901,13 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       onSuccess: () => ref.read(operationalDashboardProvider.notifier).fetchDashboard(),
                     ),
                   ),
-                  const SizedBox(width: 8),
                 ],
                 if (s.status != 'Closed')
                   ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark ? AppTheme.wcagCrimson : AppTheme.crimson,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
                     icon: const Icon(Icons.cancel_outlined, size: 14, color: Colors.white),
                     label: Text(l.closeStopShipment, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                     onPressed: () async {
@@ -874,17 +970,81 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       targetNavIndex = 8;
       actionIcon = Icons.monetization_on_outlined;
     } else if (mod.contains('Phase 2') || stg.contains('Phase 2') || mod.contains('BP-012')) {
-      nextStepTitle = l.nextStepNafezaAcidTitle;
-      nextStepDesc = l.nextStepNafezaAcidDesc;
-      responsible = l.responsibleNafezaSpecialist;
-      targetNavIndex = 11;
-      actionIcon = Icons.description_outlined;
+      if (s.acidNumber != null && s.acidNumber!.trim().isNotEmpty) {
+        if (s.selectedScenario != null && s.selectedScenario!.trim().isNotEmpty) {
+          nextStepTitle = isArabic ? 'تدقيق أوزان VGM واعتماد مسودات مستندات الشحن' : 'VGM Verification & Shipping Draft Approval';
+          nextStepDesc = isArabic
+              ? 'استكمال أوزان الحاويات VGM ومراجعة بوالص الشحن وفواتير المورد للتجهيز لمنظومة CargoX'
+              : 'Complete VGM container weights and review B/L drafts for CargoX processing';
+          responsible = isArabic ? 'مسؤول الشحن والتوثيق الملاحي' : 'Shipping & Documentation Specialist';
+          targetNavIndex = 25;
+          actionIcon = Icons.rule_folder_outlined;
+        } else {
+          nextStepTitle = l.nextStepFreightBookingTitle;
+          nextStepDesc = l.nextStepFreightBookingDesc;
+          responsible = l.responsibleFreightForwarder;
+          targetNavIndex = 25;
+          actionIcon = Icons.directions_boat_outlined;
+        }
+      } else {
+        nextStepTitle = l.nextStepNafezaAcidTitle;
+        nextStepDesc = l.nextStepNafezaAcidDesc;
+        responsible = l.responsibleNafezaSpecialist;
+        targetNavIndex = 11;
+        actionIcon = Icons.description_outlined;
+      }
+    } else if (mod.contains('STEP_08_PO')) {
+      nextStepTitle = isArabic ? 'مطابقة الفاتورة والباكينج مع أمر الشراء' : 'PO & Packing Reconciliation';
+      nextStepDesc = isArabic ? 'مراجعة وتدقيق بنود الفاتورة والباكينج واستخراج الفروق' : 'Audit commercial invoice and packing list vs PO';
+      responsible = isArabic ? 'مسؤول التدقيق المستندي' : 'Documentation Auditor';
+      targetNavIndex = 21;
+      actionIcon = Icons.fact_check_outlined;
+    } else if (mod.contains('STEP_08_BL')) {
+      nextStepTitle = isArabic ? 'مراجعة واعتماد مسودة بوليصة الشحن (B/L)' : 'Draft B/L Review & Approval';
+      nextStepDesc = isArabic ? 'تدقيق مسودة البوليصة مع الخط الملاحي واعتمادها' : 'Review draft B/L with shipping line and approve';
+      responsible = isArabic ? 'مسؤول الشحن والتوثيق' : 'Shipping Specialist';
+      targetNavIndex = 18;
+      actionIcon = Icons.assignment_turned_in_outlined;
+    } else if (mod.contains('STEP_08_MATCH')) {
+      nextStepTitle = isArabic ? 'المطابقة الذكية بين الفاتورة والبوليصة' : 'Smart Invoice vs B/L Match';
+      nextStepDesc = isArabic ? 'مطابقة حقول الفاتورة النهائية مع بوليصة الشحن' : 'Match commercial invoice fields with draft B/L';
+      responsible = isArabic ? 'مسؤول التوثيق' : 'Documentation Specialist';
+      targetNavIndex = 22;
+      actionIcon = Icons.auto_awesome;
+    } else if (mod.contains('STEP_08_COO')) {
+      nextStepTitle = isArabic ? 'مراجعة مسودة شهادة المنشأ و EUR.1' : 'Draft COO & EUR.1 Review';
+      nextStepDesc = isArabic ? 'تدقيق قواعد المنشأ والاتفاقيات التفضيلية' : 'Audit rules of origin and preferential trade agreements';
+      responsible = isArabic ? 'أخصائي الجمارك' : 'Customs Specialist';
+      targetNavIndex = 19;
+      actionIcon = Icons.flag_circle_outlined;
+    } else if (mod.contains('STEP_08_COC')) {
+      nextStepTitle = isArabic ? 'شهادات الفحص والتفتيش والمطابقة (COC)' : 'Inspection Review & COC';
+      nextStepDesc = isArabic ? 'تدقيق شهادات المطابقة الدولية ومعايير GOEIC' : 'Audit pre-shipment inspection certificates';
+      responsible = isArabic ? 'مسؤول المطابقة والجودة' : 'Conformity Specialist';
+      targetNavIndex = 53;
+      actionIcon = Icons.security_outlined;
+    } else if (mod.contains('STEP_09') || mod.contains('BP-009')) {
+      nextStepTitle = isArabic ? 'مركز اعتماد المستندات وتعديلات المورد' : 'Docs Customs Approval Hub';
+      nextStepDesc = isArabic ? 'الحصول على الاعتماد الجمركي المبدئي وإصدار خطابات التعديل' : 'Obtain customs approval and issue supplier rectification notes';
+      responsible = isArabic ? 'المستخلص الجمركي' : 'Customs Broker';
+      targetNavIndex = 20;
+      actionIcon = Icons.verified_user_outlined;
     } else if (mod.contains('Phase 3') || stg.contains('Phase 3') || mod.contains('BP-015') || mod.contains('BP-019')) {
-      nextStepTitle = l.nextStepFreightBookingTitle;
-      nextStepDesc = l.nextStepFreightBookingDesc;
-      responsible = l.responsibleFreightForwarder;
-      targetNavIndex = 25;
-      actionIcon = Icons.directions_boat_outlined;
+      if (s.selectedScenario != null && s.selectedScenario!.trim().isNotEmpty) {
+        nextStepTitle = isArabic ? 'تدقيق أوزان VGM واعتماد مسودات مستندات الشحن' : 'VGM Verification & Shipping Draft Approval';
+        nextStepDesc = isArabic
+            ? 'استكمال أوزان الحاويات VGM ومراجعة بوالص الشحن وفواتير المورد للتجهيز لمنظومة CargoX'
+            : 'Complete VGM container weights and review B/L drafts for CargoX processing';
+        responsible = isArabic ? 'مسؤول الشحن والتوثيق الملاحي' : 'Shipping & Documentation Specialist';
+        targetNavIndex = 26;
+        actionIcon = Icons.rule_folder_outlined;
+      } else {
+        nextStepTitle = l.nextStepFreightBookingTitle;
+        nextStepDesc = l.nextStepFreightBookingDesc;
+        responsible = l.responsibleFreightForwarder;
+        targetNavIndex = 25;
+        actionIcon = Icons.directions_boat_outlined;
+      }
     } else if (mod.contains('Phase 4') || stg.contains('Phase 4')) {
       nextStepTitle = l.nextStepTransitTrackingTitle;
       nextStepDesc = l.nextStepTransitTrackingDesc;
@@ -924,65 +1084,121 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     }
 
     final isDark = AppTheme.isDark(context);
-    return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.cobalt.withOpacity(0.15) : AppTheme.cobalt.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isDark ? AppTheme.cobalt.withOpacity(0.4) : AppTheme.cobalt.withOpacity(0.25)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppTheme.cobalt,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Icon(actionIcon, color: Colors.white, size: 20),
+    final actionBgColor = isDark ? AppTheme.wcagCobalt : AppTheme.cobalt;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 480;
+
+        final button = ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: actionBgColor,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          onPressed: () => selectNavigationIndex(ref, targetNavIndex),
+          icon: const Icon(Icons.bolt, size: 14, color: Colors.white),
+          label: Text(l.executeStepNow, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+        );
+
+        return Container(
+          margin: const EdgeInsets.only(top: 10),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.wcagCobalt.withOpacity(0.15) : AppTheme.cobalt.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: isDark ? AppTheme.wcagCobalt.withOpacity(0.4) : AppTheme.cobalt.withOpacity(0.25)),
+          ),
+          child: isCompact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(l.nextStepAction, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt)),
-                    const SizedBox(width: 8),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: actionBgColor,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(actionIcon, color: Colors.white, size: 18),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(l.nextStepAction, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? Colors.lightBlueAccent : AppTheme.wcagCobalt)),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isDark ? Colors.amber.shade900.withOpacity(0.35) : Colors.amber.shade100,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: CopyableText(
+                                  '${l.responsiblePerson}: $responsible',
+                                  style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: isDark ? Colors.amber.shade200 : Colors.brown.shade800),
+                                  showIcon: false,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    CopyableText(nextStepTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                    CopyableText(nextStepDesc, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
+                    const SizedBox(height: 10),
+                    SizedBox(width: double.infinity, child: button),
+                  ],
+                )
+              : Row(
+                  children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.amber.shade900.withOpacity(0.35) : Colors.amber.shade100,
-                        borderRadius: BorderRadius.circular(4),
+                        color: actionBgColor,
+                        borderRadius: BorderRadius.circular(6),
                       ),
-                      child: CopyableText(
-                        '${l.responsiblePerson}: $responsible',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? Colors.amber.shade200 : Colors.brown.shade800),
-                        showIcon: false,
+                      child: Icon(actionIcon, color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(l.nextStepAction, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? Colors.lightBlueAccent : AppTheme.wcagCobalt)),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isDark ? Colors.amber.shade900.withOpacity(0.35) : Colors.amber.shade100,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: CopyableText(
+                                  '${l.responsiblePerson}: $responsible',
+                                  style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: isDark ? Colors.amber.shade200 : Colors.brown.shade800),
+                                  showIcon: false,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          CopyableText(nextStepTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                          CopyableText(nextStepDesc, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
+                        ],
                       ),
                     ),
+                    const SizedBox(width: 10),
+                    button,
                   ],
                 ),
-                const SizedBox(height: 3),
-                CopyableText(nextStepTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
-                CopyableText(nextStepDesc, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.cobalt,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
-            onPressed: () => selectNavigationIndex(ref, targetNavIndex),
-            icon: const Icon(Icons.bolt, size: 14, color: Colors.white),
-            label: Text(l.executeStepNow, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1030,15 +1246,26 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     side: BorderSide(color: isDark ? AppTheme.darkBorderLight : Colors.grey.shade500),
                     onChanged: (val) async {
                       if (val == true) {
-                        await ref.read(smartTasksProvider.notifier).updateTask(t.taskId, {'status': 'Completed'});
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('${l.taskCompletedSuccessfully}: ${DisplayNameResolver.cleanTaskTitle(t.title, isArabic: isArabic)}'),
-                              backgroundColor: AppTheme.emerald,
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
+                        try {
+                          await ref.read(smartTasksProvider.notifier).updateTask(t.taskId, {'status': 'Completed'});
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('${l.taskCompletedSuccessfully}: ${DisplayNameResolver.cleanTaskTitle(t.title, isArabic: isArabic)}'),
+                                backgroundColor: AppTheme.emerald,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString()),
+                                backgroundColor: AppTheme.crimson,
+                              ),
+                            );
+                          }
                         }
                       }
                     },
@@ -1056,13 +1283,13 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         color: isDark ? Colors.red.shade900.withOpacity(0.4) : Colors.red.shade100,
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text(_getPriorityLabel(t.priority, l), style: TextStyle(color: isDark ? Colors.red.shade200 : Colors.red, fontSize: 9.5, fontWeight: FontWeight.bold)),
+                      child: Text(_getPriorityLabel(t.priority, l), style: TextStyle(color: isDark ? Colors.red.shade200 : Colors.red, fontSize: 11.0, fontWeight: FontWeight.bold)),
                     ),
                   const SizedBox(width: 8),
                   if (t.dueDate != null && t.dueDate!.trim().isNotEmpty)
                     CopyableText(
                       t.dueDate!,
-                      style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextMuted : Colors.grey.shade600),
+                      style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextMuted : Colors.grey.shade600),
                       showIcon: false,
                     ),
                 ],
@@ -1074,7 +1301,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     );
   }
 
-  Widget _buildKpiCardsBar(dynamic data) {
+  Widget _buildKpiCardsBar(dynamic data, DisplayDensityMode density) {
     final l = context.l10n;
     final isArabic = ref.watch(localeProvider).languageCode == 'ar';
     final tasksState = ref.watch(smartTasksProvider);
@@ -1087,8 +1314,19 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     }
 
     void onCompleteTask(int taskId) async {
-      await ref.read(smartTasksProvider.notifier).updateTask(taskId, {'status': 'Completed'});
-      ref.read(operationalDashboardProvider.notifier).fetchDashboard();
+      try {
+        await ref.read(smartTasksProvider.notifier).updateTask(taskId, {'status': 'Completed'});
+        ref.read(operationalDashboardProvider.notifier).fetchDashboard();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString()),
+              backgroundColor: AppTheme.crimson,
+            ),
+          );
+        }
+      }
     }
 
     void onDailyUpdate(ImportFileModel shipment) {
@@ -1199,168 +1437,205 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       onDailyUpdate: onDailyUpdate,
     );
 
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        _buildKpiCard(
-          title: l.kpiTodaysTasks,
-          mainValue: '${todaysTasksRecords.length} ${l.tasksCountUnit}',
-          subtitle: l.kpiTodaysTasksSub,
-          icon: Icons.today,
-          color: AppTheme.cobalt,
-          records: todaysTasksRecords,
-          clickHint: l.drillDownCardClickHint,
-          onTap: () => DashboardCardDrillDownDialog.show(
-            context: context,
-            title: l.kpiTodaysTasks,
-            icon: Icons.today,
-            themeColor: AppTheme.cobalt,
-            records: todaysTasksRecords,
-            isArabic: isArabic,
-          ),
-        ),
-        _buildKpiCard(
-          title: l.kpiPendingTasks,
-          mainValue: '${pendingTasksRecords.length} ${l.tasksCountUnit}',
-          subtitle: l.kpiPendingTasksSub,
-          icon: Icons.pending_actions,
-          color: AppTheme.orange,
-          records: pendingTasksRecords,
-          clickHint: l.drillDownCardClickHint,
-          onTap: () => DashboardCardDrillDownDialog.show(
-            context: context,
-            title: l.kpiPendingTasks,
-            icon: Icons.pending_actions,
-            themeColor: AppTheme.orange,
-            records: pendingTasksRecords,
-            isArabic: isArabic,
-          ),
-        ),
-        _buildKpiCard(
-          title: l.kpiUpcomingShipments,
-          mainValue: '${upcomingShipmentsRecords.length} ${l.shipmentCountUnit}',
-          subtitle: l.kpiUpcomingShipmentsSub,
-          icon: Icons.near_me,
-          color: AppTheme.emerald,
-          records: upcomingShipmentsRecords,
-          clickHint: l.drillDownCardClickHint,
-          onTap: () => DashboardCardDrillDownDialog.show(
-            context: context,
-            title: l.kpiUpcomingShipments,
-            icon: Icons.near_me,
-            themeColor: AppTheme.emerald,
-            records: upcomingShipmentsRecords,
-            isArabic: isArabic,
-          ),
-        ),
-        _buildKpiCard(
-          title: l.kpiArrivingThisWeek,
-          mainValue: '${arrivingThisWeekRecords.length} ${l.shipmentCountUnit}',
-          subtitle: l.kpiArrivingThisWeekSub,
-          icon: Icons.directions_boat,
-          color: AppTheme.cobalt,
-          records: arrivingThisWeekRecords,
-          clickHint: l.drillDownCardClickHint,
-          onTap: () => DashboardCardDrillDownDialog.show(
-            context: context,
-            title: l.kpiArrivingThisWeek,
-            icon: Icons.directions_boat,
-            themeColor: AppTheme.cobalt,
-            records: arrivingThisWeekRecords,
-            isArabic: isArabic,
-          ),
-        ),
-        _buildKpiCard(
-          title: l.kpiEtaChanges,
-          mainValue: '${etaChangesRecords.length}',
-          subtitle: l.kpiEtaChangesSub,
-          icon: Icons.edit_calendar,
-          color: Colors.purple,
-          records: etaChangesRecords,
-          clickHint: l.drillDownCardClickHint,
-          onTap: () => DashboardCardDrillDownDialog.show(
-            context: context,
-            title: l.kpiEtaChanges,
-            icon: Icons.edit_calendar,
-            themeColor: Colors.purple,
-            records: etaChangesRecords,
-            isArabic: isArabic,
-          ),
-        ),
-        _buildKpiCard(
-          title: l.kpiWaitingPayment,
-          mainValue: '${waitingForPaymentRecords.length}',
-          subtitle: l.kpiWaitingPaymentSub,
-          icon: Icons.monetization_on,
-          color: AppTheme.crimson,
-          records: waitingForPaymentRecords,
-          clickHint: l.drillDownCardClickHint,
-          onTap: () => DashboardCardDrillDownDialog.show(
-            context: context,
-            title: l.kpiWaitingPayment,
-            icon: Icons.monetization_on,
-            themeColor: AppTheme.crimson,
-            records: waitingForPaymentRecords,
-            isArabic: isArabic,
-          ),
-        ),
-        _buildKpiCard(
-          title: l.kpiWaitingForm4,
-          mainValue: '${waitingForForm4Records.length} ${l.shipmentCountUnit}',
-          subtitle: l.kpiWaitingForm4Sub,
-          icon: Icons.account_balance,
-          color: AppTheme.orange,
-          records: waitingForForm4Records,
-          clickHint: l.drillDownCardClickHint,
-          onTap: () => DashboardCardDrillDownDialog.show(
-            context: context,
-            title: l.kpiWaitingForm4,
-            icon: Icons.account_balance,
-            themeColor: AppTheme.orange,
-            records: waitingForForm4Records,
-            isArabic: isArabic,
-          ),
-        ),
-        _buildKpiCard(
-          title: l.kpiPendingRequirements,
-          mainValue: '${pendingRequirementsRecords.length} ${l.shipmentCountUnit}',
-          subtitle: l.kpiPendingRequirementsSub,
-          icon: Icons.rule,
-          color: AppTheme.crimson,
-          records: pendingRequirementsRecords,
-          clickHint: l.drillDownCardClickHint,
-          onTap: () => DashboardCardDrillDownDialog.show(
-            context: context,
-            title: l.kpiPendingRequirements,
-            icon: Icons.rule,
-            themeColor: AppTheme.crimson,
-            records: pendingRequirementsRecords,
-            isArabic: isArabic,
-          ),
-        ),
-        _buildKpiCard(
-          title: l.kpiHighPriorityAlerts,
-          mainValue: '${highPriorityAlertsRecords.length}',
-          subtitle: l.kpiHighPriorityAlertsSub,
-          icon: Icons.warning_amber,
-          color: AppTheme.isDark(context) ? Colors.red.shade400 : Colors.red.shade900,
-          records: highPriorityAlertsRecords,
-          clickHint: l.drillDownCardClickHint,
-          onTap: () => DashboardCardDrillDownDialog.show(
-            context: context,
-            title: l.kpiHighPriorityAlerts,
-            icon: Icons.warning_amber,
-            themeColor: AppTheme.isDark(context) ? Colors.red.shade400 : Colors.red.shade900,
-            records: highPriorityAlertsRecords,
-            isArabic: isArabic,
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        final double cardWidth;
+        if (screenWidth < 480) {
+          cardWidth = screenWidth; // 1 column on mobile (<480px)
+        } else if (screenWidth < 768) {
+          cardWidth = (screenWidth - 12) / 2; // 2 columns on large phone / small tablet
+        } else if (screenWidth < 1050) {
+          cardWidth = (screenWidth - 24) / 3; // 3 columns on tablet
+        } else if (screenWidth < 1350) {
+          cardWidth = (screenWidth - 36) / 4; // 4 columns on compact desktop
+        } else {
+          cardWidth = (screenWidth - 48) / 5; // 5 columns on wide desktop
+        }
+
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            _buildKpiCard(
+              density: density,
+              cardWidth: cardWidth,
+              title: l.kpiTodaysTasks,
+              mainValue: '${todaysTasksRecords.length} ${l.tasksCountUnit}',
+              subtitle: l.kpiTodaysTasksSub,
+              icon: Icons.today,
+              color: AppTheme.wcagCobalt,
+              records: todaysTasksRecords,
+              clickHint: l.drillDownCardClickHint,
+              onTap: () => DashboardCardDrillDownDialog.show(
+                context: context,
+                title: l.kpiTodaysTasks,
+                icon: Icons.today,
+                themeColor: AppTheme.wcagCobalt,
+                records: todaysTasksRecords,
+                isArabic: isArabic,
+              ),
+            ),
+            _buildKpiCard(
+              density: density,
+              cardWidth: cardWidth,
+              title: l.kpiPendingTasks,
+              mainValue: '${pendingTasksRecords.length} ${l.tasksCountUnit}',
+              subtitle: l.kpiPendingTasksSub,
+              icon: Icons.pending_actions,
+              color: AppTheme.wcagOrange,
+              records: pendingTasksRecords,
+              clickHint: l.drillDownCardClickHint,
+              onTap: () => DashboardCardDrillDownDialog.show(
+                context: context,
+                title: l.kpiPendingTasks,
+                icon: Icons.pending_actions,
+                themeColor: AppTheme.wcagOrange,
+                records: pendingTasksRecords,
+                isArabic: isArabic,
+              ),
+            ),
+            _buildKpiCard(
+              density: density,
+              cardWidth: cardWidth,
+              title: l.kpiUpcomingShipments,
+              mainValue: '${upcomingShipmentsRecords.length} ${l.shipmentCountUnit}',
+              subtitle: l.kpiUpcomingShipmentsSub,
+              icon: Icons.near_me,
+              color: AppTheme.wcagEmerald,
+              records: upcomingShipmentsRecords,
+              clickHint: l.drillDownCardClickHint,
+              onTap: () => DashboardCardDrillDownDialog.show(
+                context: context,
+                title: l.kpiUpcomingShipments,
+                icon: Icons.near_me,
+                themeColor: AppTheme.wcagEmerald,
+                records: upcomingShipmentsRecords,
+                isArabic: isArabic,
+              ),
+            ),
+            _buildKpiCard(
+              density: density,
+              cardWidth: cardWidth,
+              title: l.kpiArrivingThisWeek,
+              mainValue: '${arrivingThisWeekRecords.length} ${l.shipmentCountUnit}',
+              subtitle: l.kpiArrivingThisWeekSub,
+              icon: Icons.directions_boat,
+              color: AppTheme.wcagCobalt,
+              records: arrivingThisWeekRecords,
+              clickHint: l.drillDownCardClickHint,
+              onTap: () => DashboardCardDrillDownDialog.show(
+                context: context,
+                title: l.kpiArrivingThisWeek,
+                icon: Icons.directions_boat,
+                themeColor: AppTheme.wcagCobalt,
+                records: arrivingThisWeekRecords,
+                isArabic: isArabic,
+              ),
+            ),
+            _buildKpiCard(
+              density: density,
+              cardWidth: cardWidth,
+              title: l.kpiEtaChanges,
+              mainValue: '${etaChangesRecords.length}',
+              subtitle: l.kpiEtaChangesSub,
+              icon: Icons.edit_calendar,
+              color: Colors.purple.shade600,
+              records: etaChangesRecords,
+              clickHint: l.drillDownCardClickHint,
+              onTap: () => DashboardCardDrillDownDialog.show(
+                context: context,
+                title: l.kpiEtaChanges,
+                icon: Icons.edit_calendar,
+                themeColor: Colors.purple.shade600,
+                records: etaChangesRecords,
+                isArabic: isArabic,
+              ),
+            ),
+            _buildKpiCard(
+              density: density,
+              cardWidth: cardWidth,
+              title: l.kpiWaitingPayment,
+              mainValue: '${waitingForPaymentRecords.length}',
+              subtitle: l.kpiWaitingPaymentSub,
+              icon: Icons.monetization_on,
+              color: AppTheme.wcagCrimson,
+              records: waitingForPaymentRecords,
+              clickHint: l.drillDownCardClickHint,
+              onTap: () => DashboardCardDrillDownDialog.show(
+                context: context,
+                title: l.kpiWaitingPayment,
+                icon: Icons.monetization_on,
+                themeColor: AppTheme.wcagCrimson,
+                records: waitingForPaymentRecords,
+                isArabic: isArabic,
+              ),
+            ),
+            _buildKpiCard(
+              density: density,
+              cardWidth: cardWidth,
+              title: l.kpiWaitingForm4,
+              mainValue: '${waitingForForm4Records.length} ${l.shipmentCountUnit}',
+              subtitle: l.kpiWaitingForm4Sub,
+              icon: Icons.account_balance,
+              color: AppTheme.wcagOrange,
+              records: waitingForForm4Records,
+              clickHint: l.drillDownCardClickHint,
+              onTap: () => DashboardCardDrillDownDialog.show(
+                context: context,
+                title: l.kpiWaitingForm4,
+                icon: Icons.account_balance,
+                themeColor: AppTheme.wcagOrange,
+                records: waitingForForm4Records,
+                isArabic: isArabic,
+              ),
+            ),
+            _buildKpiCard(
+              density: density,
+              cardWidth: cardWidth,
+              title: l.kpiPendingRequirements,
+              mainValue: '${pendingRequirementsRecords.length} ${l.shipmentCountUnit}',
+              subtitle: l.kpiPendingRequirementsSub,
+              icon: Icons.rule,
+              color: AppTheme.wcagCrimson,
+              records: pendingRequirementsRecords,
+              clickHint: l.drillDownCardClickHint,
+              onTap: () => DashboardCardDrillDownDialog.show(
+                context: context,
+                title: l.kpiPendingRequirements,
+                icon: Icons.rule,
+                themeColor: AppTheme.wcagCrimson,
+                records: pendingRequirementsRecords,
+                isArabic: isArabic,
+              ),
+            ),
+            _buildKpiCard(
+              density: density,
+              cardWidth: cardWidth,
+              title: l.kpiHighPriorityAlerts,
+              mainValue: '${highPriorityAlertsRecords.length}',
+              subtitle: l.kpiHighPriorityAlertsSub,
+              icon: Icons.warning_amber,
+              color: AppTheme.isDark(context) ? Colors.red.shade400 : AppTheme.wcagCrimson,
+              records: highPriorityAlertsRecords,
+              clickHint: l.drillDownCardClickHint,
+              onTap: () => DashboardCardDrillDownDialog.show(
+                context: context,
+                title: l.kpiHighPriorityAlerts,
+                icon: Icons.warning_amber,
+                themeColor: AppTheme.isDark(context) ? Colors.red.shade400 : AppTheme.wcagCrimson,
+                records: highPriorityAlertsRecords,
+                isArabic: isArabic,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildKpiCard({
+    required DisplayDensityMode density,
     required String title,
     required String mainValue,
     required String subtitle,
@@ -1369,10 +1644,12 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     required List<DrillDownItem> records,
     required VoidCallback onTap,
     required String clickHint,
+    double cardWidth = 220,
   }) {
     final isDark = AppTheme.isDark(context);
+    final cardPad = density.isUltraCompact ? 8.0 : (density.isCompact ? 10.0 : 14.0);
     return SizedBox(
-      width: 220,
+      width: cardWidth,
       child: Tooltip(
         message: clickHint,
         child: Card(
@@ -1384,7 +1661,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
             hoverColor: color.withOpacity(0.04),
             borderRadius: BorderRadius.circular(10),
             child: Padding(
-              padding: const EdgeInsets.all(14),
+              padding: EdgeInsets.all(cardPad),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1394,36 +1671,50 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       Expanded(
                         child: Text(
                           title,
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                          style: TextStyle(
+                            fontSize: DisplayDensityMode.clampFontSize(density.metricTitleFontSize),
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.all(6),
+                        padding: EdgeInsets.all(density.isUltraCompact ? 4 : 6),
                         decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
-                        child: Icon(icon, color: color, size: 18),
+                        child: Icon(icon, color: color, size: density.metricIconSize),
                       ),
                     ],
                   ),
 
-                  const SizedBox(height: 8),
+                  SizedBox(height: density.isUltraCompact ? 4 : 8),
                   Row(
                     children: [
                       Expanded(
                         child: CopyableText(
                           mainValue,
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
+                          style: TextStyle(
+                            fontSize: DisplayDensityMode.clampFontSize(density.metricValueFontSize),
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                          ),
                           showIcon: false,
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Icon(Icons.open_in_new_rounded, size: 14, color: isDark ? AppTheme.darkTextMuted : Colors.grey.shade400),
+                      Icon(Icons.open_in_new_rounded, size: density.buttonIconSize - 2, color: isDark ? AppTheme.darkTextMuted : Colors.grey.shade400),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(subtitle, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextMuted : Colors.grey.shade600)),
+                  SizedBox(height: density.isUltraCompact ? 2 : 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: DisplayDensityMode.clampFontSize(density.tableCellSecondaryFontSize),
+                      color: isDark ? AppTheme.darkTextMuted : Colors.grey.shade600,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1449,17 +1740,13 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: isDark ? Colors.amber.shade700.withOpacity(0.5) : Colors.amber.shade300)),
       child: Padding(
         padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.shield_outlined, color: AppTheme.orange, size: 22),
-                const SizedBox(width: 8),
-                Text(l.riskAlertsCenter, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
-                const Spacer(),
-                if (regTasks.isNotEmpty)
-                  Container(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isCompact = constraints.maxWidth < 460;
+            final maxChipTextWidth = (constraints.maxWidth - 90).clamp(60.0, 320.0);
+
+            final badgeWidget = regTasks.isNotEmpty
+                ? Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: isDark ? const Color(0xFF3B1E22) : Colors.red.shade100,
@@ -1477,49 +1764,129 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         ),
                       ],
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+                  )
+                : const SizedBox.shrink();
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ...regTasks.take(3).map((t) {
-                  final title = _cleanTaskTitle(t.title, isArabic);
-                  return GestureDetector(
-                    onDoubleTap: () => CopyHelper.copy(context, title),
-                    onSecondaryTap: () => CopyHelper.copy(context, title),
-                    child: Tooltip(
-                      message: l.copyTooltip,
-                      child: Chip(
-                        avatar: const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson, size: 14),
-                        label: Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.red.shade200 : AppTheme.crimson)),
-                        backgroundColor: isDark ? const Color(0xFF3B1E22) : Colors.red.shade50,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: isDark ? Colors.red.shade800 : Colors.red.shade200)),
+                if (isCompact)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: constraints.maxWidth,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.shield_outlined, color: AppTheme.orange, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                l.riskAlertsCenter,
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                }),
-                ...criticals.take(3).map((s) {
-                  final text = '${s.primaryNameWithCode} — ${_formatStageName(s.currentStage, isArabic)}';
-                  return GestureDetector(
-                    onDoubleTap: () => CopyHelper.copy(context, text),
-                    onSecondaryTap: () => CopyHelper.copy(context, text),
-                    child: Tooltip(
-                      message: l.copyTooltip,
-                      child: Chip(
-                        avatar: const Icon(Icons.warning, color: AppTheme.orange, size: 14),
-                        label: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : Colors.grey.shade900)),
-                        backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: isDark ? AppTheme.darkBorderLight : Colors.amber.shade200)),
+                      if (regTasks.isNotEmpty) badgeWidget,
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      const Icon(Icons.shield_outlined, color: AppTheme.orange, size: 22),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l.riskAlertsCenter,
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                        ),
                       ),
-                    ),
-                  );
-                }),
+                      const SizedBox(width: 8),
+                      badgeWidget,
+                    ],
+                  ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ...regTasks.take(3).map((t) {
+                      final title = _cleanTaskTitle(t.title, isArabic);
+                      return GestureDetector(
+                        onDoubleTap: () => CopyHelper.copy(context, title),
+                        onSecondaryTap: () => CopyHelper.copy(context, title),
+                        child: Tooltip(
+                          message: l.copyTooltip,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF3B1E22) : Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: isDark ? Colors.red.shade800 : Colors.red.shade200),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson, size: 14),
+                                const SizedBox(width: 6),
+                                ConstrainedBox(
+                                  constraints: BoxConstraints(maxWidth: maxChipTextWidth),
+                                  child: Text(
+                                    title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.red.shade200 : AppTheme.crimson),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                    ...criticals.take(3).map((s) {
+                      final text = '${s.primaryNameWithCode} — ${_formatStageName(s.currentStage, isArabic)}';
+                      return GestureDetector(
+                        onDoubleTap: () => CopyHelper.copy(context, text),
+                        onSecondaryTap: () => CopyHelper.copy(context, text),
+                        child: Tooltip(
+                          message: l.copyTooltip,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppTheme.darkSurface : Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: isDark ? AppTheme.darkBorderLight : Colors.amber.shade200),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.warning, color: AppTheme.orange, size: 14),
+                                const SizedBox(width: 6),
+                                ConstrainedBox(
+                                  constraints: BoxConstraints(maxWidth: maxChipTextWidth),
+                                  child: Text(
+                                    text,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : Colors.grey.shade900),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
               ],
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -1598,35 +1965,71 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isCompact = constraints.maxWidth < 460;
+            final headerButton = ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              ),
+              onPressed: () => ShipmentUpdateDialog.show(context),
+              icon: const Icon(Icons.add, size: 14, color: Colors.white),
+              label: Text(l.addDailyUpdate, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+            );
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.published_with_changes, color: AppTheme.cobalt, size: 22),
-                const SizedBox(width: 8),
-                Text(l.dailyCheckinsLog, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
-                const Spacer(),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
-                  onPressed: () => ShipmentUpdateDialog.show(context),
-                  icon: const Icon(Icons.add, size: 14, color: Colors.white),
-                  label: Text(l.addDailyUpdate, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            if (logs.isEmpty)
-              Text(l.noDailyUpdates, style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextMuted : Colors.grey))
-            else
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: logs.take(5).map((log) {
-                  return Container(
-                    padding: const EdgeInsets.all(10),
-                    width: 260,
-                    decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.white, border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
+                if (isCompact)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: constraints.maxWidth,
+                        child: Row(
+                          children: [
+                            Icon(Icons.published_with_changes, color: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(l.dailyCheckinsLog, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      headerButton,
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      Icon(Icons.published_with_changes, color: isDark ? AppTheme.wcagCobalt : AppTheme.cobalt, size: 22),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(l.dailyCheckinsLog, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                      ),
+                      const SizedBox(width: 8),
+                      headerButton,
+                    ],
+                  ),
+                const SizedBox(height: 10),
+                if (logs.isEmpty)
+                  Text(l.noDailyUpdates, style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextMuted : Colors.grey))
+                else
+                  LayoutBuilder(
+                builder: (context, constraints) {
+                  final double itemWidth = constraints.maxWidth < 280 ? constraints.maxWidth : 260.0;
+                  return Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: logs.take(5).map((log) {
+                      return Container(
+                        padding: const EdgeInsets.all(10),
+                        width: itemWidth,
+                        decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.white, border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1643,7 +2046,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text(log.logDate, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextMuted : Colors.grey)),
+                            Text(log.logDate, style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextMuted : Colors.grey)),
                           ],
                         ),
                         const SizedBox(height: 4),
@@ -1657,12 +2060,16 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     ),
                   );
                 }).toList(),
+                  );
+                },
               ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
-    );
-  }
+    ),
+  );
+}
 
   // ─── Quick Actions & Registration Shortcuts Bar ───────────────────────────
 
@@ -1693,9 +2100,11 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     children: [
                       const Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        l.aiSmartExtractorTitle,
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                      Expanded(
+                        child: Text(
+                          l.aiSmartExtractorTitle,
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                        ),
                       ),
                     ],
                   ),
@@ -1739,9 +2148,11 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               children: [
                 const Icon(Icons.bolt, color: AppTheme.cobalt, size: 22),
                 const SizedBox(width: 8),
-                Text(
-                  l.quickShortcutsTitle,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                Expanded(
+                  child: Text(
+                    l.quickShortcutsTitle,
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                  ),
                 ),
               ],
             ),
@@ -1837,12 +2248,15 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
           children: [
             Icon(icon, size: 18, color: color),
             const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             const SizedBox(width: 4),
-            Icon(Icons.arrow_forward_ios, size: 10, color: color.withOpacity(0.6)),
+            DirectionalIcon(Icons.arrow_forward_ios, size: 10, color: color.withOpacity(0.6)),
           ],
         ),
       ),
@@ -1866,65 +2280,133 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
             end: Alignment.centerRight,
           ),
         ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.cobalt.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
-              ),
-              child: const Icon(Icons.dashboard_customize_outlined, color: AppTheme.cobalt, size: 28),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isCompact = constraints.maxWidth < 600;
+            if (isCompact) {
+              return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Text(
-                        l.interactiveOperationsBoardTitle,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.wcagCobalt.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppTheme.wcagCobalt.withOpacity(0.4)),
+                        ),
+                        child: const Icon(Icons.dashboard_customize_outlined, color: AppTheme.wcagCobalt, size: 24),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        l.badgeNew,
-                        style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 10),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                l.interactiveOperationsBoardTitle,
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              l.badgeNew,
+                              style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 11.0),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 8),
                   Text(
                     l.interactiveOperationsBoardDesc,
-                    style: const TextStyle(color: Colors.white70, fontSize: 11.5),
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.wcagCobalt,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      onPressed: () => selectNavigationIndex(ref, 48),
+                      icon: const Icon(Icons.launch, size: 16, color: Colors.white),
+                      label: Text(
+                        l.openInteractiveBoard,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(width: 14),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.cobalt,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-              ),
-              onPressed: () => selectNavigationIndex(ref, 48), // Native Lifecycle Board Screen
-              icon: const Icon(Icons.launch, size: 16, color: Colors.white),
-              label: Text(
-                l.openInteractiveBoard,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-              ),
-            ),
-          ],
+              );
+            }
+
+            return Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.wcagCobalt.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.wcagCobalt.withOpacity(0.4)),
+                  ),
+                  child: const Icon(Icons.dashboard_customize_outlined, color: AppTheme.wcagCobalt, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            l.interactiveOperationsBoardTitle,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          Text(
+                            l.badgeNew,
+                            style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 11.0),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        l.interactiveOperationsBoardDesc,
+                        style: const TextStyle(color: Colors.white70, fontSize: 11.5),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.wcagCobalt,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                  onPressed: () => selectNavigationIndex(ref, 48), // Native Lifecycle Board Screen
+                  icon: const Icon(Icons.launch, size: 16, color: Colors.white),
+                  label: Text(
+                    l.openInteractiveBoard,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
   // =========================================================================
-  // Shipment Lifecycle Operations Board Summary (6 Phases / 21 Steps)
+  // Shipment Lifecycle Operations Board Summary (6 Phases / 25 Steps)
   // =========================================================================
   Widget _buildLifecycleOperationsBoardSummary(
     BuildContext context,
@@ -1945,65 +2427,90 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Bar
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cobalt.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.view_kanban_outlined, color: AppTheme.cobalt, size: 22),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l.lifecycleBoardSummaryTitle,
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+            // Header Bar (Responsive)
+            LayoutBuilder(
+              builder: (context, headerConstraints) {
+                final isCompact = headerConstraints.maxWidth < 650;
+                final headerInfo = Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.wcagCobalt.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      Text(
-                        l.lifecycleBoardSummaryDesc,
-                        style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-                if (dashboardState.selectedPhase != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: OutlinedButton.icon(
-                      onPressed: () => notifier.togglePhase(dashboardState.selectedPhase!),
-                      icon: const Icon(Icons.clear, size: 14, color: AppTheme.crimson),
-                      label: Text('${l.clearFilter} (${_formatStageName(dashboardState.selectedPhase, isArabic)})', style: const TextStyle(color: AppTheme.crimson, fontSize: 11.5)),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppTheme.crimson),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      child: const Icon(Icons.view_kanban_outlined, color: AppTheme.wcagCobalt, size: 22),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l.lifecycleBoardSummaryTitle,
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                          ),
+                          Text(
+                            l.lifecycleBoardSummaryDesc,
+                            style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    selectNavigationIndex(ref, 48);
-                  },
-                  icon: const Icon(Icons.open_in_new, size: 15, color: Colors.white),
-                  label: Text(l.fullOperationsBoardButton, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-              ],
+                  ],
+                );
+
+                final actionButtons = Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (dashboardState.selectedPhase != null)
+                      OutlinedButton.icon(
+                        onPressed: () => notifier.togglePhase(dashboardState.selectedPhase!),
+                        icon: const Icon(Icons.clear, size: 14, color: AppTheme.crimson),
+                        label: Text('${l.clearFilter} (${_formatStageName(dashboardState.selectedPhase, isArabic)})', style: const TextStyle(color: AppTheme.crimson, fontSize: 11.5)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppTheme.crimson),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        ),
+                      ),
+                    ElevatedButton.icon(
+                      onPressed: () => selectNavigationIndex(ref, 48),
+                      icon: const Icon(Icons.open_in_new, size: 15, color: Colors.white),
+                      label: Text(l.fullOperationsBoardButton, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ],
+                );
+
+                if (isCompact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      headerInfo,
+                      const SizedBox(height: 10),
+                      actionButtons,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: headerInfo),
+                    actionButtons,
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 14),
             const Divider(height: 1),
             const SizedBox(height: 14),
 
-            // 6 Phases & 21 Steps
+            // 6 Phases & 25 Steps
             boardAsync.when(
               loading: () => const LifecycleSummaryShimmerSkeleton(),
               error: (_, __) => _buildDynamicLifecyclePhases(null, dashboardState, notifier),
@@ -2026,8 +2533,14 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth > 1000;
-        final cardWidth = isWide ? (constraints.maxWidth - 36) / 3 : (constraints.maxWidth - 16) / 2;
+        final double cardWidth;
+        if (constraints.maxWidth < 650) {
+          cardWidth = constraints.maxWidth; // 1 column on mobile (<650px)
+        } else if (constraints.maxWidth < 1100) {
+          cardWidth = (constraints.maxWidth - 12) / 2; // 2 columns on tablet
+        } else {
+          cardWidth = (constraints.maxWidth - 24) / 3; // 3 columns on desktop
+        }
 
         return Wrap(
           spacing: 12,
@@ -2045,7 +2558,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
             final bool isPhaseSelected = dashboardState.selectedPhase == 'Phase $phaseId' || dashboardState.selectedPhase == 'P$phaseId';
 
             return Container(
-              width: cardWidth.clamp(280.0, 480.0),
+              width: cardWidth,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: isPhaseSelected ? phaseColor.withOpacity(isDark ? 0.18 : 0.08) : (isDark ? AppTheme.darkCardBackground : Colors.white),
@@ -2180,7 +2693,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                                 child: Text(
                                   '$count',
                                   style: const TextStyle(
-                                    fontSize: 9.5,
+                                    fontSize: 11.0,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,
                                   ),

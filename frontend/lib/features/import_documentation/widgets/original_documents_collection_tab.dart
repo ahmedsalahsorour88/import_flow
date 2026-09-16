@@ -49,6 +49,10 @@ class _OriginalDocumentsCollectionTabState
   final TextEditingController _registrySearchController = TextEditingController();
   String _registryStatusFilter = 'All';
 
+  int _registryTabMode = 0; // 0 = Sessions, 1 = Courier Tracking
+  final TextEditingController _courierSearchController = TextEditingController();
+  String _courierStatusFilter = 'All';
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +63,8 @@ class _OriginalDocumentsCollectionTabState
       if (!ref.read(originalDocumentsSessionsProvider).isLoading) {
         ref.read(originalDocumentsSessionsProvider.notifier).fetchSessions();
       }
+      ref.invalidate(courierAlertsProvider);
+      ref.invalidate(allCouriersProvider);
       if (widget.initialImportFileId != null) {
         _loadInitialFile(widget.initialImportFileId!);
       }
@@ -70,6 +76,7 @@ class _OriginalDocumentsCollectionTabState
     _notesController.dispose();
     _overrideReasonController.dispose();
     _registrySearchController.dispose();
+    _courierSearchController.dispose();
     super.dispose();
   }
 
@@ -211,6 +218,9 @@ class _OriginalDocumentsCollectionTabState
         _sessionStatus = saved.status;
         _isSaving = false;
       });
+
+      ref.invalidate(courierAlertsProvider);
+      ref.invalidate(allCouriersProvider);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -380,6 +390,8 @@ class _OriginalDocumentsCollectionTabState
                   _buildActionToolbar(l),
                 ],
                 const SizedBox(height: 24),
+                _buildCourierAlertsBanner(l),
+                const SizedBox(height: 16),
                 _buildRegistrySection(l, sessionsAsync),
               ],
             ),
@@ -738,6 +750,28 @@ class _OriginalDocumentsCollectionTabState
                         onChanged: (val) => c.receivedBy = val.trim(),
                       ),
                     ),
+                    if (c.courierNo.isNotEmpty) ...[
+                      IconButton(
+                        icon: const Icon(Icons.open_in_new, size: 18, color: AppTheme.cobalt),
+                        tooltip: 'تتبع الكورير مباشرة على موقع الشركة',
+                        onPressed: () => OriginalDocsExportService.launchCarrierTracking(c.courierCompany, c.courierNo),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          c.isReceived ? Icons.verified : Icons.verified_outlined,
+                          size: 18,
+                          color: const Color(0xFF27AE60),
+                        ),
+                        tooltip: l.confirmCourierDeliveryBtn,
+                        onPressed: () => _showCourierDeliveryProofDialog(
+                          importFileId: _selectedImportFile!.importFileId,
+                          courierNo: c.courierNo,
+                          courierCompany: c.courierCompany,
+                          trackingNo: c.courierNo,
+                          importFileCode: _selectedImportFile!.importFileCode,
+                        ),
+                      ),
+                    ],
                     IconButton(
                       icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
                       tooltip: l.deleteCourierTooltip,
@@ -799,6 +833,7 @@ class _OriginalDocumentsCollectionTabState
               dataRowMinHeight: 48,
               dataRowMaxHeight: 56,
               columns: [
+                DataColumn(label: Text(l.colAction)),
                 DataColumn(label: Text(l.colCourierNo)),
                 DataColumn(label: Text(l.colDocCategory)),
                 DataColumn(label: Text(l.colDocName)),
@@ -810,7 +845,6 @@ class _OriginalDocumentsCollectionTabState
                 DataColumn(label: Text(l.colAuditor)),
                 DataColumn(label: Text(l.colDocStatus)),
                 DataColumn(label: Text(l.colRemarks)),
-                DataColumn(label: Text(l.colAction)),
               ],
               rows: List.generate(_documents.length, (index) {
                 final doc = _documents[index];
@@ -822,6 +856,24 @@ class _OriginalDocumentsCollectionTabState
 
                 return DataRow(
                   cells: [
+                    // Actions
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.copy, size: 18, color: AppTheme.cobalt),
+                            tooltip: l.originalDocsCopyRowSuccess,
+                            onPressed: () => CopyHelper.copy(context, rowSummary, customMessage: l.originalDocsCopyRowSuccess),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                            tooltip: l.colAction,
+                            onPressed: () => _removeDocument(index),
+                          ),
+                        ],
+                      ),
+                    ),
                     // Courier No
                     DataCell(
                       CopyableTableCell(
@@ -1016,24 +1068,6 @@ class _OriginalDocumentsCollectionTabState
                             onChanged: (val) => doc.remarks = val.trim(),
                           ),
                         ),
-                      ),
-                    ),
-                    // Actions
-                    DataCell(
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.copy, size: 18, color: AppTheme.cobalt),
-                            tooltip: l.originalDocsCopyRowSuccess,
-                            onPressed: () => CopyHelper.copy(context, rowSummary, customMessage: l.originalDocsCopyRowSuccess),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                            tooltip: l.colAction,
-                            onPressed: () => _removeDocument(index),
-                          ),
-                        ],
                       ),
                     ),
                   ],
@@ -1282,11 +1316,446 @@ class _OriginalDocumentsCollectionTabState
     );
   }
 
-  Widget _buildRegistrySection(AppLocalizations l, AsyncValue<List<OriginalDocumentsCollectionSessionModel>> sessionsAsync) {
-    final sessions = sessionsAsync.asData?.value ?? [];
-    final hasSessions = sessions.isNotEmpty;
-    final allImportFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+  Widget _buildCourierAlertsBanner(AppLocalizations l) {
+    final alertsAsync = ref.watch(courierAlertsProvider);
+    return alertsAsync.when(
+      data: (alertsData) {
+        if (alertsData.alerts.isEmpty) {
+          return const SizedBox.shrink();
+        }
 
+        final hasCritical = alertsData.delayedCount > 0;
+        final hasWarning = alertsData.alerts.any((a) => a.alertLevel == 'WARNING');
+        final bannerColor = hasCritical
+            ? AppTheme.crimson
+            : (hasWarning ? AppTheme.orange : AppTheme.cobalt);
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 20),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: bannerColor.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: bannerColor.withOpacity(0.35), width: 1.5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    Icon(
+                      hasCritical
+                          ? Icons.error_outline
+                          : (hasWarning ? Icons.warning_amber_rounded : Icons.local_shipping_outlined),
+                      color: bannerColor,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      l.courierAlertsHeader,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: bannerColor,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    if (hasCritical)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.crimson,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          l.courierAlertCriticalCount(alertsData.delayedCount),
+                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    if (hasWarning) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.orange,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          l.courierAlertWarningCount(alertsData.alerts.where((a) => a.alertLevel == 'WARNING').length),
+                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 12,
+                runSpacing: 10,
+                children: alertsData.alerts.map((alert) {
+                  final itemColor = alert.alertLevel == 'CRITICAL'
+                      ? AppTheme.crimson
+                      : (alert.alertLevel == 'WARNING' ? AppTheme.orange : AppTheme.cobalt);
+
+                  final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                  final alertMsg = isAr ? alert.alertMessageAr : alert.alertMessageEn;
+
+                  return Container(
+                    width: 340,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: itemColor.withOpacity(0.3)),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: itemColor.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  alert.alertLevel == 'CRITICAL'
+                                      ? (isAr ? 'تأخير حرج' : 'Critical Delay')
+                                      : (alert.alertLevel == 'WARNING'
+                                          ? (isAr ? 'اقتراب المهلة' : 'Warning')
+                                          : (isAr ? 'في الطريق' : 'In Transit')),
+                                  style: TextStyle(
+                                    color: itemColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              l.daysInTransitLabel(alert.daysInTransit),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                                color: alert.daysInTransit >= 5 ? AppTheme.crimson : AppTheme.charcoal,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${alert.importFileCode} — ${alert.courierCompany}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                        ),
+                        if (alertMsg.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            alertMsg,
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Text(
+                              'AWB: ${alert.courierNo}',
+                              style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(width: 4),
+                            InkWell(
+                              onTap: () => OriginalDocsExportService.launchCarrierTracking(
+                                alert.courierCompany,
+                                alert.courierNo,
+                              ),
+                              child: const Icon(Icons.open_in_new, size: 13, color: AppTheme.cobalt),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF27AE60),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                            icon: const Icon(Icons.done_all, size: 14),
+                            label: Text(l.confirmCourierDeliveryBtn),
+                            onPressed: () => _showCourierDeliveryProofDialog(
+                              importFileId: alert.importFileId,
+                              courierNo: alert.courierNo,
+                              courierCompany: alert.courierCompany,
+                              trackingNo: alert.courierNo,
+                              importFileCode: alert.importFileCode,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+
+  Future<void> _showCourierDeliveryProofDialog({
+    required int importFileId,
+    required String courierNo,
+    required String courierCompany,
+    String? trackingNo,
+    required String importFileCode,
+  }) async {
+    final l = context.l10n;
+    DateTime selectedDate = DateTime.now();
+    final now = DateTime.now();
+    final timeCtrl = TextEditingController(
+      text: '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
+    );
+    final receiverCtrl = TextEditingController(text: 'مكتب الاستقبال والتخليص');
+    final podCtrl = TextEditingController();
+    final notesCtrl = TextEditingController();
+    bool markDocsReceived = true;
+    bool isSubmitting = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          final dateStr =
+              '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
+
+          return SelectionArea(
+            child: AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF27AE60).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.verified_outlined, color: Color(0xFF27AE60), size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l.courierDeliveryProofDialogTitle,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '$importFileCode | $courierCompany ${trackingNo != null ? "($trackingNo)" : ""}',
+                          style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 480,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Divider(),
+                      const SizedBox(height: 12),
+                      // Receipt Date Picker
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () async {
+                                final picked = await showDatePicker(
+                                  context: ctx,
+                                  initialDate: selectedDate,
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime.now().add(const Duration(days: 1)),
+                                );
+                                if (picked != null) {
+                                  setModalState(() => selectedDate = picked);
+                                }
+                              },
+                              child: InputDecorator(
+                                decoration: InputDecoration(
+                                  labelText: l.courierReceiptDateLabel,
+                                  border: const OutlineInputBorder(),
+                                  prefixIcon: const Icon(Icons.calendar_today, size: 18),
+                                ),
+                                child: Text(dateStr, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Receipt Time Field
+                          Expanded(
+                            child: TextField(
+                              controller: timeCtrl,
+                              decoration: InputDecoration(
+                                labelText: l.courierReceiptTimeLabel,
+                                border: const OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.access_time, size: 18),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      // Received By Field
+                      TextField(
+                        controller: receiverCtrl,
+                        decoration: InputDecoration(
+                          labelText: l.courierReceivedByLabel,
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.person_outline, size: 18),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      // POD Reference
+                      TextField(
+                        controller: podCtrl,
+                        decoration: InputDecoration(
+                          labelText: l.courierPodRefLabel,
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.receipt_long_outlined, size: 18),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      // Notes
+                      TextField(
+                        controller: notesCtrl,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: 'ملاحظات الاستلاستلام والفحص الظاهري',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.notes, size: 18),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      // Auto-mark documents received checkbox
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF27AE60).withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: CheckboxListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            l.markAssociatedDocsReceivedLabel,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF27AE60)),
+                          ),
+                          value: markDocsReceived,
+                          activeColor: const Color(0xFF27AE60),
+                          onChanged: (val) => setModalState(() => markDocsReceived = val ?? true),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
+                  child: Text(l.cancel),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF27AE60),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
+                  icon: isSubmitting
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.verified, size: 18),
+                  label: Text(l.confirmCourierDeliveryBtn),
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          setModalState(() => isSubmitting = true);
+                          try {
+                            final req = CourierReceiptProofRequestModel(
+                              importFileId: importFileId,
+                              courierNo: courierNo,
+                              receivedDate: dateStr,
+                              receivedTime: timeCtrl.text.trim().isNotEmpty ? timeCtrl.text.trim() : null,
+                              receivedBy: receiverCtrl.text.trim().isNotEmpty
+                                  ? receiverCtrl.text.trim()
+                                  : 'مكتب الاستقبال والتخليص',
+                              podReference: podCtrl.text.trim().isNotEmpty ? podCtrl.text.trim() : null,
+                              notes: notesCtrl.text.trim().isNotEmpty ? notesCtrl.text.trim() : null,
+                              markDocumentsReceived: markDocsReceived,
+                            );
+
+                            await ref.read(originalDocumentsSessionsProvider.notifier).confirmCourierReceipt(req);
+
+                            ref.invalidate(courierAlertsProvider);
+                            ref.invalidate(allCouriersProvider);
+
+                            if (_selectedImportFile?.importFileId == importFileId) {
+                              await _loadInitialFile(importFileId);
+                            }
+
+                            if (dialogCtx.mounted) {
+                              Navigator.pop(dialogCtx);
+                            }
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(l.courierReceiptRecordedSuccess),
+                                  backgroundColor: const Color(0xFF27AE60),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            setModalState(() => isSubmitting = false);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('${l.errorPrefix}: $e'), backgroundColor: Colors.red),
+                              );
+                            }
+                          }
+                        },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildRegistrySection(
+      AppLocalizations l, AsyncValue<List<OriginalDocumentsCollectionSessionModel>> sessionsAsync) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -1299,405 +1768,816 @@ class _OriginalDocumentsCollectionTabState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Sub-tabs switch: Sessions Registry vs Courier Tracking Registry
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.history_edu_outlined, color: AppTheme.cobalt, size: 22),
-                    const SizedBox(width: 8),
-                    Text(
-                      l.collectionRegistryHeader,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
-                    ),
-                  ],
+                ChoiceChip(
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.history_edu_outlined, size: 16),
+                      const SizedBox(width: 6),
+                      Text(l.sessionsRegistryTab, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  selected: _registryTabMode == 0,
+                  selectedColor: AppTheme.cobalt.withOpacity(0.15),
+                  onSelected: (val) {
+                    if (val) setState(() => _registryTabMode = 0);
+                  },
                 ),
-                const SizedBox(width: 16),
-                Row(
-                  children: [
-                    SizedBox(
-                      width: 220,
-                      child: TextField(
-                        controller: _registrySearchController,
-                        decoration: InputDecoration(
-                          hintText: l.searchRegistryHint,
-                          prefixIcon: const Icon(Icons.search, size: 18),
-                          suffixIcon: _registrySearchController.text.trim().isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.copy, size: 15),
-                                  tooltip: l.copyTooltip,
-                                  onPressed: () => CopyHelper.copy(
-                                    context,
-                                    _registrySearchController.text.trim(),
-                                    customMessage: l.copiedToClipboard(_registrySearchController.text.trim()),
-                                  ),
-                                )
-                              : null,
-                          isDense: true,
-                          border: const OutlineInputBorder(),
-                        ),
-                        onChanged: (val) {
-                          ref.read(originalDocumentsSessionsProvider.notifier).fetchSessions(
-                                search: val,
-                                status: _registryStatusFilter,
-                              );
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    DropdownButton<String>(
-                      value: _registryStatusFilter,
-                      items: ['All', 'DRAFT', 'PARTIALLY_RECEIVED', 'FULLY_RECEIVED', 'FULLY_VERIFIED']
-                          .map((s) => DropdownMenuItem(
-                                value: s,
-                                child: Text(_getRegistryStatusFilterLabel(s, l), style: const TextStyle(fontSize: 12)),
-                              ))
-                          .toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() => _registryStatusFilter = val);
-                          ref.read(originalDocumentsSessionsProvider.notifier).fetchSessions(
-                                search: _registrySearchController.text,
-                                status: val,
-                              );
-                        }
-                      },
-                    ),
-                    const SizedBox(width: 16),
-                    OutlinedButton.icon(
-                      onPressed: !hasSessions
-                          ? null
-                          : () => OriginalDocsExportService.exportRegistryTsv(
-                                context: context,
-                                sessions: sessions,
-                                shipments: allImportFiles,
-                              ),
-                      icon: const Icon(Icons.table_view_outlined, size: 16, color: Color(0xFF16A085)),
-                      label: Text(l.originalDocsExportTsvBtn,
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF16A085), fontWeight: FontWeight.bold)),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFF16A085)),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: !hasSessions
-                          ? null
-                          : () => OriginalDocsExportService.exportRegistryExcel(
-                                context: context,
-                                sessions: sessions,
-                                shipments: allImportFiles,
-                              ),
-                      icon: const Icon(Icons.file_download_outlined, size: 16, color: AppTheme.emerald),
-                      label: Text(l.originalDocsExportExcelBtn,
-                          style: const TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.bold)),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppTheme.emerald),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: !hasSessions
-                          ? null
-                          : () => OriginalDocsExportService.printRegistryPdf(
-                                context: context,
-                                sessions: sessions,
-                                shipments: allImportFiles,
-                              ),
-                      icon: const Icon(Icons.print_outlined, size: 16, color: Color(0xFF8E44AD)),
-                      label: Text(l.originalDocsPrintPdfBtn,
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF8E44AD), fontWeight: FontWeight.bold)),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFF8E44AD)),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: !hasSessions
-                          ? null
-                          : () => OriginalDocsExportService.copyRegistryDossier(
-                                context: context,
-                                sessions: sessions,
-                                shipments: allImportFiles,
-                              ),
-                      icon: const Icon(Icons.copy_all_outlined, size: 16, color: AppTheme.charcoal),
-                      label: Text(l.originalDocsCopyDossierBtn,
-                          style: const TextStyle(fontSize: 12, color: AppTheme.charcoal, fontWeight: FontWeight.bold)),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppTheme.charcoal),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                      ),
-                    ),
-                  ],
+                const SizedBox(width: 12),
+                ChoiceChip(
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.local_shipping_outlined, size: 16),
+                      const SizedBox(width: 6),
+                      Text(l.courierTrackingRegistryTab, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  selected: _registryTabMode == 1,
+                  selectedColor: AppTheme.cobalt.withOpacity(0.15),
+                  onSelected: (val) {
+                    if (val) {
+                      setState(() => _registryTabMode = 1);
+                      ref.invalidate(allCouriersProvider);
+                    }
+                  },
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          sessionsAsync.when(
-            data: (sessionsList) {
-              if (sessionsList.isEmpty) {
-                return Container(
-                  padding: const EdgeInsets.all(24),
-                  alignment: Alignment.center,
-                  child: Text(l.noRegisteredSessionsFound, style: TextStyle(color: Colors.grey.shade600)),
-                );
-              }
+          if (_registryTabMode == 0)
+            _buildSessionsRegistryTable(l, sessionsAsync)
+          else
+            _buildCourierTrackingRegistryTable(l),
+        ],
+      ),
+    );
+  }
 
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  headingRowColor: WidgetStateProperty.all(const Color(0xFFF2F4F4)),
-                  headingTextStyle: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
-                  columns: [
-                    DataColumn(label: Text(l.colSessionCode)),
-                    DataColumn(label: Text(l.colImportFile)),
-                    DataColumn(label: Text(l.colAcidNumber)),
-                    DataColumn(label: Text(l.colSupplierName)),
-                    DataColumn(label: Text(l.colTotalDocs)),
-                    DataColumn(label: Text(l.colReceivedDocs)),
-                    DataColumn(label: Text(l.colVerifiedDocs)),
-                    DataColumn(label: Text(l.colCompletionPercentage)),
-                    DataColumn(label: Text(l.colDocStatus)),
-                    DataColumn(label: Text(l.colUpdatedAt)),
-                    DataColumn(label: Text(l.colAction)),
-                  ],
-                  rows: sessionsList.map((s) {
-                    final isAr = Localizations.localeOf(context).languageCode == 'ar';
-                    final allFiles = allImportFiles;
-                    final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(
-                      s.importFileCode,
-                      shipments: allFiles,
-                      isArabic: isAr,
-                    );
-                    final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
-                      s.importFileCode,
-                      shipments: allFiles,
-                      isArabic: isAr,
-                    );
-                    final statusStr = _getRegistryStatusFilterLabel(s.status, l);
-                    final updatedStr = _formatDateTime(s.updatedAt);
-                    final sessionSummary =
-                        '${s.collectionCode} | $shipmentTitle | ${s.acidNumber ?? "—"} | ${s.supplierName ?? "—"} | ${s.totalDocumentsCount} | ${s.receivedDocumentsCount} | ${s.verifiedDocumentsCount} | ${s.completionPercentage}% | $statusStr | $updatedStr';
+  Widget _buildSessionsRegistryTable(
+      AppLocalizations l, AsyncValue<List<OriginalDocumentsCollectionSessionModel>> sessionsAsync) {
+    final sessions = sessionsAsync.asData?.value ?? [];
+    final hasSessions = sessions.isNotEmpty;
+    final allImportFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
-                    return DataRow(
-                      cells: [
-                        DataCell(
-                          CopyableTableCell(
-                            value: s.collectionCode,
-                            rowSummary: sessionSummary,
-                            child: InkWell(
-                              onTap: () => CopyHelper.copy(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.history_edu_outlined, color: AppTheme.cobalt, size: 22),
+                  const SizedBox(width: 8),
+                  Text(
+                    l.collectionRegistryHeader,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 16),
+              Row(
+                children: [
+                  SizedBox(
+                    width: 220,
+                    child: TextField(
+                      controller: _registrySearchController,
+                      decoration: InputDecoration(
+                        hintText: l.searchRegistryHint,
+                        prefixIcon: const Icon(Icons.search, size: 18),
+                        suffixIcon: _registrySearchController.text.trim().isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.copy, size: 15),
+                                tooltip: l.copyTooltip,
+                                onPressed: () => CopyHelper.copy(
+                                  context,
+                                  _registrySearchController.text.trim(),
+                                  customMessage: l.copiedToClipboard(_registrySearchController.text.trim()),
+                                ),
+                              )
+                            : null,
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: (val) {
+                        ref.read(originalDocumentsSessionsProvider.notifier).fetchSessions(
+                              search: val,
+                              status: _registryStatusFilter,
+                            );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  DropdownButton<String>(
+                    value: _registryStatusFilter,
+                    items: ['All', 'DRAFT', 'PARTIALLY_RECEIVED', 'FULLY_RECEIVED', 'FULLY_VERIFIED']
+                        .map((s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(_getRegistryStatusFilterLabel(s, l), style: const TextStyle(fontSize: 12)),
+                            ))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() => _registryStatusFilter = val);
+                        ref.read(originalDocumentsSessionsProvider.notifier).fetchSessions(
+                              search: _registrySearchController.text,
+                              status: val,
+                            );
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 16),
+                  OutlinedButton.icon(
+                    onPressed: !hasSessions
+                        ? null
+                        : () => OriginalDocsExportService.exportRegistryTsv(
+                              context: context,
+                              sessions: sessions,
+                              shipments: allImportFiles,
+                            ),
+                    icon: const Icon(Icons.table_view_outlined, size: 16, color: Color(0xFF16A085)),
+                    label: Text(l.originalDocsExportTsvBtn,
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF16A085), fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF16A085)),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: !hasSessions
+                        ? null
+                        : () => OriginalDocsExportService.exportRegistryExcel(
+                              context: context,
+                              sessions: sessions,
+                              shipments: allImportFiles,
+                            ),
+                    icon: const Icon(Icons.file_download_outlined, size: 16, color: AppTheme.emerald),
+                    label: Text(l.originalDocsExportExcelBtn,
+                        style: const TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppTheme.emerald),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: !hasSessions
+                        ? null
+                        : () => OriginalDocsExportService.printRegistryPdf(
+                              context: context,
+                              sessions: sessions,
+                              shipments: allImportFiles,
+                            ),
+                    icon: const Icon(Icons.print_outlined, size: 16, color: Color(0xFF8E44AD)),
+                    label: Text(l.originalDocsPrintPdfBtn,
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF8E44AD), fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF8E44AD)),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: !hasSessions
+                        ? null
+                        : () => OriginalDocsExportService.copyRegistryDossier(
+                              context: context,
+                              sessions: sessions,
+                              shipments: allImportFiles,
+                            ),
+                    icon: const Icon(Icons.copy_all_outlined, size: 16, color: AppTheme.charcoal),
+                    label: Text(l.originalDocsCopyDossierBtn,
+                        style: const TextStyle(fontSize: 12, color: AppTheme.charcoal, fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppTheme.charcoal),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        sessionsAsync.when(
+          data: (sessionsList) {
+            if (sessionsList.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(24),
+                alignment: Alignment.center,
+                child: Text(l.noRegisteredSessionsFound, style: TextStyle(color: Colors.grey.shade600)),
+              );
+            }
+
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowColor: WidgetStateProperty.all(const Color(0xFFF2F4F4)),
+                headingTextStyle: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
+                columns: [
+                  DataColumn(label: Text(l.colAction)),
+                  DataColumn(label: Text(l.colSessionCode)),
+                  DataColumn(label: Text(l.colImportFile)),
+                  DataColumn(label: Text(l.colAcidNumber)),
+                  DataColumn(label: Text(l.colSupplierName)),
+                  DataColumn(label: Text(l.colTotalDocs)),
+                  DataColumn(label: Text(l.colReceivedDocs)),
+                  DataColumn(label: Text(l.colVerifiedDocs)),
+                  DataColumn(label: Text(l.colCompletionPercentage)),
+                  DataColumn(label: Text(l.colDocStatus)),
+                  DataColumn(label: Text(l.colUpdatedAt)),
+                ],
+                rows: sessionsList.map((s) {
+                  final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                  final allFiles = allImportFiles;
+                  final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(
+                    s.importFileCode,
+                    shipments: allFiles,
+                    isArabic: isAr,
+                  );
+                  final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+                    s.importFileCode,
+                    shipments: allFiles,
+                    isArabic: isAr,
+                  );
+                  final statusStr = _getRegistryStatusFilterLabel(s.status, l);
+                  final updatedStr = _formatDateTime(s.updatedAt);
+                  final sessionSummary =
+                      '${s.collectionCode} | $shipmentTitle | ${s.acidNumber ?? "—"} | ${s.supplierName ?? "—"} | ${s.totalDocumentsCount} | ${s.receivedDocumentsCount} | ${s.verifiedDocumentsCount} | ${s.completionPercentage}% | $statusStr | $updatedStr';
+
+                  return DataRow(
+                    cells: [
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
+                              tooltip: l.copyRow,
+                              onPressed: () => CopyHelper.copy(
                                 context,
-                                s.collectionCode,
-                                customMessage: l.copiedToClipboard(s.collectionCode),
+                                sessionSummary,
+                                customMessage: l.originalDocsCopyRowSuccess,
                               ),
-                              borderRadius: BorderRadius.circular(4),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.cobalt.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      s.collectionCode,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const Icon(Icons.copy, size: 12, color: AppTheme.cobalt),
-                                  ],
-                                ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.folder_open_outlined, size: 16, color: AppTheme.charcoal),
+                              tooltip: l.originalDocsLoadSessionTooltip,
+                              onPressed: () => _loadInitialFile(s.importFileId),
+                            ),
+                          ],
+                        ),
+                      ),
+                      DataCell(
+                        CopyableTableCell(
+                          value: s.collectionCode,
+                          rowSummary: sessionSummary,
+                          child: InkWell(
+                            onTap: () => CopyHelper.copy(
+                              context,
+                              s.collectionCode,
+                              customMessage: l.copiedToClipboard(s.collectionCode),
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cobalt.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    s.collectionCode,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.copy, size: 12, color: AppTheme.cobalt),
+                                ],
                               ),
                             ),
                           ),
                         ),
-                        DataCell(
-                          CopyableTableCell(
-                            value: shipmentName,
-                            rowSummary: sessionSummary,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (shipmentName != s.importFileCode) ...[
-                                  Text(
-                                    shipmentName,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
+                      ),
+                      DataCell(
+                        CopyableTableCell(
+                          value: shipmentName,
+                          rowSummary: sessionSummary,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (shipmentName != s.importFileCode) ...[
+                                Text(
+                                  shipmentName,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
+                                ),
+                                const SizedBox(height: 2),
+                              ],
+                              InkWell(
+                                onTap: () => CopyHelper.copy(
+                                  context,
+                                  s.importFileCode,
+                                  customMessage: l.copiedToClipboard(s.importFileCode),
+                                ),
+                                borderRadius: BorderRadius.circular(4),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blueGrey.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(4),
                                   ),
-                                  const SizedBox(height: 2),
-                                ],
-                                InkWell(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        s.importFileCode,
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Icon(Icons.copy, size: 10, color: Colors.blueGrey),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        CopyableTableCell(
+                          value: s.acidNumber ?? '—',
+                          rowSummary: sessionSummary,
+                          child: s.acidNumber != null && s.acidNumber!.isNotEmpty
+                              ? InkWell(
                                   onTap: () => CopyHelper.copy(
                                     context,
-                                    s.importFileCode,
-                                    customMessage: l.copiedToClipboard(s.importFileCode),
+                                    s.acidNumber!,
+                                    customMessage: l.copiedToClipboard(s.acidNumber!),
                                   ),
                                   borderRadius: BorderRadius.circular(4),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: Colors.blueGrey.withOpacity(0.08),
+                                      color: Colors.orange.withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
-                                          s.importFileCode,
-                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                                          s.acidNumber!,
+                                          style: const TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.deepOrange,
+                                          ),
                                         ),
                                         const SizedBox(width: 4),
-                                        const Icon(Icons.copy, size: 10, color: Colors.blueGrey),
+                                        const Icon(Icons.copy, size: 12, color: Colors.deepOrange),
                                       ],
                                     ),
                                   ),
-                                ),
-                              ],
+                                )
+                              : const Text('—'),
+                        ),
+                      ),
+                      DataCell(
+                        CopyableTableCell(
+                          value: s.supplierName ?? '—',
+                          rowSummary: sessionSummary,
+                          child: Text(s.supplierName ?? '—'),
+                        ),
+                      ),
+                      DataCell(
+                        CopyableTableCell(
+                          value: '${s.totalDocumentsCount}',
+                          rowSummary: sessionSummary,
+                          child: Text('${s.totalDocumentsCount}'),
+                        ),
+                      ),
+                      DataCell(
+                        CopyableTableCell(
+                          value: '${s.receivedDocumentsCount}',
+                          rowSummary: sessionSummary,
+                          child: Text('${s.receivedDocumentsCount}'),
+                        ),
+                      ),
+                      DataCell(
+                        CopyableTableCell(
+                          value: '${s.verifiedDocumentsCount}',
+                          rowSummary: sessionSummary,
+                          child: Text('${s.verifiedDocumentsCount}'),
+                        ),
+                      ),
+                      DataCell(
+                        CopyableTableCell(
+                          value: '${s.completionPercentage}%',
+                          rowSummary: sessionSummary,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: s.completionPercentage == 100 ? Colors.green.shade100 : Colors.amber.shade100,
+                              borderRadius: BorderRadius.circular(4),
                             ),
-                          ),
-                        ),
-                        DataCell(
-                          CopyableTableCell(
-                            value: s.acidNumber ?? '—',
-                            rowSummary: sessionSummary,
-                            child: s.acidNumber != null && s.acidNumber!.isNotEmpty
-                                ? InkWell(
-                                    onTap: () => CopyHelper.copy(
-                                      context,
-                                      s.acidNumber!,
-                                      customMessage: l.copiedToClipboard(s.acidNumber!),
-                                    ),
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: Colors.orange.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            s.acidNumber!,
-                                            style: const TextStyle(
-                                              fontFamily: 'monospace',
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.deepOrange,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          const Icon(Icons.copy, size: 12, color: Colors.deepOrange),
-                                        ],
-                                      ),
-                                    ),
-                                  )
-                                : const Text('—'),
-                          ),
-                        ),
-                        DataCell(
-                          CopyableTableCell(
-                            value: s.supplierName ?? '—',
-                            rowSummary: sessionSummary,
-                            child: Text(s.supplierName ?? '—'),
-                          ),
-                        ),
-                        DataCell(
-                          CopyableTableCell(
-                            value: '${s.totalDocumentsCount}',
-                            rowSummary: sessionSummary,
-                            child: Text('${s.totalDocumentsCount}'),
-                          ),
-                        ),
-                        DataCell(
-                          CopyableTableCell(
-                            value: '${s.receivedDocumentsCount}',
-                            rowSummary: sessionSummary,
-                            child: Text('${s.receivedDocumentsCount}'),
-                          ),
-                        ),
-                        DataCell(
-                          CopyableTableCell(
-                            value: '${s.verifiedDocumentsCount}',
-                            rowSummary: sessionSummary,
-                            child: Text('${s.verifiedDocumentsCount}'),
-                          ),
-                        ),
-                        DataCell(
-                          CopyableTableCell(
-                            value: '${s.completionPercentage}%',
-                            rowSummary: sessionSummary,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: s.completionPercentage == 100 ? Colors.green.shade100 : Colors.amber.shade100,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                '${s.completionPercentage}%',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                  color: s.completionPercentage == 100 ? Colors.green.shade800 : Colors.amber.shade900,
-                                ),
+                            child: Text(
+                              '${s.completionPercentage}%',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                                color: s.completionPercentage == 100 ? Colors.green.shade800 : Colors.amber.shade900,
                               ),
                             ),
                           ),
                         ),
-                        DataCell(
-                          CopyableTableCell(
-                            value: statusStr,
-                            rowSummary: sessionSummary,
-                            child: _buildStatusBadge(s.status, l),
-                          ),
+                      ),
+                      DataCell(
+                        CopyableTableCell(
+                          value: statusStr,
+                          rowSummary: sessionSummary,
+                          child: _buildStatusBadge(s.status, l),
                         ),
-                        DataCell(
-                          CopyableTableCell(
-                            value: updatedStr,
-                            rowSummary: sessionSummary,
-                            child: Text(updatedStr),
-                          ),
+                      ),
+                      DataCell(
+                        CopyableTableCell(
+                          value: updatedStr,
+                          rowSummary: sessionSummary,
+                          child: Text(updatedStr),
                         ),
-                        DataCell(
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
-                                tooltip: l.copyRow,
-                                onPressed: () => CopyHelper.copy(
-                                  context,
-                                  sessionSummary,
-                                  customMessage: l.originalDocsCopyRowSuccess,
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.folder_open_outlined, size: 16, color: AppTheme.charcoal),
-                                tooltip: l.originalDocsLoadSessionTooltip,
-                                onPressed: () => _loadInitialFile(s.importFileId),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  }).toList(),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Text(l.errorFetchingRegistry(e), style: const TextStyle(color: Colors.red)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCourierTrackingRegistryTable(AppLocalizations l) {
+    final allCouriersAsync = ref.watch(allCouriersProvider);
+    final allImportFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              SizedBox(
+                width: 260,
+                child: TextField(
+                  controller: _courierSearchController,
+                  decoration: InputDecoration(
+                    hintText: 'بحث برقم البوليصة أو الكورير أو الشحنة...',
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    suffixIcon: _courierSearchController.text.trim().isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 15),
+                            onPressed: () {
+                              setState(() => _courierSearchController.clear());
+                            },
+                          )
+                        : null,
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => setState(() {}),
                 ),
-              );
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text(l.errorFetchingRegistry(e), style: const TextStyle(color: Colors.red)),
+              ),
+              const SizedBox(width: 10),
+              DropdownButton<String>(
+                value: _courierStatusFilter,
+                items: [
+                  DropdownMenuItem(value: 'All', child: Text(l.filterStatusAll, style: const TextStyle(fontSize: 12))),
+                  DropdownMenuItem(value: 'IN_TRANSIT', child: Text(l.filterStatusInTransit, style: const TextStyle(fontSize: 12))),
+                  DropdownMenuItem(value: 'DELIVERED', child: Text(l.filterStatusDelivered, style: const TextStyle(fontSize: 12))),
+                ],
+                onChanged: (val) {
+                  if (val != null) setState(() => _courierStatusFilter = val);
+                },
+              ),
+              const SizedBox(width: 16),
+              ElevatedButton.icon(
+                onPressed: () => ref.invalidate(allCouriersProvider),
+                icon: const Icon(Icons.refresh, size: 16),
+                label: Text(l.refreshDataTooltip),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.cobalt,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 16),
+        allCouriersAsync.when(
+          data: (couriersList) {
+            final query = _courierSearchController.text.trim().toLowerCase();
+            final filtered = couriersList.where((c) {
+              if (_courierStatusFilter == 'IN_TRANSIT' && c.isReceived) return false;
+              if (_courierStatusFilter == 'DELIVERED' && !c.isReceived) return false;
+              if (query.isNotEmpty) {
+                final matchNo = c.courierNo.toLowerCase().contains(query);
+                final matchCompany = c.courierCompany.toLowerCase().contains(query);
+                final matchFile = c.importFileCode.toLowerCase().contains(query);
+                final matchReceiver = (c.receivedBy ?? '').toLowerCase().contains(query);
+                final matchPod = (c.podReference ?? '').toLowerCase().contains(query);
+                if (!matchNo && !matchCompany && !matchFile && !matchReceiver && !matchPod) {
+                  return false;
+                }
+              }
+              return true;
+            }).toList();
+
+            if (filtered.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(24),
+                alignment: Alignment.center,
+                child: const Text('لا توجد طرود كورير مسجلة مطابقة لمعايير البحث', style: TextStyle(color: Colors.grey)),
+              );
+            }
+
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowColor: WidgetStateProperty.all(const Color(0xFFF2F4F4)),
+                headingTextStyle: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
+                columns: const [
+                  DataColumn(label: Text('العمليات')),
+                  DataColumn(label: Text('شركة الشحن')),
+                  DataColumn(label: Text('رقم البوليصة (AWB)')),
+                  DataColumn(label: Text('ملف الشحنة')),
+                  DataColumn(label: Text('المستندات المرتبطة')),
+                  DataColumn(label: Text('تاريخ الإرسال')),
+                  DataColumn(label: Text('مدة الشحن')),
+                  DataColumn(label: Text('حالة الاستلام')),
+                  DataColumn(label: Text('تاريخ ووقت الاستلام')),
+                  DataColumn(label: Text('المستلم')),
+                  DataColumn(label: Text('رقم الـ POD')),
+                  DataColumn(label: Text('ملاحظات')),
+                ],
+                rows: filtered.map((c) {
+                  final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                  final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(
+                    c.importFileCode,
+                    shipments: allImportFiles,
+                    isArabic: isAr,
+                  );
+                  final rowSummary =
+                      '${c.courierCompany} | ${c.courierNo} | ${c.importFileCode} | ${c.isReceived ? "Delivered" : "In Transit"} | ${c.receivedDate ?? "-"}';
+
+                  return DataRow(
+                    cells: [
+                      // Operations cell
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.open_in_new, size: 16, color: AppTheme.cobalt),
+                              tooltip: 'تتبع الكورير مباشرة على موقع الشركة',
+                              onPressed: () => OriginalDocsExportService.launchCarrierTracking(
+                                c.courierCompany,
+                                c.courierNo,
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                c.isReceived ? Icons.verified : Icons.verified_outlined,
+                                size: 16,
+                                color: const Color(0xFF27AE60),
+                              ),
+                              tooltip: l.confirmCourierDeliveryBtn,
+                              onPressed: () => _showCourierDeliveryProofDialog(
+                                importFileId: c.importFileId,
+                                courierNo: c.courierNo,
+                                courierCompany: c.courierCompany,
+                                trackingNo: c.courierNo,
+                                importFileCode: c.importFileCode,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.copy, size: 15, color: Colors.blueGrey),
+                              tooltip: l.copyRow,
+                              onPressed: () => CopyHelper.copy(
+                                context,
+                                rowSummary,
+                                customMessage: l.originalDocsCopyRowSuccess,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.folder_open_outlined, size: 16, color: AppTheme.charcoal),
+                              tooltip: l.originalDocsLoadSessionTooltip,
+                              onPressed: () => _loadInitialFile(c.importFileId),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Courier Company
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.local_shipping, size: 15, color: AppTheme.cobalt),
+                            const SizedBox(width: 6),
+                            Text(
+                              _getCourierCompanyLabel(c.courierCompany, l),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // AWB No
+                      DataCell(
+                        CopyableTableCell(
+                          value: c.courierNo,
+                          rowSummary: rowSummary,
+                          child: InkWell(
+                            onTap: () => CopyHelper.copy(
+                              context,
+                              c.courierNo,
+                              customMessage: l.copiedToClipboard(c.courierNo),
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.blueGrey.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: Colors.blueGrey.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    c.courierNo,
+                                    style: const TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      color: AppTheme.charcoal,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.copy, size: 12, color: Colors.blueGrey),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Shipment Code & Name
+                      DataCell(
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (shipmentName != c.importFileCode) ...[
+                              Text(
+                                shipmentName,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                              ),
+                              const SizedBox(height: 2),
+                            ],
+                            InkWell(
+                              onTap: () => _loadInitialFile(c.importFileId),
+                              child: Text(
+                                c.importFileCode,
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.cobalt),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Associated Docs Count
+                      DataCell(
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.cobalt.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${c.associatedDocsCount} وثيقة',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Dispatch Date
+                      DataCell(Text(c.dispatchDate ?? '—', style: const TextStyle(fontSize: 12))),
+                      // Days in transit
+                      DataCell(
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: c.daysInTransit >= 5
+                                ? AppTheme.crimson.withOpacity(0.12)
+                                : (c.daysInTransit >= 3 ? AppTheme.orange.withOpacity(0.12) : Colors.blue.shade50),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            l.daysInTransitLabel(c.daysInTransit),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: c.daysInTransit >= 5
+                                  ? AppTheme.crimson
+                                  : (c.daysInTransit >= 3 ? AppTheme.orange : AppTheme.cobalt),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Status
+                      DataCell(
+                        c.isReceived
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF27AE60).withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.check_circle, size: 12, color: Color(0xFF27AE60)),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'تم الاستلام',
+                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF27AE60)),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.orange.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.local_shipping, size: 12, color: AppTheme.orange),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'في الطريق',
+                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                      ),
+                      // Received Date & Time
+                      DataCell(
+                        Text(
+                          c.receivedDate != null
+                              ? '${c.receivedDate} ${c.receivedTime ?? ""}'.trim()
+                              : '—',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      // Received By
+                      DataCell(Text(c.receivedBy ?? '—', style: const TextStyle(fontSize: 12))),
+                      // POD Ref
+                      DataCell(
+                        Text(
+                          c.podReference ?? '—',
+                          style: const TextStyle(fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      // Notes
+                      DataCell(Text(c.notes ?? '—', style: const TextStyle(fontSize: 11))),
+                    ],
+                  );
+                }).toList(),
+              ),
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Text('${l.errorPrefix}: $e', style: const TextStyle(color: Colors.red)),
+        ),
+      ],
     );
   }
 }

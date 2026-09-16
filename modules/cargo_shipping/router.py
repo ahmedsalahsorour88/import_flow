@@ -30,8 +30,13 @@ from .service import (
 router = APIRouter(prefix="/api/v1/cargo-shipping", tags=["Cargo Preparation & Shipping (Phase 5)"])
 
 @router.post("", response_model=CargoShippingResponse, status_code=status.HTTP_201_CREATED)
-def create_cargo_shipping(payload: CargoShippingCreate, auto_upsert: bool = Query(True), db: Session = Depends(get_db)):
-    return create_cargo_shipping_service(db, payload, auto_upsert=auto_upsert)
+def create_cargo_shipping(
+    payload: CargoShippingCreate,
+    auto_upsert: bool = Query(True),
+    auto_advance_lifecycle: bool = Query(True),
+    db: Session = Depends(get_db),
+):
+    return create_cargo_shipping_service(db, payload, auto_upsert=auto_upsert, auto_advance_lifecycle=auto_advance_lifecycle)
 
 @router.get("", response_model=List[CargoShippingResponse])
 def list_cargo_shippings(
@@ -48,8 +53,13 @@ def get_cargo_shipping(record_id: int, db: Session = Depends(get_db)):
     return get_cargo_shipping_service(db, record_id, include_inactive=True)
 
 @router.put("/{record_id}", response_model=CargoShippingResponse)
-def update_cargo_shipping(record_id: int, payload: CargoShippingUpdate, db: Session = Depends(get_db)):
-    return update_cargo_shipping_service(db, record_id, payload)
+def update_cargo_shipping(
+    record_id: int,
+    payload: CargoShippingUpdate,
+    auto_advance_lifecycle: bool = Query(True),
+    db: Session = Depends(get_db),
+):
+    return update_cargo_shipping_service(db, record_id, payload, auto_advance_lifecycle=auto_advance_lifecycle)
 
 @router.patch("/{record_id}/containers/{container_no}/loading-tracking", response_model=CargoShippingResponse)
 def update_container_loading_tracking(

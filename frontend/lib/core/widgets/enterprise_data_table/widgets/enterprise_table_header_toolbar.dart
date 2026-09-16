@@ -13,6 +13,7 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
   final VoidCallback? onClearSearch;
   final VoidCallback onOpenColumnPicker;
   final VoidCallback? onExportCSV;
+  final VoidCallback? onExportPDF;
   final VoidCallback? onCopyToClipboard;
   final List<Widget>? extraActions;
   final Widget? bulkActions;
@@ -29,6 +30,7 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
     this.onClearSearch,
     required this.onOpenColumnPicker,
     this.onExportCSV,
+    this.onExportPDF,
     this.onCopyToClipboard,
     this.extraActions,
     this.bulkActions,
@@ -180,6 +182,27 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
                                 icon: const Icon(Icons.table_chart_outlined, size: 16, color: AppTheme.emerald),
                                 label: const Text(
                                   'تصدير Excel',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+
+                          // Export PDF Button
+                          if (onExportPDF != null) ...[
+                            Tooltip(
+                              message: 'تصدير الجدول إلى مستند PDF رسمي',
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  side: const BorderSide(color: AppTheme.crimson),
+                                  foregroundColor: AppTheme.crimson,
+                                ),
+                                onPressed: onExportPDF,
+                                icon: const Icon(Icons.picture_as_pdf_outlined, size: 16, color: AppTheme.crimson),
+                                label: const Text(
+                                  'تصدير PDF',
                                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                                 ),
                               ),

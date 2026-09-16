@@ -1030,7 +1030,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 11.0,
                     fontWeight: FontWeight.bold,
                     color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
                   ),

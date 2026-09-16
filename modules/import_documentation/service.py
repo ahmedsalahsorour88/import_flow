@@ -16,8 +16,8 @@ from modules.import_documentation.model import (
     AcidRegistrationSession,
     BankingDocumentSession,
     ShipmentDocumentItem,
-    CustomsDeclarationDraft,
     POPackingReconciliationSession,
+    InvoiceBLMatchSession,
     DraftBLReviewSession,
     CertificateOfOriginReviewSession,
     InspectionCertificateReviewSession,
@@ -47,6 +47,18 @@ from modules.import_documentation.ai_document_parser import (
     _heuristic_multi_carrier_extractor as extract_draft_bl_data,
     extract_commercial_invoice_data,
 )
+
+
+from modules.import_files.model import ImportFile
+
+
+def get_import_files_map(db: Session, file_ids: Any) -> Dict[int, ImportFile]:
+    """Efficient bulk retrieval of ImportFile instances indexed by import_file_id."""
+    clean_ids = {fid for fid in file_ids if fid}
+    if not clean_ids:
+        return {}
+    files = db.query(ImportFile).filter(ImportFile.import_file_id.in_(clean_ids)).all()
+    return {f.import_file_id: f for f in files}
 
 
 def enrich_acid_response(db: Session, item: AcidRegistrationSession, import_files_map: dict = None) -> AcidRegistrationResponse:
@@ -1447,7 +1459,10 @@ def create_draft_bl_review_service(db: Session, schema: DraftBLReviewCreate) -> 
         schema.checklist_data = raw_checklist
         schema.revision_report_data = revision_report
         schema.open_discrepancies_count = open_count
-        if open_count > 0:
+        if getattr(schema, "is_draft", False):
+            schema.status = "DRAFT"
+            schema.stage = "Stage 1: Draft Review"
+        elif open_count > 0:
             schema.stage = "Stage 2: Revision Required"
             schema.status = "REVISION_REQUIRED"
         else:
@@ -1468,14 +1483,97 @@ def create_draft_bl_review_service(db: Session, schema: DraftBLReviewCreate) -> 
         schema.open_discrepancies_count = comp_res["open_discrepancies_count"]
         schema.blocking_reasons = comp_res["blocking_reasons"]
         schema.correction_request_letter = comp_res["correction_request_letter"]
-        schema.stage = comp_res["stage"]
-        schema.status = comp_res["status"]
+        if getattr(schema, "is_draft", False):
+            schema.status = "DRAFT"
+            schema.stage = "Stage 1: Draft Review"
+        elif schema.status != "APPROVED":
+            schema.stage = comp_res["stage"]
+            schema.status = comp_res["status"]
 
-    existing = repo.get_draft_bl_review_by_file_id(db, schema.import_file_id, include_inactive=False)
-    if existing:
+    if getattr(schema, "is_draft", False):
+        schema.status = "DRAFT"
+        schema.stage = "Stage 1: Draft Review"
+    elif schema.status == "APPROVED":
+        schema.status = "APPROVED"
+        schema.stage = "Stage 5: Final"
+    elif (schema.open_discrepancies_count or 0) > 0 or schema.has_blocking_mismatch:
+        schema.status = "REVISION_REQUIRED"
+        schema.stage = "Stage 2: Revision Required"
+    elif schema.status in ["REVIEWED_PENDING_APPROVAL", "AUTO_COMPARISON_RUN"]:
+        schema.status = "APPROVED"
+        schema.stage = "Stage 5: Final"
+
+    existing = repo.get_draft_bl_review_by_file_id(db, schema.import_file_id, include_inactive=False, include_drafts=True)
+    if existing and existing.is_draft and getattr(schema, "is_draft", False):
         update_schema = DraftBLReviewUpdate(**schema.model_dump(exclude_unset=True))
-        return repo.update_draft_bl_review(db, existing.bl_review_id, update_schema)
-    return repo.create_draft_bl_review(db, schema)
+        saved_session = repo.update_draft_bl_review(db, existing.bl_review_id, update_schema)
+    else:
+        saved_session = repo.create_draft_bl_review(db, schema)
+
+    # If certified and approved (not draft, not revision required), sync to ImportFile, CargoShipping, and Customs Document Approvals
+    if not getattr(schema, "is_draft", False) and saved_session.status == "APPROVED":
+        try:
+            from modules.import_files.model import ImportFile
+            imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id).first()
+            if imp_file:
+                if schema.draft_bl_number and schema.draft_bl_number != "DRAFT-BL":
+                    imp_file.bl_number = schema.draft_bl_number
+                if schema.booking_no:
+                    imp_file.booking_no = schema.booking_no
+                if schema.vessel_name:
+                    imp_file.vessel_name = schema.vessel_name
+                imp_file.current_module = "STEP_08_COO مسودة شهادة المنشأ و EUR.1"
+                imp_file.next_action = "STEP_08_COO مراجعة مسودة شهادة المنشأ والاتفاقيات التفضيلية"
+                if (imp_file.progress_percent or 0.0) < 54.0:
+                    imp_file.progress_percent = 54.0
+                db.commit()
+
+            # Sync to CargoShippingRecord
+            from modules.cargo_shipping.model import CargoShippingRecord
+            cargo_shp = db.query(CargoShippingRecord).filter(
+                CargoShippingRecord.import_file_id == schema.import_file_id,
+                CargoShippingRecord.is_active == True,
+            ).first()
+            if cargo_shp:
+                if schema.draft_bl_number and schema.draft_bl_number != "DRAFT-BL":
+                    cargo_shp.bl_number = schema.draft_bl_number
+                if schema.vessel_name:
+                    cargo_shp.vessel_name = schema.vessel_name
+                db.commit()
+
+            # Sync to CustomsDocumentApproval (Bill of Lading)
+            from modules.docs_customs_approval.model import CustomsDocumentApproval
+            bl_app = db.query(CustomsDocumentApproval).filter(
+                CustomsDocumentApproval.import_file_id == schema.import_file_id,
+                CustomsDocumentApproval.document_type == "Bill of Lading",
+                CustomsDocumentApproval.is_active == True,
+            ).first()
+            if bl_app:
+                bl_app.document_reference_no = schema.draft_bl_number or bl_app.document_reference_no
+                bl_app.commercial_status = "Approved"
+                bl_app.commercial_reviewed_by = schema.approved_by or "Draft B/L Review Engine"
+                bl_app.commercial_reviewed_at = datetime.now(timezone.utc)
+                bl_app.commercial_notes = f"تم اعتماد مسودة بوليصة الشحن ({schema.draft_bl_number}) بنجاح (STEP_08_BL)."
+                if bl_app.customs_status == "Approved":
+                    bl_app.overall_status = "Approved for Clearance"
+                else:
+                    bl_app.overall_status = "Under Review"
+                db.commit()
+
+            # Transition lifecycle
+            from modules.lifecycle_board.service import advance_lifecycle_step_service
+            advance_lifecycle_step_service(
+                db=db,
+                import_file_id=schema.import_file_id,
+                completed_step_code="STEP_08_BL",
+                target_step_codes=["STEP_08_COO"],
+                notes=f"اكتمال واعتماد مراجعة مسودة بوليصة الشحن ({schema.draft_bl_number}) وتحديث الموافقة الجمركية بنجاح.",
+                assigned_user=schema.approved_by or "Compliance Officer",
+            )
+        except Exception as e:
+            logger.warning("Sync failed for certified draft B/L review: %s", e)
+
+    return saved_session
 
 
 def update_draft_bl_review_service(db: Session, review_id: int, schema: DraftBLReviewUpdate) -> DraftBLReviewSession:
@@ -1849,19 +1947,71 @@ def create_coo_review_service(db: Session, schema: CertificateOfOriginReviewCrea
     if not schema.country_of_origin or schema.country_of_origin == "N/A":
         schema.country_of_origin = draft_dict.get("country_of_origin") or sys_dict.get("country_of_origin") or "China"
 
-    # Mandatory justification validation on discrepancies
-    if (schema.has_discrepancies or schema.has_critical_mismatch):
-        if schema.status in ["Verified", "Approved", "Discrepancy_Accepted"] and not (schema.override_reason and schema.override_reason.strip()):
-            raise HTTPException(
-                status_code=400,
-                detail="يجب ذكر سبب ومبررات الموافقة على الاختلافات قبل اعتماد وحفظ دراسة شهادة المنشأ، أو العودة للتعديل ومخاطبة المورد."
-            )
+    # Mandatory justification validation on discrepancies (only enforced on certified save)
+    is_draft = getattr(schema, "is_draft", False)
+    if is_draft:
+        schema.status = "Draft Generated"
+    else:
+        if (schema.has_discrepancies or schema.has_critical_mismatch):
+            if schema.status in ["Verified", "Approved", "Discrepancy_Accepted"] and not (schema.override_reason and schema.override_reason.strip()):
+                raise HTTPException(
+                    status_code=400,
+                    detail="يجب ذكر سبب ومبررات الموافقة على الاختلافات قبل اعتماد وحفظ دراسة شهادة المنشأ، أو العودة للتعديل ومخاطبة المورد."
+                )
+        schema.status = "Approved"
 
-    existing = repo.get_coo_review_by_file_id(db, schema.import_file_id, include_inactive=False)
+    existing = repo.get_coo_review_by_file_id(db, schema.import_file_id, include_inactive=False, include_drafts=True)
     if existing:
         update_schema = CertificateOfOriginReviewUpdate(**schema.model_dump(exclude_unset=True))
-        return repo.update_coo_review(db, existing.coo_review_id, update_schema)
-    return repo.create_coo_review(db, schema)
+        saved_session = repo.update_coo_review(db, existing.coo_review_id, update_schema)
+    else:
+        saved_session = repo.create_coo_review(db, schema)
+
+    # If certified (not draft), sync to Customs Document Approvals and Central Lifecycle
+    if not is_draft:
+        try:
+            from modules.docs_customs_approval.model import CustomsDocumentApproval
+            from modules.import_files.model import ImportFile
+
+            coo_app = db.query(CustomsDocumentApproval).filter(
+                CustomsDocumentApproval.import_file_id == schema.import_file_id,
+                CustomsDocumentApproval.document_type == "Certificate of Origin",
+                CustomsDocumentApproval.is_active == True,
+            ).first()
+            if coo_app:
+                coo_app.document_reference_no = schema.certificate_number or coo_app.document_reference_no
+                coo_app.commercial_status = "Approved"
+                coo_app.commercial_reviewed_by = schema.reviewed_by or "Draft COO Review Engine"
+                coo_app.commercial_reviewed_at = datetime.now(timezone.utc)
+                coo_app.commercial_notes = f"تم اعتماد شهادة المنشأ ({schema.certificate_type} - {schema.certificate_number}) بنجاح (STEP_08_COO)."
+                if coo_app.customs_status == "Approved":
+                    coo_app.overall_status = "Approved for Clearance"
+                else:
+                    coo_app.overall_status = "Under Review"
+                db.commit()
+
+            # Advance Central Lifecycle
+            from modules.lifecycle_board.service import advance_lifecycle_step_service
+            advance_lifecycle_step_service(
+                db=db,
+                import_file_id=schema.import_file_id,
+                completed_step_code="STEP_08_COO",
+                target_step_codes=["STEP_09"],
+                notes=f"اكتمال واعتماد شهادة المنشأ ({schema.certificate_type} - {schema.certificate_number}) وتحديث الموافقة الجمركية بنجاح.",
+                assigned_user=schema.reviewed_by or "Compliance Officer",
+            )
+
+            imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id).first()
+            if imp_file:
+                imp_file.current_module = "STEP_09 الموافقة الجمركية على الأوراق"
+                imp_file.next_action = "STEP_09 تدقيق ومراجعة الاعتماد الجمركي النهائي للأوراق"
+                if (imp_file.progress_percent or 0.0) < 58.0:
+                    imp_file.progress_percent = 58.0
+                db.commit()
+        except Exception as e:
+            logger.warning("Sync failed for certified COO review: %s", e)
+
+    return saved_session
 
 
 def update_coo_review_service(db: Session, review_id: int, schema: CertificateOfOriginReviewUpdate) -> CertificateOfOriginReviewSession:
@@ -3623,12 +3773,81 @@ def sync_certified_invoice_bl_to_file_service(
             if bl.get("total_gross_weight_kg"):
                 cargo_shp.total_gross_weight_kg = float(bl["total_gross_weight_kg"])
 
+    # Reflect directly in Customs Document Approvals (الموافقة الجمركية على الأوراق)
+    try:
+        from modules.docs_customs_approval.model import CustomsDocumentApproval
+        approvals = db.query(CustomsDocumentApproval).filter(
+            CustomsDocumentApproval.import_file_id == request.import_file_id,
+            CustomsDocumentApproval.is_active == True,
+        ).all()
+        app_by_type = {a.document_type: a for a in approvals}
+
+        # 1. Commercial Invoice
+        if inv.get("invoice_number"):
+            inv_app = app_by_type.get("Commercial Invoice")
+            if inv_app:
+                inv_app.document_reference_no = str(inv["invoice_number"])
+                inv_app.commercial_status = "Approved"
+                inv_app.commercial_reviewed_by = "Smart Match Engine"
+                inv_app.commercial_reviewed_at = datetime.now(timezone.utc)
+                inv_app.commercial_notes = "تمت المطابقة والاعتماد الذكي بنجاح مع بوليصة الشحن (STEP_08_MATCH)."
+                if inv_app.customs_status == "Approved":
+                    inv_app.overall_status = "Approved for Clearance"
+                else:
+                    inv_app.overall_status = "Under Review"
+
+        # 2. Bill of Lading
+        if bl.get("draft_bl_number"):
+            bl_app = app_by_type.get("Bill of Lading")
+            if bl_app:
+                bl_app.document_reference_no = str(bl["draft_bl_number"])
+                bl_app.commercial_status = "Approved"
+                bl_app.commercial_reviewed_by = "Smart Match Engine"
+                bl_app.commercial_reviewed_at = datetime.now(timezone.utc)
+                bl_app.commercial_notes = "تمت المطابقة والاعتماد الذكي بنجاح مع الفاتورة التجارية (STEP_08_MATCH)."
+                if bl_app.customs_status == "Approved":
+                    bl_app.overall_status = "Approved for Clearance"
+                else:
+                    bl_app.overall_status = "Under Review"
+
+        # 3. Packing List
+        pl_ref = bl.get("packing_list_number") or inv.get("packing_list_number")
+        if pl_ref:
+            pl_app = app_by_type.get("Packing List")
+            if pl_app:
+                pl_app.document_reference_no = str(pl_ref)
+                pl_app.commercial_status = "Approved"
+                pl_app.commercial_reviewed_by = "Smart Match Engine"
+                pl_app.commercial_reviewed_at = datetime.now(timezone.utc)
+                pl_app.commercial_notes = "تمت مطابقة قياسات قائمة التعبئة واعتمادها (STEP_08_MATCH)."
+    except Exception as e:
+        logger.warning("Failed to sync customs document approval from match: %s", e)
+
+    # Sync with Central Lifecycle Board Engine (STEP_08_MATCH -> STEP_08_COO)
+    try:
+        from modules.lifecycle_board.service import transition_stage_activity_service
+        transition_stage_activity_service(
+            db=db,
+            import_file_id=request.import_file_id,
+            completed_step_code="STEP_08_MATCH",
+            target_step_codes=["STEP_08_COO"],
+            notes=f"اكتمال المطابقة الذكية بين الفاتورة ({inv.get('invoice_number', 'N/A')}) والبوليصة ({bl.get('draft_bl_number', 'N/A')}) وتحديث مصفوفة الموافقة الجمركية للأوراق بنجاح.",
+            performed_by="Compliance Officer",
+        )
+    except Exception as e:
+        logger.warning("Lifecycle sync in invoice-bl match skipped: %s", e)
+
+    imp_file.current_module = "STEP_08_COO مسودة شهادة المنشأ و EUR.1"
+    imp_file.next_action = "STEP_08_COO مراجعة مسودة شهادة المنشأ والاتفاقيات التفضيلية"
+    if (imp_file.progress_percent or 0.0) < 54.0:
+        imp_file.progress_percent = 54.0
+
     db.commit()
     db.refresh(imp_file)
 
     return {
         "status": "success",
-        "message": f"تمت مطابقة واعتماد الفاتورة ({inv.get('invoice_number', 'N/A')}) والبوليصة ({bl.get('draft_bl_number', 'N/A')}) ومزامنة بياناتهما مع ملف الشحنة بنجاح.",
+        "message": f"تمت مطابقة واعتماد الفاتورة ({inv.get('invoice_number', 'N/A')}) والبوليصة ({bl.get('draft_bl_number', 'N/A')}) ومزامنة بياناتهما مع ملف الشحنة والموافقة الجمركية بنجاح.",
         "import_file_id": imp_file.import_file_id,
         "import_file_code": imp_file.import_file_code,
         "synced_invoice_number": imp_file.pi_number,
@@ -3636,6 +3855,53 @@ def sync_certified_invoice_bl_to_file_service(
         "total_amount": imp_file.total_amount,
         "currency": imp_file.currency,
     }
+
+
+def create_invoice_bl_match_session_service(
+    db: Session, payload: InvoiceBLMatchSessionCreate
+) -> InvoiceBLMatchSession:
+    # 1. Fetch import file to enrich file code
+    file = db.query(ImportFile).filter(ImportFile.import_file_id == payload.import_file_id).first()
+    if not payload.import_file_code and file:
+        payload.import_file_code = file.custom_file_number or file.import_file_code
+
+    # 2. Check if an active session already exists for this file
+    existing = repo.get_invoice_bl_match_session_by_file_id(db, payload.import_file_id, include_drafts=True)
+    if existing and (existing.is_draft or payload.is_draft):
+        update_schema = InvoiceBLMatchSessionUpdate(**payload.model_dump())
+        session_res = repo.update_invoice_bl_match_session(db, existing.session_id, update_schema)
+    else:
+        session_res = repo.create_invoice_bl_match_session(db, payload)
+
+    # 3. If certified (not draft), sync to ImportFile, Shipping, and Customs Document Approvals!
+    if not payload.is_draft and payload.invoice_data and payload.bl_data:
+        sync_req = InvoiceBLSyncRequest(
+            import_file_id=payload.import_file_id,
+            invoice_data=payload.invoice_data,
+            bl_data=payload.bl_data,
+            sync_to_po=True,
+            sync_to_shipping=True,
+            notes=payload.notes,
+        )
+        sync_certified_invoice_bl_to_file_service(db, sync_req)
+
+    return session_res
+
+
+def list_invoice_bl_match_sessions_service(
+    db: Session,
+    import_file_id: Optional[int] = None,
+    is_draft: Optional[bool] = None,
+    search: Optional[str] = None,
+) -> List[InvoiceBLMatchSession]:
+    return repo.list_invoice_bl_match_sessions(db, import_file_id, is_draft, search)
+
+
+def get_invoice_bl_match_session_service(
+    db: Session, session_id: int
+) -> Optional[InvoiceBLMatchSession]:
+    return repo.get_invoice_bl_match_session_by_id(db, session_id)
+
 
 
 def extract_and_compare_po_documents_service(
@@ -3878,14 +4144,23 @@ def get_banking_document_by_id_service(db: Session, bank_doc_id: int):
 def get_all_shipment_documents_service(db: Session, import_file_id: int = None):
     return repo.get_all_shipment_documents(db, import_file_id=import_file_id)
 
-def get_draft_bl_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None):
-    return repo.get_draft_bl_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search)
+def get_draft_bl_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None, is_draft: bool = None):
+    return repo.get_draft_bl_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search, is_draft=is_draft)
 
 def get_draft_bl_review_by_id_service(db: Session, review_id: int, include_inactive: bool = True):
     return repo.get_draft_bl_review_by_id(db, review_id, include_inactive=include_inactive)
 
-def get_coo_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None):
-    return repo.get_coo_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search)
+def delete_draft_bl_review_service(db: Session, review_id: int) -> dict:
+    ok = repo.delete_draft_bl_review(db, review_id)
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"جلسة مراجعة مسودة البوليصة رقم {review_id} غير موجودة للحذف.",
+        )
+    return {"message": f"تم حذف جلسة مراجعة مسودة البوليصة رقم {review_id} بنجاح", "deleted": True}
+
+def get_coo_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None, is_draft: bool = None):
+    return repo.get_coo_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search, is_draft=is_draft)
 
 def delete_coo_review_service(db: Session, review_id: int) -> dict:
     ok = repo.delete_coo_review(db, review_id)
@@ -4145,14 +4420,14 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         is_waived=False,
         legal_requirement_note="مستند إلزامي حتمي يثبت الشحن والناقل البحري ورقم القيد الجمركي ACID.",
         status="APPROVED" if (bl_available and bl_review.status in ["Approved", "APPROVED", "FINAL"]) else ("MODIFICATIONS_REQUESTED" if bl_discrepancies else ("REVIEW_PENDING" if bl_available else "NOT_STARTED")),
-        document_reference=(bl_review.draft_bl_number if bl_review else None) or (booking.booking_reference if booking else None),
+        document_reference=(bl_review.draft_bl_number if bl_review else None) or (getattr(booking, 'booking_confirmation_no', None) or getattr(booking, 'booking_code', None) if booking else None),
         details={
             "draft_bl_number": (bl_review.draft_bl_number if bl_review else None) or "DRAFT-BL",
-            "shipping_line": (bl_review.shipping_line if bl_review else None) or (booking.shipping_line if booking else "MSC / Maersk"),
-            "vessel_name": (bl_review.vessel_name if bl_review else None) or (booking.vessel_name if booking else None),
-            "voyage_number": bl_review.voyage_number if bl_review else None,
+            "shipping_line": (bl_review.shipping_line if bl_review else None) or (getattr(booking, 'shipping_line_name', None) or getattr(booking, 'shipping_line', None) if booking else "MSC / Maersk"),
+            "vessel_name": (bl_review.vessel_name if bl_review else None) or (getattr(booking, 'vessel_name', None) if booking else None),
+            "voyage_number": (bl_review.voyage_number if bl_review else None) or (getattr(booking, 'voyage_number', None) if booking else None),
             "container_summary": bl_review.container_summary if bl_review else None,
-            "gross_weight_kg": bl_review.gross_weight if (bl_review and hasattr(bl_review, 'gross_weight')) else (booking.gross_weight if booking else 0.0),
+            "gross_weight_kg": bl_review.gross_weight if (bl_review and hasattr(bl_review, 'gross_weight')) else (getattr(booking, 'gross_weight', 0.0) or 0.0),
         },
         discrepancies=bl_discrepancies,
         raw_content=bl_review.raw_input_text if (bl_review and hasattr(bl_review, 'raw_input_text')) else None,

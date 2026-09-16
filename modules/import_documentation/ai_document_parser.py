@@ -1124,10 +1124,21 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
     # Regex for an item row with quantities and prices
     item_row_re = re.compile(
         r'(?:(\b\d{8,10}\b)\s+)?' # Optional HS Code (8-10 digits)
-        r'(\b\d{1,4}(?:[.,]\d{1,4})?)\s*' # Qty (e.g. 2,000 or 960 or 2 or 10.5)
-        r'(NR|PCE|PCS|BOX|UNITS?|SET|KG|M|L|PAC|PKGS?)?\s+' # UOM
-        r'(\b\d{1,3}(?:[.,\s]\d{2,5})+\b)\s+' # Unit price (e.g. 18.602,37500 or 268,12500)
-        r'(\b\d{1,3}(?:[.,\s]\d{1,5})*(?:[.,]\d{2})?\b)' # Total price (e.g. 37. 204, 75 or 536,25)
+        r'(\b\d{1,7}(?:[.,]\d{1,4})?)\s*' # Qty (e.g. 2,000 or 960 or 400 or 10.5)
+        r'(NR|PCE|PCS|PC|BOX|BOXES|UNITS?|SET|SETS|KG|KGS|M|M2|SQM|L|PAC|PKGS?|ROLLS?|SHEETS?|CTNS?|CARTONS?)?\s+' # UOM
+        r'([\$€£¥]?\s*\b\d{1,6}(?:[.,\s]\d{1,5})*\b)\s+' # Unit price (e.g. 17.3, 60.7, 20, 18.602,37500)
+        r'([\$€£¥]?\s*\b\d{1,8}(?:[.,\s]\d{1,5})*\b)' # Total price (e.g. 6920.00, 37.204,75 or 536,25)
+    )
+
+    # Standard tabular invoice regex: [ItemCode] [Optional Description] [Qty] [Optional UOM] [UnitPrice] [TotalPrice]
+    std_inv_re = re.compile(
+        r'([A-Z0-9/_-]{2,25})\s+'
+        r'([A-Za-z\u0600-\u06FF\s.,()/-]{2,50})\s+'
+        r'(\b\d{1,7}(?:[.,]\d{1,4})?)\s*'
+        r'(NR|PCE|PCS|PC|BOX|UNITS?|SET|KG|M|PAC|PKGS?|ROLLS?|CTNS?)?\s+'
+        r'([\$€£¥]?\s*\b\d{1,6}(?:[.,]\d{1,5})?\b)\s+'
+        r'([\$€£¥]?\s*\b\d{1,8}(?:[.,]\d{1,5})?\b)',
+        re.IGNORECASE
     )
 
     for idx, line in enumerate(raw_lines):
@@ -1231,20 +1242,40 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
 
     # Fallback to single-line regex if table row regex didn't find items
     if not items:
+        # Check standard tabular regex across lines
+        for line in raw_lines:
+            m_s = std_inv_re.search(line)
+            if m_s:
+                c_code, c_desc, c_qty, c_uom, c_uprice, c_tprice = m_s.groups()
+                q_val = _parse_flexible_number(c_qty)
+                up_val = _parse_flexible_number(c_uprice)
+                tp_val = _parse_flexible_number(c_tprice)
+                if q_val > 0 and (up_val > 0 or tp_val > 0):
+                    items.append({
+                        "item_code": c_code.strip(),
+                        "description": c_desc.strip(),
+                        "hs_code": "",
+                        "quantity": q_val,
+                        "unit": c_uom or "PCS",
+                        "unit_price": up_val,
+                        "total_price": tp_val,
+                    })
+
+    if not items:
         item_blocks = re.findall(
-            r'([A-Z0-9]{6,25})\s+([^\n\r]+?)\s+(?:(\d{8,10})\s+)?(\d+[.,]?\d*)\s*(?:NR|PCE|PCS|BOX|UNITS?|SET|KG|M|L)?\s+([\d.,\s]+)\s+([\d.,\s]+)',
+            r'([A-Z0-9/_-]{3,25})\s+([^\n\r]+?)\s+(?:(\d{8,10})\s+)?(\d+[.,]?\d*)\s*(?:NR|PCE|PCS|PC|BOX|UNITS?|SET|KG|M|L|PAC|PKGS?|ROLLS?|CTNS?)?\s+([\$€£¥]?\s*[\d.,\s]+)\s+([\$€£¥]?\s*[\d.,\s]+)',
             raw_text,
             re.IGNORECASE,
         )
         for block in item_blocks:
             code, desc, hs, qty_s, price_s, tot_s = block
-            if _is_valid_item_code(code):
+            if _is_valid_item_code(code) or len(code.strip()) >= 3:
                 items.append({
                     "item_code": code.strip(),
                     "description": desc.strip(),
                     "hs_code": hs.strip() if hs else "",
                     "quantity": _parse_flexible_number(qty_s),
-                    "unit": "NR",
+                    "unit": "PCS",
                     "unit_price": _parse_flexible_number(price_s),
                     "total_price": _parse_flexible_number(tot_s),
                 })
@@ -1420,6 +1451,42 @@ def extract_packing_list_data(raw_text: str) -> dict:
             parsed["total_packages"] = int(pkgs)
             parsed["total_gross_weight_kg"] = gw
             parsed["total_net_weight_kg"] = nw
+
+    if not items:
+        # Standard Packing List Table Row: [ItemCode] [Optional Desc] [PackagesCount] [Optional Type] [GrossWeight] [NetWeight] [Optional CBM]
+        std_pl_re = re.compile(
+            r'([A-Z0-9/_-]{2,30})\s+'
+            r'([A-Za-z\u0600-\u06FF\s.,()/-]{2,50})?\s*'
+            r'(\b\d{1,6})\s+'
+            r'(CARTONS?|CTNS?|BOXES|BOX|PALLETS?|PKGS?|PACKAGES?|BAGS?|DRUMS?|UNITS?|PCS?)?\s+'
+            r'([\d.,]+)\s+'
+            r'([\d.,]+)'
+            r'(?:\s+([\d.,]+))?',
+            re.IGNORECASE
+        )
+        for line in raw_text.split('\n'):
+            line_s = line.strip()
+            if not line_s or any(h in line_s.upper() for h in ["TOTAL", "GROSS WEIGHT", "NET WEIGHT", "PACKAGES", "ACID NUMBER", "COMMESSA"]):
+                continue
+            m_std = std_pl_re.search(line_s)
+            if m_std:
+                code_s, desc_s, pkgs_s, p_type, gw_s, nw_s, cbm_s = m_std.groups()
+                pkgs_cnt = int(pkgs_s)
+                gw = _parse_flexible_number(gw_s)
+                nw = _parse_flexible_number(nw_s)
+                cbm_val = _parse_flexible_number(cbm_s) if cbm_s else 0.0
+                if pkgs_cnt > 0 and (gw > 0 or nw > 0):
+                    total_calc_cbm += cbm_val
+                    items.append({
+                        "item_code": code_s.strip(),
+                        "description": (desc_s or code_s).strip(),
+                        "quantity": float(pkgs_cnt),
+                        "packages_count": float(pkgs_cnt),
+                        "package_type": (p_type or "Carton").capitalize(),
+                        "gross_weight_kg": gw,
+                        "net_weight_kg": nw,
+                        "calculated_cbm": round(cbm_val, 4),
+                    })
 
     parsed["items"] = items
     parsed["total_cbm"] = round(total_calc_cbm, 3)
@@ -1609,6 +1676,7 @@ def reconcile_po_documents_with_system(
             "variance_percentage": qty_var,
             "price_variance_percentage": price_var,
             "weight_variance_percentage": weight_var,
+            "total_amount": round(final_qty * (final_price if final_price > 0 else s_price), 2),
         })
 
         reconciled_pl_items.append({
@@ -1901,7 +1969,7 @@ AI_BL_SYSTEM_PROMPT = (
 
 def _call_gemini_api(raw_text: str, api_key: str) -> Optional[dict]:
     try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
         prompt = (
             f"{AI_BL_SYSTEM_PROMPT}"
             "Extract structured Bill of Lading fields into valid JSON matching this schema:\n"
@@ -1915,7 +1983,7 @@ def _call_gemini_api(raw_text: str, api_key: str) -> Optional[dict]:
         req = urllib.request.Request(
             url,
             data=json.dumps(data).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
             method="POST"
         )
         with urllib.request.urlopen(req, timeout=12) as response:

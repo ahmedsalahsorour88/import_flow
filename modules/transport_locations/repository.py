@@ -28,6 +28,8 @@ class TransportLocationRepository:
         location_type: Optional[str] = None,
         country: Optional[str] = None,
         search: Optional[str] = None,
+        skip: int = 0,
+        limit: Optional[int] = None,
     ) -> List[TransportLocation]:
         query = self.db.query(TransportLocation)
 
@@ -51,7 +53,12 @@ class TransportLocationRepository:
                 )
             )
 
-        return query.order_by(TransportLocation.location_name.asc()).all()
+        query = query.order_by(TransportLocation.location_name.asc())
+        if skip > 0:
+            query = query.offset(skip)
+        if limit is not None:
+            query = query.limit(limit)
+        return query.all()
 
     def create(self, data: TransportLocationCreate) -> TransportLocation:
         location = TransportLocation(

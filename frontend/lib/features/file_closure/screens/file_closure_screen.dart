@@ -433,21 +433,7 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
 
                                 const SizedBox(height: 8),
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
-                                    CopyableText(context.l10n.fileClosureAuditorLabel(r.auditorName), style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                                    const Spacer(),
-                                    OutlinedButton.icon(
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: AppTheme.cobalt,
-                                        side: BorderSide(color: Colors.blue.shade300),
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                      ),
-                                      icon: const Icon(Icons.copy_outlined, size: 14),
-                                      label: Text(context.l10n.fileClosureCopyCertTsvBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                      onPressed: () => _copySingleCertificateSummary(r, matchingFile),
-                                    ),
-                                    const SizedBox(width: 8),
                                     RowActionsPill(
                                       onView: () {
                                         showDialog(
@@ -512,6 +498,19 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                                       printTooltip: context.l10n.fileClosurePrintTooltip,
                                       deleteTooltip: context.l10n.fileClosureDeleteTooltip,
                                     ),
+                                    const SizedBox(width: 8),
+                                    OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppTheme.cobalt,
+                                        side: BorderSide(color: Colors.blue.shade300),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      ),
+                                      icon: const Icon(Icons.copy_outlined, size: 14),
+                                      label: Text(context.l10n.fileClosureCopyCertTsvBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      onPressed: () => _copySingleCertificateSummary(r, matchingFile),
+                                    ),
+                                    const Spacer(),
+                                    CopyableText(context.l10n.fileClosureAuditorLabel(r.auditorName), style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
                                   ],
                                 ),
                               ],

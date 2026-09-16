@@ -2,23 +2,48 @@
 Service Layer & Business Engine for Financial Approval (BP-012 & BP-013)
 """
 
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
-from modules.financial_approval.model import PaymentRequestSession, ImportBudgetApproval
+from modules.financial_approval.model import (
+    PaymentRequestSession,
+    ImportBudgetApproval,
+    BudgetVarianceLog,
+    BudgetVarianceSetting,
+    SwiftExtractionBatch,
+    SwiftExtractionField,
+    OcrCorrectionsLog,
+)
+from modules.users.model import User
+from modules.notifications.model import SystemNotification
 from modules.financial_approval.schemas import (
     PaymentRequestCreate,
+    ClonePaymentRequestRequest,
     PaymentRequestUpdate,
     SwiftReconciliationRequest,
     ImportBudgetCreate,
+    CloneImportBudgetRequest,
     ImportBudgetUpdate,
     BudgetPrefillResponse,
     LinkedPOItemSchema,
     SmartSwiftExtractRequest,
     SmartSwiftExtractResponse,
     SmartSwiftReconcileRequest,
+    SwiftFieldResponse,
+    SwiftBatchResponse,
+    SwiftFieldUpdateRequest,
+    SwiftBatchConfirmRequest,
+    SwiftBatchConfirmResponse,
+    SwiftBatchMatchResponse,
+    SwiftBatchReconcileRequest,
+    BudgetVarianceLogResponse,
+    BudgetVarianceOverrideRequest,
+    BudgetVarianceSettingResponse,
+    BudgetVarianceSettingUpdate,
+    BudgetSyncResultResponse,
+    ImportBudgetResponse,
 )
 import modules.financial_approval.repository as repo
 from modules.financial_approval.validators import (
@@ -169,6 +194,88 @@ def reconcile_swift_service(
     return db_item
 
 
+def clone_payment_request_service(
+    db: Session, payment_id: int, schema: ClonePaymentRequestRequest
+) -> PaymentRequestSession:
+    """
+    Clones an existing Payment Request into a new Draft record:
+    - Generates new unique payment code via repo.generate_payment_code(db).
+    - Status is reset to 'Draft'.
+    - Payment/SWIFT execution fields are reset: is_paid=False, paid_at=None, swift_reference_no=None,
+      swift_receipt_date=None, swift_transferred_amount=None, swift_transferred_currency=None,
+      swift_variance_amount=None, swift_variance_status='Pending', swift_processing_days=None,
+      swift_reconciliation_notes=None.
+    - Dates are set to current date: request_date=date.today(), due_date=date.today() + 12 days.
+    - If unlink_import_file is True, import_file_id and po_id are reset to None.
+    - If target_supplier_id is specified, supplier is updated.
+    - Title is set to schema.new_title or f"{orig.title} (نسخة)".
+    """
+    from datetime import timedelta
+
+    orig = repo.get_payment_request_by_id(db, payment_id)
+    if not orig:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Payment Request ID {payment_id} not found.",
+        )
+
+    code = repo.generate_payment_code(db)
+    req_date = date.today()
+    due_date = date.today() + timedelta(days=12)
+
+    title = schema.new_title or f"{orig.title} (نسخة)"
+    supplier_id = schema.target_supplier_id or orig.supplier_id
+    supplier_name = orig.supplier_name
+    beneficiary_name = orig.beneficiary_name
+
+    if schema.target_supplier_id and schema.target_supplier_id != orig.supplier_id:
+        from modules.suppliers.model import Supplier
+        sup = db.query(Supplier).filter(Supplier.supplier_id == schema.target_supplier_id).first()
+        if sup:
+            supplier_name = sup.company_name
+            beneficiary_name = sup.company_name
+
+    amount = schema.new_requested_amount if schema.new_requested_amount is not None else orig.requested_amount
+    rate = orig.exchange_rate or 50.0
+    egp_amount = amount * rate
+
+    import_file_id = None if schema.unlink_import_file else orig.import_file_id
+    po_id = None if schema.unlink_import_file else orig.po_id
+
+    notes = orig.notes
+    if schema.remarks:
+        notes = f"{notes}\n{schema.remarks}".strip() if notes else schema.remarks
+
+    cloned = PaymentRequestSession(
+        payment_code=code,
+        title=title,
+        import_file_id=import_file_id,
+        po_id=po_id,
+        supplier_id=supplier_id,
+        supplier_name=supplier_name,
+        project_id=orig.project_id,
+        payment_type=orig.payment_type,
+        requested_amount=amount,
+        currency_code=orig.currency_code,
+        exchange_rate=rate,
+        requested_amount_egp=egp_amount,
+        request_date=req_date,
+        due_date=due_date,
+        status="Draft",
+        beneficiary_name=beneficiary_name,
+        bank_name=orig.bank_name,
+        swift_code=orig.swift_code,
+        iban_account_no=orig.iban_account_no,
+        bank_country=orig.bank_country,
+        notes=notes,
+        is_active=True,
+    )
+    db.add(cloned)
+    db.commit()
+    db.refresh(cloned)
+    return cloned
+
+
 # --- IMPORT BUDGET SERVICE ---
 def create_import_budget_service(
     db: Session, schema: ImportBudgetCreate
@@ -203,6 +310,18 @@ def approve_import_budget_service(
             detail=f"Import Budget ID {budget_id} not found.",
         )
 
+    if db_item.has_unresolved_variance and not db_item.variance_override_reason:
+        hard_block_log = db.query(BudgetVarianceLog).filter(
+            BudgetVarianceLog.budget_id == budget_id,
+            BudgetVarianceLog.resolution_type == "pending",
+            BudgetVarianceLog.is_hard_block == True,
+        ).first()
+        if hard_block_log:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"لا يمكن اعتماد الميزانية لوجود فارق تكاليف غير مسوى يتجاوز العتبة المحددة ({hard_block_log.variance_percentage:.1f}% في {hard_block_log.field_name} - Hard Block). يجب مزامنة التكاليف أولاً أو تقديم مبرر مكتوب إجباري لتجاوز الحظر.",
+            )
+
     db_item.budget_status = "Budget Approved"
     db_item.approved_by = approved_by
     db_item.approved_date = date.today()
@@ -217,6 +336,87 @@ def approve_import_budget_service(
             pass
 
     return db_item
+
+
+def clone_import_budget_service(
+    db: Session, budget_id: int, schema: CloneImportBudgetRequest
+) -> ImportBudgetApproval:
+    """
+    Clones an existing Import Budget into a new record:
+    - Generates new unique budget code via repo.generate_budget_code(db).
+    - Status is reset to 'Pending Review' (Draft).
+    - Approval fields are reset: approved_by=None, approved_date=None.
+    - If unlink_import_file is True, import_file_id is set to None.
+    - If target_import_file_id is provided, validates that no existing budget conflicts.
+    - If new_exchange_rate is provided, recalculates invoice_amount_egp and freight_cost_egp.
+    - Title is set to schema.new_title or f"{orig.title} (نسخة)".
+    - total_budget_egp is recalculated dynamically.
+    - Notes append remarks if provided.
+    """
+    orig = repo.get_import_budget_by_id(db, budget_id)
+    if not orig:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Import Budget ID {budget_id} not found.",
+        )
+
+    target_file_id = None
+    if not schema.unlink_import_file:
+        target_file_id = schema.target_import_file_id or orig.import_file_id
+
+    if target_file_id:
+        existing = repo.get_all_import_budgets(db, import_file_id=target_file_id)
+        if target_file_id != orig.import_file_id and existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"يوجد بالفعل اعتماد ميزانية محفوظ لملف الاستيراد المستهدف ({target_file_id}).",
+            )
+        elif target_file_id == orig.import_file_id:
+            # When cloning within the same file without unlinking, unlink by default to prevent duplicate key/logic clash
+            target_file_id = None
+
+    code = repo.generate_budget_code(db)
+    title = schema.new_title or f"{orig.title} (نسخة)"
+    rate = schema.new_exchange_rate if (schema.new_exchange_rate and schema.new_exchange_rate > 0) else orig.exchange_rate
+
+    inv_foreign = orig.invoice_amount_foreign
+    frt_foreign = orig.freight_cost_foreign
+    inv_egp = inv_foreign * rate if inv_foreign > 0 else orig.invoice_amount_egp
+    frt_egp = frt_foreign * rate if frt_foreign > 0 else orig.freight_cost_egp
+    cust_egp = orig.customs_duties_egp
+    clr_egp = orig.clearance_inland_egp
+    total_budget_egp = inv_egp + frt_egp + cust_egp + clr_egp
+
+    notes = orig.notes
+    if schema.remarks:
+        notes = f"{notes}\n{schema.remarks}".strip() if notes else schema.remarks
+
+    cloned = ImportBudgetApproval(
+        budget_code=code,
+        title=title,
+        import_file_id=target_file_id,
+        po_id=None if schema.unlink_import_file else orig.po_id,
+        project_id=orig.project_id,
+        invoice_amount_foreign=inv_foreign,
+        invoice_currency=orig.invoice_currency,
+        invoice_amount_egp=inv_egp,
+        freight_cost_foreign=frt_foreign,
+        freight_currency=orig.freight_currency,
+        freight_cost_egp=frt_egp,
+        customs_duties_egp=cust_egp,
+        clearance_inland_egp=clr_egp,
+        exchange_rate=rate,
+        total_budget_egp=total_budget_egp,
+        budget_status="Pending Review",
+        approved_by=None,
+        approved_date=None,
+        notes=notes,
+        is_active=True,
+    )
+    db.add(cloned)
+    db.commit()
+    db.refresh(cloned)
+    return cloned
 
 
 # --- CROSS-MODULE PREFILL & AGGREGATOR ENGINE ---
@@ -387,13 +587,23 @@ def get_budget_prefill_service(
 
     estimated_duties_egp = 0.0
     estimated_clearance_fees_egp = 0.0
+    broker_id: Optional[int] = None
+    broker_name: Optional[str] = None
     for cs in customs_sessions:
         d_amt = float(cs.estimated_duties_egp or 0.0)
         c_amt = float(cs.total_broker_fees_egp or 0.0)
         if d_amt > 0:
             estimated_duties_egp = max(estimated_duties_egp, d_amt)
         if c_amt > 0:
-            estimated_clearance_fees_egp = max(estimated_clearance_fees_egp, c_amt)
+            if c_amt >= estimated_clearance_fees_egp:
+                estimated_clearance_fees_egp = c_amt
+                if cs.broker_id:
+                    broker_id = cs.broker_id
+                if cs.broker_name:
+                    broker_name = cs.broker_name
+        elif not broker_name and cs.broker_name:
+            broker_id = cs.broker_id
+            broker_name = cs.broker_name
 
     # 5. Fetch Dynamic Exchange Rates from Currencies Master & Rates History
     from modules.currencies.repository import CurrencyRepository
@@ -453,6 +663,8 @@ def get_budget_prefill_service(
         estimated_freight_cost_egp=estimated_freight_egp,
         estimated_customs_duties_egp=estimated_duties_egp,
         estimated_clearance_fees_egp=estimated_clearance_fees_egp,
+        broker_id=broker_id,
+        broker_name=broker_name,
         estimated_grand_total_egp=grand_total_egp,
         exchange_rate=exchange_rate,
     )
@@ -498,13 +710,919 @@ def soft_delete_import_budget_service(db: Session, budget_id: int) -> bool:
 def restore_import_budget_service(db: Session, budget_id: int) -> bool:
     return repo.restore_import_budget(db, budget_id)
 
+# ==============================================================================
+# BUDGET VARIANCE THRESHOLD & CONFIGURATION SERVICES
+# ==============================================================================
 
-# --- SMART AI SWIFT MT103 EXTRACTION & RECONCILIATION SERVICES ---
+def get_variance_threshold_service(db: Session) -> float:
+    """Returns the configured variance threshold percentage (default 5.0%)."""
+    setting = db.query(BudgetVarianceSetting).filter(
+        BudgetVarianceSetting.setting_key == "variance_threshold_percentage"
+    ).first()
+    if setting and setting.setting_value:
+        try:
+            return float(setting.setting_value)
+        except ValueError:
+            return 5.0
+    return 5.0
+
+
+def update_variance_threshold_service(
+    db: Session, threshold_percentage: float, updated_by: Optional[str] = "Admin"
+) -> BudgetVarianceSetting:
+    """Updates the variance threshold percentage setting."""
+    setting = db.query(BudgetVarianceSetting).filter(
+        BudgetVarianceSetting.setting_key == "variance_threshold_percentage"
+    ).first()
+    now = datetime.now(timezone.utc)
+    val_str = str(round(threshold_percentage, 2))
+    if not setting:
+        setting = BudgetVarianceSetting(
+            setting_key="variance_threshold_percentage",
+            setting_value=val_str,
+            description="Maximum allowed cost variance percentage before triggering Hard Block",
+            updated_by=updated_by,
+            updated_at=now,
+        )
+        db.add(setting)
+    else:
+        setting.setting_value = val_str
+        setting.updated_by = updated_by
+        setting.updated_at = now
+    db.commit()
+    db.refresh(setting)
+    return setting
+
+
+def get_budget_variance_logs_service(
+    db: Session, budget_id: int
+) -> List[BudgetVarianceLog]:
+    """Retrieves all variance audit logs recorded for a budget."""
+    return (
+        db.query(BudgetVarianceLog)
+        .filter(BudgetVarianceLog.budget_id == budget_id)
+        .order_by(BudgetVarianceLog.detected_at.desc())
+        .all()
+    )
+
+
+# ==============================================================================
+# EVENT-DRIVEN SCOPED VARIANCE EVALUATION ENGINE
+# ==============================================================================
+
+def evaluate_and_record_budget_variance_service(
+    db: Session, import_file_id: int, modified_by: Optional[str] = "System"
+) -> List[BudgetVarianceLog]:
+    """
+    Event-driven scoped variance evaluator:
+    Triggered immediately upon changes in upstream costing sessions (customs clearance, freight, PO invoice).
+    Only inspects active budgets for the given import_file_id.
+    
+    Status Machine Rules:
+    - Draft: Auto-updates figures in-place with audit log line.
+    - Pending Review / Pending Approval: Halts current approval cycle, transitions to 'Needs Revalidation', sends notifications.
+    - Approved: STRICT IMMUTABILITY. Flags has_unresolved_variance = True and upstream_modified_by, sends critical notification.
+    """
+    active_budgets = (
+        db.query(ImportBudgetApproval)
+        .filter(
+            ImportBudgetApproval.import_file_id == import_file_id,
+            ImportBudgetApproval.is_active == True,
+            ImportBudgetApproval.budget_status != "Superseded",
+        )
+        .all()
+    )
+    if not active_budgets:
+        return []
+
+    prefill = get_budget_prefill_service(db, import_file_id)
+    threshold = get_variance_threshold_service(db)
+    now = datetime.now(timezone.utc)
+    recorded_logs: List[BudgetVarianceLog] = []
+
+    # Import file reference for notification messages
+    from modules.import_files.model import ImportFile
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    file_code = imp_file.import_file_code if imp_file else f"IMP-FILE-{import_file_id}"
+
+    for budget in active_budgets:
+        field_checks = [
+            ("invoice_amount_egp", budget.invoice_amount_egp, prefill.total_invoice_amount_egp, "قيمة الفاتورة (FOB)"),
+            ("freight_cost_egp", budget.freight_cost_egp, prefill.estimated_freight_cost_egp, "النولون والشحن الدولي"),
+            ("customs_duties_egp", budget.customs_duties_egp, prefill.estimated_customs_duties_egp, "الضرائب والرسوم الجمركية"),
+            ("clearance_inland_egp", budget.clearance_inland_egp, prefill.estimated_clearance_fees_egp, "مصاريف التخليص والنقل"),
+        ]
+
+        item_variances: List[BudgetVarianceLog] = []
+        has_hard_block = False
+
+        for f_name, old_val, new_val, label_ar in field_checks:
+            diff = new_val - old_val
+            if abs(diff) > 1.0:
+                if old_val == 0.0:
+                    pct = 100.0
+                else:
+                    pct = round((abs(diff) / old_val) * 100.0, 2)
+                
+                is_hard = pct > threshold
+                if is_hard:
+                    has_hard_block = True
+
+                v_log = BudgetVarianceLog(
+                    budget_id=budget.budget_id,
+                    import_file_id=import_file_id,
+                    field_name=f_name,
+                    old_value=old_val,
+                    new_value=new_val,
+                    variance_amount=diff,
+                    variance_percentage=pct,
+                    threshold_percentage=threshold,
+                    is_hard_block=is_hard,
+                    detected_at=now,
+                    modified_by=modified_by,
+                    resolution_type="pending",
+                )
+                db.add(v_log)
+                item_variances.append(v_log)
+                recorded_logs.append(v_log)
+
+        if not item_variances:
+            continue
+
+        # --- POST-SYNC STATUS MACHINE APPLIED TO BUDGET ---
+        current_status = budget.budget_status
+
+        if current_status == "Draft":
+            # Draft: Auto-update numbers silently, append log line
+            budget.invoice_amount_foreign = prefill.total_invoice_amount
+            budget.invoice_currency = prefill.invoice_currency
+            budget.invoice_amount_egp = prefill.total_invoice_amount_egp
+
+            budget.freight_cost_foreign = prefill.estimated_freight_cost
+            budget.freight_currency = prefill.freight_currency
+            budget.freight_cost_egp = prefill.estimated_freight_cost_egp
+
+            budget.customs_duties_egp = prefill.estimated_customs_duties_egp
+            budget.clearance_inland_egp = prefill.estimated_clearance_fees_egp
+            budget.exchange_rate = prefill.exchange_rate
+            budget.total_budget_egp = (
+                prefill.total_invoice_amount_egp
+                + prefill.estimated_freight_cost_egp
+                + prefill.estimated_customs_duties_egp
+                + prefill.estimated_clearance_fees_egp
+            )
+            budget.has_unresolved_variance = False
+            budget.last_variance_check = now
+            budget.upstream_modified_by = modified_by
+
+            for v in item_variances:
+                v.resolution_type = "auto_updated"
+                v.resolved_at = now
+                v.resolved_by = "System"
+
+            auto_note = f"[تحديث تلقائي {date.today()}]: تم تحديث التكاليف الحية تلقائياً لميزانية المسودة بواسطة {modified_by}."
+            budget.notes = f"{budget.notes}\n{auto_note}".strip() if budget.notes else auto_note
+
+        elif current_status in ("Pending Review", "Needs Revalidation"):
+            # Pending: Stop current approval cycle, transition to Needs Revalidation
+            budget.budget_status = "Needs Revalidation"
+            budget.has_unresolved_variance = True
+            budget.upstream_modified_by = modified_by
+            budget.last_variance_check = now
+            budget.approved_by = None
+            budget.approved_date = None
+
+            status_note = f"[تعديل بالمصدر {date.today()}]: رُصد فارق تكاليف بواسطة {modified_by}. تحولت الحالة إلى 'Needs Revalidation'."
+            budget.notes = f"{budget.notes}\n{status_note}".strip() if budget.notes else status_note
+
+            # In-app notification to Finance Officer and Requester
+            severity = "CRITICAL" if has_hard_block else "WARNING"
+            notif = SystemNotification(
+                title=f"⚠️ ميزانية تحتاج إعادة تحقق: {file_code}",
+                message=f"تم تعديل تكاليف في مرحلة سابقة بواسطة {modified_by} للشحنة ({file_code}). تم إيقاف دورة الاعتماد وتحويل الميزانية ({budget.budget_code}) إلى 'Needs Revalidation'.",
+                severity=severity,
+                category="BUDGET_VARIANCE",
+                entity_type="ImportBudget",
+                entity_id=budget.budget_id,
+                target_role="FINANCE_OFFICER",
+            )
+            db.add(notif)
+
+        elif current_status == "Budget Approved":
+            # Approved: STRICT IMMUTABILITY. Do not alter budget numbers.
+            budget.has_unresolved_variance = True
+            budget.upstream_modified_by = modified_by
+            budget.last_variance_check = now
+
+            var_note = f"[تنبيه فارق مالي {date.today()}]: رُصد فارق تكاليف بواسطة {modified_by} لميزانية معتمدة. يلزم إنشاء إصدار مراجعة جديد (Revision)."
+            budget.notes = f"{budget.notes}\n{var_note}".strip() if budget.notes else var_note
+
+            # Critical In-app notification for Approved Budget variance
+            notif = SystemNotification(
+                title=f"🚨 تنبيه فارق مالي بميزانية معتمدة: {file_code}",
+                message=f"تم تعديل تكاليف في المصدر لميزانية معتمدة ({budget.budget_code}) للشحنة ({file_code}) بواسطة {modified_by}. الفارق يتطلب مراجعة واعتماد إصدار جديد (Budget Revision).",
+                severity="CRITICAL",
+                category="BUDGET_VARIANCE",
+                entity_type="ImportBudget",
+                entity_id=budget.budget_id,
+                target_role="FINANCE_OFFICER",
+            )
+            db.add(notif)
+
+    db.commit()
+    for l in recorded_logs:
+        db.refresh(l)
+    return recorded_logs
+
+
+# ==============================================================================
+# ENTERPRISE BUDGET SYNCHRONIZATION SERVICE (SoD, REVISIONS & HARD BLOCK)
+# ==============================================================================
+
+def sync_budget_with_upstream_service(
+    db: Session,
+    budget_id: int,
+    current_user: Optional[User] = None,
+    override_justification: Optional[str] = None,
+) -> BudgetSyncResultResponse:
+    """
+    Synchronizes an existing Import Budget with live upstream costs following enterprise rules:
+    1. Permissions: Requires 'budget.sync_variance' or 'financial_approval.approve' or Finance Manager/Admin.
+    2. Segregation of Duties (SoD): The modifier of upstream costing CANNOT sync an Approved budget.
+    3. Status Machine & Revisions:
+       - Approved budgets are IMMUTABLE: A new revision (e.g. BGT-XXXX-REV2) is created with parent_budget_id.
+         The original budget is preserved and marked as 'Superseded'.
+       - Needs Revalidation / Pending Review: Updated in-place and returned to 'Pending Review'.
+       - Draft: Updated in-place.
+    4. Threshold & Hard Block: If variance exceeds threshold and no justification provided, rejects sync.
+    5. Resolves open variance logs and writes audit notes.
+    """
+    budget = repo.get_import_budget_by_id(db, budget_id)
+    if not budget:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Import Budget ID {budget_id} not found.",
+        )
+    if not budget.import_file_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="لا يمكن مزامنة هذه الميزانية لعدم وجود ملف استيراد مرتبط بها.",
+        )
+
+    # 1. PERMISSION CHECK
+    from modules.auth.permissions import has_user_permission
+    if current_user:
+        can_sync = (
+            has_user_permission(db, current_user, "budget.sync_variance")
+            or has_user_permission(db, current_user, "financial_approval.approve")
+            or current_user.role in ("ADMIN", "MANAGER")
+        )
+        if not can_sync:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="ليس لديك صلاحية مزامنة فوارق الميزانية ('budget.sync_variance'). يتطلب دور مسؤول مالي أو مدير النظام.",
+            )
+
+    # 2. SEGREGATION OF DUTIES (SoD) RULE
+    # If budget was Approved, modifier cannot be the syncer/approver of the revision
+    is_approved_or_superseded = budget.budget_status in ("Budget Approved", "Superseded")
+    if is_approved_or_superseded and budget.upstream_modified_by and current_user:
+        mod_user = budget.upstream_modified_by.strip().lower()
+        curr_user = current_user.username.strip().lower()
+        if mod_user == curr_user and current_user.role != "ADMIN":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="مبدأ الفصل بين المهام (Segregation of Duties): بصفتك المستخدم الذي قام بتعديل التكاليف في المصدر، لا يجوز لك مزامنة أو اعتماد الميزانية المعتمدة بنفسك. يجب أن يتولى المراجعة والاعتماد مسؤول مالي آخر.",
+            )
+
+    # 3. LIVE PREFILL & VARIANCE CHECK
+    prefill = get_budget_prefill_service(db, budget.import_file_id)
+    threshold = get_variance_threshold_service(db)
+
+    field_diffs = [
+        ("invoice_amount_egp", budget.invoice_amount_egp, prefill.total_invoice_amount_egp, "الفاتورة"),
+        ("freight_cost_egp", budget.freight_cost_egp, prefill.estimated_freight_cost_egp, "النولون"),
+        ("customs_duties_egp", budget.customs_duties_egp, prefill.estimated_customs_duties_egp, "الجمارك"),
+        ("clearance_inland_egp", budget.clearance_inland_egp, prefill.estimated_clearance_fees_egp, "التخليص"),
+    ]
+
+    has_hard_block = False
+    changes_desc = []
+    for f_name, old_v, new_v, label in field_diffs:
+        d = new_v - old_v
+        if abs(d) > 1.0:
+            changes_desc.append(f"{label}: {old_v:.2f} -> {new_v:.2f} ج.م")
+            pct = 100.0 if old_v == 0 else round((abs(d) / old_v) * 100.0, 2)
+            if pct > threshold:
+                has_hard_block = True
+
+    # Check Hard Block without written justification
+    if has_hard_block and not override_justification and budget.budget_status not in ("Draft",):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"فارق التكاليف يتجاوز العتبة المحددة ({threshold}% - Hard Block). يتطلب إدخال مبرر مكتوب إجباري (Justification Note) لتنفيذ المزامنة وتجاوز الحظر.",
+        )
+
+    now = datetime.now(timezone.utc)
+    current_username = current_user.username if current_user else "Finance Officer"
+
+    # 4. STATUS MACHINE & REVISION LOGIC
+    if budget.budget_status == "Budget Approved":
+        # --- REVISION ENGINE: STRICT IMMUTABILITY ---
+        # 1. Archive original budget record as Superseded
+        orig_status = budget.budget_status
+        budget.budget_status = "Superseded"
+        budget.has_unresolved_variance = False
+        archive_note = f"[أرشفة كإصدار ملغي {date.today()}]: استُبدلت هذه النسخة المعتمدة بالإصدار الجديد REV{budget.revision_number + 1} بواسطة {current_username}."
+        budget.notes = f"{budget.notes}\n{archive_note}".strip() if budget.notes else archive_note
+
+        # 2. Generate clean revision code
+        base_code = budget.budget_code.split("-REV")[0]
+        next_rev = budget.revision_number + 1
+        rev_code = f"{base_code}-REV{next_rev}"
+
+        # 3. Create brand new Revision record
+        new_budget = ImportBudgetApproval(
+            budget_code=rev_code,
+            title=f"{budget.title} (Rev {next_rev})",
+            import_file_id=budget.import_file_id,
+            po_id=budget.po_id,
+            project_id=budget.project_id,
+            invoice_amount_foreign=prefill.total_invoice_amount,
+            invoice_currency=prefill.invoice_currency,
+            invoice_amount_egp=prefill.total_invoice_amount_egp,
+            freight_cost_foreign=prefill.estimated_freight_cost,
+            freight_currency=prefill.freight_currency,
+            freight_cost_egp=prefill.estimated_freight_cost_egp,
+            customs_duties_egp=prefill.estimated_customs_duties_egp,
+            clearance_inland_egp=prefill.estimated_clearance_fees_egp,
+            exchange_rate=prefill.exchange_rate,
+            total_budget_egp=prefill.estimated_grand_total_egp,
+            budget_status="Pending Review",
+            approved_by=None,
+            approved_date=None,
+            parent_budget_id=budget.budget_id,
+            revision_number=next_rev,
+            has_unresolved_variance=False,
+            variance_override_reason=override_justification,
+            variance_overridden_by=current_username if override_justification else None,
+            upstream_modified_by=budget.upstream_modified_by,
+            notes=f"[إصدار مراجعة جديد {date.today()}]: أُنشئت هذه الميزانية بمزامنة التكاليف الحية بدلاً من {budget.budget_code} ({', '.join(changes_desc) if changes_desc else 'بدون فوارق'}). المنفذ: {current_username}." + (f" مبرر التجاوز: {override_justification}" if override_justification else ""),
+            is_active=True,
+        )
+        db.add(new_budget)
+        db.commit()
+        db.refresh(new_budget)
+
+        # 4. Resolve variance logs
+        open_logs = db.query(BudgetVarianceLog).filter(
+            BudgetVarianceLog.budget_id == budget.budget_id,
+            BudgetVarianceLog.resolution_type == "pending",
+        ).all()
+        for log in open_logs:
+            log.resolved_at = now
+            log.resolved_by = current_username
+            log.resolution_type = "overridden" if override_justification else "synced"
+            log.justification_note = override_justification
+
+        db.commit()
+
+        # Lifecycle board update
+        if new_budget.import_file_id:
+            try:
+                from modules.lifecycle_board.service import sync_budget_lifecycle_stage
+                sync_budget_lifecycle_stage(db, new_budget.import_file_id, is_approved=False, approved_by=None)
+            except Exception:
+                pass
+
+        log_responses = [BudgetVarianceLogResponse.model_validate(l) for l in open_logs]
+        return BudgetSyncResultResponse(
+            budget=ImportBudgetResponse.model_validate(new_budget),
+            action_taken="revision_created",
+            revision_created=True,
+            original_budget_status=orig_status,
+            variance_logs=log_responses,
+            message=f"✅ تم إنشاء إصدار مراجعة جديد للميزانية ({new_budget.budget_code}) بنجاح، وأرشفة السجل المعتمد السابق كـ Superseded حفاظاً على الرقابة والتقارير المالية.",
+        )
+
+    else:
+        # --- IN-PLACE UPDATE FOR DRAFT / NEEDS REVALIDATION / PENDING REVIEW ---
+        orig_status = budget.budget_status
+        budget.invoice_amount_foreign = prefill.total_invoice_amount
+        budget.invoice_currency = prefill.invoice_currency
+        budget.invoice_amount_egp = prefill.total_invoice_amount_egp
+
+        budget.freight_cost_foreign = prefill.estimated_freight_cost
+        budget.freight_currency = prefill.freight_currency
+        budget.freight_cost_egp = prefill.estimated_freight_cost_egp
+
+        budget.customs_duties_egp = prefill.estimated_customs_duties_egp
+        budget.clearance_inland_egp = prefill.estimated_clearance_fees_egp
+        budget.exchange_rate = prefill.exchange_rate
+        budget.total_budget_egp = prefill.estimated_grand_total_egp
+
+        budget.budget_status = "Draft" if orig_status == "Draft" else "Pending Review"
+        budget.has_unresolved_variance = False
+        budget.variance_override_reason = override_justification
+        budget.variance_overridden_by = current_username if override_justification else None
+
+        sync_note = f"[مزامنة بالتكاليف الحية {date.today()}]: تم تحديث التكاليف ({', '.join(changes_desc) if changes_desc else 'بدون فوارق'}). المنفذ: {current_username}." + (f" مبرر التجاوز: {override_justification}" if override_justification else "")
+        budget.notes = f"{budget.notes}\n{sync_note}".strip() if budget.notes else sync_note
+
+        open_logs = db.query(BudgetVarianceLog).filter(
+            BudgetVarianceLog.budget_id == budget.budget_id,
+            BudgetVarianceLog.resolution_type == "pending",
+        ).all()
+        for log in open_logs:
+            log.resolved_at = now
+            log.resolved_by = current_username
+            log.resolution_type = "overridden" if override_justification else "synced"
+            log.justification_note = override_justification
+
+        db.commit()
+        db.refresh(budget)
+
+        if budget.import_file_id:
+            try:
+                from modules.lifecycle_board.service import sync_budget_lifecycle_stage
+                sync_budget_lifecycle_stage(db, budget.import_file_id, is_approved=False, approved_by=None)
+            except Exception:
+                pass
+
+        log_responses = [BudgetVarianceLogResponse.model_validate(l) for l in open_logs]
+        return BudgetSyncResultResponse(
+            budget=ImportBudgetResponse.model_validate(budget),
+            action_taken="auto_updated" if orig_status == "Draft" else "revalidation_required",
+            revision_created=False,
+            original_budget_status=orig_status,
+            variance_logs=log_responses,
+            message=f"✅ تمت مزامنة الميزانية ({budget.budget_code}) بالتكاليف الحية بنجاح وهي الآن بحالة '{budget.budget_status}'.",
+        )
+
+
+def override_budget_variance_service(
+    db: Session,
+    budget_id: int,
+    current_user: Optional[User] = None,
+    justification_note: str = "",
+) -> ImportBudgetApproval:
+    """
+    Overrides Hard Block variance by providing an authorized written justification.
+    Records justification in budget and audit logs without mutating budget numbers.
+    """
+    budget = repo.get_import_budget_by_id(db, budget_id)
+    if not budget:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Import Budget ID {budget_id} not found.",
+        )
+
+    if not justification_note or len(justification_note.strip()) < 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="يجب كتابة مبرر تفصيلي لتجاوز حظر فارق الميزانية (لا يقل عن 5 أحرف).",
+        )
+
+    # Permission check
+    from modules.auth.permissions import has_user_permission
+    if current_user:
+        can_override = (
+            has_user_permission(db, current_user, "budget.sync_variance")
+            or has_user_permission(db, current_user, "financial_approval.approve")
+            or current_user.role in ("ADMIN", "MANAGER")
+        )
+        if not can_override:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="ليس لديك صلاحية تجاوز حظر الفوارق ('budget.sync_variance').",
+            )
+
+    now = datetime.now(timezone.utc)
+    current_username = current_user.username if current_user else "Authorized Approver"
+
+    budget.has_unresolved_variance = False
+    budget.variance_override_reason = justification_note.strip()
+    budget.variance_overridden_by = current_username
+
+    audit_entry = f"[تجاوز الحظر المالي {date.today()}]: تم تجاوز حظر فارق التكاليف بواسطة {current_username}. المبرر: {justification_note.strip()}."
+    budget.notes = f"{budget.notes}\n{audit_entry}".strip() if budget.notes else audit_entry
+
+    # Mark active logs as overridden
+    open_logs = db.query(BudgetVarianceLog).filter(
+        BudgetVarianceLog.budget_id == budget.budget_id,
+        BudgetVarianceLog.resolution_type == "pending",
+    ).all()
+    for log in open_logs:
+        log.resolved_at = now
+        log.resolved_by = current_username
+        log.resolution_type = "overridden"
+        log.justification_note = justification_note.strip()
+
+    db.commit()
+    db.refresh(budget)
+    return budget
+
+
+# --- SMART AI SWIFT MT103 EXTRACTION REVIEW LAYER SERVICES ---
+def _build_batch_response(batch: SwiftExtractionBatch) -> SwiftBatchResponse:
+    """Helper to convert SwiftExtractionBatch to SwiftBatchResponse with mandatory field validation."""
+    fields_list = []
+    missing_mandatory = []
+    field_map = {f.field_key: f for f in batch.fields}
+
+    mandatory_keys = [
+        ("amount", "المبلغ المحول / Transferred Amount"),
+        ("currency", "العملة / Currency"),
+        ("beneficiary_name", "اسم المستفيد / Beneficiary Name"),
+        ("beneficiary_account_or_iban", "رقم حساب أو آيبان المستفيد / Account or IBAN"),
+        ("transaction_reference", "الرقم المرجعي للسويفت / SWIFT Reference"),
+    ]
+
+    for key, label in mandatory_keys:
+        fld = field_map.get(key)
+        if not fld:
+            missing_mandatory.append(label)
+        else:
+            val = (fld.final_value or "").strip()
+            if not val:
+                missing_mandatory.append(label)
+            elif key == "amount":
+                try:
+                    num = float(val)
+                    if num <= 0:
+                        missing_mandatory.append(label)
+                except ValueError:
+                    missing_mandatory.append(label)
+
+    for f in batch.fields:
+        fields_list.append(
+            SwiftFieldResponse(
+                id=f.id,
+                batch_id=f.batch_id,
+                field_key=f.field_key,
+                swift_field_code=f.swift_field_code,
+                field_label=f.field_label,
+                raw_ocr_text=f.raw_ocr_text,
+                parsed_value=f.parsed_value,
+                confidence_score=f.confidence_score,
+                is_edited_by_user=f.is_edited_by_user,
+                edited_value=f.edited_value,
+                final_value=f.final_value,
+                is_mandatory=f.is_mandatory,
+                is_empty=f.is_empty,
+                created_at=f.created_at,
+                updated_at=f.updated_at,
+            )
+        )
+
+    all_mandatory_valid = len(missing_mandatory) == 0
+
+    return SwiftBatchResponse(
+        batch_id=batch.batch_id,
+        batch_code=batch.batch_code,
+        source_filename=batch.source_filename,
+        source_file_type=batch.source_file_type,
+        raw_source_text=batch.raw_source_text,
+        normalized_text=batch.normalized_text,
+        status=batch.status,
+        reviewed_by=batch.reviewed_by,
+        reviewed_at=batch.reviewed_at,
+        matched_payment_id=batch.matched_payment_id,
+        reconciled_at=batch.reconciled_at,
+        fields=fields_list,
+        all_mandatory_valid=all_mandatory_valid,
+        missing_mandatory_fields=missing_mandatory,
+        created_at=batch.created_at,
+        updated_at=batch.updated_at,
+    )
+
+
+def extract_swift_for_review_service(
+    db: Session,
+    raw_text: str,
+    filename: Optional[str] = None,
+    file_type: Optional[str] = None,
+) -> SwiftBatchResponse:
+    """Extracts SWIFT fields and persists a batch in 'EXTRACTED_PENDING_REVIEW'."""
+    from modules.financial_approval.swift_file_extractor import normalize_swift_ocr_text
+    from modules.financial_approval.swift_mt103_parser import extract_swift_fields_breakdown
+
+    normalized = normalize_swift_ocr_text(raw_text)
+    text_to_parse = normalized if normalized.strip() else raw_text
+    breakdown = extract_swift_fields_breakdown(text_to_parse)
+    fields_data = breakdown.get("fields", [])
+
+    batch = repo.create_swift_extraction_batch(
+        db=db,
+        raw_source_text=raw_text,
+        normalized_text=normalized,
+        source_filename=filename,
+        source_file_type=file_type,
+        fields_breakdown=fields_data,
+    )
+    return _build_batch_response(batch)
+
+
+def get_swift_batch_review_service(db: Session, batch_id: int) -> SwiftBatchResponse:
+    """Retrieves batch review info with validation breakdown."""
+    batch = repo.get_swift_extraction_batch(db, batch_id)
+    if not batch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"SWIFT extraction batch {batch_id} not found.",
+        )
+    return _build_batch_response(batch)
+
+
+def update_swift_batch_field_service(
+    db: Session,
+    batch_id: int,
+    field_key: str,
+    payload: SwiftFieldUpdateRequest,
+) -> SwiftBatchResponse:
+    """Updates an individual field, records in OCR audit log, and recalculates validity."""
+    batch = repo.get_swift_extraction_batch(db, batch_id)
+    if not batch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"SWIFT extraction batch {batch_id} not found.",
+        )
+    if batch.status in ("RECONCILED", "REJECTED"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot edit fields of a batch in '{batch.status}' status.",
+        )
+
+    updated_field = repo.update_swift_batch_field(
+        db=db,
+        batch_id=batch_id,
+        field_key=field_key,
+        new_value=payload.value,
+        user_name=payload.user_name or "admin",
+    )
+    if not updated_field:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Field '{field_key}' not found in batch {batch_id}.",
+        )
+
+    db.refresh(batch)
+    return _build_batch_response(batch)
+
+
+def re_extract_single_field_service(db: Session, batch_id: int, field_key: str) -> SwiftBatchResponse:
+    """Re-runs extraction regex for a single field from source text."""
+    batch = repo.get_swift_extraction_batch(db, batch_id)
+    if not batch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"SWIFT extraction batch {batch_id} not found.",
+        )
+    from modules.financial_approval.swift_mt103_parser import extract_swift_fields_breakdown
+
+    text_to_parse = batch.normalized_text if batch.normalized_text and batch.normalized_text.strip() else batch.raw_source_text
+    breakdown = extract_swift_fields_breakdown(text_to_parse)
+    field_item = next((f for f in breakdown.get("fields", []) if f["field_key"] == field_key), None)
+    if not field_item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Field '{field_key}' could not be re-extracted.",
+        )
+
+    p_val = field_item.get("parsed_value")
+    p_val_str = str(p_val) if p_val is not None else ""
+    fld = next((f for f in batch.fields if f.field_key == field_key), None)
+    if fld:
+        fld.parsed_value = p_val_str
+        fld.final_value = p_val_str
+        fld.confidence_score = float(field_item.get("confidence_score", 0.0))
+        fld.raw_ocr_text = field_item.get("raw_ocr_text")
+        fld.is_edited_by_user = False
+        fld.edited_value = None
+        fld.is_empty = not bool(p_val_str.strip())
+        fld.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(batch)
+
+    return _build_batch_response(batch)
+
+
+def confirm_swift_batch_review_service(
+    db: Session,
+    batch_id: int,
+    payload: SwiftBatchConfirmRequest,
+) -> SwiftBatchConfirmResponse:
+    """
+    Validates all mandatory fields, confirms the batch, and unlocks the matching matrix.
+    Raises 400 if any mandatory field is missing or empty.
+    """
+    batch = repo.get_swift_extraction_batch(db, batch_id)
+    if not batch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"SWIFT extraction batch {batch_id} not found.",
+        )
+
+    batch_resp = _build_batch_response(batch)
+    if not batch_resp.all_mandatory_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot confirm SWIFT review: Mandatory fields are missing or invalid: {', '.join(batch_resp.missing_mandatory_fields)}",
+        )
+
+    confirmed_batch = repo.confirm_swift_batch_review(
+        db=db,
+        batch_id=batch_id,
+        user_name=payload.user_name or "admin",
+    )
+    confirmed_fields = {f.field_key: f.final_value for f in confirmed_batch.fields}
+
+    return SwiftBatchConfirmResponse(
+        success=True,
+        batch_id=confirmed_batch.batch_id,
+        batch_code=confirmed_batch.batch_code,
+        status=confirmed_batch.status,
+        message="تم تأكيد صحة بيانات السويفت بنجاح وتم فتح مصفوفة المطابقة المالية.",
+        confirmed_fields=confirmed_fields,
+        batch=_build_batch_response(confirmed_batch),
+    )
+
+
+def match_reviewed_batch_service(
+    db: Session,
+    batch_id: int,
+    target_payment_id: Optional[int] = None,
+) -> SwiftBatchMatchResponse:
+    """
+    Matches a reviewed batch against payment requests strictly using `final_value`.
+    REJECTS with 403 if batch is not in 'REVIEWED_CONFIRMED' or 'RECONCILED'.
+    """
+    from modules.financial_approval.swift_mt103_parser import match_swift_against_payment_request
+
+    batch = repo.get_swift_extraction_batch(db, batch_id)
+    if not batch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"SWIFT extraction batch {batch_id} not found.",
+        )
+
+    if batch.status not in ("REVIEWED_CONFIRMED", "RECONCILED"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="SWIFT batch has not been reviewed and confirmed. You must confirm the extracted fields before proceeding to matching.",
+        )
+
+    # Build confirmed dict STRICTLY from final_value
+    confirmed_dict = {}
+    for f in batch.fields:
+        confirmed_dict[f.field_key] = f.final_value
+
+    amt_str = confirmed_dict.get("amount", "0")
+    try:
+        confirmed_dict["amount"] = float(amt_str)
+    except (ValueError, TypeError):
+        confirmed_dict["amount"] = 0.0
+
+    all_requests = repo.get_all_payment_requests(db, include_inactive=False)
+    candidate_matches = []
+    best_match = None
+    highest_score = -1
+
+    for req in all_requests:
+        match_info = match_swift_against_payment_request(confirmed_dict, req)
+        candidate_matches.append(match_info)
+
+        if target_payment_id and req.payment_id == target_payment_id:
+            best_match = match_info
+            highest_score = 999
+        elif match_info["confidence_score"] > highest_score:
+            highest_score = match_info["confidence_score"]
+            best_match = match_info
+
+    candidate_matches.sort(key=lambda x: x["confidence_score"], reverse=True)
+
+    return SwiftBatchMatchResponse(
+        success=True,
+        batch_id=batch.batch_id,
+        status=batch.status,
+        matched_payment_request=best_match,
+        candidate_matches=candidate_matches[:10],
+        confirmed_fields={f.field_key: f.final_value for f in batch.fields},
+    )
+
+
+def reconcile_reviewed_batch_service(
+    db: Session,
+    batch_id: int,
+    payload: SwiftBatchReconcileRequest,
+) -> PaymentRequestResponse:
+    """
+    Reconciles a reviewed and confirmed batch against a payment request strictly using `final_value`.
+    REJECTS with 403 if batch is not in 'REVIEWED_CONFIRMED'.
+    """
+    from modules.import_files.model import ImportFile
+
+    batch = repo.get_swift_extraction_batch(db, batch_id)
+    if not batch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"SWIFT extraction batch {batch_id} not found.",
+        )
+
+    if batch.status not in ("REVIEWED_CONFIRMED", "RECONCILED"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="SWIFT batch must be in REVIEWED_CONFIRMED status to reconcile.",
+        )
+
+    db_item = repo.get_payment_request_by_id(db, payload.payment_id)
+    if not db_item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Payment Request ID {payload.payment_id} not found.",
+        )
+
+    field_map = {f.field_key: f.final_value for f in batch.fields}
+
+    swift_ref = field_map.get("transaction_reference") or f"SWF-REF-{batch.batch_id}"
+    raw_date = field_map.get("value_date")
+    receipt_date = date.today()
+    if raw_date:
+        try:
+            receipt_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
+        except Exception:
+            pass
+
+    try:
+        amt = float(field_map.get("amount") or db_item.requested_amount)
+    except Exception:
+        amt = float(db_item.requested_amount)
+
+    curr = field_map.get("currency") or db_item.currency_code
+    beneficiary_swift = field_map.get("beneficiary_bank_swift")
+    sender_swift = field_map.get("sender_bank_swift")
+    sender_bank = field_map.get("sender_bank_name")
+    iban_acc = field_map.get("beneficiary_account_or_iban")
+
+    db_item.swift_reference_no = swift_ref
+    db_item.swift_receipt_date = receipt_date
+    db_item.swift_transferred_amount = amt
+    db_item.swift_transferred_currency = curr
+
+    # Payment request SWIFT code must ALWAYS store the Beneficiary Bank's SWIFT (:57A), NOT the Sender/Issuing Bank!
+    if beneficiary_swift:
+        db_item.swift_code = beneficiary_swift
+    if iban_acc:
+        db_item.iban_account_no = iban_acc
+
+    variance = amt - float(db_item.requested_amount)
+    db_item.swift_variance_amount = round(variance, 2)
+    if abs(variance) < 0.01:
+        db_item.swift_variance_status = "Matched"
+    elif variance < 0:
+        db_item.swift_variance_status = "Deficit"
+    else:
+        db_item.swift_variance_status = "Surplus"
+
+    if db_item.request_date and receipt_date:
+        delta = (receipt_date - db_item.request_date).days
+        db_item.swift_processing_days = max(0, delta)
+
+    recon_notes = []
+    if payload.notes:
+        recon_notes.append(payload.notes)
+    if sender_swift or sender_bank:
+        sender_label = f"البنك المنفذ في مصر: {sender_bank or ''} ({sender_swift or ''})".strip()
+        recon_notes.append(sender_label)
+    if recon_notes:
+        db_item.swift_reconciliation_notes = " | ".join(recon_notes)
+
+    if payload.auto_execute:
+        db_item.status = "Paid"
+
+    if db_item.import_file_id:
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
+        if imp:
+            imp.swift_no = swift_ref
+
+    repo.update_swift_batch_status(
+        db=db,
+        batch_id=batch_id,
+        status="RECONCILED",
+        matched_payment_id=db_item.payment_id,
+    )
+
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+
 def smart_extract_swift_service(
     db: Session, payload: SmartSwiftExtractRequest
 ) -> SmartSwiftExtractResponse:
     """
-    Parses raw SWIFT MT103 text and auto-matches against existing Payment Requests.
+    Parses raw SWIFT MT103 text, creates an extraction batch in 'EXTRACTED_PENDING_REVIEW',
+    and generates preliminary candidate matches.
     """
     from modules.financial_approval.swift_mt103_parser import (
         parse_swift_mt103_text,
@@ -521,8 +1639,15 @@ def smart_extract_swift_service(
             error=parsed.get("error", "Failed to parse SWIFT MT103 text"),
         )
 
-    all_requests = repo.get_all_payment_requests(db, include_inactive=False)
+    # Create extraction batch for review
+    batch_resp = extract_swift_for_review_service(
+        db=db,
+        raw_text=payload.raw_text,
+        filename="pasted_swift_text.txt",
+        file_type="Text Input",
+    )
 
+    all_requests = repo.get_all_payment_requests(db, include_inactive=False)
     candidate_matches = []
     best_match = None
     highest_score = -1
@@ -546,6 +1671,8 @@ def smart_extract_swift_service(
         matched_payment_request=best_match,
         candidate_matches=candidate_matches[:10],
         raw_text=payload.raw_text,
+        batch_id=batch_resp.batch_id,
+        batch=batch_resp,
     )
 
 
@@ -556,7 +1683,8 @@ def smart_extract_swift_from_file_service(
     target_payment_id: Optional[int] = None,
 ) -> SmartSwiftExtractResponse:
     """
-    Extracts text from uploaded Word, Excel, PDF, or Image file and auto-matches against payment requests.
+    Extracts text from uploaded Word, Excel, PDF, or Image file, creates an extraction batch
+    in 'EXTRACTED_PENDING_REVIEW', and prepares candidate matches.
     """
     from modules.financial_approval.swift_file_extractor import extract_text_from_swift_file
     from modules.financial_approval.swift_mt103_parser import (
@@ -580,6 +1708,27 @@ def smart_extract_swift_from_file_service(
     text_to_parse = normalized_text if normalized_text.strip() else raw_text
     parsed = parse_swift_mt103_text(text_to_parse)
 
+    # Detect file type label
+    lower = filename.lower()
+    if lower.endswith('.pdf'):
+        f_type = "PDF Document"
+    elif lower.endswith(('.docx', '.doc')):
+        f_type = "Word Document"
+    elif lower.endswith(('.xlsx', '.xls', '.csv')):
+        f_type = "Excel Spreadsheet"
+    elif lower.endswith(('.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.tif')):
+        f_type = "Image / Scanned Slip (OCR)"
+    else:
+        f_type = "Text File"
+
+    # Create extraction batch for review
+    batch_resp = extract_swift_for_review_service(
+        db=db,
+        raw_text=raw_text if raw_text.strip() else normalized_text,
+        filename=filename,
+        file_type=f_type,
+    )
+
     all_requests = repo.get_all_payment_requests(db, include_inactive=False)
     candidate_matches = []
     best_match = None
@@ -598,19 +1747,6 @@ def smart_extract_swift_from_file_service(
 
     candidate_matches.sort(key=lambda x: x["confidence_score"], reverse=True)
 
-    # Detect file type label
-    lower = filename.lower()
-    if lower.endswith('.pdf'):
-        f_type = "PDF Document"
-    elif lower.endswith(('.docx', '.doc')):
-        f_type = "Word Document"
-    elif lower.endswith(('.xlsx', '.xls', '.csv')):
-        f_type = "Excel Spreadsheet"
-    elif lower.endswith(('.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.tif')):
-        f_type = "Image / Scanned Slip (OCR)"
-    else:
-        f_type = "Text File"
-
     return SmartSwiftExtractResponse(
         success=parsed.get("success", True),
         parsed_swift=parsed,
@@ -619,6 +1755,8 @@ def smart_extract_swift_from_file_service(
         raw_text=raw_text if raw_text.strip() else normalized_text,
         detected_filename=filename,
         detected_file_type=f_type,
+        batch_id=batch_resp.batch_id,
+        batch=batch_resp,
     )
 
 

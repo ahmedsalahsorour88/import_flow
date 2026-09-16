@@ -1190,6 +1190,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
             ),
             child: Row(
               children: [
+                SizedBox(width: 160, child: _TableHeader(l.usersMgmtColActions)),
                 const SizedBox(width: 40),
                 Expanded(flex: 3, child: _TableHeader(l.usersMgmtColFullName)),
                 Expanded(flex: 2, child: _TableHeader(l.usersMgmtColUsername)),
@@ -1197,7 +1198,6 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                 Expanded(flex: 2, child: _TableHeader(l.usersMgmtColRole)),
                 SizedBox(width: 95, child: _TableHeader(l.usersMgmtColStatus)),
                 SizedBox(width: 110, child: _TableHeader(l.usersMgmtColCreatedAt)),
-                SizedBox(width: 160, child: _TableHeader(l.usersMgmtColActions)),
               ],
             ),
           ),
@@ -1232,6 +1232,87 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
       color: !user.isActive ? Colors.grey.shade50 : null,
       child: Row(
         children: [
+          // Actions
+          SizedBox(
+            width: 160,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isAdmin) ...[
+                  // Edit
+                  Tooltip(
+                    message: l.usersMgmtActionEditTooltip,
+                    child: InkWell(
+                      onTap: () => _showUserDialog(editUser: user),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        child: const Icon(Icons.edit_outlined, size: 16, color: AppTheme.cobalt),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Manage Permissions
+                  Tooltip(
+                    message: l.usersMgmtActionPermissionsTooltip,
+                    child: InkWell(
+                      onTap: () => _showUserPermissionsDialog(user),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        child: const Icon(
+                          Icons.security_rounded,
+                          size: 16,
+                          color: AppTheme.orange,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Toggle Status (can't deactivate self)
+                  if (!isSelf)
+                    Tooltip(
+                      message: user.isActive ? l.usersMgmtActionDeactivateTooltip : l.usersMgmtActionActivateTooltip,
+                      child: InkWell(
+                        onTap: () => _showToggleConfirmDialog(user),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          child: Icon(
+                            user.isActive ? Icons.block_outlined : Icons.check_circle_outline,
+                            size: 16,
+                            color: user.isActive ? AppTheme.crimson : AppTheme.emerald,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    const SizedBox(width: 28),
+                  const SizedBox(width: 4),
+                ],
+                // Quick copy row summary
+                Tooltip(
+                  message: l.usersMgmtCopyRowSummaryBtn,
+                  child: InkWell(
+                    onTap: () => CopyHelper.copy(
+                      context,
+                      rowSummary,
+                      customMessage: l.usersMgmtCopyRowSummarySuccess,
+                    ),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      child: const Icon(
+                        Icons.copy_rounded,
+                        size: 16,
+                        color: AppTheme.charcoal,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           // Avatar
           CircleAvatar(
             radius: 16,
@@ -1403,87 +1484,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
               ),
             ),
           ),
-          // Actions
-          SizedBox(
-            width: 160,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isAdmin) ...[
-                  // Edit
-                  Tooltip(
-                    message: l.usersMgmtActionEditTooltip,
-                    child: InkWell(
-                      onTap: () => _showUserDialog(editUser: user),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        child: const Icon(Icons.edit_outlined, size: 16, color: AppTheme.cobalt),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  // Manage Permissions
-                  Tooltip(
-                    message: l.usersMgmtActionPermissionsTooltip,
-                    child: InkWell(
-                      onTap: () => _showUserPermissionsDialog(user),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        child: const Icon(
-                          Icons.security_rounded,
-                          size: 16,
-                          color: AppTheme.orange,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  // Toggle Status (can't deactivate self)
-                  if (!isSelf)
-                    Tooltip(
-                      message: user.isActive ? l.usersMgmtActionDeactivateTooltip : l.usersMgmtActionActivateTooltip,
-                      child: InkWell(
-                        onTap: () => _showToggleConfirmDialog(user),
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          child: Icon(
-                            user.isActive ? Icons.block_outlined : Icons.check_circle_outline,
-                            size: 16,
-                            color: user.isActive ? AppTheme.crimson : AppTheme.emerald,
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    const SizedBox(width: 28),
-                  const SizedBox(width: 4),
-                ],
-                // Quick copy row summary
-                Tooltip(
-                  message: l.usersMgmtCopyRowSummaryBtn,
-                  child: InkWell(
-                    onTap: () => CopyHelper.copy(
-                      context,
-                      rowSummary,
-                      customMessage: l.usersMgmtCopyRowSummarySuccess,
-                    ),
-                    borderRadius: BorderRadius.circular(6),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      child: const Icon(
-                        Icons.copy_rounded,
-                        size: 16,
-                        color: AppTheme.charcoal,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+
         ],
       ),
     );

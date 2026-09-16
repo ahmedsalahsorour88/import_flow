@@ -326,21 +326,21 @@ class _IncotermsTab extends ConsumerWidget {
               ),
               child: Table(
                 columnWidths: const {
-                  0: FixedColumnWidth(110),
-                  1: FlexColumnWidth(2),
-                  2: FixedColumnWidth(120),
-                  3: FixedColumnWidth(85),
-                  4: FixedColumnWidth(190),
+                  0: FixedColumnWidth(190),
+                  1: FixedColumnWidth(110),
+                  2: FlexColumnWidth(2),
+                  3: FixedColumnWidth(120),
+                  4: FixedColumnWidth(85),
                 },
                 children: [
                   TableRow(
                     decoration: const BoxDecoration(color: AppTheme.charcoal),
                     children: [
+                      l10n.incotermActionsCol,
                       l10n.incotermCodeCol,
                       l10n.incotermNameCol,
                       l10n.incotermVersionCol,
                       l10n.incotermStatusCol,
-                      l10n.incotermActionsCol,
                     ]
                         .map((h) => Padding(
                               padding: const EdgeInsets.symmetric(
@@ -361,6 +361,86 @@ class _IncotermsTab extends ConsumerWidget {
                         color: isEven ? Colors.white : Colors.grey.shade50,
                       ),
                       children: [
+                        _cell(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Tooltip(
+                                message: l10n.incotermCopySummaryBtn,
+                                child: InkWell(
+                                  onTap: () => CopyHelper.copy(
+                                    context,
+                                    _buildIncotermSummary(context, ref, i),
+                                    customMessage: l10n.incotermCopySummarySuccess,
+                                  ),
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 7, vertical: 5),
+                                    margin: const EdgeInsets.only(right: 6),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.emerald.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                          color: AppTheme.emerald.withOpacity(0.3)),
+                                    ),
+                                    child: const Icon(
+                                      Icons.copy_all_rounded,
+                                      size: 15,
+                                      color: AppTheme.emerald,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              RowActionsPill(
+                                onView: () => _showIncotermDialog(context, ref, incoterm: i),
+                                onEdit: () => _showIncotermDialog(context, ref, incoterm: i),
+                                onPrint: () {
+                                  final matrix = ref.read(responsibilityMatrixProvider).value ?? [];
+                                  MasterDataExportService.printOrSaveIncotermPdf(i, matrix);
+                                },
+                                printTooltip: l10n.exportIncotermsPdfBtn,
+                                onDelete: () async {
+                                  final isActive = i.isActive;
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: Text(l10n.confirmActionTitle),
+                                      content: Text(isActive
+                                          ? l10n.confirmDeactivateIncoterm(i.incotermCode)
+                                          : l10n.confirmActivateIncoterm(i.incotermCode)),
+                                      actions: [
+                                        TextButton(
+                                            onPressed: () => Navigator.pop(ctx, false),
+                                            child: Text(l10n.cancel)),
+                                        ElevatedButton(
+                                          onPressed: () => Navigator.pop(ctx, true),
+                                          style: ElevatedButton.styleFrom(
+                                              backgroundColor: isActive
+                                                  ? AppTheme.crimson
+                                                  : AppTheme.emerald),
+                                          child: Text(
+                                              isActive
+                                                  ? l10n.deactivateBtn
+                                                  : l10n.activateBtn,
+                                              style: const TextStyle(color: Colors.white)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirm == true) {
+                                    await ref
+                                        .read(incotermsProvider.notifier)
+                                        .toggleActive(i.incotermId, i.isActive);
+                                  }
+                                },
+                                deleteTooltip: i.isActive
+                                    ? l10n.deactivateIncotermTooltip
+                                    : l10n.activateIncotermTooltip,
+                              ),
+                            ],
+                          ),
+                        ),
                         _cell(
                           child: CopyableTableCell(
                             value: i.incotermCode,
@@ -453,86 +533,7 @@ class _IncotermsTab extends ConsumerWidget {
                             ),
                           ),
                         ),
-                        _cell(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Tooltip(
-                                message: l10n.incotermCopySummaryBtn,
-                                child: InkWell(
-                                  onTap: () => CopyHelper.copy(
-                                    context,
-                                    _buildIncotermSummary(context, ref, i),
-                                    customMessage: l10n.incotermCopySummarySuccess,
-                                  ),
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 7, vertical: 5),
-                                    margin: const EdgeInsets.only(right: 6),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.emerald.withOpacity(0.12),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                          color: AppTheme.emerald.withOpacity(0.3)),
-                                    ),
-                                    child: const Icon(
-                                      Icons.copy_all_rounded,
-                                      size: 15,
-                                      color: AppTheme.emerald,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              RowActionsPill(
-                                onView: () => _showIncotermDialog(context, ref, incoterm: i),
-                                onEdit: () => _showIncotermDialog(context, ref, incoterm: i),
-                                onPrint: () {
-                                  final matrix = ref.read(responsibilityMatrixProvider).value ?? [];
-                                  MasterDataExportService.printOrSaveIncotermPdf(i, matrix);
-                                },
-                                printTooltip: l10n.exportIncotermsPdfBtn,
-                                onDelete: () async {
-                                  final isActive = i.isActive;
-                                  final confirm = await showDialog<bool>(
-                                    context: context,
-                                    builder: (ctx) => AlertDialog(
-                                      title: Text(l10n.confirmActionTitle),
-                                      content: Text(isActive
-                                          ? l10n.confirmDeactivateIncoterm(i.incotermCode)
-                                          : l10n.confirmActivateIncoterm(i.incotermCode)),
-                                      actions: [
-                                        TextButton(
-                                            onPressed: () => Navigator.pop(ctx, false),
-                                            child: Text(l10n.cancel)),
-                                        ElevatedButton(
-                                          onPressed: () => Navigator.pop(ctx, true),
-                                          style: ElevatedButton.styleFrom(
-                                              backgroundColor: isActive
-                                                  ? AppTheme.crimson
-                                                  : AppTheme.emerald),
-                                          child: Text(
-                                              isActive
-                                                  ? l10n.deactivateBtn
-                                                  : l10n.activateBtn,
-                                              style: const TextStyle(color: Colors.white)),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                  if (confirm == true) {
-                                    await ref
-                                        .read(incotermsProvider.notifier)
-                                        .toggleActive(i.incotermId, i.isActive);
-                                  }
-                                },
-                                deleteTooltip: i.isActive
-                                    ? l10n.deactivateIncotermTooltip
-                                    : l10n.activateIncotermTooltip,
-                              ),
-                            ],
-                          ),
-                        ),
+
                       ],
                     );
                   }),
@@ -921,21 +922,21 @@ class _CostItemsTab extends ConsumerWidget {
               ),
               child: Table(
                 columnWidths: const {
-                  0: FixedColumnWidth(110),
-                  1: FlexColumnWidth(2),
-                  2: FixedColumnWidth(130),
-                  3: FixedColumnWidth(85),
-                  4: FixedColumnWidth(190),
+                  0: FixedColumnWidth(190),
+                  1: FixedColumnWidth(110),
+                  2: FlexColumnWidth(2),
+                  3: FixedColumnWidth(130),
+                  4: FixedColumnWidth(85),
                 },
                 children: [
               TableRow(
                 decoration: const BoxDecoration(color: AppTheme.charcoal),
                 children: [
+                  l10n.costItemActionsCol,
                   l10n.costItemCodeCol,
                   l10n.costItemNameCol,
                   l10n.costItemCategoryCol,
                   l10n.costItemStatusCol,
-                  l10n.costItemActionsCol,
                 ]
                     .map((h) => Padding(
                           padding: const EdgeInsets.symmetric(
@@ -956,6 +957,77 @@ class _CostItemsTab extends ConsumerWidget {
                   decoration: BoxDecoration(
                       color: isEven ? Colors.white : Colors.grey.shade50),
                   children: [
+                    _cell(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Tooltip(
+                            message: l10n.costItemCopySummaryBtn,
+                            child: InkWell(
+                              onTap: () => CopyHelper.copy(
+                                context,
+                                _buildCostItemSummary(l10n, item),
+                                customMessage: l10n.costItemCopySummarySuccess,
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 7, vertical: 5),
+                                margin: const EdgeInsets.only(right: 6),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.emerald.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                      color: AppTheme.emerald.withOpacity(0.3)),
+                                ),
+                                child: const Icon(
+                                  Icons.copy_all_rounded,
+                                  size: 15,
+                                  color: AppTheme.emerald,
+                                ),
+                              ),
+                            ),
+                          ),
+                          RowActionsPill(
+                            onView: () => _showCostItemDialog(context, ref, item: item),
+                            onEdit: () => _showCostItemDialog(context, ref, item: item),
+                            onPrint: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(l10n.printCostItemSnack(item.costItemCode, item.costItemName)),
+                                  backgroundColor: AppTheme.charcoal,
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                            onDelete: () async {
+                              final isActive = item.isActive;
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: Text(l10n.confirmActionTitle),
+                                  content: Text(isActive
+                                      ? l10n.confirmDeactivateCostItem(item.costItemCode)
+                                      : l10n.confirmActivateCostItem(item.costItemCode)),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                      child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirm == true) {
+                                await ref.read(costItemsProvider.notifier).toggleActive(item.costItemId, item.isActive);
+                              }
+                            },
+                            deleteTooltip: item.isActive ? l10n.deactivateCostItemTooltip : l10n.activateCostItemTooltip,
+                          ),
+                        ],
+                      ),
+                    ),
                     _cell(
                       child: CopyableTableCell(
                         value: item.costItemCode,
@@ -1056,77 +1128,7 @@ class _CostItemsTab extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    _cell(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Tooltip(
-                            message: l10n.costItemCopySummaryBtn,
-                            child: InkWell(
-                              onTap: () => CopyHelper.copy(
-                                context,
-                                _buildCostItemSummary(l10n, item),
-                                customMessage: l10n.costItemCopySummarySuccess,
-                              ),
-                              borderRadius: BorderRadius.circular(6),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 7, vertical: 5),
-                                margin: const EdgeInsets.only(right: 6),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.emerald.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                      color: AppTheme.emerald.withOpacity(0.3)),
-                                ),
-                                child: const Icon(
-                                  Icons.copy_all_rounded,
-                                  size: 15,
-                                  color: AppTheme.emerald,
-                                ),
-                              ),
-                            ),
-                          ),
-                          RowActionsPill(
-                            onView: () => _showCostItemDialog(context, ref, item: item),
-                            onEdit: () => _showCostItemDialog(context, ref, item: item),
-                            onPrint: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(l10n.printCostItemSnack(item.costItemCode, item.costItemName)),
-                                  backgroundColor: AppTheme.charcoal,
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                            },
-                            onDelete: () async {
-                              final isActive = item.isActive;
-                              final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: Text(l10n.confirmActionTitle),
-                                  content: Text(isActive
-                                      ? l10n.confirmDeactivateCostItem(item.costItemCode)
-                                      : l10n.confirmActivateCostItem(item.costItemCode)),
-                                  actions: [
-                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                                    ElevatedButton(
-                                      onPressed: () => Navigator.pop(ctx, true),
-                                      style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                      child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (confirm == true) {
-                                await ref.read(costItemsProvider.notifier).toggleActive(item.costItemId, item.isActive);
-                              }
-                            },
-                            deleteTooltip: item.isActive ? l10n.deactivateCostItemTooltip : l10n.activateCostItemTooltip,
-                          ),
-                        ],
-                      ),
-                    ),
+
                   ],
                 );
               }),
@@ -1477,25 +1479,25 @@ class _ResponsibilityMatrixTabState
               ),
               child: Table(
                 columnWidths: const {
-                  0: FixedColumnWidth(100),
-                  1: FlexColumnWidth(2),
-                  2: FixedColumnWidth(120),
-                  3: FixedColumnWidth(160),
-                  4: FixedColumnWidth(100),
-                  5: FlexColumnWidth(2),
-                  6: FixedColumnWidth(110),
+                  0: FixedColumnWidth(110),
+                  1: FixedColumnWidth(100),
+                  2: FlexColumnWidth(2),
+                  3: FixedColumnWidth(120),
+                  4: FixedColumnWidth(160),
+                  5: FixedColumnWidth(100),
+                  6: FlexColumnWidth(2),
                 },
                 children: [
                   TableRow(
                     decoration: const BoxDecoration(color: AppTheme.charcoal),
                     children: [
+                      l10n.matrixActionsCol,
                       l10n.matrixIncotermCol,
                       l10n.matrixCostItemCol,
                       l10n.matrixCategoryCol,
                       l10n.matrixResponsibleCol,
                       l10n.matrixIncludedCol,
                       l10n.matrixNotesCol,
-                      l10n.matrixActionsCol,
                     ]
                         .map((h) => Padding(
                               padding: const EdgeInsets.symmetric(
@@ -1530,6 +1532,47 @@ class _ResponsibilityMatrixTabState
                       decoration: BoxDecoration(
                           color: isEven ? Colors.white : Colors.grey.shade50),
                       children: [
+                        _cell(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Tooltip(
+                                message: l10n.matrixCopySummaryBtn,
+                                child: InkWell(
+                                  onTap: () => CopyHelper.copy(
+                                    context,
+                                    _buildMatrixRowSummary(l10n, r),
+                                    customMessage: l10n.matrixCopySummarySuccess,
+                                  ),
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 7, vertical: 5),
+                                    margin: const EdgeInsets.only(right: 6),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.emerald.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                          color: AppTheme.emerald.withOpacity(0.3)),
+                                    ),
+                                    child: const Icon(
+                                      Icons.copy_all_rounded,
+                                      size: 15,
+                                      color: AppTheme.emerald,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.edit,
+                                    color: AppTheme.cobalt, size: 20),
+                                tooltip: l10n.editResponsibilityTooltip,
+                                onPressed: () =>
+                                    _showEditResponsibilityDialog(context, ref, r),
+                              ),
+                            ],
+                          ),
+                        ),
                         _cell(
                           child: CopyableTableCell(
                             value: r.incotermCode ?? '',
@@ -1615,47 +1658,7 @@ class _ResponsibilityMatrixTabState
                             ),
                           ),
                         ),
-                        _cell(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Tooltip(
-                                message: l10n.matrixCopySummaryBtn,
-                                child: InkWell(
-                                  onTap: () => CopyHelper.copy(
-                                    context,
-                                    _buildMatrixRowSummary(l10n, r),
-                                    customMessage: l10n.matrixCopySummarySuccess,
-                                  ),
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 7, vertical: 5),
-                                    margin: const EdgeInsets.only(right: 6),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.emerald.withOpacity(0.12),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                          color: AppTheme.emerald.withOpacity(0.3)),
-                                    ),
-                                    child: const Icon(
-                                      Icons.copy_all_rounded,
-                                      size: 15,
-                                      color: AppTheme.emerald,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.edit,
-                                    color: AppTheme.cobalt, size: 20),
-                                tooltip: l10n.editResponsibilityTooltip,
-                                onPressed: () =>
-                                    _showEditResponsibilityDialog(context, ref, r),
-                              ),
-                            ],
-                          ),
-                        ),
+
                       ],
                     );
                   }),

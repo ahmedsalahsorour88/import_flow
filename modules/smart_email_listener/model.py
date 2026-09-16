@@ -4,7 +4,9 @@ SQLAlchemy Model for Inbound Email Logs (INT-EMAIL-010)
 
 from datetime import datetime, timezone, date
 from sqlalchemy import Column, Integer, String, Text, Date, DateTime, Boolean, ForeignKey
+from sqlalchemy.orm import synonym
 from database.database import Base
+from .crypto import encrypt_email_password, decrypt_email_password
 
 
 class InboundEmailLog(Base):
@@ -42,7 +44,15 @@ class EmailSettings(Base):
     provider_type = Column(String(50), default="CUSTOM", nullable=False)  # GMAIL, OUTLOOK, CUSTOM
     email_address = Column(String(150), nullable=False)
     username = Column(String(150), nullable=False)
-    password = Column(String(255), nullable=False)  # App Password or account secret
+    _password = Column("password", String(255), nullable=False)  # Encrypted App Password or account secret
+
+    def _get_password(self) -> str:
+        return decrypt_email_password(self._password) if self._password else ""
+
+    def _set_password(self, val: str):
+        self._password = encrypt_email_password(val) if val else ""
+
+    password = synonym("_password", descriptor=property(_get_password, _set_password))
 
     # Inbound (IMAP)
     imap_host = Column(String(150), nullable=False, default="imap.gmail.com")

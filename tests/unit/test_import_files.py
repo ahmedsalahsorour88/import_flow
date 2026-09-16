@@ -295,4 +295,33 @@ class TestImportFilesBackend:
         assert resumed.status == "In Progress"
         assert resumed.hold_reason is None
 
+    def test_clone_import_file_audit_user_tracking(self, db_session):
+        from modules.import_files.schemas import CloneImportFileRequest
+        payload = ImportFileCreate(
+            custom_file_number="6701068200",
+            company_id=1,
+            company_name="Egyptian Import Co",
+            supplier_name="ABC China",
+        )
+        created = service.create_import_file_service(db_session, payload, current_user="ahmed_ops")
+        assert created.created_by == "ahmed_ops"
+        assert created.owner == "ahmed_ops"
+
+        clone_req = CloneImportFileRequest(
+            target_import_file_code="IMP-2026-TESTCLONE",
+            copy_items=False,
+            notes="Cloned for testing audit trail",
+        )
+        cloned = service.clone_import_file_service(
+            db_session,
+            created.import_file_id,
+            clone_req,
+            current_user="sarah_logistics",
+        )
+        assert cloned.import_file_code == "IMP-2026-TESTCLONE"
+        assert cloned.created_by == "sarah_logistics"
+        assert cloned.updated_by == "sarah_logistics"
+        assert cloned.cloned_from_id == created.import_file_id
+
+
 

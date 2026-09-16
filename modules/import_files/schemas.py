@@ -84,7 +84,7 @@ class ImportFileBase(BaseModel):
     skipped_stages: Optional[List[str]] = Field(default_factory=list, description="List of skipped step codes")
 
     status: str = Field("Open", description="Open, In Progress, On Hold, Closed, Archived")
-    owner: str = Field("Kamal", description="Operational Owner")
+    owner: Optional[str] = Field(None, description="Operational Owner")
     notes: Optional[str] = None
     closure_reason: Optional[str] = Field(None, description="Reason for early closure or termination")
     closed_at_phase: Optional[str] = Field(None, description="Operational phase where closure occurred")
@@ -221,10 +221,12 @@ class ImportFileResponse(ImportFileBase):
 
 
 class CloneImportFileRequest(BaseModel):
-    target_import_file_code: str = Field(..., min_length=3, description="New unique import file code")
+    target_import_file_code: Optional[str] = Field(None, min_length=3, description="New unique import file code")
+    new_import_file_code: Optional[str] = Field(None, min_length=3, description="Alias for target_import_file_code")
     target_custom_file_number: Optional[str] = Field(None, description="New custom file number")
     copy_invoices_data: bool = Field(True, description="Copy items/invoices data")
     copy_packing_lists: bool = Field(True, description="Copy packing lists data")
+    copy_items: Optional[bool] = Field(None, description="Alias for copy_invoices_data & copy_packing_lists")
     copy_attachments: bool = Field(False, description="Copy documents and attachments (default false per UX-CLONE-011)")
     notes: Optional[str] = Field(None, description="Optional notes on the cloned shipment")
 

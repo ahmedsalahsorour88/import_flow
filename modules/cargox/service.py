@@ -50,13 +50,18 @@ class CargoXService:
         if not doc_type_names:
             doc_type_names = ["Commercial Invoice", "Packing List", "Draft B/L"]
 
-        importer_code = payload.importer_company_name[:20].upper().replace(" ", "_")
-        cx_res = client.create_envelope(
-            acid_number=payload.acid_number,
-            importer_company_code=importer_code,
-            foreign_exporter_cargox_id=payload.supplier_cargox_id,
-            document_types=doc_type_names,
-        )
+        importer_code = payload.importer_company_name[:20].upper().replace(" ", "_") if payload.importer_company_name else "IMPORTER"
+        cx_res = {}
+        if not (getattr(payload, "is_draft", False) or getattr(payload, "status", None) == "DRAFT"):
+            try:
+                cx_res = client.create_envelope(
+                    acid_number=payload.acid_number,
+                    importer_company_code=importer_code,
+                    foreign_exporter_cargox_id=payload.supplier_cargox_id or "CARGOX-EXPORTER",
+                    document_types=doc_type_names,
+                )
+            except Exception:
+                cx_res = {}
 
         import_file_code = None
         if payload.import_file_id:
@@ -65,6 +70,16 @@ class CargoXService:
                 import_file_code = import_file.import_file_code
 
         pki_sig_str = _normalize_pki_signature(cx_res.get("pki_signature"))
+        is_draft_mode = getattr(payload, "is_draft", False)
+        if is_draft_mode:
+            envelope_status = "DRAFT"
+            is_verified = False
+        elif payload.status:
+            envelope_status = payload.status
+            is_verified = True if payload.documents else False
+        else:
+            envelope_status = "UPLOADED_BY_SUPPLIER" if payload.documents else "DRAFT"
+            is_verified = True if payload.documents else False
 
         envelope = CargoXEnvelope(
             envelope_code=envelope_code,
@@ -78,10 +93,12 @@ class CargoXService:
             supplier_name=payload.supplier_name,
             supplier_cargox_id=payload.supplier_cargox_id,
             bl_number=payload.bl_number,
-            status="UPLOADED_BY_SUPPLIER" if payload.documents else "DRAFT",
+            status=envelope_status,
             blockchain_tx_hash=cx_res.get("blockchain_tx_hash"),
             pki_signature=pki_sig_str,
-            is_acid_verified=True if payload.documents else False,
+            is_acid_verified=is_verified,
+
+
             all_documents_sealed=False,
             notes=payload.notes,
             created_by=created_by,
@@ -376,6 +393,20 @@ from ..import_documentation.model import POPackingReconciliationSession
 
 
 class CargoXStandardInvoiceService:
+
+    @staticmethod
+    def list_customs_tracks_by_file(db: Session, import_file_id: int):
+        return CargoXRepository.list_customs_tracks_by_file(db, import_file_id)
+
+    @staticmethod
+    def get_customs_track_by_id(db: Session, track_id: int):
+        track = CargoXRepository.get_customs_track_by_id(db, track_id)
+        if not track:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"المسار الجمركي {track_id} غير موجود.",
+            )
+        return track
 
     @staticmethod
     def build_system_snapshot(db: Session, import_file_id: int) -> StandardInvoicePayload:
@@ -1146,8 +1177,13 @@ class CargoXExtractionEngine:
             )
 
         # مصدر 1: reconciled session
-        if reconciled_session and reconciled_session.matched_items_data:
-            for raw_item in reconciled_session.matched_items_data:
+        reconciled_items = (
+            getattr(reconciled_session, "reconciled_invoice_items", None)
+            or getattr(reconciled_session, "reconciled_packing_items", None)
+            or getattr(reconciled_session, "matched_items_data", None)
+        )
+        if reconciled_items:
+            for raw_item in reconciled_items:
                 inv_no = raw_item.get("invoice_number") or CargoXExtractionEngine._resolve_invoice_number(file, pos)
                 invoices_dict[inv_no].append({
                     "item_code": raw_item.get("item_code"),
@@ -1156,12 +1192,12 @@ class CargoXExtractionEngine:
                     "model": raw_item.get("model") or "Standard",
                     "hs_code": raw_item.get("hs_code") or "940310",
                     "description": raw_item.get("item_name") or raw_item.get("description") or "Imported Goods",
-                    "quantity": float(raw_item.get("actual_quantity") or raw_item.get("po_quantity") or 1.0),
-                    "qty_unit": raw_item.get("unit") or "PCS",
-                    "unit_price": float(raw_item.get("unit_price") or 0.0),
+                    "quantity": float(raw_item.get("final_quantity") or raw_item.get("actual_quantity") or raw_item.get("po_quantity") or raw_item.get("initial_quantity") or 1.0),
+                    "qty_unit": raw_item.get("unit") or raw_item.get("package_type") or "PCS",
+                    "unit_price": float(raw_item.get("final_unit_price") or raw_item.get("unit_price") or 0.0),
                     "country_of_origin": raw_item.get("country_of_origin") or country_fallback,
-                    "gross_weight_kg": float(raw_item.get("gross_weight") or 0.0),
-                    "net_weight_kg": float(raw_item.get("net_weight") or 0.0),
+                    "gross_weight_kg": float(raw_item.get("final_gross_weight_kg") or raw_item.get("gross_weight") or raw_item.get("initial_gross_weight_kg") or 0.0),
+                    "net_weight_kg": float(raw_item.get("final_net_weight_kg") or raw_item.get("net_weight") or raw_item.get("initial_net_weight_kg") or 0.0),
                     "invoice_number": inv_no,
                 })
             return dict(invoices_dict)

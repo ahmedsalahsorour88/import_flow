@@ -41,9 +41,17 @@ customs_tariff_router = APIRouter(prefix="/api/v1/customs-tariff", tags=["Custom
 def get_all_tariffs(
     include_inactive: bool = Query(False),
     search: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0, description="Offset for pagination"),
+    limit: Optional[int] = Query(None, ge=1, le=5000, description="Page limit"),
     db: Session = Depends(get_db),
 ):
-    return get_all_tariffs_service(db, include_inactive=include_inactive, search=search)
+    return get_all_tariffs_service(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @customs_tariff_router.post("", response_model=CustomsTariffResponse)
@@ -58,9 +66,17 @@ def create_tariff(data: CustomsTariffCreate, db: Session = Depends(get_db)):
 def list_tariffs(
     include_inactive: bool = Query(False),
     search: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0, description="Offset for pagination"),
+    limit: Optional[int] = Query(None, ge=1, le=5000, description="Page limit"),
     db: Session = Depends(get_db),
 ):
-    return get_all_tariffs_service(db, include_inactive=include_inactive, search=search)
+    return get_all_tariffs_service(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @customs_tariff_router.post("/estimate", response_model=CustomsDutyBreakdown)

@@ -4,9 +4,10 @@ Customs Consultation & Broker Price Lists REST Router (BP-009)
 
 from typing import List, Optional
 from datetime import date
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, Header
 from sqlalchemy.orm import Session
 from database.database import get_db
+from modules.auth.permissions import resolve_user
 from modules.customs_consultation.schemas import (
     ClearanceExpenseTypeCreate,
     ClearanceExpenseTypeUpdate,
@@ -238,9 +239,15 @@ def clone_price_list(
 )
 def create_consultation(
     session_in: CustomsConsultationCreate,
+    authorization: Optional[str] = Header(None),
+    x_user_role: Optional[str] = Header(None),
+    x_user_name: Optional[str] = Header(None),
     db: Session = Depends(get_db),
 ):
-    return CustomsConsultationService.create_consultation(db, session_in)
+    current_user = resolve_user(db, authorization=authorization, x_user_role=x_user_role, x_user_name=x_user_name)
+    return CustomsConsultationService.create_consultation(
+        db, session_in, modified_by=current_user.username if current_user else "Customs Specialist"
+    )
 
 
 @router.get(
@@ -290,9 +297,15 @@ def get_consultation(
 def update_consultation(
     consultation_id: int,
     update_in: CustomsConsultationUpdate,
+    authorization: Optional[str] = Header(None),
+    x_user_role: Optional[str] = Header(None),
+    x_user_name: Optional[str] = Header(None),
     db: Session = Depends(get_db),
 ):
-    return CustomsConsultationService.update_consultation(db, consultation_id, update_in)
+    current_user = resolve_user(db, authorization=authorization, x_user_role=x_user_role, x_user_name=x_user_name)
+    return CustomsConsultationService.update_consultation(
+        db, consultation_id, update_in, modified_by=current_user.username if current_user else "Customs Specialist"
+    )
 
 
 @router.delete(

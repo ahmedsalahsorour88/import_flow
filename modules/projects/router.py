@@ -96,11 +96,7 @@ def download_projects_excel_template():
         'description': 'Main solar component importing project',
     }
     content = MasterDataExportImportHelper.create_excel_template(cols, sample)
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=Projects_CostCenters_Template.xlsx"},
-    )
+    return MasterDataExportImportHelper.as_excel_response("Projects_CostCenters_Template.xlsx", content)
 
 
 @router.post("/import-excel")

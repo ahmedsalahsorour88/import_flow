@@ -1,9 +1,11 @@
+import os
 from typing import List, Set, Dict, Any, Optional
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 from database.database import get_db
 from modules.users.model import User, Role, Permission, UserPermission, RolePermission
 from modules.auth.security import decode_access_token
+from settings import ALLOW_DEV_AUTH_BYPASS
 
 
 def get_user_effective_permissions(db: Session, user_id: int) -> Set[str]:
@@ -143,7 +145,13 @@ def resolve_user(
                 detail="Invalid Authorization header format. Expected 'Bearer <token>'."
             )
 
-    # 2. Desktop client header resolution
+    # 2. Desktop client header resolution (restricted by ALLOW_DEV_AUTH_BYPASS)
+    if not ALLOW_DEV_AUTH_BYPASS:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Authorization header.",
+        )
+
     if x_user_name:
         user = db.query(User).filter(User.username == x_user_name, User.is_active == True).first()
         if user:
@@ -165,7 +173,7 @@ def resolve_user(
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Missing Authorization header."
+        detail="Missing Authorization header.",
     )
 
 

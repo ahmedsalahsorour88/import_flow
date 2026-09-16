@@ -37,7 +37,7 @@ if "!PORT_IN_USE!"=="1" (
     echo       [OK] Backend server is already running on port 28080.
 ) else (
     echo       [+] Starting FastAPI backend on http://127.0.0.1:28080...
-    start "SorourLogistics Backend" /min python -m uvicorn main:app --host 127.0.0.1 --port 28080
+    start "SorourLogistics Backend" /min python -m uvicorn main:app --host 127.0.0.1 --port 28080 --reload
     
     :: Wait up to 10 seconds for backend to start
     set "READY=0"

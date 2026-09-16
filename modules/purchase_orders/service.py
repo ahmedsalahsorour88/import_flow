@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import HTTPException, status
@@ -7,7 +8,10 @@ from sqlalchemy.orm import Session
 from modules.purchase_orders.model import PurchaseOrder, POShipmentAllocation, POLineItem
 from modules.purchase_orders.repository import PurchaseOrderRepository
 from modules.purchase_orders.schemas import (
+    ClonePurchaseOrderRequest,
+    POLineItemCreate,
     POLineItemResponse,
+    PackingListItemCreate,
     PackingListItemResponse,
     PackingListSummaryByHSCode,
     PackingListValidationReport,
@@ -568,4 +572,124 @@ class PurchaseOrderService:
             allocations=[POShipmentAllocationResponse.model_validate(a) for a in allocations],
             executive_summary_ar=summary_ar,
         )
+
+    # =========================================================================
+    # UX-CLONE-011: Universal Entity-Level Clone Engine for Purchase Orders
+    # =========================================================================
+
+    def clone_purchase_order(self, po_id: int, payload: ClonePurchaseOrderRequest) -> PurchaseOrderResponse:
+        """
+        UX-CLONE-011: Universal Entity-Level Clone for Purchase Orders.
+        Preserves: company, supplier, project, incoterm, currency, exchange_rate, payment_terms, country_of_origin.
+        Mandatory Resets:
+          - po_id -> new PK autoincrement
+          - po_number -> payload.new_po_number (validated unique)
+          - po_reference -> payload.new_po_reference or original.po_reference
+          - import_file_id -> None (cleared / unlinked from shipment)
+          - status -> 'Draft' (forced to Draft)
+          - order_date -> datetime.now(timezone.utc)
+          - expected_delivery_date -> None
+          - partial allocations -> reset / empty
+          - items copied if copy_items (item_id reset)
+          - packing_list_items copied if copy_packing_list (packing_item_id reset)
+          - pallet_plan copied if copy_pallet_plan
+        """
+        original = self.repo.get_by_id(po_id)
+        if not original:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"أمر الشراء الأصلي #{po_id} غير موجود.",
+            )
+
+        target_po_number = payload.new_po_number.strip().upper()
+        self.validator.validate_po_number_unique(target_po_number)
+
+        # Build items
+        new_items: List[POLineItemCreate] = []
+        if payload.copy_items and original.line_items:
+            for it in original.line_items:
+                new_items.append(
+                    POLineItemCreate(
+                        item_code=it.item_code,
+                        main_description=it.main_description,
+                        description_ar=it.description_ar,
+                        description_en=it.description_en,
+                        country_of_origin=it.country_of_origin,
+                        tariff_id=it.tariff_id,
+                        quantity=float(it.quantity or 1.0),
+                        unit_of_measure=it.unit_of_measure or "PCS",
+                        unit_price=float(it.unit_price or 0.0),
+                        cbm_per_unit=float(it.cbm_per_unit or 0.0),
+                        gross_weight_kg=float(it.gross_weight_kg or 0.0),
+                        net_weight_kg=float(it.net_weight_kg or 0.0),
+                    )
+                )
+
+        # Build packing list items
+        new_packing_items: List[PackingListItemCreate] = []
+        if payload.copy_packing_list and original.packing_list_items:
+            for p in original.packing_list_items:
+                new_packing_items.append(
+                    PackingListItemCreate(
+                        hs_code=p.hs_code,
+                        item_code=p.item_code,
+                        main_description=getattr(p, "main_description", None),
+                        description=getattr(p, "description", None),
+                        qty_pcs=float(p.qty_pcs or 1.0),
+                        qty_pkg=float(p.qty_pkg or 1.0),
+                        package_type=p.package_type or "Carton",
+                        unit=getattr(p, "unit", "cm") or "cm",
+                        weight_unit=getattr(p, "weight_unit", "KGM") or "KGM",
+                        length_cm=float(p.length_cm or 0.0),
+                        width_cm=float(p.width_cm or 0.0),
+                        height_cm=float(p.height_cm or 0.0),
+                        net_weight_unit_kg=float(p.net_weight_unit_kg or 0.0),
+                        gross_weight_unit_kg=float(p.gross_weight_unit_kg or 0.0),
+                        is_stackable=bool(p.is_stackable),
+                        total_cbm=float(p.total_cbm or 0.0),
+                        total_net_weight_kg=float(p.total_net_weight_kg or 0.0),
+                        total_gross_weight_kg=float(p.total_gross_weight_kg or 0.0),
+                    )
+                )
+
+        # Build pallet plan
+        new_pallet_plan: List[PalletPlanItem] = []
+        if payload.copy_pallet_plan and original.pallet_plan:
+            try:
+                raw_plans = json.loads(original.pallet_plan)
+                if isinstance(raw_plans, list):
+                    for rp in raw_plans:
+                        new_pallet_plan.append(PalletPlanItem(**rp))
+            except Exception:
+                pass
+
+        cloned_create = PurchaseOrderCreate(
+            po_number=target_po_number,
+            po_reference=payload.new_po_reference or original.po_reference,
+            import_file_id=None,  # Reset shipment link
+            proforma_invoice_number=original.proforma_invoice_number,
+            country_of_origin=original.country_of_origin,
+            project_id=original.project_id,
+            company_id=original.company_id,
+            supplier_id=original.supplier_id,
+            incoterm_id=original.incoterm_id,
+            currency_id=original.currency_id,
+            order_date=datetime.now(timezone.utc),
+            expected_delivery_date=None,
+            exchange_rate=float(original.exchange_rate or 1.0),
+            payment_terms=original.payment_terms,
+            notes=payload.notes or f"مستنسخ من أمر الشراء: {original.po_number}",
+            pallet_count=original.pallet_count if payload.copy_pallet_plan else 0,
+            pallet_type=original.pallet_type or "Euro Pallet (120x80)",
+            is_pallet_stackable=bool(original.is_pallet_stackable),
+            pallet_length_cm=float(original.pallet_length_cm or 120.0),
+            pallet_width_cm=float(original.pallet_width_cm or 80.0),
+            pallet_height_cm=float(original.pallet_height_cm or 150.0),
+            pallet_plan=new_pallet_plan if payload.copy_pallet_plan else [],
+            items=new_items,
+            packing_list_items=new_packing_items,
+        )
+
+        cloned_po = self.repo.create(cloned_create)
+        return self._to_response(cloned_po)
 

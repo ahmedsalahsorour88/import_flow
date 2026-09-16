@@ -19,6 +19,7 @@ import '../../import_files/models/import_file_model.dart';
 import '../models/cargo_shipping_model.dart';
 import '../providers/cargo_shipping_provider.dart';
 import '../services/cargo_shipping_sla_export_service.dart';
+import '../../lifecycle_board/providers/lifecycle_board_provider.dart';
 
 
 class CargoShippingScreen extends ConsumerStatefulWidget {
@@ -573,7 +574,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     }
   }
 
-  void _autoCompleteAllContainersTracking() {
+  void _smartSimulationAllContainersTracking() {
     final now = DateTime.now();
     final isoNow = now.toIso8601String();
 
@@ -618,8 +619,22 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(context.l10n.cargoShippingAutoCompleteSuccess),
-        backgroundColor: AppTheme.emerald,
+        content: Row(
+          children: [
+            const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                Directionality.of(context) == TextDirection.rtl
+                    ? 'تمت المحاكاة الذكية واستيفاء دورة التحميل ودخول الميناء بنجاح! اضغط على "حفظ واعتماد إنهاء المرحلة" للتأكيد والترحيل.'
+                    : 'Smart Simulation completed! Click "Save & Complete Step-07" to commit to DB and advance lifecycle.',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: AppTheme.cobalt,
+        duration: const Duration(seconds: 4),
       ),
     );
   }
@@ -686,10 +701,27 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             ),
           );
         } else {
+          ref.invalidate(lifecycleBoardSummaryProvider);
+          ref.invalidate(importFilesProvider);
+          ref.read(importFilesProvider.notifier).fetchImportFiles();
+          ref.read(cargoShippingProvider.notifier).fetchRecords(includeInactive: true);
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(context.l10n.cargoShippingStudySaveSuccess(_editingRecordCode ?? "")),
+              content: Row(
+                children: [
+                  const Icon(Icons.verified, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      context.l10n.cargoShippingStudySaveSuccess(_editingRecordCode ?? ""),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
               backgroundColor: AppTheme.emerald,
+              duration: const Duration(seconds: 4),
             ),
           );
           _resetForm();
@@ -2886,15 +2918,26 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE0F2FE),
-                foregroundColor: AppTheme.cobalt,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            Tooltip(
+              message: Directionality.of(context) == TextDirection.rtl
+                  ? 'المحاكاة الذكية: توليد تواريخ ومحطات دورة التحميل والـ VGM ودخول الميناء تلقائياً في النموذج'
+                  : 'Smart Simulation: Auto-simulate loading, VGM, and port gate-in milestones in the form',
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE0F2FE),
+                  foregroundColor: AppTheme.cobalt,
+                  side: const BorderSide(color: AppTheme.cobalt),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+                onPressed: _smartSimulationAllContainersTracking,
+                icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 18),
+                label: Text(
+                  Directionality.of(context) == TextDirection.rtl
+                      ? '⚡ محاكاة ذكية (Smart Simulation) ⚡'
+                      : '⚡ Smart Simulation ⚡',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
               ),
-              onPressed: _autoCompleteAllContainersTracking,
-              icon: const Icon(Icons.bolt, color: AppTheme.cobalt, size: 18),
-              label: Text(context.l10n.cargoShippingAutoCompleteCycle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
             ),
             const SizedBox(width: 8),
             OutlinedButton.icon(
@@ -2953,9 +2996,15 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               onPressed: _isSaving ? null : () => _submitForm(isDraftProgressive: false),
               icon: _isSaving
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Icon(Icons.check_circle_outline, size: 20),
+                  : const Icon(Icons.verified_outlined, size: 20),
               label: Text(
-                _editingRecordId != null ? context.l10n.cargoShippingUpdateStudy : context.l10n.cargoShippingSaveStudy,
+                _editingRecordId != null
+                    ? (Directionality.of(context) == TextDirection.rtl
+                        ? 'تحديث واعتماد إنهاء المرحلة (STEP-07)'
+                        : 'Update & Complete Step-07')
+                    : (Directionality.of(context) == TextDirection.rtl
+                        ? 'حفظ واعتماد إنهاء المرحلة (STEP-07)'
+                        : 'Save & Complete Step-07'),
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ),

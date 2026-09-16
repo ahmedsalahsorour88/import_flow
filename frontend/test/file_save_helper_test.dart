@@ -1,39 +1,69 @@
-import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/services/file_save_helper.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-
-  group('FileSaveHelper Universal File Saving Tests', () {
-    test('saveText prepends UTF-8 BOM when requested for Excel compatibility', () {
-      const sampleCsv = 'Column1,Column2\nValue1,Value2';
-      const withBom = '\uFEFF$sampleCsv';
-      final bytes = utf8.encode(withBom);
-
-      expect(bytes[0], equals(0xEF));
-      expect(bytes[1], equals(0xBB));
-      expect(bytes[2], equals(0xBF));
-      expect(bytes.length, equals(utf8.encode(sampleCsv).length + 3));
+  group('Task I — Unified File Naming & Sanitization Tests', () {
+    test('sanitizeFileName removes illegal filesystem characters', () {
+      const dirty = 'Phase 4: CargoX / Nafeza * <Test> | File?';
+      final clean = FileSaveHelper.sanitizeFileName(dirty);
+      expect(clean, isNot(contains(':')));
+      expect(clean, isNot(contains('/')));
+      expect(clean, isNot(contains('*')));
+      expect(clean, isNot(contains('<')));
+      expect(clean, isNot(contains('>')));
+      expect(clean, isNot(contains('|')));
+      expect(clean, isNot(contains('?')));
+      expect(clean, equals('Phase 4- CargoX - Nafeza - -Test- - File-'));
     });
 
-    test('File extension resolution guarantees primary extension', () {
-      final allowed = ['xlsx', 'xls'];
-      final primaryExt = allowed.first.toLowerCase().replaceAll('.', '');
-      expect(primaryExt, equals('xlsx'));
+    test('buildExportFileName creates standardized naming [Stage] - [ImportFile].[ext]', () {
+      final fileName = FileSaveHelper.buildExportFileName(
+        stageName: 'CargoX Blockchain & ACI Hub',
+        importFileNameOrCode: 'PET Stock (IMP-2026-0004)',
+        extension: 'xlsx',
+      );
+      expect(
+        fileName,
+        equals('CargoX Blockchain & ACI Hub - PET Stock (IMP-2026-0004).xlsx'),
+      );
+    });
 
-      var testPath1 = 'C:\\Exports\\MyInvoice';
-      final hasValidExt1 = allowed.any((ext) => testPath1.toLowerCase().endsWith('.$ext'));
-      if (!hasValidExt1) {
-        testPath1 = '$testPath1.$primaryExt';
-      }
-      expect(testPath1, equals('C:\\Exports\\MyInvoice.xlsx'));
+    test('buildExportFileName handles leading dots in extension and dirty characters', () {
+      final fileName = FileSaveHelper.buildExportFileName(
+        stageName: 'Container Load Planner: Side View',
+        importFileNameOrCode: 'IMP/2026/0099',
+        extension: '.png',
+      );
+      expect(
+        fileName,
+        equals('Container Load Planner- Side View - IMP-2026-0099.png'),
+      );
+    });
 
-      var testPath2 = 'C:\\Exports\\MyInvoice.xlsx';
-      final hasValidExt2 = allowed.any((ext) => testPath2.toLowerCase().endsWith('.$ext'));
-      if (!hasValidExt2) {
-        testPath2 = '$testPath2.$primaryExt';
-      }
-      expect(testPath2, equals('C:\\Exports\\MyInvoice.xlsx'));
+    test('sanitizeFileName handles empty or blank inputs gracefully', () {
+      expect(FileSaveHelper.sanitizeFileName(''), equals('Export'));
+      expect(FileSaveHelper.sanitizeFileName('   '), equals('Export'));
+    });
+
+    test('buildExportFileName normalizes uppercase extension and removes leading dots', () {
+      final fileName = FileSaveHelper.buildExportFileName(
+        stageName: 'Customs Valuation',
+        importFileNameOrCode: 'Invoice-2026-X',
+        extension: '.PDF',
+      );
+      expect(fileName, equals('Customs Valuation - Invoice-2026-X.pdf'));
+    });
+
+    test('buildExportFileName handles multiple extensions and spaces cleanly', () {
+      final fileName = FileSaveHelper.buildExportFileName(
+        stageName: 'Container Load Planner',
+        importFileNameOrCode: 'PET Stock (IMP-2026-0004) - Stacking Sim',
+        extension: '..xlsx',
+      );
+      expect(
+        fileName,
+        equals('Container Load Planner - PET Stock (IMP-2026-0004) - Stacking Sim.xlsx'),
+      );
     });
   });
 }

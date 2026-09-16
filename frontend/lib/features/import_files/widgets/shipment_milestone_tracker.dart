@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/app_localizations_ar.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/import_file_model.dart';
@@ -25,18 +27,95 @@ class ShipmentMilestoneTracker extends StatelessWidget {
   ];
 
   int _getCurrentPhaseIndex() {
-    final curr = importFile.currentModule;
-    for (int i = 0; i < _allPhases.length; i++) {
-      if (curr.contains(_allPhases[i]['code'] as String)) {
+    if (importFile.status == 'Closed' || importFile.progressPercent >= 100.0) {
+      return 9; // Phase 10: Archive & Close
+    }
+
+    final fullText = '${importFile.currentModule} ${importFile.currentStage} ${importFile.nextAction}';
+
+    // 1. Precise STEP code matching (STEP_01 to STEP_21)
+    final stepMatch = RegExp(r'STEP_(\d{2})', caseSensitive: false).firstMatch(fullText);
+    if (stepMatch != null) {
+      final stepNum = int.tryParse(stepMatch.group(1) ?? '1') ?? 1;
+      if (stepNum <= 3) {
+        return 0; // Phase 1: Feasibility & Freight
+      } else if (stepNum == 4) {
+        return 1; // Phase 2: Financial Approval
+      } else if (stepNum == 5) {
+        // If ACID is already issued/present, advance past Phase 3 to Phase 4
+        if (importFile.acidNumber != null && importFile.acidNumber!.trim().isNotEmpty) {
+          return 3; // Phase 4: Shipment Booking
+        }
+        return 2; // Phase 3: Docs & ACID
+      } else if (stepNum <= 7) {
+        return 3; // Phase 4: Shipment Booking
+      } else if (stepNum <= 12) {
+        return 4; // Phase 5: CargoX & Shipping
+      } else if (stepNum == 13) {
+        return 5; // Phase 6: Customs Form 46
+      } else if (stepNum <= 18) {
+        return 6; // Phase 7: Clearance & Duties
+      } else if (stepNum == 19) {
+        return 7; // Phase 8: Warehouse GRN
+      } else if (stepNum == 20) {
+        return 8; // Phase 9: Landed Cost
+      } else if (stepNum >= 21) {
+        return 9; // Phase 10: Archive & Close
+      }
+    }
+
+    // 2. Exact 10-phase code matching (e.g. "Phase 10", "Phase 9", etc.)
+    for (int i = _allPhases.length - 1; i >= 0; i--) {
+      final code = _allPhases[i]['code'] as String;
+      final pattern = RegExp(RegExp.escape(code) + r'(?!\d)');
+      if (pattern.hasMatch(fullText)) {
+        if ((i == 1 || i == 2) && importFile.acidNumber != null && importFile.acidNumber!.trim().isNotEmpty) {
+          return 3;
+        }
         return i;
       }
     }
+
+    // 3. 6-Phase Lifecycle Board phase titles matching
+    if (fullText.contains('Phase 6') || fullText.contains('Inbound & Final Closure') || fullText.contains('الاستلام المخزني والتسوية')) {
+      return 7; // Phase 8: Warehouse GRN
+    } else if (fullText.contains('Phase 5') || fullText.contains('Port Operations & Clearance') || fullText.contains('عمليات الميناء والتخليص')) {
+      return 6; // Phase 7: Clearance & Duties
+    } else if (fullText.contains('Phase 4') || fullText.contains('Digital & Banking') || fullText.contains('التوثيق الرقمي والاعتماد البنكي')) {
+      return 4; // Phase 5: CargoX & Shipping
+    } else if (fullText.contains('Phase 3') || fullText.contains('Booking & Doc Prep') || fullText.contains('حجز الشحن والتدقيق')) {
+      return 3; // Phase 4: Shipment Booking
+    } else if (fullText.contains('Phase 2') || fullText.contains('Shipment Initiation') || fullText.contains('Approvals & ACID') || fullText.contains('المرحلة الثانية')) {
+      if (importFile.acidNumber != null && importFile.acidNumber!.trim().isNotEmpty) {
+        return 3; // Phase 4: Shipment Booking
+      }
+      return 2; // Phase 3: Docs & ACID
+    }
+
+    // 4. Milestone Business Field Fallback Inference
+    if (importFile.isCustomsReleased) {
+      return 7; // Phase 8: Warehouse GRN
+    }
+    if (importFile.form46No != null && importFile.form46No!.trim().isNotEmpty) {
+      return 6; // Phase 7: Clearance & Duties
+    }
+    if (importFile.form4No != null && importFile.form4No!.trim().isNotEmpty) {
+      return 5; // Phase 6: Customs Form 46
+    }
+    if (importFile.acidNumber != null && importFile.acidNumber!.trim().isNotEmpty) {
+      return 3; // Phase 4: Shipment Booking
+    }
+    if (importFile.swiftNo != null && importFile.swiftNo!.trim().isNotEmpty) {
+      return 2; // Phase 3: Docs & ACID
+    }
+
     return 0;
   }
 
   @override
   Widget build(BuildContext context) {
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final isArabic = (AppLocalizations.of(context) is AppLocalizationsAr) ||
+        (Localizations.maybeLocaleOf(context)?.languageCode == 'ar');
     final activeIndex = _getCurrentPhaseIndex();
     final isClosed = importFile.status == 'Closed';
     final shipmentTitle = DisplayNameResolver.resolveShipmentTitle(importFile, isArabic: isArabic);

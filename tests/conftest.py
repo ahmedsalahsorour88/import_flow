@@ -2,6 +2,11 @@ import os
 import tempfile
 import pytest
 
+# Set required environment variables BEFORE any module imports
+# SECRET_KEY must be at least 32 chars (enforced by settings.py)
+os.environ.setdefault("SECRET_KEY", "test-secret-key-for-unit-tests-only-32chars")
+os.environ.setdefault("ALLOW_DEV_AUTH_BYPASS", "true")
+
 # Create a temporary test database file for the test session
 test_db_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
 test_db_path = test_db_file.name

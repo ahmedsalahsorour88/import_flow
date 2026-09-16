@@ -7,6 +7,7 @@ from modules.shipping_scenarios.schemas import (
     ShippingEvaluationCreate,
     ShippingEvaluationResponse,
     ShippingEvaluationUpdate,
+    CloneShippingEvaluationRequest,
 )
 from modules.shipping_scenarios.service import ShippingScenarioService
 
@@ -80,3 +81,20 @@ def restore_shipping_evaluation(session_id: int, db: Session = Depends(get_db)):
     Restore a soft-deleted shipping evaluation session.
     """
     return ShippingScenarioService.restore_service(db, session_id)
+
+
+@router.post(
+    "/{session_id}/clone",
+    response_model=ShippingEvaluationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def clone_shipping_evaluation(
+    session_id: int,
+    payload: Optional[CloneShippingEvaluationRequest] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Clone an existing shipping evaluation study with new unique code and reset operational links.
+    """
+    return ShippingScenarioService.clone_session_service(db, session_id, payload)
+

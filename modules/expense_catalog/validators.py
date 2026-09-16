@@ -39,7 +39,7 @@ class ExpenseCatalogValidator:
         clean = code.strip().upper()
         if not re.match(r"^[A-Z0-9]+(-[A-Z0-9]+)+$", clean) or len(clean) < 3 or len(clean) > 30:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Expense code must be 3-30 characters containing uppercase letters, numbers, and dashes (e.g. CLR-LCL-INV).",
             )
         return clean
@@ -53,7 +53,7 @@ class ExpenseCatalogValidator:
                 return allowed
         if clean not in ALLOWED_CATEGORIES:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Category '{category}' is invalid. Allowed: {sorted(list(ALLOWED_CATEGORIES))}.",
             )
         return clean
@@ -63,7 +63,7 @@ class ExpenseCatalogValidator:
         clean = unit_type.strip().lower()
         if clean not in ALLOWED_UNIT_TYPES:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Unit type '{unit_type}' is invalid. Allowed: {sorted(list(ALLOWED_UNIT_TYPES))}.",
             )
         return clean

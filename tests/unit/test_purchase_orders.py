@@ -14,7 +14,7 @@ from modules.import_companies.model import ImportCompany
 from modules.import_files.model import ImportFile
 from modules.incoterms.model import Incoterm
 from modules.projects.model import Project
-from modules.purchase_orders.schemas import POLineItemCreate, PackingListItemCreate, PurchaseOrderCreate, PurchaseOrderUpdate
+from modules.purchase_orders.schemas import ClonePurchaseOrderRequest, POLineItemCreate, PackingListItemCreate, PurchaseOrderCreate, PurchaseOrderUpdate
 from modules.purchase_orders.service import PurchaseOrderService
 from modules.suppliers.model import Supplier
 
@@ -392,5 +392,85 @@ class TestPurchaseOrdersBackend:
         )
         assert len(updated_po.packing_list_items) == 1
         assert updated_po.packing_list_items[0].main_description == "Engineered Acoustic Panels"
+
+    def test_clone_purchase_order(self, db_session):
+        service = PurchaseOrderService(db_session)
+        comp = db_session.query(ImportCompany).first()
+        supp = db_session.query(Supplier).first()
+        inco = db_session.query(Incoterm).first()
+        curr = db_session.query(Currency).first()
+        proj = db_session.query(Project).first()
+
+        # 1. Create source PO
+        source_item = POLineItemCreate(
+            item_code="CLONE-ITM-01",
+            description_ar="بند تجريبي للاستنساخ",
+            description_en="Test Item for Cloning",
+            quantity=10.0,
+            unit_price=50.0,
+            unit_of_measure="PCS",
+            cbm_per_unit=0.01,
+            gross_weight_kg=100.0,
+            net_weight_kg=90.0,
+        )
+        source_pkg = PackingListItemCreate(
+            hs_code="84151000",
+            item_code="CLONE-ITM-01",
+            main_description="Packaged Item",
+            qty_pcs=10.0,
+            qty_pkg=2.0,
+            package_type="Carton",
+            length_cm=40.0,
+            width_cm=30.0,
+            height_cm=20.0,
+            net_weight_unit_kg=45.0,
+            gross_weight_unit_kg=50.0,
+        )
+        po_data = PurchaseOrderCreate(
+            po_number="PO-2026-SOURCE",
+            po_reference="Original Equipment Order",
+            proforma_invoice_number="PI-ORIG-01",
+            project_id=proj.project_id,
+            company_id=comp.company_id,
+            supplier_id=supp.supplier_id,
+            incoterm_id=inco.incoterm_id,
+            currency_id=curr.currency_id,
+            exchange_rate=50.0,
+            items=[source_item],
+            packing_list_items=[source_pkg],
+        )
+        orig_po = service.create(po_data)
+        assert orig_po.po_id is not None
+        assert len(orig_po.items) == 1
+
+        # 2. Clone the PO
+        clone_payload = ClonePurchaseOrderRequest(
+            new_po_number="PO-2026-CLONED",
+            new_po_reference="Cloned Equipment Order",
+            copy_items=True,
+            copy_packing_list=True,
+            copy_pallet_plan=True,
+            notes="Cloned in automated test",
+        )
+        cloned_po = service.clone_purchase_order(orig_po.po_id, clone_payload)
+
+        # 3. Verify cloned PO attributes
+        assert cloned_po.po_id != orig_po.po_id
+        assert cloned_po.po_number == "PO-2026-CLONED"
+        assert cloned_po.po_reference == "Cloned Equipment Order"
+        assert cloned_po.status == "Draft"
+        assert cloned_po.import_file_id is None
+        assert cloned_po.company_id == comp.company_id
+        assert cloned_po.supplier_id == supp.supplier_id
+        assert cloned_po.project_id == proj.project_id
+        assert len(cloned_po.items) == 1
+        assert cloned_po.items[0].item_id != orig_po.items[0].item_id
+        assert cloned_po.items[0].description_ar == "بند تجريبي للاستنساخ"
+        assert len(cloned_po.packing_list_items) == 1
+        assert cloned_po.total_amount_fob == 500.0
+
+        # 4. Verify duplicate code raises error
+        with pytest.raises(Exception):
+            service.clone_purchase_order(orig_po.po_id, clone_payload)
 
 

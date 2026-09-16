@@ -203,7 +203,7 @@ void main() {
     expect(find.text('شحنة حديد'), findsNothing);
   });
 
-  testWidgets('EnterpriseDataTable opens column picker and protects locked columns', (tester) async {
+  testWidgets('EnterpriseDataTable opens column picker, shows reorder handles, and protects locked columns', (tester) async {
     await tester.pumpWidget(createTestWidget());
     await tester.pumpAndSettle();
 
@@ -212,12 +212,62 @@ void main() {
     await tester.tap(colBtn);
     await tester.pumpAndSettle();
 
-    expect(find.text('تخصيص أعمدة الجدول'), findsOneWidget);
+    expect(find.text('تخصيص وترتيب أعمدة الجدول'), findsOneWidget);
     expect(find.text('مثبت'), findsOneWidget); // locked column 'id'
+    expect(find.byIcon(Icons.drag_indicator_rounded), findsWidgets);
 
     // Close dialog
     await tester.tap(find.text('إلغاء'));
     await tester.pumpAndSettle();
-    expect(find.text('تخصيص أعمدة الجدول'), findsNothing);
+    expect(find.text('تخصيص وترتيب أعمدة الجدول'), findsNothing);
+  });
+
+  testWidgets('EnterpriseDataTable loads column order from SharedPreferences and renders accordingly', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'enterprise_table_test_items_table_columns_order': ['score', 'id', 'name', 'category'],
+    });
+
+    await tester.pumpWidget(createTestWidget());
+    await tester.pumpAndSettle();
+
+    final table = tester.widget<DataTable>(find.byType(DataTable));
+    // Check that first column label corresponds to 'الدرجة' (score)
+    final firstCol = table.columns.first;
+    expect(firstCol.tooltip, isNull);
+    // Find text widgets inside DataTable headers
+    expect(find.text('الدرجة'), findsOneWidget);
+    expect(find.text('الرقم'), findsOneWidget);
+  });
+
+  testWidgets('EnterpriseDataTable column resizing updates width and saves to SharedPreferences', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    await tester.pumpWidget(createTestWidget());
+    await tester.pumpAndSettle();
+
+    // Find the resize gesture detector in the first column header
+    final resizeHandles = find.byWidgetPredicate(
+      (w) => w is MouseRegion && w.cursor == SystemMouseCursors.resizeColumn,
+    );
+    expect(resizeHandles, findsWidgets);
+
+    // Drag the first handle horizontally by 50px
+    await tester.drag(resizeHandles.first, const Offset(50, 0));
+    await tester.pumpAndSettle();
+
+    // Verify preferences saved
+    final savedWidthsJson = prefs.getString('enterprise_table_test_items_table_column_widths');
+    expect(savedWidthsJson, isNotNull);
+
+    // Double tap the handle to reset
+    await tester.tap(resizeHandles.first);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(resizeHandles.first);
+    await tester.pumpAndSettle();
+
+    // Width should be removed on double tap
+    final resetWidthsJson = prefs.getString('enterprise_table_test_items_table_column_widths');
+    expect(resetWidthsJson == null || resetWidthsJson == '{}', isTrue);
   });
 }

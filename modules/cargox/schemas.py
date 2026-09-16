@@ -40,7 +40,7 @@ class CargoXDocumentResponse(BaseModel):
 
 class CargoXEnvelopeCreate(BaseModel):
     import_file_id: Optional[int] = None
-    acid_number: str = Field(..., min_length=19, max_length=19, description="19-digit Egyptian ACID Number")
+    acid_number: str = Field(..., description="Egyptian ACID Number")
     importer_company_id: Optional[int] = None
     importer_company_name: str
     importer_tax_number: Optional[str] = None
@@ -51,6 +51,9 @@ class CargoXEnvelopeCreate(BaseModel):
     notes: Optional[str] = None
     documents: Optional[List[CargoXDocumentCreate]] = None
     mode: str = "MOCK"  # MOCK, STAGING, PRODUCTION
+    is_draft: bool = False
+    status: Optional[str] = None
+
 
 
 class CargoXEnvelopeUpdate(BaseModel):

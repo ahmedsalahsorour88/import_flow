@@ -344,6 +344,7 @@ class DraftBLReviewSession(Base):
     status: Mapped[str] = mapped_column(
         String(50), default="AUTO_COMPARISON_RUN", nullable=False, index=True
     )
+    is_draft: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
 
     reviewed_by: Mapped[str] = mapped_column(String(100), nullable=True)
     reviewed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
@@ -407,6 +408,7 @@ class CertificateOfOriginReviewSession(Base):
     status: Mapped[str] = mapped_column(
         String(50), default="Draft Generated", nullable=False, index=True
     )
+    is_draft: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
 
     reviewed_by: Mapped[str] = mapped_column(String(100), nullable=True)
     reviewed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
@@ -536,4 +538,58 @@ class POPackingReconciliationSession(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
+
+
+class InvoiceBLMatchSession(Base):
+    """
+    Certified & Draft Session for Smart Commercial Invoice vs B/L Match Engine (STEP_08_MATCH).
+    Persists AI / Regex extraction results, discrepancy comparison matrix, match score,
+    and certification status.
+    """
+
+    __tablename__ = "invoice_bl_match_sessions"
+
+    session_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, index=True, autoincrement=True
+    )
+    session_code: Mapped[str] = mapped_column(
+        String(50), unique=True, index=True, nullable=False
+    )
+    import_file_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("import_files.import_file_id"), nullable=False, index=True
+    )
+    import_file_code: Mapped[str] = mapped_column(String(100), nullable=True)
+
+    invoice_number: Mapped[str] = mapped_column(String(100), nullable=True)
+    bl_number: Mapped[str] = mapped_column(String(100), nullable=True)
+    packing_list_number: Mapped[str] = mapped_column(String(100), nullable=True)
+    acid_number: Mapped[str] = mapped_column(String(50), nullable=True)
+
+    match_score_percentage: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    overall_status: Mapped[str] = mapped_column(
+        String(50), default="FULLY_MATCHED", nullable=False, index=True
+    )
+    is_safe_for_certification: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_draft: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    critical_discrepancies_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    warning_discrepancies_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    comparison_matrix: Mapped[list] = mapped_column(JSON, nullable=True)
+    invoice_data: Mapped[dict] = mapped_column(JSON, nullable=True)
+    bl_data: Mapped[dict] = mapped_column(JSON, nullable=True)
+    packing_list_data: Mapped[dict] = mapped_column(JSON, nullable=True)
+
+    correction_letter: Mapped[str] = mapped_column(Text, nullable=True)
+    notes: Mapped[str] = mapped_column(Text, nullable=True)
+    certified_by: Mapped[str] = mapped_column(String(100), nullable=True)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
 

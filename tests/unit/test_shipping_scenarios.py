@@ -10,6 +10,7 @@ from modules.shipping_scenarios.schemas import (
     ShippingEvaluationCreate,
     ShippingEvaluationUpdate,
     ShippingScenarioItemCreate,
+    CloneShippingEvaluationRequest,
 )
 from modules.shipping_scenarios.service import ShippingScenarioService
 
@@ -394,6 +395,61 @@ class TestShippingScenariosBackend:
         assert updated_res.items[0].vessel_name == "ONE APUS v2"
         assert updated_res.items[0].free_time_days == 21
         assert updated_res.items[0].total_quotation_amount == 3200.0
+
+    def test_clone_shipping_evaluation(self, db: Session):
+        crd = date.today() + timedelta(days=3)
+        item = ShippingScenarioItemCreate(
+            provider_name="Hapag-Lloyd",
+            vessel_name="AL DAHNA EXPRESS",
+            voyage_number="303S",
+            sailing_date=crd + timedelta(days=2),
+            estimated_arrival_date=crd + timedelta(days=24),
+            expected_line_delay_days=1,
+            is_recommended=True,
+            is_selected=True,
+            total_quotation_amount=4500.0,
+            free_time_days=21,
+            container_40ft_applicable=True,
+            container_40ft_price=4500.0,
+            container_40ft_qty=1,
+        )
+        payload = ShippingEvaluationCreate(
+            title="Mediterranean Fast Express Study",
+            cargo_ready_date=crd,
+            avg_form4_days=4,
+            avg_clearance_days=6,
+            items=[item],
+        )
+        source_session = ShippingScenarioService.create_session_service(db, payload)
+        source_id = source_session.session_id
+
+        # Execute clone
+        clone_req = CloneShippingEvaluationRequest(
+            new_title="Mediterranean Fast Express Cloned Study",
+            remarks="Cloned for alternative port comparison",
+            unlink_import_file=True,
+            unlink_po=True,
+            copy_carrier_options=True,
+        )
+        cloned_res = ShippingScenarioService.clone_session_service(db, source_id, clone_req)
+
+        assert cloned_res.session_id != source_id
+        assert cloned_res.session_code != source_session.session_code
+        assert cloned_res.session_code.startswith("SCE-")
+        assert cloned_res.title == "Mediterranean Fast Express Cloned Study"
+        assert cloned_res.import_file_id is None
+        assert cloned_res.po_id is None
+        assert "[Clone Note]: Cloned for alternative port comparison" in cloned_res.notes
+        assert len(cloned_res.items) == 1
+        cloned_item = cloned_res.items[0]
+        assert cloned_item.provider_name == "Hapag-Lloyd"
+        assert cloned_item.vessel_name == "AL DAHNA EXPRESS"
+        assert cloned_item.total_quotation_amount == 4500.0
+        assert cloned_item.free_time_days == 21
+        # Crucial invariants: recommended and selected must be reset
+        assert cloned_item.is_recommended is False
+        assert cloned_item.is_selected is False
+
 
 
 

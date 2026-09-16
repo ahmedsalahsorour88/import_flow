@@ -24,6 +24,7 @@ class MasterDataToolbarWidget extends ConsumerStatefulWidget {
   final VoidCallback? onImportExcel;
   final VoidCallback? onExportExcel;
   final VoidCallback? onExportPdf;
+  final Widget? extraTrailing;
 
   const MasterDataToolbarWidget({
     super.key,
@@ -34,6 +35,7 @@ class MasterDataToolbarWidget extends ConsumerStatefulWidget {
     this.onImportExcel,
     this.onExportExcel,
     this.onExportPdf,
+    this.extraTrailing,
   });
 
   @override
@@ -213,12 +215,16 @@ class _MasterDataToolbarWidgetState
               const Icon(Icons.table_chart_outlined,
                   color: AppTheme.cobalt, size: 20),
               const SizedBox(width: 8),
-              Text(
-                l.dataActionsTitle,
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: AppTheme.isDark(context) ? AppTheme.darkTextPrimary : Colors.grey.shade800),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 240),
+                child: Text(
+                  l.dataActionsTitle,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: AppTheme.isDark(context) ? AppTheme.darkTextPrimary : Colors.grey.shade800),
+                ),
               ),
             ],
           ),
@@ -232,7 +238,7 @@ class _MasterDataToolbarWidgetState
               // Live Refresh
               AppButton(
                 label: l.liveRefresh,
-                variant: AppButtonVariant.primary,
+                variant: AppButtonVariant.ghost,
                 size: AppButtonSize.small,
                 icon: Icons.refresh,
                 onPressed: widget.onRefreshNeeded,
@@ -252,7 +258,7 @@ class _MasterDataToolbarWidgetState
               // Export PDF
               AppButton(
                 label: l.exportPdf,
-                variant: AppButtonVariant.primary,
+                variant: AppButtonVariant.danger,
                 size: AppButtonSize.small,
                 icon: Icons.picture_as_pdf,
                 onPressed: widget.onExportPdf ??
@@ -263,7 +269,7 @@ class _MasterDataToolbarWidgetState
               // Import Excel
               AppButton(
                 label: _isUploading ? l.uploading : l.importExcel,
-                variant: AppButtonVariant.warning,
+                variant: AppButtonVariant.secondary,
                 size: AppButtonSize.small,
                 icon: Icons.upload_file,
                 isLoading: _isUploading,
@@ -271,6 +277,8 @@ class _MasterDataToolbarWidgetState
                     ? null
                     : (widget.onImportExcel ?? _handleImportExcel),
               ),
+
+              if (widget.extraTrailing != null) widget.extraTrailing!,
             ],
           ),
         ],

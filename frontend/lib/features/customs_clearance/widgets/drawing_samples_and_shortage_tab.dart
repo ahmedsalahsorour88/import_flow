@@ -888,6 +888,7 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
                         child: DataTable(
                           headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                           columns: [
+                            DataColumn(label: Text(l.drawingSamplesCopyRowSummaryBtn, style: const TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text(l.drawingSamplesColShortageCode, style: const TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text(l.drawingSamplesColContainerPkg, style: const TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text(l.drawingSamplesColItemDesc, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -897,12 +898,18 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
                             DataColumn(label: Text(l.drawingSamplesColShortagePct, style: const TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text(l.drawingSamplesColShortageAction, style: const TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text(l.drawingSamplesColShortageNotes, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.drawingSamplesCopyRowSummaryBtn, style: const TextStyle(fontWeight: FontWeight.bold))),
                           ],
                           rows: widget.shortageProtocols.map((item) {
                             final actionLabel = DrawingSamplesExportService.getShortageActionLabel(context, item['action'] as String?);
                             final rowSummary = "${item['shortage_id']}\t${item['container_no']}\t${item['item_desc']}\t${item['manifest_qty']}\t${item['landed_qty']}\t${item['shortage_qty']}\t${item['shortage_pct']}%\t$actionLabel\t${item['notes'] ?? '-'}";
                             return DataRow(cells: [
+                              DataCell(
+                                IconButton(
+                                  icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.crimson),
+                                  tooltip: l.drawingSamplesCopyRowSummaryBtn,
+                                  onPressed: () => CopyHelper.copy(context, rowSummary, customMessage: l.drawingSamplesCopyRowSummarySuccess),
+                                ),
+                              ),
                               DataCell(
                                 CopyableTableCell(
                                   value: item['shortage_id'] ?? '',
@@ -974,13 +981,6 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
                                 ),
                               ),
                               DataCell(CopyableTableCell(value: item['notes'] ?? '-', rowSummary: rowSummary, child: Text(item['notes'] ?? '-'))),
-                              DataCell(
-                                IconButton(
-                                  icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.crimson),
-                                  tooltip: l.drawingSamplesCopyRowSummaryBtn,
-                                  onPressed: () => CopyHelper.copy(context, rowSummary, customMessage: l.drawingSamplesCopyRowSummarySuccess),
-                                ),
-                              ),
                             ]);
                           }).toList(),
                         ),

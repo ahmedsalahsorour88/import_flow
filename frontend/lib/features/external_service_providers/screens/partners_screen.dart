@@ -515,24 +515,24 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                 child: Table(
                                   defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                                   columnWidths: const {
-                                    0: FixedColumnWidth(140),
-                                    1: FlexColumnWidth(3.0),
-                                    2: FlexColumnWidth(2.6),
-                                    3: FlexColumnWidth(2.2),
-                                    4: FixedColumnWidth(95),
-                                    5: FixedColumnWidth(215),
+                                    0: FixedColumnWidth(215),
+                                    1: FixedColumnWidth(140),
+                                    2: FlexColumnWidth(3.0),
+                                    3: FlexColumnWidth(2.6),
+                                    4: FlexColumnWidth(2.2),
+                                    5: FixedColumnWidth(95),
                                   },
                                   children: [
                                     // Table Header
                                     TableRow(
                                       decoration: BoxDecoration(color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal),
                                       children: [
+                                        l10n.partnerActionsCol,
                                         l10n.partnerCodeCol,
                                         l10n.partnerNameAndCategoryCol,
                                         l10n.registrationAndLicenseCol,
                                         l10n.contactDetailsCol,
                                         l10n.partnerStatusCol,
-                                        l10n.partnerActionsCol,
                                       ]
                                           .map((h) => Padding(
                                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
@@ -563,6 +563,140 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                           border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200)),
                                         ),
                                         children: [
+                                          // Actions: View, Edit, Print, Delete, Statement of Account
+                                          _cell(
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Tooltip(
+                                                  message: l10n.partnerStatementOfAccountTooltip,
+                                                  child: InkWell(
+                                                    onTap: () => PartnerStatementOfAccountDialog.show(context, partner),
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                                      margin: const EdgeInsets.only(right: 6),
+                                                      decoration: BoxDecoration(
+                                                        color: AppTheme.cobalt.withOpacity(0.12),
+                                                        borderRadius: BorderRadius.circular(6),
+                                                        border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(Icons.receipt_long, size: 14, color: AppTheme.cobalt),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            l10n.partnerStatementOfAccountBtn,
+                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (partner.providerId != null) ...[
+                                                    const SizedBox(width: 6),
+                                                    Tooltip(
+                                                      message: l10n.partnerScorecardTooltip,
+                                                      child: InkWell(
+                                                        onTap: () => showPartnerScorecardDialog(
+                                                          context,
+                                                          ref,
+                                                          providerId: partner.providerId!,
+                                                          providerName: partner.partnerName,
+                                                          providerType: partner.partnerType,
+                                                        ),
+                                                        borderRadius: BorderRadius.circular(6),
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                                          decoration: BoxDecoration(
+                                                            color: Colors.amber.shade50,
+                                                            borderRadius: BorderRadius.circular(6),
+                                                            border: Border.all(color: Colors.amber.shade600),
+                                                          ),
+                                                          child: Row(
+                                                            mainAxisSize: MainAxisSize.min,
+                                                            children: [
+                                                              Icon(Icons.workspace_premium_outlined, size: 14, color: Colors.amber.shade800),
+                                                              const SizedBox(width: 4),
+                                                              Text(
+                                                                l10n.partnerScorecardBtn,
+                                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                  ],
+                                                  Tooltip(
+                                                    message: l10n.partnerCopySummaryBtn,
+                                                    child: InkWell(
+                                                      onTap: () => CopyHelper.copy(
+                                                        context,
+                                                        _buildPartnerSummary(context, partner),
+                                                        customMessage: l10n.partnerCopySummarySuccess,
+                                                      ),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                      child: Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                                        margin: const EdgeInsets.only(right: 6),
+                                                        decoration: BoxDecoration(
+                                                          color: AppTheme.emerald.withOpacity(0.12),
+                                                          borderRadius: BorderRadius.circular(6),
+                                                          border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            const Icon(Icons.copy_all_rounded, size: 14, color: AppTheme.emerald),
+                                                            const SizedBox(width: 4),
+                                                            Text(
+                                                              l10n.partnerCopySummaryBtn,
+                                                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  RowActionsPill(
+                                                  onView: () => PartnerDetailsDialog.show(
+                                                    context,
+                                                    partner,
+                                                    onEdit: () => _showPartnerDialog(context, partner),
+                                                  ),
+                                                  onEdit: () => _showPartnerDialog(context, partner),
+                                                  onPrint: () => MasterDataExportService.printOrSavePartnerPdf(partner),
+                                                  onDelete: () async {
+                                                    final confirm = await showDialog<bool>(
+                                                      context: context,
+                                                      builder: (ctx) => AlertDialog(
+                                                        title: Text(l10n.confirmActionTitle),
+                                                        content: Text(isActive
+                                                            ? l10n.confirmDeactivatePartner(partner.partnerName)
+                                                            : l10n.confirmActivatePartner(partner.partnerName)),
+                                                        actions: [
+                                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.closeBtn)),
+                                                          ElevatedButton(
+                                                            onPressed: () => Navigator.pop(ctx, true),
+                                                            style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                                            child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+                                                    if (confirm == true && partner.providerId != null) {
+                                                      ref.read(partnersProvider.notifier).toggleActiveStatus(partner.providerId!, isActive);
+                                                    }
+                                                  },
+                                                  deleteTooltip: isActive ? l10n.deactivatePartnerTooltip : l10n.activatePartnerTooltip,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                           // Code
                                           _cell(
                                             child: Tooltip(
@@ -824,140 +958,6 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                             ),
                                           ),
 
-                                          // Actions: View, Edit, Print, Delete, Statement of Account
-                                          _cell(
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Tooltip(
-                                                  message: l10n.partnerStatementOfAccountTooltip,
-                                                  child: InkWell(
-                                                    onTap: () => PartnerStatementOfAccountDialog.show(context, partner),
-                                                    borderRadius: BorderRadius.circular(6),
-                                                    child: Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                                      margin: const EdgeInsets.only(right: 6),
-                                                      decoration: BoxDecoration(
-                                                        color: AppTheme.cobalt.withOpacity(0.12),
-                                                        borderRadius: BorderRadius.circular(6),
-                                                        border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                                                      ),
-                                                      child: Row(
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          const Icon(Icons.receipt_long, size: 14, color: AppTheme.cobalt),
-                                                          const SizedBox(width: 4),
-                                                          Text(
-                                                            l10n.partnerStatementOfAccountBtn,
-                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                if (partner.providerId != null) ...[
-                                                    const SizedBox(width: 6),
-                                                    Tooltip(
-                                                      message: l10n.partnerScorecardTooltip,
-                                                      child: InkWell(
-                                                        onTap: () => showPartnerScorecardDialog(
-                                                          context,
-                                                          ref,
-                                                          providerId: partner.providerId!,
-                                                          providerName: partner.partnerName,
-                                                          providerType: partner.partnerType,
-                                                        ),
-                                                        borderRadius: BorderRadius.circular(6),
-                                                        child: Container(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                                          decoration: BoxDecoration(
-                                                            color: Colors.amber.shade50,
-                                                            borderRadius: BorderRadius.circular(6),
-                                                            border: Border.all(color: Colors.amber.shade600),
-                                                          ),
-                                                          child: Row(
-                                                            mainAxisSize: MainAxisSize.min,
-                                                            children: [
-                                                              Icon(Icons.workspace_premium_outlined, size: 14, color: Colors.amber.shade800),
-                                                              const SizedBox(width: 4),
-                                                              Text(
-                                                                l10n.partnerScorecardBtn,
-                                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 6),
-                                                  ],
-                                                  Tooltip(
-                                                    message: l10n.partnerCopySummaryBtn,
-                                                    child: InkWell(
-                                                      onTap: () => CopyHelper.copy(
-                                                        context,
-                                                        _buildPartnerSummary(context, partner),
-                                                        customMessage: l10n.partnerCopySummarySuccess,
-                                                      ),
-                                                      borderRadius: BorderRadius.circular(6),
-                                                      child: Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                                        margin: const EdgeInsets.only(right: 6),
-                                                        decoration: BoxDecoration(
-                                                          color: AppTheme.emerald.withOpacity(0.12),
-                                                          borderRadius: BorderRadius.circular(6),
-                                                          border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
-                                                        ),
-                                                        child: Row(
-                                                          mainAxisSize: MainAxisSize.min,
-                                                          children: [
-                                                            const Icon(Icons.copy_all_rounded, size: 14, color: AppTheme.emerald),
-                                                            const SizedBox(width: 4),
-                                                            Text(
-                                                              l10n.partnerCopySummaryBtn,
-                                                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  RowActionsPill(
-                                                  onView: () => PartnerDetailsDialog.show(
-                                                    context,
-                                                    partner,
-                                                    onEdit: () => _showPartnerDialog(context, partner),
-                                                  ),
-                                                  onEdit: () => _showPartnerDialog(context, partner),
-                                                  onPrint: () => MasterDataExportService.printOrSavePartnerPdf(partner),
-                                                  onDelete: () async {
-                                                    final confirm = await showDialog<bool>(
-                                                      context: context,
-                                                      builder: (ctx) => AlertDialog(
-                                                        title: Text(l10n.confirmActionTitle),
-                                                        content: Text(isActive
-                                                            ? l10n.confirmDeactivatePartner(partner.partnerName)
-                                                            : l10n.confirmActivatePartner(partner.partnerName)),
-                                                        actions: [
-                                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.closeBtn)),
-                                                          ElevatedButton(
-                                                            onPressed: () => Navigator.pop(ctx, true),
-                                                            style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                                            child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    );
-                                                    if (confirm == true && partner.providerId != null) {
-                                                      ref.read(partnersProvider.notifier).toggleActiveStatus(partner.providerId!, isActive);
-                                                    }
-                                                  },
-                                                  deleteTooltip: isActive ? l10n.deactivatePartnerTooltip : l10n.activatePartnerTooltip,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
                                         ],
                                       );
                                     }),

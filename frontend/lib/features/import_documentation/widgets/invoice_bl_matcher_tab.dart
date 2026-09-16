@@ -13,8 +13,12 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/helpers/table_copy_helper.dart';
+import '../../../core/services/table_export_service.dart';
 import '../../import_files/providers/import_files_provider.dart';
-
+import '../models/invoice_bl_match_session_model.dart';
+import '../providers/docs_customs_approval_provider.dart';
+import '../providers/import_documentation_provider.dart';
 class InvoiceBLMatcherTab extends ConsumerStatefulWidget {
   final int? selectedImportFileId;
   final Function(int)? onImportFileChanged;
@@ -54,6 +58,15 @@ class _InvoiceBLMatcherTabState extends ConsumerState<InvoiceBLMatcherTab> {
 
   Map<String, dynamic>? _matchResult;
   int? _activeFileId;
+
+  // View Mode & Sessions Registry State
+  int _activeViewMode = 0; // 0: Matcher & Analyzer, 1: Sessions Registry
+  bool _isSavingDraft = false;
+  final TextEditingController _searchSessionsCtrl = TextEditingController();
+  String _selectedStatusFilter = 'ALL'; // ALL, DRAFT, CERTIFIED
+  int? _filterImportFileId;
+  int? _activeSessionId;
+  String? _activeSessionCode;
 
   // Real Sample Data Presets
   static const String sampleShawInvoice = '''
@@ -118,6 +131,7 @@ Total Items: 31 Total: 20,030.000 kgs.
           _activeFileId = files.first.importFileId;
         });
       }
+      ref.read(invoiceBLMatchSessionsProvider.notifier).fetchSessions(importFileId: _activeFileId);
     });
   }
 
@@ -128,6 +142,7 @@ Total Items: 31 Total: 20,030.000 kgs.
       setState(() {
         _activeFileId = widget.selectedImportFileId;
       });
+      ref.read(invoiceBLMatchSessionsProvider.notifier).fetchSessions(importFileId: _activeFileId);
     }
   }
 
@@ -137,6 +152,7 @@ Total Items: 31 Total: 20,030.000 kgs.
     _invoiceTextCtrl.dispose();
     _blTextCtrl.dispose();
     _packingTextCtrl.dispose();
+    _searchSessionsCtrl.dispose();
     super.dispose();
   }
 
@@ -388,8 +404,8 @@ Total Items: 31 Total: 20,030.000 kgs.
     }
   }
 
-  Future<void> _certifyAndSync() async {
-    if (_matchResult == null || _activeFileId == null) {
+  Future<void> _saveSession({required bool isDraft}) async {
+    if (_activeFileId == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -402,44 +418,105 @@ Total Items: 31 Total: 20,030.000 kgs.
       return;
     }
 
+    if (!isDraft && _matchResult != null && _matchResult!['is_safe_for_certification'] == false) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: AppTheme.orange),
+              SizedBox(width: 8),
+              Text('تنبيه: عدم اكتمال شروط المطابقة'),
+            ],
+          ),
+          content: const Text(
+            'تحتوي نتائج الفحص على فروقات حَرِجة أو تحذيرات غير مطابقة. هل تود بالتأكيد الاعتماد النهائي وتحديث الموافقة الجمركية على الأوراق؟',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('مراجعة الفروقات'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('تأكيد الاعتماد النهائي'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
     setState(() {
-      _isSyncing = true;
+      if (isDraft) {
+        _isSavingDraft = true;
+      } else {
+        _isSyncing = true;
+      }
     });
 
     try {
-      final response = await _dio.post(
-        '${ApiConstants.baseUrl}/import-documentation/invoice-bl/certify-and-sync',
-        data: {
-          'import_file_id': _activeFileId,
-          'invoice_data': _matchResult!['invoice_data'],
-          'bl_data': _matchResult!['bl_data'],
-          'sync_to_po': true,
-          'sync_to_shipping': true,
-        },
-      );
+      final payload = {
+        'import_file_id': _activeFileId,
+        'session_title': isDraft ? 'مسودة فحص مطابقة الفاتورة والبوليصة' : 'اعتماد نهائي لمطابقة الفاتورة والبوليصة',
+        'is_draft': isDraft,
+        'invoice_raw_text': _invoiceTextCtrl.text.isNotEmpty ? _invoiceTextCtrl.text : null,
+        'bl_raw_text': _blTextCtrl.text.isNotEmpty ? _blTextCtrl.text : null,
+        'packing_list_raw_text': _packingTextCtrl.text.isNotEmpty ? _packingTextCtrl.text : null,
+        'invoice_file_name': _invoiceFileName,
+        'bl_file_name': _blFileName,
+        'packing_file_name': _packingFileName,
+        'match_score': (_matchResult?['match_score_percentage'] as num?)?.toDouble() ?? 0.0,
+        'is_safe_for_certification': _matchResult?['is_safe_for_certification'] ?? false,
+        'has_critical_discrepancies': ((_matchResult?['critical_discrepancies_count'] as num?)?.toInt() ?? 0) > 0,
+        'discrepancy_count': (((_matchResult?['critical_discrepancies_count'] as num?)?.toInt() ?? 0) +
+                              ((_matchResult?['warning_discrepancies_count'] as num?)?.toInt() ?? 0)),
+        'comparison_matrix': _matchResult?['comparison_matrix'],
+        'invoice_extracted_data': _matchResult?['invoice_data'],
+        'bl_extracted_data': _matchResult?['bl_data'],
+        'packing_extracted_data': _matchResult?['packing_list_data'],
+        'session_notes': isDraft ? 'حفظ مؤقت لمتابعة التدقيق لاحقاً' : 'تم الاعتماد النهائي وتحديث الموافقة الجمركية',
+        'created_by': 'system',
+      };
 
-      if (response.statusCode == 200) {
-        final res = response.data;
-        ref.invalidate(importFilesProvider);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(res['message'] ?? context.l10n.invoiceBlMatcherSyncSuccess),
-              backgroundColor: AppTheme.emerald,
-              behavior: SnackBarBehavior.floating,
+      final createdSession = await ref.read(invoiceBLMatchSessionsProvider.notifier).createSession(payload);
+      ref.invalidate(importFilesProvider);
+      ref.invalidate(docsCustomsApprovalProvider);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(isDraft ? Icons.bookmark_added_rounded : Icons.verified_rounded, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isDraft
+                        ? 'تم حفظ مسودة الجلسة بنجاح (${createdSession.sessionCode}) في سجل الجلسات'
+                        : 'تم اعتماد الجلسة (${createdSession.sessionCode}) وتحديث الموافقة الجمركية على الأوراق والانتقال لمرحلة شهادة المنشأ بنجاح',
+                  ),
+                ),
+              ],
             ),
-          );
-        }
-      } else {
-        throw Exception('Server error ${response.statusCode}: ${response.data}');
+            backgroundColor: isDraft ? AppTheme.cobalt : AppTheme.emerald,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
-        showErrorDetailsDialog(context, title: context.l10n.invoiceBlMatcherSyncFailedTitle, error: e);
+        showErrorDetailsDialog(
+          context,
+          title: isDraft ? 'فشل حفظ المسودة المؤقتة' : 'فشل الاعتماد النهائي للجلسة',
+          error: e,
+        );
       }
     } finally {
       if (mounted) {
         setState(() {
+          _isSavingDraft = false;
           _isSyncing = false;
         });
       }
@@ -457,48 +534,57 @@ Total Items: 31 Total: 20,030.000 kgs.
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1. Header & Import File Selector Bar
-            _buildHeaderControlBar(importFiles),
+            // Top Toggle: Matcher vs Sessions Registry
+            _buildViewModeToggle(),
             const SizedBox(height: 16),
 
-            // 2. Dual Document Ingestion Section (Invoice vs B/L)
-            _buildDualIngestionSection(),
-            const SizedBox(height: 16),
+            if (_activeViewMode == 0) ...[
+              // 1. Header & Import File Selector Bar
+              _buildHeaderControlBar(importFiles),
+              const SizedBox(height: 16),
 
-            // 3. Action Buttons (Run Match, Load Samples, Reset)
-            _buildActionButtonsBar(),
-            const SizedBox(height: 20),
+              // 2. Dual Document Ingestion Section (Invoice vs B/L)
+              _buildDualIngestionSection(),
+              const SizedBox(height: 16),
 
-            // 4. Comparison Results & Score Matrix
-            if (_isLoading)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Column(
-                    children: [
-                      const CircularProgressIndicator(),
-                      const SizedBox(height: 16),
-                      Text(
-                        l.invoiceBlMatcherAnalyzingProgress,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
+              // 3. Action Buttons (Run Match, Load Samples, Reset, Save Draft)
+              _buildActionButtonsBar(),
+              const SizedBox(height: 20),
+
+              // 4. Comparison Results & Score Matrix
+              if (_isLoading)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Column(
+                      children: [
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: 16),
+                        Text(
+                          l.invoiceBlMatcherAnalyzingProgress,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              )
-            else if (_matchResult != null) ...[
-              _buildMatchSummaryCard(),
-              const SizedBox(height: 16),
-              _buildComparisonMatrixTable(),
-              const SizedBox(height: 16),
-              _buildExtractedFieldsCards(),
-              if (_matchResult!['correction_letter'] != null &&
-                  _matchResult!['correction_letter'].toString().isNotEmpty) ...[
+                )
+              else if (_matchResult != null) ...[
+                _buildMatchSummaryCard(),
                 const SizedBox(height: 16),
-                _buildCorrectionLetterCard(),
+                _buildComparisonMatrixTable(),
+                const SizedBox(height: 16),
+                _buildExtractedFieldsCards(),
+                if (_matchResult!['correction_letter'] != null &&
+                    _matchResult!['correction_letter'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _buildCorrectionLetterCard(),
+                ],
+                const SizedBox(height: 24),
+                _buildSyncActionFooter(),
               ],
-              const SizedBox(height: 24),
-              _buildSyncActionFooter(),
+            ] else ...[
+              // 5. Sessions Registry View
+              _buildSessionsRegistryView(importFiles),
             ],
           ],
         ),
@@ -547,6 +633,21 @@ Total Items: 31 Total: 20,030.000 kgs.
                   l.invoiceBlMatcherSubtitle,
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
+                if (_activeSessionCode != null) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cobalt.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
+                    ),
+                    child: Text(
+                      'جلسة نشطة قيد الفحص: $_activeSessionCode',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -887,6 +988,26 @@ Total Items: 31 Total: 20,030.000 kgs.
           },
           icon: const Icon(Icons.refresh, size: 18, color: Colors.grey),
           label: Text(l.invoiceBlMatcherResetButton, style: const TextStyle(color: Colors.grey)),
+        ),
+        OutlinedButton.icon(
+          onPressed: (_activeFileId == null || _isSavingDraft || _isSyncing)
+              ? null
+              : () => _saveSession(isDraft: true),
+          icon: _isSavingDraft
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(color: AppTheme.cobalt, strokeWidth: 2),
+                )
+              : const Icon(Icons.save_as_outlined, size: 16, color: AppTheme.cobalt),
+          label: const Text(
+            '💾 حفظ مؤقت للجلسة',
+            style: TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: AppTheme.cobalt),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          ),
         ),
       ],
     );
@@ -1371,32 +1492,59 @@ Total Items: 31 Total: 20,030.000 kgs.
           // Export / Copy Match Report Button
           OutlinedButton.icon(
             onPressed: _matchResult == null ? null : _showExportReportDialog,
-            icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-            label: Text(l.invoiceBlMatcherExportReportButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+            label: Text(l.invoiceBlMatcherExportReportButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.charcoal,
+              side: const BorderSide(color: Colors.grey),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Save Draft Session Button (حفظ مؤقت)
+          OutlinedButton.icon(
+            onPressed: (_activeFileId == null || _isSavingDraft || _isSyncing)
+                ? null
+                : () => _saveSession(isDraft: true),
+            icon: _isSavingDraft
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(color: AppTheme.cobalt, strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_as_outlined, size: 16),
+            label: const Text(
+              '💾 حفظ مؤقت للجلسة',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            ),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.cobalt,
-              side: const BorderSide(color: AppTheme.cobalt),
+              side: const BorderSide(color: AppTheme.cobalt, width: 1.5),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
+          // Certify & Final Save Button (اعتماد وحفظ نهائي وتحديث الموافقة الجمركية)
           ElevatedButton.icon(
-            onPressed: (_activeFileId == null || _isSyncing) ? null : _certifyAndSync,
+            onPressed: (_activeFileId == null || _isSavingDraft || _isSyncing)
+                ? null
+                : () => _saveSession(isDraft: false),
             icon: _isSyncing
                 ? const SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                   )
-                : const Icon(Icons.check_circle_outline, size: 18),
-            label: Text(
-              l.invoiceBlMatcherCertifySyncButton,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                : const Icon(Icons.verified_rounded, size: 18),
+            label: const Text(
+              '✅ اعتماد وحفظ نهائي وتحديث الموافقة الجمركية',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.emerald,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              elevation: 2,
             ),
           ),
         ],
@@ -1512,6 +1660,1072 @@ Total Items: 31 Total: 20,030.000 kgs.
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.invoiceBlMatcherCloseButton)),
         ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // VIEW MODE TOGGLE & SESSIONS REGISTRY
+  // ==========================================
+
+  Widget _buildViewModeToggle() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => setState(() => _activeViewMode = 0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: _activeViewMode == 0 ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: _activeViewMode == 0
+                      ? [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4, offset: const Offset(0, 2))]
+                      : null,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.compare_arrows, size: 18, color: _activeViewMode == 0 ? AppTheme.cobalt : Colors.grey.shade700),
+                    const SizedBox(width: 8),
+                    Text(
+                      '⚡ فحص ومطابقة الفاتورة والبوليصة',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: _activeViewMode == 0 ? AppTheme.cobalt : Colors.grey.shade700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () {
+                setState(() => _activeViewMode = 1);
+                ref.read(invoiceBLMatchSessionsProvider.notifier).fetchSessions(importFileId: _activeFileId);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: _activeViewMode == 1 ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: _activeViewMode == 1
+                      ? [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4, offset: const Offset(0, 2))]
+                      : null,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.history_edu_rounded, size: 18, color: _activeViewMode == 1 ? AppTheme.cobalt : Colors.grey.shade700),
+                    const SizedBox(width: 8),
+                    Text(
+                      '📋 سجل جلسات المطابقة السابقة',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: _activeViewMode == 1 ? AppTheme.cobalt : Colors.grey.shade700,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final sessions = ref.watch(invoiceBLMatchSessionsProvider).valueOrNull ?? [];
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _activeViewMode == 1 ? AppTheme.cobalt : Colors.grey.shade400,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${sessions.length}',
+                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSessionsRegistryView(List<dynamic> importFiles) {
+    final sessionsAsync = ref.watch(invoiceBLMatchSessionsProvider);
+
+    return sessionsAsync.when(
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40.0),
+          child: Column(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('جاري تحميل سجل جلسات المطابقة...', style: TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      ),
+      error: (e, st) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            children: [
+              const Icon(Icons.error_outline, color: AppTheme.crimson, size: 48),
+              const SizedBox(height: 12),
+              Text('حدث خطأ أثناء تحميل سجل الجلسات: $e', textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.refresh),
+                label: const Text('إعادة المحاولة'),
+                onPressed: () => ref.read(invoiceBLMatchSessionsProvider.notifier).fetchSessions(importFileId: _activeFileId),
+              ),
+            ],
+          ),
+        ),
+      ),
+      data: (sessions) {
+        var filtered = sessions.where((s) {
+          if (_selectedStatusFilter == 'DRAFT' && !s.isDraft) return false;
+          if (_selectedStatusFilter == 'CERTIFIED' && s.isDraft) return false;
+          if (_filterImportFileId != null && s.importFileId != _filterImportFileId) return false;
+
+          final query = _searchSessionsCtrl.text.trim().toLowerCase();
+          if (query.isNotEmpty) {
+            final codeMatch = s.sessionCode.toLowerCase().contains(query);
+            final titleMatch = (s.sessionTitle ?? '').toLowerCase().contains(query);
+            final notesMatch = (s.sessionNotes ?? '').toLowerCase().contains(query);
+            final fileMatch = (s.importFileCode ?? '').toLowerCase().contains(query);
+            if (!codeMatch && !titleMatch && !notesMatch && !fileMatch) return false;
+          }
+          return true;
+        }).toList();
+
+        final totalCount = sessions.length;
+        final certifiedCount = sessions.where((s) => !s.isDraft).length;
+        final draftCount = sessions.where((s) => s.isDraft).length;
+        final avgScore = sessions.isEmpty
+            ? 0.0
+            : (sessions.map((s) => s.matchScore).reduce((a, b) => a + b) / sessions.length);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 1. KPI / Summary Stats Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppTheme.charcoal,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _sessionKpiCard(
+                      icon: Icons.all_inbox_rounded,
+                      label: 'إجمالي الجلسات',
+                      value: '$totalCount جلسة',
+                      color: AppTheme.cobalt,
+                    ),
+                    const SizedBox(width: 14),
+                    _sessionKpiCard(
+                      icon: Icons.verified_rounded,
+                      label: 'الجلسات المعتمدة',
+                      value: '$certifiedCount جلسة',
+                      color: AppTheme.emerald,
+                    ),
+                    const SizedBox(width: 14),
+                    _sessionKpiCard(
+                      icon: Icons.bookmark_added_rounded,
+                      label: 'المسودات المؤقتة',
+                      value: '$draftCount مسودة',
+                      color: AppTheme.orange,
+                    ),
+                    const SizedBox(width: 14),
+                    _sessionKpiCard(
+                      icon: Icons.percent_rounded,
+                      label: 'متوسط التطابق',
+                      value: '${avgScore.toStringAsFixed(1)}%',
+                      color: const Color(0xFF16A085),
+                    ),
+                    const SizedBox(width: 20),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.cobalt,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('جلسة فحص جديدة', style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: () {
+                        setState(() {
+                          _activeViewMode = 0;
+                          _activeSessionId = null;
+                          _activeSessionCode = null;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 2. Search & Filter Bar
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade300),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2)),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      // Search field
+                      Expanded(
+                        child: TextField(
+                          controller: _searchSessionsCtrl,
+                          decoration: InputDecoration(
+                            hintText: 'بحث بكود الجلسة، ملف الشحنة، أو الملاحظات...',
+                            prefixIcon: const Icon(Icons.search, size: 20),
+                            suffixIcon: _searchSessionsCtrl.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 18),
+                                    onPressed: () => setState(() => _searchSessionsCtrl.clear()),
+                                  )
+                                : null,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Filter by file
+                      SizedBox(
+                        width: 260,
+                        child: SearchableDropdownField<int?>(
+                          labelText: 'تصفية حسب ملف الشحنة',
+                          hintText: 'جميع ملفات الشحن',
+                          value: _filterImportFileId,
+                          items: [
+                            const SearchableDropdownItem<int?>(value: null, label: 'جميع ملفات الشحن'),
+                            ...importFiles.map(
+                              (f) => SearchableDropdownItem<int?>(
+                                value: f.importFileId,
+                                label: '${f.primaryNameWithCode} - ${f.supplierName}',
+                              ),
+                            ),
+                          ],
+                          onChanged: (val) {
+                            setState(() => _filterImportFileId = val);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _buildStatusFilterChip('ALL', 'الكل ($totalCount)'),
+                      const SizedBox(width: 8),
+                      _buildStatusFilterChip('CERTIFIED', 'معتمدة ($certifiedCount)'),
+                      const SizedBox(width: 8),
+                      _buildStatusFilterChip('DRAFT', 'مسودة مؤقتة ($draftCount)'),
+                      const Spacer(),
+                      // Table actions: Copy TSV, Export Excel, Export PDF, Refresh
+                      IconButton(
+                        icon: const Icon(Icons.copy_all, color: AppTheme.cobalt),
+                        tooltip: 'نسخ الجدول (TSV)',
+                        onPressed: filtered.isEmpty ? null : () => _copySessionsTable(filtered),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.table_view_outlined, color: AppTheme.emerald),
+                        tooltip: 'تصدير إكسيل (Excel)',
+                        onPressed: filtered.isEmpty ? null : () => _exportSessionsToExcel(filtered),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.picture_as_pdf_outlined, color: AppTheme.crimson),
+                        tooltip: 'طباعة تقرير PDF',
+                        onPressed: filtered.isEmpty ? null : () => _exportSessionsToPdf(filtered),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.refresh_rounded, color: AppTheme.charcoal),
+                        tooltip: 'تحديث البيانات',
+                        onPressed: () => ref.read(invoiceBLMatchSessionsProvider.notifier).fetchSessions(importFileId: _activeFileId),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 3. Sessions Registry Table
+            if (filtered.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(40),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'لا توجد جلسات مطابقة مسجلة مطابقة لمعايير البحث',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+                        icon: const Icon(Icons.add),
+                        label: const Text('بدء جلسة فحص ومطابقة جديدة'),
+                        onPressed: () => setState(() => _activeViewMode = 0),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              _buildSessionsTable(filtered),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _sessionKpiCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+              Text(value, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusFilterChip(String value, String label) {
+    final isSelected = _selectedStatusFilter == value;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (_) => setState(() => _selectedStatusFilter = value),
+      selectedColor: AppTheme.cobalt,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : AppTheme.charcoal,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        fontSize: 12,
+      ),
+    );
+  }
+
+  Widget _buildSessionsTable(List<InvoiceBLMatchSessionModel> sessions) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
+            headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+            dataRowMinHeight: 52,
+            dataRowMaxHeight: 64,
+            horizontalMargin: 16,
+            columnSpacing: 20,
+            columns: const [
+              DataColumn(label: Text('كود الجلسة')),
+              DataColumn(label: Text('ملف الشحنة')),
+              DataColumn(label: Text('عنوان وملاحظات الجلسة')),
+              DataColumn(label: Text('الحالة')),
+              DataColumn(label: Text('نسبة التطابق')),
+              DataColumn(label: Text('الفروقات')),
+              DataColumn(label: Text('تاريخ الجلسة')),
+              DataColumn(label: Text('الإجراءات')),
+            ],
+            rows: sessions.map((session) {
+              final isDraft = session.isDraft;
+              return DataRow(
+                color: WidgetStateProperty.resolveWith((states) {
+                  if (session.sessionId == _activeSessionId) {
+                    return AppTheme.cobalt.withOpacity(0.08);
+                  }
+                  return null;
+                }),
+                cells: [
+                  DataCell(
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(session.sessionCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.copy, size: 14, color: AppTheme.cobalt),
+                          tooltip: 'نسخ الكود',
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: session.sessionCode));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('تم نسخ كود الجلسة إلى الحافظة'), duration: Duration(seconds: 1)),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  DataCell(
+                    Text(
+                      session.importFileCode ?? 'IMP-${session.importFileId}',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppTheme.charcoal),
+                    ),
+                  ),
+                  DataCell(
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 220),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            session.sessionTitle ?? 'جلسة فحص مطابقة',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (session.sessionNotes != null && session.sessionNotes!.isNotEmpty)
+                            Text(
+                              session.sessionNotes!,
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  DataCell(
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isDraft ? AppTheme.orange.withOpacity(0.12) : AppTheme.emerald.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: isDraft ? AppTheme.orange : AppTheme.emerald),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(isDraft ? Icons.edit_document : Icons.check_circle, size: 13, color: isDraft ? AppTheme.orange : AppTheme.emerald),
+                          const SizedBox(width: 4),
+                          Text(
+                            isDraft ? 'مسودة مؤقتة' : 'معتمدة نهائية',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isDraft ? AppTheme.orange : AppTheme.emerald,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  DataCell(
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 50,
+                          child: LinearProgressIndicator(
+                            value: session.matchScore / 100.0,
+                            backgroundColor: Colors.grey.shade200,
+                            color: session.matchScore >= 90
+                                ? AppTheme.emerald
+                                : (session.matchScore >= 70 ? AppTheme.orange : AppTheme.crimson),
+                            minHeight: 6,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${session.matchScore.toStringAsFixed(1)}%',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: session.matchScore >= 90
+                                ? AppTheme.emerald
+                                : (session.matchScore >= 70 ? AppTheme.orange : AppTheme.crimson),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  DataCell(
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: session.discrepancyCount > 0 ? AppTheme.crimson.withOpacity(0.1) : AppTheme.emerald.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        session.discrepancyCount > 0 ? '${session.discrepancyCount} فارق' : 'متطابق بالكامل',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: session.discrepancyCount > 0 ? AppTheme.crimson : AppTheme.emerald,
+                        ),
+                      ),
+                    ),
+                  ),
+                  DataCell(
+                    Text(
+                      session.createdAt.contains('T') ? session.createdAt.split('T').first : session.createdAt,
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ),
+                  DataCell(
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.visibility_outlined, size: 18, color: AppTheme.cobalt),
+                          tooltip: 'عرض تفاصيل ومصفوفة الجلسة',
+                          onPressed: () => _showSessionDetailsDialog(session),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.play_circle_outline, size: 18, color: AppTheme.emerald),
+                          tooltip: 'استعادة وتحميل الجلسة لشاشة الفحص',
+                          onPressed: () => _loadSessionIntoMatcher(session),
+                        ),
+                        if (isDraft)
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.crimson),
+                            tooltip: 'حذف المسودة',
+                            onPressed: () => _deleteSession(session),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSessionDetailsDialog(InvoiceBLMatchSessionModel session) {
+    final matrix = session.comparisonMatrix ?? [];
+    final invData = session.invoiceExtractedData ?? {};
+    final blData = session.blExtractedData ?? {};
+    final isDraft = session.isDraft;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (isDraft ? AppTheme.orange : AppTheme.emerald).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                isDraft ? Icons.bookmark_added_rounded : Icons.verified_rounded,
+                color: isDraft ? AppTheme.orange : AppTheme.emerald,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'تفاصيل الجلسة: ${session.sessionCode}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'ملف الشحنة: ${session.importFileCode ?? "IMP-${session.importFileId}"}  |  تاريخ الإنشاء: ${session.createdAt}',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: (isDraft ? AppTheme.orange : AppTheme.emerald).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDraft ? AppTheme.orange : AppTheme.emerald),
+              ),
+              child: Text(
+                isDraft ? 'مسودة مؤقتة' : 'معتمدة نهائية',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: isDraft ? AppTheme.orange : AppTheme.emerald,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 900,
+          height: 520,
+          child: DefaultTabController(
+            length: 3,
+            child: Column(
+              children: [
+                const TabBar(
+                  labelColor: AppTheme.cobalt,
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: AppTheme.cobalt,
+                  tabs: [
+                    Tab(icon: Icon(Icons.compare_arrows, size: 16), text: 'مصفوفة المطابقة والتحقق'),
+                    Tab(icon: Icon(Icons.data_object, size: 16), text: 'البيانات المستخرجة (فاتورة / بوليصة)'),
+                    Tab(icon: Icon(Icons.notes, size: 16), text: 'النصوص الأصلية والملاحظات'),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      // Tab 1: Comparison Matrix Table
+                      matrix.isEmpty
+                          ? const Center(child: Text('لا توجد مصفوفة مطابقة محفوظة لهذه الجلسة'))
+                          : ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey.shade300),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.vertical,
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: DataTable(
+                                      headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
+                                      headingTextStyle: const TextStyle(
+                                          color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                      columns: const [
+                                        DataColumn(label: Text('البند المعياري')),
+                                        DataColumn(label: Text('بيانات الفاتورة')),
+                                        DataColumn(label: Text('بيانات البوليصة')),
+                                        DataColumn(label: Text('حالة التطابق')),
+                                        DataColumn(label: Text('التفاصيل')),
+                                      ],
+                                      rows: matrix.map((item) {
+                                        final row = item is Map<String, dynamic> ? item : {};
+                                        final status = row['match_status']?.toString() ?? 'UNKNOWN';
+                                        final isMatch = status == 'MATCH';
+                                        return DataRow(
+                                          cells: [
+                                            DataCell(Text(
+                                              row['field_name_ar'] ?? row['field_name_en'] ?? '—',
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                            )),
+                                            DataCell(Text(row['invoice_value']?.toString() ?? '—',
+                                                style: const TextStyle(fontSize: 11))),
+                                            DataCell(Text(row['bl_value']?.toString() ?? '—',
+                                                style: const TextStyle(fontSize: 11))),
+                                            DataCell(
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: isMatch
+                                                      ? AppTheme.emerald.withOpacity(0.12)
+                                                      : AppTheme.crimson.withOpacity(0.12),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: Text(
+                                                  isMatch ? 'متطابق' : 'فارق يتطلب مراجعة',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: isMatch ? AppTheme.emerald : AppTheme.crimson,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            DataCell(Text(row['details']?.toString() ?? '—',
+                                                style: const TextStyle(fontSize: 10, color: Colors.grey))),
+                                          ],
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                      // Tab 2: Extracted Data
+                      SingleChildScrollView(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.receipt_long, size: 16, color: AppTheme.cobalt),
+                                        SizedBox(width: 6),
+                                        Text('مستخرجات الفاتورة التجارية',
+                                            style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                      ],
+                                    ),
+                                    const Divider(),
+                                    SelectableText(
+                                      const JsonEncoder.withIndent('  ').convert(invData),
+                                      style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.directions_boat, size: 16, color: AppTheme.emerald),
+                                        SizedBox(width: 6),
+                                        Text('مستخرجات بوليصة الشحن',
+                                            style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                                      ],
+                                    ),
+                                    const Divider(),
+                                    SelectableText(
+                                      const JsonEncoder.withIndent('  ').convert(blData),
+                                      style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Tab 3: Raw Texts & Notes
+                      SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (session.sessionNotes != null && session.sessionNotes!.isNotEmpty) ...[
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.cloudWhite,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('ملاحظات الجلسة:', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 4),
+                                    Text(session.sessionNotes!),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                            const Text('نص الفاتورة المدخل:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            const SizedBox(height: 4),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: SelectableText(
+                                session.invoiceRawText ?? '—',
+                                style: const TextStyle(fontFamily: 'monospace', fontSize: 10),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            const Text('نص بوليصة الشحن المدخل:',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            const SizedBox(height: 4),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: SelectableText(
+                                session.blRawText ?? '—',
+                                style: const TextStyle(fontFamily: 'monospace', fontSize: 10),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _loadSessionIntoMatcher(session);
+            },
+            icon: const Icon(Icons.play_circle_outline, size: 16, color: AppTheme.emerald),
+            label: const Text('استعادة وتحميل في شاشة الفحص',
+                style: TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إغلاق'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _loadSessionIntoMatcher(InvoiceBLMatchSessionModel session) {
+    setState(() {
+      _activeFileId = session.importFileId;
+      _invoiceTextCtrl.text = session.invoiceRawText ?? '';
+      _blTextCtrl.text = session.blRawText ?? '';
+      _packingTextCtrl.text = session.packingListRawText ?? '';
+      _invoiceFileName = session.invoiceFileName;
+      _blFileName = session.blFileName;
+      _packingFileName = session.packingFileName;
+      _showPackingList = session.packingListRawText != null || session.packingFileName != null;
+      _activeSessionId = session.sessionId;
+      _activeSessionCode = session.sessionCode;
+
+      if (session.comparisonMatrix != null && session.comparisonMatrix!.isNotEmpty) {
+        _matchResult = {
+          'import_file_id': session.importFileId,
+          'match_score_percentage': session.matchScore,
+          'is_safe_for_certification': session.isSafeForCertification,
+          'critical_discrepancies_count': session.hasCriticalDiscrepancies ? 1 : 0,
+          'warning_discrepancies_count': session.discrepancyCount,
+          'comparison_matrix': session.comparisonMatrix,
+          'invoice_data': session.invoiceExtractedData,
+          'bl_data': session.blExtractedData,
+          'packing_list_data': session.packingExtractedData,
+          'overall_status': session.isDraft ? 'DRAFT_SAVED' : 'CERTIFIED_SAVED',
+        };
+      }
+      _activeViewMode = 0; // Switch to Matcher view
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('تم استرجاع وتحميل بيانات الجلسة ${session.sessionCode} إلى شاشة الفحص بنجاح'),
+        backgroundColor: AppTheme.cobalt,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _deleteSession(InvoiceBLMatchSessionModel session) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('تأكيد حذف المسودة'),
+        content: Text('هل أنت متأكد من رغبتك في حذف مسودة الجلسة (${session.sessionCode})؟'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await ref.read(invoiceBLMatchSessionsProvider.notifier).deleteSession(session.sessionId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم حذف المسودة بنجاح'), backgroundColor: AppTheme.emerald),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showErrorDetailsDialog(context, title: 'خطأ في حذف الجلسة', error: e);
+      }
+    }
+  }
+
+  void _copySessionsTable(List<InvoiceBLMatchSessionModel> sessions) {
+    final headers = [
+      'كود الجلسة',
+      'ملف الاستيراد',
+      'العنوان',
+      'الحالة',
+      'نسبة التطابق',
+      'الفروقات',
+      'تاريخ الإنشاء',
+      'بواسطة',
+    ];
+    final rows = sessions.map((s) => [
+      s.sessionCode,
+      s.importFileCode ?? 'IMP-${s.importFileId}',
+      s.sessionTitle ?? s.sessionNotes ?? '—',
+      s.isDraft ? 'مسودة مؤقتة' : 'معتمدة ونهائية',
+      '${s.matchScore.toStringAsFixed(1)}%',
+      s.discrepancyCount.toString(),
+      s.createdAt,
+      s.createdBy,
+    ]).toList();
+
+    TableCopyHelper.copyTable(
+      context,
+      headers,
+      rows,
+      customMessage: 'تم نسخ جدول جلسات المطابقة كـ TSV إلى الحافظة بنجاح',
+    );
+  }
+
+  Future<void> _exportSessionsToExcel(List<InvoiceBLMatchSessionModel> sessions) async {
+    final headers = [
+      'كود الجلسة',
+      'ملف الاستيراد',
+      'العنوان',
+      'الحالة',
+      'نسبة التطابق',
+      'الفروقات',
+      'تاريخ الإنشاء',
+      'بواسطة',
+    ];
+    final rows = sessions.map((s) => [
+      s.sessionCode,
+      s.importFileCode ?? 'IMP-${s.importFileId}',
+      s.sessionTitle ?? s.sessionNotes ?? '—',
+      s.isDraft ? 'مسودة مؤقتة' : 'معتمدة ونهائية',
+      '${s.matchScore.toStringAsFixed(1)}%',
+      s.discrepancyCount.toString(),
+      s.createdAt,
+      s.createdBy,
+    ]).toList();
+
+    await TableExportService.exportTableToExcel(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: 'Invoice BL Match Sessions',
+      importFileNameOrCode: _activeFileId != null ? 'IMP-$_activeFileId' : 'All-Files',
+    );
+  }
+
+  Future<void> _exportSessionsToPdf(List<InvoiceBLMatchSessionModel> sessions) async {
+    final headers = [
+      'كود الجلسة',
+      'ملف الاستيراد',
+      'العنوان',
+      'الحالة',
+      'نسبة التطابق',
+      'الفروقات',
+      'تاريخ الإنشاء',
+    ];
+    final rows = sessions.map((s) => [
+      s.sessionCode,
+      s.importFileCode ?? 'IMP-${s.importFileId}',
+      s.sessionTitle ?? s.sessionNotes ?? '—',
+      s.isDraft ? 'مسودة مؤقتة' : 'معتمدة ونهائية',
+      '${s.matchScore.toStringAsFixed(1)}%',
+      s.discrepancyCount.toString(),
+      s.createdAt,
+    ]).toList();
+
+    await TableExportService.exportTableToPdf(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: 'سجل جلسات مطابقة الفاتورة والبوليصة',
+      importFileNameOrCode: _activeFileId != null ? 'IMP-$_activeFileId' : 'All-Files',
+      headerContext: const TableExportHeaderContext(
+        title: 'سجل جلسات مطابقة الفاتورة التجارية وبوليصة الشحن',
+        subtitle: 'Sorour Logistics ERP — إدارة الوثائق والمطابقة المستندية الجمركية',
       ),
     );
   }

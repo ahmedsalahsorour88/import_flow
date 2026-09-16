@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import desc, or_
 
 from .model import OriginalDocumentsCollectionSession
@@ -99,11 +100,14 @@ class OriginalDocumentsCollectionRepository:
         for key, value in updates.items():
             if hasattr(session, key):
                 setattr(session, key, value)
+                if key in ["couriers_list", "documents_list"]:
+                    flag_modified(session, key)
 
         session.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(session)
         return session
+
 
     @staticmethod
     def soft_delete(db: Session, collection_id: int) -> bool:

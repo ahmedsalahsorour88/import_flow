@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/import_documentation_model.dart';
 import '../models/po_reconciliation_session_model.dart';
+import '../models/invoice_bl_match_session_model.dart';
 import '../../../core/network/api_client.dart';
 
 
@@ -371,7 +372,7 @@ class DraftBLNotifier extends StateNotifier<AsyncValue<List<DraftBLReviewModel>>
     super.dispose();
   }
 
-  Future<void> fetchReviews({int? importFileId, String? search}) async {
+  Future<void> fetchReviews({int? importFileId, String? search, bool? isDraft}) async {
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
     state = const AsyncValue.loading();
@@ -379,6 +380,7 @@ class DraftBLNotifier extends StateNotifier<AsyncValue<List<DraftBLReviewModel>>
       final queryParams = <String, dynamic>{};
       if (importFileId != null) queryParams['import_file_id'] = importFileId;
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
+      if (isDraft != null) queryParams['is_draft'] = isDraft;
 
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/import-documentation/draft-bl',
@@ -513,6 +515,16 @@ class DraftBLNotifier extends StateNotifier<AsyncValue<List<DraftBLReviewModel>>
       rethrow;
     }
   }
+
+  Future<bool> deleteDraftBLReview(int reviewId) async {
+    try {
+      await _dio.delete('${ApiConstants.baseUrl}/import-documentation/draft-bl/$reviewId');
+      await fetchReviews();
+      return true;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
 
 // 3. Certificate of Origin (COO / EUR.1) Provider
@@ -535,13 +547,14 @@ class COONotifier extends StateNotifier<AsyncValue<List<CertificateOfOriginRevie
     super.dispose();
   }
 
-  Future<void> fetchReviews({int? importFileId}) async {
+  Future<void> fetchReviews({int? importFileId, bool? isDraft}) async {
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{};
       if (importFileId != null) queryParams['import_file_id'] = importFileId;
+      if (isDraft != null) queryParams['is_draft'] = isDraft;
 
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/import-documentation/coo',
@@ -559,8 +572,8 @@ class COONotifier extends StateNotifier<AsyncValue<List<CertificateOfOriginRevie
     }
   }
 
-  Future<void> fetchCOOReviews({int? importFileId}) async {
-    await fetchReviews(importFileId: importFileId);
+  Future<void> fetchCOOReviews({int? importFileId, bool? isDraft}) async {
+    await fetchReviews(importFileId: importFileId, isDraft: isDraft);
   }
 
   Future<Map<String, dynamic>> compareCOO(int importFileId, String certType, Map<String, dynamic> draftFields) async {
@@ -892,5 +905,83 @@ final centralArchiveProvider =
   }
 });
 
+// 8. Invoice vs B/L Match Sessions Provider (Screen 22 Sessions Registry)
+final invoiceBLMatchSessionsProvider =
+    StateNotifierProvider<InvoiceBLMatchSessionsNotifier, AsyncValue<List<InvoiceBLMatchSessionModel>>>((ref) {
+  return InvoiceBLMatchSessionsNotifier(ref.read(dioProvider));
+});
 
+class InvoiceBLMatchSessionsNotifier
+    extends StateNotifier<AsyncValue<List<InvoiceBLMatchSessionModel>>> {
+  final Dio _dio;
+  CancelToken? _cancelToken;
 
+  InvoiceBLMatchSessionsNotifier(this._dio) : super(const AsyncValue.loading()) {
+    fetchSessions();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel();
+    super.dispose();
+  }
+
+  Future<void> fetchSessions({
+    int? importFileId,
+    bool? isDraft,
+    String? search,
+  }) async {
+    _cancelToken?.cancel();
+    _cancelToken = CancelToken();
+    try {
+      state = const AsyncValue.loading();
+      final queryParams = <String, dynamic>{};
+      if (importFileId != null) queryParams['import_file_id'] = importFileId;
+      if (isDraft != null) queryParams['is_draft'] = isDraft;
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/import-documentation/invoice-bl/sessions',
+        queryParameters: queryParams,
+        cancelToken: _cancelToken,
+      );
+
+      final List<dynamic> data = response.data;
+      final sessions = data
+          .map((json) => InvoiceBLMatchSessionModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+      state = AsyncValue.data(sessions);
+    } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<InvoiceBLMatchSessionModel> createSession(Map<String, dynamic> sessionData) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/invoice-bl/sessions',
+        data: sessionData,
+      );
+      final created = InvoiceBLMatchSessionModel.fromJson(response.data as Map<String, dynamic>);
+      await fetchSessions();
+      return created;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<bool> deleteSession(int sessionId) async {
+    try {
+      await _dio.delete(
+        '${ApiConstants.baseUrl}/import-documentation/invoice-bl/sessions/$sessionId',
+      );
+      await fetchSessions();
+      return true;
+    } catch (e) {
+      rethrow;
+    }
+  }
+}

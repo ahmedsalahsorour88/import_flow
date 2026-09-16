@@ -1,11 +1,19 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../core/localization/app_localizations.dart';
+import '../../core/widgets/command_palette_dialog.dart';
+import '../../core/widgets/keyboard_shortcuts_dialog.dart';
+import '../../core/widgets/unsaved_changes_dialog.dart';
 import '../../core/localization/locale_provider.dart';
 import '../../core/providers/navigation_provider.dart';
 import '../../core/providers/workspace_tabs_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/density_provider.dart';
 import '../../core/theme/theme_provider.dart';
 import 'widgets/multi_tab_workspace_bar.dart';
 import '../audit_logs/screens/audit_logs_screen.dart';
@@ -35,7 +43,12 @@ import '../import_documentation/screens/central_docs_archive_screen.dart';
 import '../import_documentation/screens/customs_declaration46_screen.dart';
 import '../import_documentation/screens/nafeza_acid_screen.dart';
 import '../import_documentation/screens/original_docs_and_cargox_screen.dart';
-import '../import_documentation/screens/shipment_draft_docs_screen.dart';
+import '../import_documentation/screens/po_packing_reconciliation_screen.dart';
+import '../import_documentation/screens/draft_bl_review_screen.dart';
+import '../import_documentation/screens/smart_invoice_bl_match_screen.dart';
+import '../import_documentation/screens/draft_coo_review_screen.dart';
+import '../import_documentation/screens/draft_inspection_review_screen.dart';
+import '../import_documentation/screens/docs_customs_approval_screen.dart';
 import '../import_files/screens/import_files_screen.dart';
 import '../import_requirements/screens/import_requirements_screen.dart';
 import '../incoterms/screens/incoterms_screen.dart';
@@ -58,6 +71,7 @@ import '../shipment_inquiry/screens/shipment_inquiry_screen.dart';
 import '../smart_tasks/widgets/smart_email_listener_dialog.dart';
 import '../smart_tasks/widgets/email_settings_dialog.dart';
 import '../../core/widgets/ai_assistant_panel.dart';
+import '../../core/providers/ai_assistant_provider.dart';
 import '../../core/widgets/system_live_clock_widget.dart';
 
 
@@ -100,12 +114,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         BankForm4Screen(initialSubTab: 0),
         BankForm4Screen(initialSubTab: 1),
 
-        // 18..22: Phase 5 Shipment Draft Documents & CargoX Review (Dedicated Screen with Vertical Tabs)
-        ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_bl_2'), initialSubTab: 2), // 18: Draft B/L Review
-        ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_coo_4'), initialSubTab: 4), // 19: Draft COO / EUR.1
-        ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_approval_0'), initialSubTab: 0), // 20: Docs Customs Approval
-        ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_po_1'), initialSubTab: 1), // 21: PO & Packing Reconciliation
-        ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_match_3'), initialSubTab: 3), // 22: Smart Invoice vs B/L Match
+        // 18..22: Phase 3 Decomposed Draft Document Review Stages (Dedicated Full-Width Screens)
+        DraftBLReviewScreen(key: ValueKey('draft_bl_review_screen')), // 18: Draft B/L Review & Approval
+        DraftCOOReviewScreen(key: ValueKey('draft_coo_review_screen')), // 19: Draft COO / EUR.1 Review
+        DocsCustomsApprovalScreen(key: ValueKey('docs_customs_approval_screen')), // 20: Docs Customs Approval & Rectifications
+        POPackingReconciliationScreen(key: ValueKey('po_packing_reconciliation_screen')), // 21: PO & Packing Reconciliation
+        SmartInvoiceBLMatchScreen(key: ValueKey('smart_invoice_bl_match_screen')), // 22: Smart Invoice vs B/L Match
 
         // 23..24: Phase 6 Customs Declaration 46 (Dedicated Screen with Vertical Tabs)
         CustomsDeclaration46Screen(initialSubTab: 0),
@@ -157,8 +171,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // 52: Cargo Shipping Tracking (48h SLA Tracking Subtab)
         CargoShippingScreen(key: ValueKey('cargo_shipping_tracking_1'), initialSubTab: 1),
 
-        // 53: Draft Inspection Certificate (Dedicated Subtab 5)
-        ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_inspection_5'), initialSubTab: 5),
+        // 53: Draft Inspection Certificate (Dedicated Full-Width Screen)
+        DraftInspectionReviewScreen(key: ValueKey('draft_inspection_review_screen')),
 
         // 54: CargoX Blockchain & ACI Dispatch Hub → Phase 4 Standalone Screen (subTab 1)
         OriginalDocsAndCargoXScreen(key: ValueKey('original_docs_cargox_1'), initialSubTab: 1),
@@ -209,6 +223,62 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _isSidebarCollapsed = false;
   String _searchQuery = '';
 
+  Future<void> _toggleFullscreen() async {
+    final l10n = context.l10n;
+    if (!kIsWeb && Platform.isWindows) {
+      try {
+        final isFull = await windowManager.isFullScreen();
+        await windowManager.setFullScreen(!isFull);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(!isFull ? l10n.fullscreenEnabledToast : l10n.fullscreenDisabledToast),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              width: 320,
+            ),
+          );
+        }
+      } catch (_) {}
+    }
+  }
+
+  void _onNextTab() {
+    final newTab = ref.read(workspaceTabsProvider.notifier).selectNextTab();
+    if (newTab != null) {
+      ref.read(navigationIndexProvider.notifier).state = newTab.routeIndex;
+    }
+  }
+
+  void _onPreviousTab() {
+    final newTab = ref.read(workspaceTabsProvider.notifier).selectPreviousTab();
+    if (newTab != null) {
+      ref.read(navigationIndexProvider.notifier).state = newTab.routeIndex;
+    }
+  }
+
+  void _onCloseTab() async {
+    final activeTab = ref.read(workspaceTabsProvider).activeTab;
+    if (activeTab == null || !activeTab.isClosable) return;
+    if (activeTab.isDirty) {
+      final l10n = context.l10n;
+      final confirmed = await UnsavedChangesDialog.show(
+        context,
+        customMessage: '${l10n.unsavedChangesMessage}\n(${activeTab.title})',
+      );
+      if (!confirmed) return;
+      ref.read(workspaceTabsProvider.notifier).setTabDirty(activeTab.id, false);
+    }
+    final newTab = ref.read(workspaceTabsProvider.notifier).closeActiveTab();
+    if (newTab != null) {
+      ref.read(navigationIndexProvider.notifier).state = newTab.routeIndex;
+    }
+  }
+
+  void _showShortcutsHelp() {
+    KeyboardShortcutsDialog.show(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedIndex = ref.watch(navigationIndexProvider);
@@ -234,7 +304,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final bool isCollapsed = isTablet ? true : (isDesktop ? _isSidebarCollapsed : true);
         final double sidebarWidth = isMobile ? 0 : (isCollapsed ? 52 : 255);
 
-        return Scaffold(
+        return CallbackShortcuts(
+          bindings: {
+            // Command Palette (Ctrl + K / Cmd + K)
+            const SingleActivator(LogicalKeyboardKey.keyK, control: true): () =>
+                CommandPaletteDialog.show(context, ref),
+            const SingleActivator(LogicalKeyboardKey.keyK, meta: true): () =>
+                CommandPaletteDialog.show(context, ref),
+
+            // Tab Navigation (Ctrl + Tab / Ctrl + Shift + Tab / Cmd + Tab)
+            const SingleActivator(LogicalKeyboardKey.tab, control: true): _onNextTab,
+            const SingleActivator(LogicalKeyboardKey.tab, control: true, shift: true): _onPreviousTab,
+            const SingleActivator(LogicalKeyboardKey.tab, meta: true): _onNextTab,
+            const SingleActivator(LogicalKeyboardKey.tab, meta: true, shift: true): _onPreviousTab,
+
+            // Close Active Tab (Ctrl + W / Cmd + W)
+            const SingleActivator(LogicalKeyboardKey.keyW, control: true): _onCloseTab,
+            const SingleActivator(LogicalKeyboardKey.keyW, meta: true): _onCloseTab,
+
+            // Fullscreen Toggle (F11)
+            const SingleActivator(LogicalKeyboardKey.f11): _toggleFullscreen,
+
+            // Shortcuts Help Guide (F1 / Ctrl + / / Cmd + /)
+            const SingleActivator(LogicalKeyboardKey.f1): _showShortcutsHelp,
+            const SingleActivator(LogicalKeyboardKey.slash, control: true): _showShortcutsHelp,
+            const SingleActivator(LogicalKeyboardKey.slash, meta: true): _showShortcutsHelp,
+          },
+          child: Focus(
+            autofocus: true,
+            child: Scaffold(
           drawer: isMobile
               ? Drawer(
                   backgroundColor: AppTheme.isDark(context)
@@ -245,61 +343,81 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 )
               : null,
-          body: Stack(
-            children: [
-              Row(
-                children: [
-                  if (!isMobile)
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeInOut,
-                      width: sidebarWidth,
-                      color: AppTheme.isDark(context)
-                          ? const Color(0xFF141A22)
-                          : AppTheme.charcoal,
-                      child: isCollapsed
-                          ? _buildCollapsedRail(currentRouteIndex, user)
-                          : _buildFullSidebar(currentRouteIndex, user),
+          body: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification.metrics.axisDirection == AxisDirection.down ||
+                  notification.metrics.axisDirection == AxisDirection.up ||
+                  notification.metrics.axisDirection == AxisDirection.right ||
+                  notification.metrics.axisDirection == AxisDirection.left) {
+                final aiState = ref.read(aiAssistantProvider);
+                if (!aiState.isGreetingDismissed) {
+                  ref.read(aiAssistantProvider.notifier).dismissGreeting();
+                }
+              }
+              return false;
+            },
+            child: Stack(
+              children: [
+                Row(
+                  children: [
+                    if (!isMobile)
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeInOut,
+                        width: sidebarWidth,
+                        color: AppTheme.isDark(context)
+                            ? const Color(0xFF141A22)
+                            : AppTheme.charcoal,
+                        child: isCollapsed
+                            ? _buildCollapsedRail(currentRouteIndex, user)
+                            : _buildFullSidebar(currentRouteIndex, user),
+                      ),
+
+                    // Main Content View with Multi-Tab Workspace Bar
+                    Expanded(
+                      child: Column(
+                        children: [
+                          if (isMobile) _buildMobileTopNav(context),
+                          const SystemWorldClocksHeader(),
+                          const MultiTabWorkspaceBar(),
+                          Expanded(
+                            child: tabsState.tabs.isEmpty
+                                ? _screens[0]
+                                : IndexedStack(
+                                    index: safeActiveTabIndex < tabsState.tabs.length
+                                        ? safeActiveTabIndex
+                                        : 0,
+                                    children: [
+                                      for (final tab in tabsState.tabs)
+                                        KeyedSubtree(
+                                          key: ValueKey(tab.id),
+                                          child: _screens[tab.routeIndex < _screens.length
+                                              ? tab.routeIndex
+                                              : 0],
+                                        ),
+                                    ],
+                                  ),
+                          ),
+                        ],
+                      ),
                     ),
 
-                  // Main Content View with Multi-Tab Workspace Bar
-                  Expanded(
-                    child: Column(
-                      children: [
-                        if (isMobile) _buildMobileTopNav(context),
-                        const SystemWorldClocksHeader(),
-                        const MultiTabWorkspaceBar(),
-                        Expanded(
-                          child: tabsState.tabs.isEmpty
-                              ? _screens[0]
-                              : IndexedStack(
-                                  index: safeActiveTabIndex < tabsState.tabs.length
-                                      ? safeActiveTabIndex
-                                      : 0,
-                                  children: [
-                                    for (final tab in tabsState.tabs)
-                                      KeyedSubtree(
-                                        key: ValueKey(tab.id),
-                                        child: _screens[tab.routeIndex < _screens.length
-                                            ? tab.routeIndex
-                                            : 0],
-                                      ),
-                                  ],
-                                ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                    // Docked Side Panel for AI Assistant on Desktop (>=1200px)
+                    if (isDesktop && ref.watch(aiAssistantProvider).isPanelOpen)
+                      const AiAssistantDockedPanel(),
+                  ],
+                ),
 
-              // Floating Persistent AI Assistant Overlay (Always on top across all screens)
-              const AiAssistantOverlay(),
-            ],
+                // Floating Persistent AI Assistant Overlay (Launcher & Bubble, or Modal on <1200px)
+                const AiAssistantOverlay(),
+              ],
+            ),
           ),
-        );
-      },
+        ),
+      ),
     );
+  },
+);
 
   }
 
@@ -512,7 +630,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       l.appSubtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white70, fontSize: 8.5),
+                      style: const TextStyle(color: Colors.white70, fontSize: 11),
                     ),
                   ],
                 ),
@@ -582,7 +700,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               decoration: InputDecoration(
                 hintText: l.quickSearch,
                 hintStyle: TextStyle(
-                    color: Colors.white.withOpacity(0.4), fontSize: 10),
+                    color: Colors.white.withOpacity(0.4), fontSize: 11),
                 prefixIcon: Icon(Icons.search,
                     color: Colors.white.withOpacity(0.5), size: 14),
                 suffixIcon: _searchQuery.isNotEmpty
@@ -687,7 +805,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildMenuItem(Icons.bookmark_added_outlined, 'Freight Booking', 'حجز النولون وتأكيد الخط الملاحي', 25, selectedIndex),
                   _buildMenuItem(Icons.directions_boat_outlined, 'Cargo Shipping & Tracking', 'حركة وتتبع الشحن وتوزيع الحاويات', 26, selectedIndex),
                   _buildMenuItem(Icons.shield_outlined, 'Cargo Insurance', 'شهادات ووثائق التأمين على البضائع', 65, selectedIndex),
-                  _buildMenuItem(Icons.assignment_turned_in_outlined, 'Shipment Draft Docs Review Hub', 'مراجعة وتدقيق مسودات المستندات (B/L, COO, COC)', 18, selectedIndex),
+                  _buildMenuItem(Icons.fact_check_outlined, '1. PO & Packing Reconciliation', '1. مطابقة الفاتورة والباكينج مع أمر الشراء', 21, selectedIndex),
+                  _buildMenuItem(Icons.assignment_turned_in_outlined, '2. Draft B/L Review & Approval', '2. مراجعة واعتماد مسودة بوليصة الشحن', 18, selectedIndex),
+                  _buildMenuItem(Icons.auto_awesome, '3. Smart Invoice vs B/L Match', '3. المطابقة الذكية بين الفاتورة والبوليصة', 22, selectedIndex),
+                  _buildMenuItem(Icons.flag_circle_outlined, '4. Draft COO & EUR.1 Review', '4. مسودة شهادة المنشأ و EUR.1', 19, selectedIndex),
+                  _buildMenuItem(Icons.security_outlined, '5. Inspection Review (COC)', '5. شهادات الفحص والتفتيش والمطابقة', 53, selectedIndex),
+                  _buildMenuItem(Icons.verified_user_outlined, '6. Docs Customs Approval Hub', '6. مركز اعتماد المستندات وتعديلات المورد', 20, selectedIndex),
                   _buildMenuItem(Icons.inventory_2_outlined, 'Central Docs & Rectifications Hub', 'الأرشيف المركزي لمستندات وتعديلات الشحنة', 51, selectedIndex),
                 ],
               ),
@@ -826,7 +949,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       Text(
                         user.role,
-                        style: TextStyle(color: _getRoleColor(user.role), fontSize: 9, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: _getRoleColor(user.role), fontSize: 11, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -875,7 +998,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 final versionText = versionAsync.when(
                   data: (info) => 'v${info.version} (Build ${info.buildNumber})',
                   loading: () => 'v... (Loading)',
-                  error: (_, __) => 'v1.0.162 (Build 163)',
+                  error: (_, __) => 'v1.0.180 (Build 181)',
                 );
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -890,7 +1013,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               versionText,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Colors.white70, fontSize: 9.5, fontFamily: 'monospace', fontWeight: FontWeight.w600),
+                              style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.w600),
                             ),
                           ),
                         ],
@@ -911,7 +1034,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           SizedBox(width: 3.5),
                           Text(
                             'Port: 28080',
-                            style: TextStyle(color: AppTheme.emerald, fontSize: 8.5, fontWeight: FontWeight.bold),
+                            style: TextStyle(color: AppTheme.emerald, fontSize: 11, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -1009,6 +1132,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     final isArabic = ref.watch(localeProvider).languageCode == 'ar';
+    final density = ref.watch(displayDensityProvider);
     final title = isArabic ? titleAr : titleEn;
     final isSelected = selectedIndex == index;
 
@@ -1027,12 +1151,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           borderRadius: BorderRadius.circular(4),
           onTap: () => selectNavigationIndex(ref, index),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            padding: EdgeInsets.symmetric(
+              horizontal: 6,
+              vertical: density == DisplayDensityMode.ultraCompact ? 4 : 6,
+            ),
             child: Row(
               children: [
                 Icon(
                   icon,
-                  size: 13.5,
+                  size: density == DisplayDensityMode.ultraCompact ? 13.0 : 14.0,
                   color: isSelected
                       ? AppTheme.cobalt
                       : const Color(0xCCECF0F1), // cloudWhite 80%
@@ -1044,7 +1171,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     style: TextStyle(
                       color: isSelected ? Colors.white : AppTheme.cloudWhite,
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                      fontSize: 10.5,
+                      fontSize: density.sidebarNavFontSize,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1071,6 +1198,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return const SizedBox.shrink();
     }
 
+    final density = ref.watch(displayDensityProvider);
     final isArabic = ref.watch(localeProvider).languageCode == 'ar';
     final title = isArabic ? titleAr : titleEn;
 
@@ -1086,12 +1214,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           borderRadius: BorderRadius.circular(4),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            padding: EdgeInsets.symmetric(
+              horizontal: 6,
+              vertical: density == DisplayDensityMode.ultraCompact ? 4 : 6,
+            ),
             child: Row(
               children: [
                 Icon(
                   icon,
-                  size: 13.5,
+                  size: density == DisplayDensityMode.ultraCompact ? 13.0 : 14.0,
                   color: color ?? const Color(0xCCECF0F1),
                 ),
                 const SizedBox(width: 8),
@@ -1101,7 +1232,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     style: TextStyle(
                       color: color ?? AppTheme.cloudWhite,
                       fontWeight: FontWeight.w600,
-                      fontSize: 10.5,
+                      fontSize: density.sidebarNavFontSize,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

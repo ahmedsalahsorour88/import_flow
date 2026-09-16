@@ -60,12 +60,25 @@ PHASES_DEFINITION = [
         "title_en": "3. Booking & Doc Prep",
         "title_ar": "المرحلة الثالثة: حجز الشحن والتدقيق المستندي المبدئي",
         "color_hex": "#16A085",
-        "step_codes": ["STEP_06", "STEP_07", "STEP_08", "STEP_09"],
+        "step_codes": [
+            "STEP_06",
+            "STEP_07",
+            "STEP_08_PO",
+            "STEP_08_BL",
+            "STEP_08_MATCH",
+            "STEP_08_COO",
+            "STEP_08_COC",
+            "STEP_09",
+        ],
         "step_names": {
             "STEP_06": ("Freight Booking", "حجز النولون وتأكيد الخط الملاحي"),
             "STEP_07": ("Freight Allocations", "تخصيص وتوزيع الحاويات والبضائع"),
-            "STEP_08": ("Draft Docs Review", "مراجعة وتدقيق مسودات الشحن"),
-            "STEP_09": ("Docs Customs Approval", "الاعتماد النهائي للمستندات من الجمارك"),
+            "STEP_08_PO": ("PO & Packing Reconciliation", "مطابقة الفاتورة وقائمة التعبئة مع أمر الشراء"),
+            "STEP_08_BL": ("Draft B/L Review & Approval", "مراجعة واعتماد مسودة بوليصة الشحن"),
+            "STEP_08_MATCH": ("Smart Invoice vs B/L Match", "المطابقة الذكية بين الفاتورة والبوليصة"),
+            "STEP_08_COO": ("Draft COO & EUR.1 Review", "مسودة شهادة المنشأ و EUR.1"),
+            "STEP_08_COC": ("Draft Inspection Review", "شهادات الفحص والتفتيش والمطابقة"),
+            "STEP_09": ("Docs Customs Approval", "الاعتماد النهائي للمستندات الجمركية وتعديلات المورد"),
         },
     },
     {
@@ -111,7 +124,9 @@ PHASES_DEFINITION = [
 
 ORDERED_STEP_CODES = [
     "STEP_01", "STEP_02", "STEP_03", "STEP_04", "STEP_05",
-    "STEP_06", "STEP_07", "STEP_08", "STEP_09", "STEP_10",
+    "STEP_06", "STEP_07",
+    "STEP_08_PO", "STEP_08_BL", "STEP_08_MATCH", "STEP_08_COO", "STEP_08_COC",
+    "STEP_09", "STEP_10",
     "STEP_11", "STEP_12", "STEP_13", "STEP_14", "STEP_15",
     "STEP_16", "STEP_17", "STEP_18", "STEP_19", "STEP_20", "STEP_21"
 ]
@@ -123,9 +138,15 @@ for p in PHASES_DEFINITION:
         STEP_TO_PHASE_MAP[code] = p["phase_id"]
         STEP_NAME_MAP[code] = names
 
+# Legacy fallback for STEP_08
+STEP_TO_PHASE_MAP["STEP_08"] = 3
+STEP_NAME_MAP["STEP_08"] = ("Draft Docs Review", "مراجعة وتدقيق مسودات الشحن")
+
 
 def get_step_neighbors(step_code: str):
     """Returns (prev_code, next_code) based on standard sequential workflow."""
+    if step_code == "STEP_08":
+        return "STEP_07", "STEP_08_PO"
     if step_code not in ORDERED_STEP_CODES:
         return None, None
     idx = ORDERED_STEP_CODES.index(step_code)
@@ -216,6 +237,34 @@ def get_board_summary_service(db: Session) -> LifecycleBoardSummaryResponse:
     )
 
 
+def transition_stage_activity_service(
+    db: Session,
+    completed_step_code: str,
+    import_file_id: Optional[int] = None,
+    import_file_code: Optional[str] = None,
+    target_step_codes: Optional[List[str]] = None,
+    notes: Optional[str] = None,
+    performed_by: Optional[str] = None,
+    assigned_user: Optional[str] = None,
+    **kwargs,
+) -> Dict[str, Any]:
+    """
+    Convenience alias / wrapper for advance_lifecycle_step_service used by downstream
+    operational and documentation modules to advance the shipment through the 25 lifecycle steps.
+    """
+    user = assigned_user or performed_by
+    return advance_lifecycle_step_service(
+        db=db,
+        completed_step_code=completed_step_code,
+        import_file_id=import_file_id,
+        import_file_code=import_file_code,
+        target_step_codes=target_step_codes,
+        notes=notes,
+        assigned_user=user,
+        **kwargs,
+    )
+
+
 def advance_lifecycle_step_service(
     db: Session,
     completed_step_code: str,
@@ -233,14 +282,14 @@ def advance_lifecycle_step_service(
     min_progress_percent: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
-    Generic Central Synchronization Mechanism for Shipment Lifecycle Operations Board (6 Phases / 21 Steps).
+    Generic Central Synchronization Mechanism for Shipment Lifecycle Operations Board (6 Phases / 25 Steps).
     - Idempotent and transaction-safe.
     - Resolves file by either import_file_code or import_file_id.
     - When auto_complete_prior=True, automatically marks all prior active or unrecorded steps up to
       completed_step_code as 'Completed', preventing orphaned shipments from remaining trapped in previous phases.
     - Marks completed_step_code as 'Completed'.
     - Activates target_step_codes (or auto-inferred natural next step) as 'In-Progress'.
-    - Dynamically computes progress percentage based on target step index: (step_idx / 21) * 100%.
+    - Dynamically computes progress percentage based on target step index: (step_idx / 25) * 100%.
     - Updates ImportFile tracking fields (current_stage, current_module, next_action, progress_percent).
     - Auto-closes prior SmartTasks and creates the next step SmartTask.
     """
@@ -559,6 +608,48 @@ def sync_booking_lifecycle_stage(
             custom_module_name="STEP_06 حجز النولون وتأكيد الخط الملاحي",
             custom_next_action="STEP_06 متابعة تأكيد حجز الشحن واستلام إشعار التأكيد (Booking Confirmation)",
             min_progress_percent=45.0,
+        )
+
+
+def sync_cargo_shipping_lifecycle_stage(
+    db: Session,
+    import_file_id: int,
+    cargo_shipping_code: Optional[str] = None,
+    container_count: int = 1,
+    is_final_completed: bool = True,
+):
+    """
+    Auto-advances shipment from STEP_07 (Freight Allocations) to STEP_08_PO (PO & Packing Reconciliation)
+    when Cargo Shipping allocations & container records are saved and finalized.
+    """
+    if is_final_completed:
+        containers_text = f" ({container_count} حاوية/طرد)" if container_count else ""
+        return advance_lifecycle_step_service(
+            db=db,
+            completed_step_code="STEP_07",
+            import_file_id=import_file_id,
+            target_step_codes=["STEP_08_PO"],
+            auto_complete_prior=True,
+            notes=f"تم إتمام وتدقيق بيانات تخصيص الحاويات وأوزان VGM لسجل الشحن {cargo_shipping_code or ''}{containers_text}",
+            source_module="Cargo Shipping Lifecycle",
+            custom_stage_title="Phase 3: Booking & Doc Prep",
+            custom_module_name="STEP_08_PO مطابقة الفاتورة وقائمة التعبئة مع أمر الشراء",
+            custom_next_action="STEP_08_PO مراجعة وتدقيق بنود الفاتورة والباكينج ومطابقة أمر الشراء",
+            min_progress_percent=48.0,
+        )
+    else:
+        return advance_lifecycle_step_service(
+            db=db,
+            completed_step_code="STEP_06",
+            import_file_id=import_file_id,
+            target_step_codes=["STEP_07"],
+            auto_complete_prior=True,
+            notes=f"سجل تخصيص الحاويات والشحن {cargo_shipping_code or ''} قيد الإعداد والتدقيق (مسودة)",
+            source_module="Cargo Shipping Lifecycle",
+            custom_stage_title="Phase 3: Booking & Doc Prep",
+            custom_module_name="STEP_07 تخصيص وتوزيع الحاويات والبضائع",
+            custom_next_action="STEP_07 استكمال أرقام الحاويات والأختام وأوزان VGM",
+            min_progress_percent=50.0,
         )
 
 
@@ -1042,11 +1133,19 @@ def skip_step_service(
 
 def initialize_file_lifecycle_service(db: Session, import_file_code: str, starting_step: str = "STEP_01") -> None:
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    step_num = int(starting_step.replace("STEP_", "")) if starting_step.startswith("STEP_") else 1
+    normalized_starting_step = "STEP_08_PO" if starting_step == "STEP_08" else starting_step
 
-    # Mark prior steps as Pre-Completed / Skipped
-    for i in range(1, step_num):
-        prior_code = f"STEP_{str(i).zfill(2)}"
+    if normalized_starting_step in ORDERED_STEP_CODES:
+        start_idx = ORDERED_STEP_CODES.index(normalized_starting_step)
+    else:
+        start_idx = 0
+
+    # Mark prior steps in ORDERED_STEP_CODES as Pre-Completed / Skipped
+    has_step_08_sub = False
+    for i in range(0, start_idx):
+        prior_code = ORDERED_STEP_CODES[i]
+        if prior_code.startswith("STEP_08_"):
+            has_step_08_sub = True
         repo.save_or_update_activity(
             db,
             import_file_code=import_file_code,
@@ -1056,14 +1155,25 @@ def initialize_file_lifecycle_service(db: Session, import_file_code: str, starti
             notes="تم تجاوزها واكتمالها لبدء الشحنة مباشرة من مرحلة لاحقة",
         )
 
+    # Legacy STEP_08 fallback record for backward-compatibility
+    if has_step_08_sub:
+        repo.save_or_update_activity(
+            db,
+            import_file_code=import_file_code,
+            step_code="STEP_08",
+            status="Completed",
+            completed_at=now_str,
+            notes="تم تجاوزها واكتمالها لبدء الشحنة مباشرة من مرحلة لاحقة",
+        )
+
     # Activate starting step
     repo.save_or_update_activity(
         db,
         import_file_code=import_file_code,
-        step_code=starting_step,
+        step_code=normalized_starting_step,
         status="In-Progress",
         started_at=now_str,
-        notes=f"نقطة البداية المحددة للشحنة: {starting_step}",
+        notes=f"نقطة البداية المحددة للشحنة: {normalized_starting_step}",
     )
 
 

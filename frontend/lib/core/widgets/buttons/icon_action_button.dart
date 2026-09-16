@@ -135,3 +135,17 @@ class DeleteActionButton extends IconActionButton {
           backgroundColor: AppTheme.crimsonLight,
         );
 }
+
+class CloneActionButton extends IconActionButton {
+  const CloneActionButton({
+    super.key,
+    required super.tooltip,
+    required super.onTap,
+    super.iconSize = 16,
+  }) : super(
+          icon: Icons.copy_rounded,
+          color: AppTheme.cobalt,
+          backgroundColor: AppTheme.cobaltLight,
+        );
+}
+

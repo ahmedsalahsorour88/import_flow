@@ -732,6 +732,23 @@ class ProductionSyncService:
         Also fetches installer_url for in-app auto-update.
         """
         import urllib.request
+        from fastapi import HTTPException
+
+        # S-007: SSRF protection — only allow trusted domains for custom URLs
+        _ALLOWED_URL_PREFIXES = (
+            "https://raw.githubusercontent.com/",
+            "https://api.github.com/",
+            "https://github.com/",
+        )
+        if custom_remote_url is not None:
+            if not any(custom_remote_url.startswith(p) for p in _ALLOWED_URL_PREFIXES):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "custom_remote_url must point to a trusted domain "
+                        "(raw.githubusercontent.com, api.github.com, or github.com)."
+                    ),
+                )
 
         curr_info = self.get_system_version_info()
         curr_ver = curr_info.version

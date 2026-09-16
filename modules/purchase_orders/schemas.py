@@ -270,3 +270,14 @@ class POBalanceSummaryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# =========================================================================
+# UX-CLONE-011: Universal Entity-Level Clone Schemas
+# =========================================================================
+
+class ClonePurchaseOrderRequest(BaseModel):
+    new_po_number: str = Field(..., min_length=2, max_length=50, description="Unique new PO number for the cloned purchase order")
+    new_po_reference: Optional[str] = Field(None, max_length=200, description="Optional new display reference or title")
+    copy_items: bool = Field(True, description="Copy commercial PO line items (default True per UX-CLONE-011)")
+    copy_packing_list: bool = Field(True, description="Copy packing list items (default True)")
+    copy_pallet_plan: bool = Field(True, description="Copy pallet plan items (default True)")
+    notes: Optional[str] = Field(None, description="Optional notes on the cloned purchase order")

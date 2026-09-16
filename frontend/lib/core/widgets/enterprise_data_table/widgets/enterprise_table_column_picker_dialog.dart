@@ -2,18 +2,22 @@ import 'package:flutter/material.dart';
 import '../../../theme/app_theme.dart';
 import '../models/enterprise_column.dart';
 
-/// Interactive modal dialog allowing users to customize column visibility for [EnterpriseDataTable].
+/// Interactive modal dialog allowing users to customize column visibility and ordering for [EnterpriseDataTable].
 class EnterpriseTableColumnPickerDialog<T> extends StatefulWidget {
   final List<EnterpriseColumn<T>> allColumns;
   final Set<String> visibleColumnIds;
+  final List<String>? currentColumnOrder;
   final ValueChanged<Set<String>> onColumnsChanged;
+  final void Function(Set<String> visibleIds, List<String> orderedIds)? onConfigurationChanged;
   final VoidCallback onResetToDefaults;
 
   const EnterpriseTableColumnPickerDialog({
     super.key,
     required this.allColumns,
     required this.visibleColumnIds,
+    this.currentColumnOrder,
     required this.onColumnsChanged,
+    this.onConfigurationChanged,
     required this.onResetToDefaults,
   });
 
@@ -21,7 +25,9 @@ class EnterpriseTableColumnPickerDialog<T> extends StatefulWidget {
     required BuildContext context,
     required List<EnterpriseColumn<T>> allColumns,
     required Set<String> visibleColumnIds,
+    List<String>? currentColumnOrder,
     required ValueChanged<Set<String>> onColumnsChanged,
+    void Function(Set<String> visibleIds, List<String> orderedIds)? onConfigurationChanged,
     required VoidCallback onResetToDefaults,
   }) {
     return showDialog(
@@ -29,7 +35,9 @@ class EnterpriseTableColumnPickerDialog<T> extends StatefulWidget {
       builder: (ctx) => EnterpriseTableColumnPickerDialog<T>(
         allColumns: allColumns,
         visibleColumnIds: visibleColumnIds,
+        currentColumnOrder: currentColumnOrder,
         onColumnsChanged: onColumnsChanged,
+        onConfigurationChanged: onConfigurationChanged,
         onResetToDefaults: onResetToDefaults,
       ),
     );
@@ -43,17 +51,33 @@ class EnterpriseTableColumnPickerDialog<T> extends StatefulWidget {
 class _EnterpriseTableColumnPickerDialogState<T>
     extends State<EnterpriseTableColumnPickerDialog<T>> {
   late Set<String> _selectedIds;
+  late List<EnterpriseColumn<T>> _orderedColumns;
   String _filter = '';
 
   @override
   void initState() {
     super.initState();
     _selectedIds = Set<String>.from(widget.visibleColumnIds);
+
+    final initialOrder = widget.currentColumnOrder ?? widget.allColumns.map((c) => c.id).toList();
+    final colMap = {for (final c in widget.allColumns) c.id: c};
+    _orderedColumns = [];
+    for (final id in initialOrder) {
+      if (colMap.containsKey(id)) {
+        _orderedColumns.add(colMap[id]!);
+      }
+    }
+    for (final c in widget.allColumns) {
+      if (!_orderedColumns.any((oc) => oc.id == c.id)) {
+        _orderedColumns.add(c);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredColumns = widget.allColumns.where((col) {
+    final isDark = AppTheme.isDark(context);
+    final filteredColumns = _orderedColumns.where((col) {
       if (_filter.isEmpty) return true;
       return col.title.toLowerCase().contains(_filter.toLowerCase()) ||
           col.id.toLowerCase().contains(_filter.toLowerCase());
@@ -64,7 +88,7 @@ class _EnterpriseTableColumnPickerDialogState<T>
         children: [
           const Icon(Icons.view_column_rounded, color: AppTheme.cobalt),
           const SizedBox(width: 8),
-          const Text('تخصيص أعمدة الجدول', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text('تخصيص وترتيب أعمدة الجدول', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const Spacer(),
           Text(
             '${_selectedIds.length} من ${widget.allColumns.length} عمود معروض',
@@ -73,8 +97,8 @@ class _EnterpriseTableColumnPickerDialogState<T>
         ],
       ),
       content: SizedBox(
-        width: 480,
-        height: 420,
+        width: 520,
+        height: 480,
         child: Column(
           children: [
             // Search field
@@ -87,7 +111,36 @@ class _EnterpriseTableColumnPickerDialogState<T>
               ),
               onChanged: (val) => setState(() => _filter = val.trim()),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
+
+            // Hint banner
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF334155) : const Color(0xFFBFDBFE),
+                  width: 0.8,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.lightbulb_outline_rounded, size: 16, color: AppTheme.cobalt),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'يمكنك تفعيل وإخفاء الأعمدة، أو سحبها بالضغط المطول لإعادة ترتيب ظهورها في الجدول',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1E40AF),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
 
             // Quick Selection buttons
             Wrap(
@@ -128,62 +181,34 @@ class _EnterpriseTableColumnPickerDialogState<T>
               ],
             ),
             const Divider(height: 1),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
 
-            // Columns list
+            // Columns list (Reorderable if not filtered)
             Expanded(
-              child: ListView.builder(
-                itemCount: filteredColumns.length,
-                itemBuilder: (context, index) {
-                  final col = filteredColumns[index];
-                  final isChecked = _selectedIds.contains(col.id);
-
-                  return CheckboxListTile(
-                    dense: true,
-                    title: Row(
-                      children: [
-                        Text(
-                          col.title,
-                          style: TextStyle(
-                            fontWeight: isChecked ? FontWeight.bold : FontWeight.normal,
-                            color: col.isLocked ? Colors.grey.shade600 : Colors.black87,
-                          ),
-                        ),
-                        if (col.isLocked) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text('مثبت', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                          ),
-                        ],
-                      ],
+              child: _filter.isNotEmpty
+                  ? ListView.builder(
+                      itemCount: filteredColumns.length,
+                      itemBuilder: (context, index) => _buildColumnTile(filteredColumns[index], index, isReorderable: false),
+                    )
+                  : ReorderableListView.builder(
+                      buildDefaultDragHandles: true,
+                      itemCount: _orderedColumns.length,
+                      onReorder: (oldIndex, newIndex) {
+                        setState(() {
+                          if (oldIndex < newIndex) {
+                            newIndex -= 1;
+                          }
+                          final item = _orderedColumns.removeAt(oldIndex);
+                          _orderedColumns.insert(newIndex, item);
+                        });
+                      },
+                      itemBuilder: (context, index) => _buildColumnTile(
+                        _orderedColumns[index],
+                        index,
+                        key: ValueKey('col_${_orderedColumns[index].id}'),
+                        isReorderable: true,
+                      ),
                     ),
-                    subtitle: Text(
-                      'المعرف: ${col.id}',
-                      style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
-                    ),
-                    value: isChecked,
-                    onChanged: col.isLocked
-                        ? null
-                        : (val) {
-                            setState(() {
-                              if (val == true) {
-                                _selectedIds.add(col.id);
-                              } else {
-                                // Don't allow unchecking if it's the last column
-                                if (_selectedIds.length > 1) {
-                                  _selectedIds.remove(col.id);
-                                }
-                              }
-                            });
-                          },
-                  );
-                },
-              ),
             ),
           ],
         ),
@@ -200,11 +225,70 @@ class _EnterpriseTableColumnPickerDialogState<T>
           ),
           onPressed: () {
             widget.onColumnsChanged(_selectedIds);
+            widget.onConfigurationChanged?.call(
+              _selectedIds,
+              _orderedColumns.map((c) => c.id).toList(),
+            );
             Navigator.pop(context);
           },
           child: const Text('تطبيق التعديلات'),
         ),
       ],
+    );
+  }
+
+  Widget _buildColumnTile(EnterpriseColumn<T> col, int index, {Key? key, required bool isReorderable}) {
+    final isChecked = _selectedIds.contains(col.id);
+
+    return ListTile(
+      key: key,
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+      leading: Checkbox(
+        value: isChecked,
+        onChanged: col.isLocked
+            ? null
+            : (val) {
+                setState(() {
+                  if (val == true) {
+                    _selectedIds.add(col.id);
+                  } else {
+                    if (_selectedIds.length > 1) {
+                      _selectedIds.remove(col.id);
+                    }
+                  }
+                });
+              },
+      ),
+      title: Row(
+        children: [
+          Text(
+            col.title,
+            style: TextStyle(
+              fontWeight: isChecked ? FontWeight.bold : FontWeight.normal,
+              color: col.isLocked ? Colors.grey.shade600 : null,
+            ),
+          ),
+          if (col.isLocked) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text('مثبت', style: TextStyle(fontSize: 10, color: Colors.grey)),
+            ),
+          ],
+        ],
+      ),
+      subtitle: Text(
+        'المعرف: ${col.id}',
+        style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+      ),
+      trailing: isReorderable
+          ? const Icon(Icons.drag_indicator_rounded, size: 18, color: Colors.grey)
+          : null,
     );
   }
 }

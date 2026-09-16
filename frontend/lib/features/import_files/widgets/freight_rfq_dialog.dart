@@ -101,22 +101,24 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
           _isLoading = false;
         });
       } else {
+        final l = mounted ? context.l10n : null;
         setState(() {
-          _errorMessage = 'فشل جلب بيانات طلب الأسعار من الخادم.';
+          _errorMessage = l?.failedToFetchRfqData ?? 'Failed to fetch RFQ data.';
           _isLoading = false;
         });
       }
     } on DioException catch (e) {
       if (CancelToken.isCancel(e)) return;
       if (!mounted) return;
+      final l = context.l10n;
       setState(() {
-        _errorMessage = 'حدث خطأ أثناء الاتصال: ${e.message}';
+        _errorMessage = e.message ?? l.failedToFetchRfqData;
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = 'حدث خطأ أثناء الاتصال: $e';
+        _errorMessage = e.toString();
         _isLoading = false;
       });
     }
@@ -124,6 +126,8 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final partnersAsync = ref.watch(allPartnersProvider);
     final partnersList = (partnersAsync.asData?.value ?? [])
         .where((p) => p.partnerType.contains('Shipping Line') || p.partnerType.contains('Freight Forwarder'))
@@ -137,7 +141,7 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
           width: 1000,
           height: 750,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? AppTheme.darkCardBackground : Colors.white,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
@@ -151,14 +155,14 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
             // Content Area / Loading
             Expanded(
               child: _isLoading
-                  ? const Center(
+                  ? Center(
                       child: SingleChildScrollView(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            CircularProgressIndicator(color: AppTheme.cobalt),
-                            SizedBox(height: 16),
-                            Text('جاري تجميع تفاصيل الشحنة وتوليد نماذج الأسعار...', style: TextStyle(color: AppTheme.charcoal)),
+                            const CircularProgressIndicator(color: AppTheme.cobalt),
+                            const SizedBox(height: 16),
+                            Text(l.generatingRfqTemplatesLoading, style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                           ],
                         ),
                       ),
@@ -302,12 +306,12 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
             ),
           ),
           const SizedBox(width: 8),
-          ElevatedButton.icon(
+          OutlinedButton.icon(
             icon: const Icon(Icons.refresh, size: 16),
             label: Text(l.freightRfqUpdateBtn),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.cobalt,
-              foregroundColor: Colors.white,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.cobalt,
+              side: const BorderSide(color: AppTheme.cobalt),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             ),
             onPressed: () => _fetchRfqData(_recipientController.text),
@@ -474,12 +478,12 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
                       const SizedBox(height: 16),
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton.icon(
+                        child: OutlinedButton.icon(
                           icon: const Icon(Icons.copy, size: 18),
                           label: Text(l.freightRfqCopyWhatsappBtn),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.emerald,
-                            foregroundColor: Colors.white,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.cobalt,
+                            side: const BorderSide(color: AppTheme.cobalt),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                           onPressed: () => FreightRfqGeneratorService.copyToClipboard(context, rfq.whatsappTextTemplate, 'WhatsApp'),
@@ -647,7 +651,7 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
               icon: const Icon(Icons.picture_as_pdf, size: 18),
               label: Text(l.freightRfqPrintPdfBtn),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.charcoal,
+                backgroundColor: AppTheme.crimson,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),

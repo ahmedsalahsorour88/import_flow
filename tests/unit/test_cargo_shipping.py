@@ -18,6 +18,7 @@ from modules.purchase_orders.model import PurchaseOrder
 from modules.freight_booking.model import ShipmentBooking
 from modules.import_files.model import ImportFile
 from modules.cargo_shipping.model import CargoShippingRecord
+from modules.lifecycle_board.model import ShipmentStageActivity
 from modules.cargo_shipping.schemas import (
     CargoShippingCreate,
     CargoShippingUpdate,
@@ -87,6 +88,7 @@ class TestCargoShippingModule(unittest.TestCase):
         self.db.add(imp_file)
         self.db.commit()
         self.db.refresh(imp_file)
+        self.import_file = imp_file
         self.import_file_id = imp_file.import_file_id
 
         # Second import file for duplicate check
@@ -420,6 +422,39 @@ class TestCargoShippingModule(unittest.TestCase):
         rec2 = create_cargo_shipping_service(self.db, schema2_ok_diff_seal)
         self.assertIsNotNone(rec2)
         self.assertEqual(rec2.containers_loading_data[0]["seal_no"], "SL-NEW-999")
+
+    def test_cargo_shipping_lifecycle_advance_on_create_and_update(self):
+        from modules.lifecycle_board.repository import get_activity
+        # Create record with auto_advance_lifecycle=True
+        schema = CargoShippingCreate(
+            import_file_id=self.import_file.import_file_id,
+            shipment_type="FCL",
+            containers_loading_data=[
+                ContainerLoadingItem(
+                    container_no="WHSU8107265",
+                    seal_no="SL-WHA2570978",
+                    vgm_status="Submitted",
+                    tracking_status="GATED_IN_AT_PORT",
+                )
+            ]
+        )
+        record = create_cargo_shipping_service(self.db, schema, auto_advance_lifecycle=True)
+        self.assertIsNotNone(record)
+
+        # Verify STEP_07 is Completed
+        act_07 = get_activity(self.db, self.import_file.import_file_code, "STEP_07")
+        self.assertIsNotNone(act_07)
+        self.assertEqual(act_07.status, "Completed")
+
+        # Verify STEP_08_PO is In-Progress
+        act_08 = get_activity(self.db, self.import_file.import_file_code, "STEP_08_PO")
+        self.assertIsNotNone(act_08)
+        self.assertEqual(act_08.status, "In-Progress")
+
+        # Verify import_file fields updated
+        self.db.refresh(self.import_file)
+        self.assertIn("STEP_08", self.import_file.current_module)
+        self.assertGreaterEqual(self.import_file.progress_percent, 38.0)
 
 if __name__ == "__main__":
     unittest.main()

@@ -10,8 +10,13 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
+import '../providers/docs_customs_approval_provider.dart';
 import '../services/draft_bl_export_service.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
+import 'search_and_clone_draft_bl_dialog.dart';
 import 'visual_draft_bl_sheet.dart';
+import '../../../core/helpers/table_copy_helper.dart';
+import '../../../core/services/table_export_service.dart';
 
 class DraftBLReviewTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -56,6 +61,10 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   bool _isLoading = false;
   bool _isUploadingFile = false;
   String _registrySearchQuery = '';
+  String _selectedStatusFilter = 'ALL'; // ALL, DRAFT, CERTIFIED
+  int? _filterImportFileId;
+  bool _isSavingDraft = false;
+  bool _isCertifying = false;
   String? _uploadedFileName;
   int? _uploadedFileSize;
   String? _extractionStatus;
@@ -203,6 +212,104 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     }
   }
 
+  void _openSearchAndCloneDraftBlDialog() {
+    final allReviews = ref.read(draftBLReviewsProvider).valueOrNull ?? [];
+    showDialog(
+      context: context,
+      builder: (ctx) => SearchAndCloneDraftBlDialog(
+        reviews: allReviews,
+        onSelectReview: _onCloneDraftBlSession,
+      ),
+    );
+  }
+
+  void _onCloneDraftBlSession(DraftBLReviewModel session) {
+    final blNumber = (session.draftExtractedData?['draft_bl_number'] ??
+            session.draftExtractedData?['bl_number'] ??
+            session.systemDataSnapshot?['draft_bl_number'] ??
+            session.draftBlNumber)
+        .toString();
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: Localizations.localeOf(context),
+        child: Directionality(
+          textDirection: Directionality.of(context),
+          child: CloneEntityReviewDialog(
+            entityType: 'مسودة بوليصة الشحن (Draft B/L Review)',
+            sourceCode: session.blReviewCode,
+            sourceTitle: '$blNumber — ${session.shippingLine ?? ""}',
+            suggestedNewCode: 'DRAFT-BL-2026-',
+            copiedFieldsSummary: {
+              'الخط الملاحي': session.shippingLine ?? '-',
+              'اسم السفينة / الرحلة': '${session.vesselName ?? "-"} / ${session.voyageNumber ?? "-"}',
+              'رقم الحجز (Booking)': session.bookingNumber ?? '-',
+              'شروط النولون': session.freightTerms ?? 'Prepaid',
+              'ميناء الشحن / الوصول': '${session.polName ?? "-"} -> ${session.podName ?? "-"}',
+            },
+            mandatorilyResetFields: const [
+              'رقم مسودة البوليصة: يتم تصفيره إلى كود مسودة مؤقت (DRAFT-BL-2026-)',
+              'معرف جلسة المراجعة السابقة: تم فك الارتباط وبدء جلسة جديدة',
+              'اعتماد المستورد: يعاد إلى قيد الانتظار (Pending) وتفريغ الملاحظات',
+              'اعتماد المخلص الجمركي: يعاد إلى قيد الانتظار (Pending) وتفريغ الملاحظات',
+              'لقطة بيانات النظام: يتم تحديثها ومطابقتها مع ملف الشحنة المختار',
+            ],
+            allowCopyLineItems: false,
+            allowCopyAttachments: false,
+            onConfirm: ({
+              required String newCode,
+              required String newTitle,
+              required bool copyLineItems,
+              required bool copyAttachments,
+              String? notes,
+            }) async {
+              setState(() {
+                _activeSession = null;
+                _activeStep = 0; // Jump to Review Sheet Stage
+                _draftBlNumberCtrl.text = newCode.isNotEmpty ? newCode : 'DRAFT-BL-2026-';
+                if (session.bookingNumber != null) _bookingNoCtrl.text = session.bookingNumber!;
+                if (session.shippingLine != null) _shippingLineCtrl.text = session.shippingLine!;
+                if (session.vesselName != null) _vesselNameCtrl.text = session.vesselName!;
+                if (session.voyageNumber != null) _voyageCtrl.text = session.voyageNumber!;
+                if (session.polName != null) _polCtrl.text = session.polName!;
+                if (session.podName != null) _podCtrl.text = session.podName!;
+                if (session.freightTerms != null) _freightTermsCtrl.text = session.freightTerms!;
+                if (session.placeOfDelivery != null) _placeOfDeliveryCtrl.text = session.placeOfDelivery!;
+                _cbmCtrl.text = session.measurementCbm.toString();
+                _netWeightCtrl.text = session.netWeightKg.toString();
+                _packagesCountCtrl.text = session.packagesCount.toString();
+                if (session.containerSummary != null) _containerNoCtrl.text = session.containerSummary!;
+
+                final draftData = session.draftExtractedData ?? {};
+                if (draftData.isNotEmpty) {
+                  _syncExtractedFieldsToControllers(draftData);
+                  _draftBlNumberCtrl.text = newCode.isNotEmpty ? newCode : 'DRAFT-BL-2026-';
+                }
+
+                _importerNotesCtrl.clear();
+                _brokerNotesCtrl.clear();
+              });
+
+              if (_selectedImportFileId != null) {
+                await _runComparison(silent: true);
+              }
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(context.l10n.cloneDraftBlSuccess),
+                    backgroundColor: AppTheme.wcagEmerald,
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickAndExtractFile() async {
     try {
       final result = await FilePicker.pickFiles(
@@ -288,9 +395,53 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     }
   }
 
-  Future<void> _saveReview() async {
-    if (_comparisonResult == null || _selectedImportFileId == null) return;
-    setState(() => _isLoading = true);
+  Future<void> _saveReview({bool isDraft = false}) async {
+    if (_comparisonResult == null || _selectedImportFileId == null) {
+      if (_selectedImportFileId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.selectImportFileFirst), backgroundColor: Colors.red),
+        );
+      }
+      return;
+    }
+
+    if (!isDraft && _comparisonResult!.hasBlockingMismatch) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: AppTheme.crimson),
+              SizedBox(width: 8),
+              Text('تأكيد الاعتماد النهائي للبوليصة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Text(
+            'توجد فروقات حرجة (${_comparisonResult!.openDiscrepanciesCount}) مسجلة في فحص البوليصة.\nهل أنت متأكد من رغبتك في الاعتماد النهائي وتحديث الموافقة الجمركية على الأوراق والانتقال لمرحلة شهادة المنشأ؟',
+            style: const TextStyle(fontSize: 13),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('تأكيد الاعتماد النهائي'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
+    setState(() {
+      if (isDraft) {
+        _isSavingDraft = true;
+      } else {
+        _isCertifying = true;
+      }
+      _isLoading = true;
+    });
+
     try {
       final payload = {
         'import_file_id': _selectedImportFileId,
@@ -318,28 +469,54 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         'has_blocking_mismatch': _comparisonResult!.hasBlockingMismatch,
         'open_discrepancies_count': _comparisonResult!.openDiscrepanciesCount,
         'blocking_reasons': _comparisonResult!.blockingReasons,
-        'status': _comparisonResult!.status,
+        'status': isDraft ? 'DRAFT' : 'APPROVED',
+        'is_draft': isDraft,
         'correction_request_letter': _comparisonResult!.correctionRequestLetter,
       };
 
       final created = await ref.read(draftBLReviewsProvider.notifier).saveDraftBLReview(payload);
+      ref.invalidate(importFilesProvider);
+      ref.invalidate(docsCustomsApprovalProvider);
+
       setState(() {
         _activeSession = created;
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.draftBlSessionSavedSuccess), backgroundColor: Colors.green),
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(isDraft ? Icons.bookmark_added_rounded : Icons.verified_rounded, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isDraft
+                        ? 'تم حفظ مسودة جلسة مراجعة البوليصة بنجاح (${created.blReviewCode})'
+                        : 'تم الاعتماد النهائي لمسودة البوليصة (${created.blReviewCode}) وتحديث الموافقة الجمركية والانتقال لمرحلة شهادة المنشأ بنجاح',
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: isDraft ? AppTheme.cobalt : AppTheme.emerald,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.draftBlSessionSaveError), backgroundColor: Colors.red),
+          SnackBar(content: Text('خطأ أثناء حفظ الجلسة: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isSavingDraft = false;
+          _isCertifying = false;
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -540,189 +717,254 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     final sys = _comparisonResult?.systemData ?? {};
     final checklist = _comparisonResult?.checklist ?? [];
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Top Header & File Selector Card
         Card(
           elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          color: isDark ? AppTheme.darkCardBackground : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.description, color: AppTheme.cobalt, size: 26),
-                        const SizedBox(width: 10),
-                        Text(
-                          context.l10n.draftBlReviewSheetTitle,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                LayoutBuilder(
+                  builder: (context, _) {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final l = context.l10n;
+
+                    final actionWidgets = [
+                      OutlinedButton.icon(
+                        key: const Key('stage1SearchAndCloneBtn'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                          side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        icon: const Icon(Icons.copy_all, size: 16, color: AppTheme.wcagCobalt),
+                        label: Text(l.searchAndCloneDraftBlBtn, style: const TextStyle(fontSize: 12)),
+                        onPressed: _openSearchAndCloneDraftBlDialog,
+                      ),
+                      if (_comparisonResult != null) ...[
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            try {
+                              await DraftBLExportService.exportDraftBLToPdf(
+                                systemData: _comparisonResult!.systemData,
+                                draftData: _comparisonResult!.draftData,
+                                draftBlNumber: _draftBlNumberCtrl.text.isNotEmpty ? _draftBlNumberCtrl.text : null,
+                                bookingNumber: _bookingNoCtrl.text.isNotEmpty ? _bookingNoCtrl.text : null,
+                              );
+                            } catch (e) {
+                              if (mounted) {
+                                messenger.showSnackBar(
+                                  SnackBar(content: Text(l.draftBlPdfExportError(e.toString())), backgroundColor: Colors.red),
+                                );
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 15),
+                          label: Text(l.draftBlDownloadPdfButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.crimson,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            try {
+                              final res = await DraftBLExportService.exportDraftBLToExcel(
+                                systemData: _comparisonResult!.systemData,
+                                draftData: _comparisonResult!.draftData,
+                                draftBlNumber: _draftBlNumberCtrl.text.isNotEmpty ? _draftBlNumberCtrl.text : null,
+                                bookingNumber: _bookingNoCtrl.text.isNotEmpty ? _bookingNoCtrl.text : null,
+                              );
+                              if (mounted && res != null) {
+                                messenger.showSnackBar(
+                                  SnackBar(content: Text(l.excelExportSuccess(res)), backgroundColor: Colors.green),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                messenger.showSnackBar(
+                                  SnackBar(content: Text(l.excelExportError(e.toString())), backgroundColor: Colors.red),
+                                );
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.table_chart, color: Colors.white, size: 15),
+                          label: Text(context.l10n.draftBlDownloadExcelButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.emerald,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _comparisonResult!.hasBlockingMismatch
+                                ? (isDark ? const Color(0xFF3B1E1E) : Colors.red.shade50)
+                                : (isDark ? const Color(0xFF064E3B) : Colors.green.shade50),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: _comparisonResult!.hasBlockingMismatch
+                                  ? (isDark ? const Color(0xFFEF4444) : Colors.red)
+                                  : (isDark ? const Color(0xFF059669) : Colors.green),
+                            ),
+                          ),
+                          child: Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 6,
+                            children: [
+                              Icon(
+                                _comparisonResult!.hasBlockingMismatch ? Icons.error : Icons.check_circle,
+                                color: _comparisonResult!.hasBlockingMismatch
+                                    ? (isDark ? const Color(0xFFF87171) : Colors.red)
+                                    : (isDark ? const Color(0xFF6EE7B7) : Colors.green),
+                                size: 16,
+                              ),
+                              Text(
+                                _comparisonResult!.hasBlockingMismatch
+                                    ? context.l10n.draftBlMismatchesFound(_comparisonResult!.openDiscrepanciesCount)
+                                    : context.l10n.draftBlPerfectMatchReady,
+                                style: TextStyle(
+                                  color: _comparisonResult!.hasBlockingMismatch
+                                      ? (isDark ? const Color(0xFFFCA5A5) : Colors.red.shade900)
+                                      : (isDark ? const Color(0xFF6EE7B7) : Colors.green.shade900),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
-                    ),
-                    if (_comparisonResult != null)
-                      Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 8,
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: () async {
-                              try {
-                                await DraftBLExportService.exportDraftBLToPdf(
-                                  systemData: _comparisonResult!.systemData,
-                                  draftData: _comparisonResult!.draftData,
-                                  draftBlNumber: _draftBlNumberCtrl.text.isNotEmpty ? _draftBlNumberCtrl.text : null,
-                                  bookingNumber: _bookingNoCtrl.text.isNotEmpty ? _bookingNoCtrl.text : null,
-                                );
-                              } catch (e) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(context.l10n.draftBlPdfExportError(e.toString())), backgroundColor: Colors.red),
-                                  );
-                                }
-                              }
-                            },
-                            icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 15),
-                            label: Text(context.l10n.draftBlDownloadPdfButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.crimson,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ];
+
+                    return Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 10,
+                          children: [
+                            const Icon(Icons.description, color: AppTheme.wcagCobalt, size: 26),
+                            Text(
+                              context.l10n.draftBlReviewSheetTitle,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                              ),
                             ),
-                          ),
-                          ElevatedButton.icon(
-                            onPressed: () async {
-                              try {
-                                final res = await DraftBLExportService.exportDraftBLToExcel(
-                                  systemData: _comparisonResult!.systemData,
-                                  draftData: _comparisonResult!.draftData,
-                                  draftBlNumber: _draftBlNumberCtrl.text.isNotEmpty ? _draftBlNumberCtrl.text : null,
-                                  bookingNumber: _bookingNoCtrl.text.isNotEmpty ? _bookingNoCtrl.text : null,
-                                );
-                                if (mounted && res != null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(context.l10n.excelExportSuccess(res)), backgroundColor: Colors.green),
-                                  );
-                                }
-                              } catch (e) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(context.l10n.excelExportError(e.toString())), backgroundColor: Colors.red),
-                                  );
-                                }
-                              }
-                            },
-                            icon: const Icon(Icons.table_chart, color: Colors.white, size: 15),
-                            label: Text(context.l10n.draftBlDownloadExcelButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.emerald,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: _comparisonResult!.hasBlockingMismatch ? Colors.red.shade50 : Colors.green.shade50,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: _comparisonResult!.hasBlockingMismatch ? Colors.red : Colors.green),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  _comparisonResult!.hasBlockingMismatch ? Icons.error : Icons.check_circle,
-                                  color: _comparisonResult!.hasBlockingMismatch ? Colors.red : Colors.green,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  _comparisonResult!.hasBlockingMismatch
-                                      ? context.l10n.draftBlMismatchesFound(_comparisonResult!.openDiscrepanciesCount)
-                                      : context.l10n.draftBlPerfectMatchReady,
-                                  style: TextStyle(
-                                    color: _comparisonResult!.hasBlockingMismatch ? Colors.red.shade900 : Colors.green.shade900,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
+                          ],
+                        ),
+                        ...actionWidgets,
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 6),
                 Text(
                   context.l10n.draftBlReviewSheetSub,
-                  style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                    fontSize: 13,
+                  ),
                 ),
-                const Divider(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 4,
-                      child: SearchableDropdownField<int>(
-                        value: _selectedImportFileId,
-                        labelText: context.l10n.draftBlSelectImportFileLabel,
-                        searchHintText: context.l10n.searchFileOrShipmentHint,
-                        items: importFiles
-                            .map((f) => SearchableDropdownItem<int>(
-                                  value: f.importFileId,
-                                  label: '${f.primaryNameWithCode} - ${f.companyName} (${f.supplierName})',
-                                ))
-                            .toList(),
-                        onChanged: (v) {
-                          if (v != null && v != _selectedImportFileId) {
-                            setState(() {
-                              _selectedImportFileId = v;
-                              _rawTextCtrl.clear();
-                              _draftBlNumberCtrl.clear();
-                              _bookingNoCtrl.clear();
-                              _shipperCtrl.clear();
-                              _consigneeCtrl.clear();
-                              _notifyPartyCtrl.clear();
-                              _shippingLineCtrl.clear();
-                              _vesselNameCtrl.clear();
-                              _voyageCtrl.clear();
-                              _polCtrl.clear();
-                              _podCtrl.clear();
-                              _freightTermsCtrl.clear();
-                              _placeOfDeliveryCtrl.clear();
-                              _goodsDescCtrl.clear();
-                              _grossWeightCtrl.clear();
-                              _netWeightCtrl.clear();
-                              _cbmCtrl.clear();
-                              _packagesCountCtrl.clear();
-                              _containerNoCtrl.clear();
-                              _sealNoCtrl.clear();
-                              _comparisonResult = null;
-                              _activeSession = null;
-                            });
-                            _runComparison(silent: false);
-                          }
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton.icon(
+                Divider(height: 24, color: isDark ? AppTheme.darkBorder : null),
+                LayoutBuilder(
+                  builder: (ctx, constraints) {
+                    final isCompact = constraints.maxWidth < 650;
+                    final dropdown = SearchableDropdownField<int>(
+                      value: _selectedImportFileId,
+                      labelText: context.l10n.draftBlSelectImportFileLabel,
+                      searchHintText: context.l10n.searchFileOrShipmentHint,
+                      items: importFiles
+                          .map((f) => SearchableDropdownItem<int>(
+                                value: f.importFileId,
+                                label: '${f.primaryNameWithCode} - ${f.companyName} (${f.supplierName})',
+                              ))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null && v != _selectedImportFileId) {
+                          setState(() {
+                            _selectedImportFileId = v;
+                            _rawTextCtrl.clear();
+                            _draftBlNumberCtrl.clear();
+                            _bookingNoCtrl.clear();
+                            _shipperCtrl.clear();
+                            _consigneeCtrl.clear();
+                            _notifyPartyCtrl.clear();
+                            _shippingLineCtrl.clear();
+                            _vesselNameCtrl.clear();
+                            _voyageCtrl.clear();
+                            _polCtrl.clear();
+                            _podCtrl.clear();
+                            _freightTermsCtrl.clear();
+                            _placeOfDeliveryCtrl.clear();
+                            _goodsDescCtrl.clear();
+                            _grossWeightCtrl.clear();
+                            _netWeightCtrl.clear();
+                            _cbmCtrl.clear();
+                            _packagesCountCtrl.clear();
+                            _containerNoCtrl.clear();
+                            _sealNoCtrl.clear();
+                            _comparisonResult = null;
+                            _activeSession = null;
+                          });
+                          _runComparison(silent: false);
+                        }
+                      },
+                    );
+
+                    final refreshBtn = ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.cobalt,
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       icon: _isLoading
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                           : const Icon(Icons.sync, color: Colors.white),
                       label: Text(context.l10n.draftBlRefreshAndCompare, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       onPressed: _isLoading ? null : () => _runComparison(silent: false),
-                    ),
-                  ],
+                    );
+
+                    if (isCompact) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          dropdown,
+                          const SizedBox(height: 10),
+                          refreshBtn,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        Expanded(
+                          flex: 4,
+                          child: dropdown,
+                        ),
+                        const SizedBox(width: 16),
+                        refreshBtn,
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -733,42 +975,80 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         // Multi-Format Smart Extractor Card (PDF / Word / Excel / Text)
         Card(
           elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          color: isDark ? AppTheme.darkCardBackground : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.document_scanner, color: AppTheme.cobalt, size: 22),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(context.l10n.draftBlSmartExtractorTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          const SizedBox(height: 2),
-                          Text(context.l10n.draftBlSmartExtractorSub, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                        ],
-                      ),
-                    ),
-                    // Format Badges
-                    Wrap(
+                LayoutBuilder(
+                  builder: (ctx, constraints) {
+                    final isNarrow = constraints.maxWidth < 650;
+                    final badges = Wrap(
                       spacing: 6,
+                      runSpacing: 4,
                       children: [
                         _buildFormatBadge('PDF', Colors.red),
                         _buildFormatBadge('Word (.docx)', Colors.blue),
                         _buildFormatBadge('Excel (.xlsx)', Colors.green),
                         _buildFormatBadge('Text / OCR', Colors.teal),
                       ],
-                    ),
-                  ],
+                    );
+
+                    if (isNarrow) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.document_scanner, color: AppTheme.cobalt, size: 22),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  context.l10n.draftBlSmartExtractorTitle,
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : AppTheme.charcoal),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(context.l10n.draftBlSmartExtractorSub, style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade400 : Colors.grey)),
+                          const SizedBox(height: 8),
+                          badges,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        const Icon(Icons.document_scanner, color: AppTheme.cobalt, size: 22),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(context.l10n.draftBlSmartExtractorTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : AppTheme.charcoal)),
+                              const SizedBox(height: 2),
+                              Text(context.l10n.draftBlSmartExtractorSub, style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade400 : Colors.grey)),
+                            ],
+                          ),
+                        ),
+                        badges,
+                      ],
+                    );
+                  },
                 ),
-                const Divider(height: 24),
+                Divider(height: 24, color: isDark ? AppTheme.darkBorder : null),
 
                 // File Upload Button & Selected File Status
-                Row(
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 10,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
@@ -786,34 +1066,30 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       ),
                       onPressed: _isUploadingFile ? null : _pickAndExtractFile,
                     ),
-                    const SizedBox(width: 16),
                     if (_uploadedFileName != null)
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade50,
-                            border: Border.all(color: Colors.green.shade300),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.check_circle, color: Colors.green, size: 18),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  context.l10n.draftBlFileExtractedSuccess(_uploadedFileName!, ((_uploadedFileSize ?? 0) / 1024).toStringAsFixed(1)),
-                                  style: TextStyle(color: Colors.green.shade900, fontWeight: FontWeight.bold, fontSize: 12),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.refresh, size: 18, color: Colors.green),
-                                tooltip: context.l10n.draftBlReuploadTooltip,
-                                onPressed: _pickAndExtractFile,
-                              ),
-                            ],
-                          ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.green.shade900.withOpacity(0.3) : Colors.green.shade50,
+                          border: Border.all(color: isDark ? Colors.green.shade700 : Colors.green.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                            Text(
+                              context.l10n.draftBlFileExtractedSuccess(_uploadedFileName!, ((_uploadedFileSize ?? 0) / 1024).toStringAsFixed(1)),
+                              style: TextStyle(color: isDark ? Colors.greenAccent : Colors.green.shade900, fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.refresh, size: 18, color: Colors.green),
+                              tooltip: context.l10n.draftBlReuploadTooltip,
+                              onPressed: _pickAndExtractFile,
+                            ),
+                          ],
                         ),
                       ),
                   ],
@@ -824,55 +1100,67 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.08),
+                      color: AppTheme.cobalt.withOpacity(isDark ? 0.2 : 0.08),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: AppTheme.cobalt.withOpacity(0.35)),
                     ),
-                    child: Row(
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      alignment: WrapAlignment.spaceBetween,
                       children: [
-                        const Icon(Icons.confirmation_number_outlined, color: AppTheme.cobalt, size: 22),
-                        const SizedBox(width: 10),
-                        Text(
-                          context.l10n.draftBlExtractedBlNumberLabel,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 10,
+                          children: [
+                            const Icon(Icons.confirmation_number_outlined, color: AppTheme.cobalt, size: 22),
+                            Text(
+                              context.l10n.draftBlExtractedBlNumberLabel,
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : AppTheme.charcoal),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                _draftBlNumberCtrl.text,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.cobalt, fontFamily: 'monospace'),
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isDark ? AppTheme.darkSurface : Colors.white,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
                               ),
-                              const SizedBox(width: 8),
-                              InkWell(
-                                onTap: () {
-                                  Clipboard.setData(ClipboardData(text: _draftBlNumberCtrl.text));
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(context.l10n.draftBlCopiedBlNumberSnackbar(_draftBlNumberCtrl.text))),
-                                  );
-                                },
-                                child: Tooltip(
-                                  message: context.l10n.draftBlCopyBlNumberTooltip,
-                                  child: const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
-                                ),
+                              child: Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                children: [
+                                  Text(
+                                    _draftBlNumberCtrl.text,
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.cobaltLight : AppTheme.cobalt, fontFamily: 'monospace'),
+                                  ),
+                                  InkWell(
+                                    onTap: () {
+                                      Clipboard.setData(ClipboardData(text: _draftBlNumberCtrl.text));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text(context.l10n.draftBlCopiedBlNumberSnackbar(_draftBlNumberCtrl.text))),
+                                      );
+                                    },
+                                    child: Tooltip(
+                                      message: context.l10n.draftBlCopyBlNumberTooltip,
+                                      child: Icon(Icons.copy, size: 16, color: isDark ? AppTheme.cobaltLight : AppTheme.cobalt),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
-                        const Spacer(),
-                        TextButton.icon(
-                          style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                          icon: const Icon(Icons.edit, size: 14, color: AppTheme.charcoal),
-                          label: Text(context.l10n.edit, style: const TextStyle(fontSize: 12, color: AppTheme.charcoal)),
-                          onPressed: () {
+                            ),
+                            TextButton.icon(
+                              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                              icon: Icon(Icons.edit, size: 14, color: isDark ? Colors.grey.shade300 : AppTheme.charcoal),
+                              label: Text(context.l10n.edit, style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade300 : AppTheme.charcoal)),
+                              onPressed: () {
                             showDialog(
                               context: context,
                               builder: (dCtx) {
@@ -901,10 +1189,12 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             );
                           },
                         ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                   ),
-                ],
+                ),
+              ],
                                 // Safety Guardrail Warning Banner
                 if (_missingCriticalFields.isNotEmpty) ...[
                   const SizedBox(height: 12),
@@ -1039,43 +1329,58 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         ] else ...[
           Card(
             elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Row(
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
                         children: [
                           const Icon(Icons.hub, color: AppTheme.cobalt, size: 22),
-                          const SizedBox(width: 8),
                           Text(
                             context.l10n.draftBlAutoSummaryTitle,
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : AppTheme.charcoal,
+                            ),
                           ),
                         ],
                       ),
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.cobalt,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             icon: const Icon(Icons.description, size: 16),
                             label: Text(context.l10n.draftBlSwitchToVisualBl, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                             onPressed: () => setState(() => _showReferenceAsVisualBL = true),
                           ),
-                          const SizedBox(width: 8),
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.cobalt,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             icon: const Icon(Icons.print, size: 16),
                             label: Text(context.l10n.draftBlPrintButton, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
@@ -1085,12 +1390,12 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               documentTitle: 'SYSTEM REFERENCE BILL OF LADING — NOT NEGOTIABLE',
                             ),
                           ),
-                          const SizedBox(width: 8),
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.crimson,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             icon: const Icon(Icons.picture_as_pdf, size: 16),
                             label: Text(context.l10n.draftBlDownloadPdfButton, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
@@ -1100,12 +1405,12 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               documentTitle: 'SYSTEM REFERENCE BILL OF LADING — NOT NEGOTIABLE',
                             ),
                           ),
-                          const SizedBox(width: 8),
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.emerald,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             icon: const Icon(Icons.table_chart, size: 16),
                             label: Text(context.l10n.draftBlDownloadExcelButton, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
@@ -1155,36 +1460,75 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         // SECTION 2: REVIEW CHECKLIST TABLE (THE 20-FIELD COMPARISON ENGINE)
         Card(
           elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          color: isDark ? AppTheme.darkCardBackground : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Row(
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
                       children: [
                         const Icon(Icons.checklist_rtl, color: AppTheme.cobalt, size: 24),
-                        const SizedBox(width: 8),
                         Text(
                           context.l10n.draftBlChecklistSectionTitle,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : AppTheme.charcoal,
+                          ),
                         ),
                       ],
                     ),
-                    Row(
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 8,
                       children: [
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
-                          icon: const Icon(Icons.save, color: Colors.white, size: 18),
-                          label: Text(context.l10n.draftBlSaveSessionButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          onPressed: _saveReview,
+                        OutlinedButton.icon(
+                          key: const Key('draftBlSaveDraftBtn'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.cobalt,
+                            side: const BorderSide(color: AppTheme.cobalt),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: _isSavingDraft
+                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.bookmark_added_outlined, size: 18),
+                          label: const Text('حفظ مسودة مؤقتة', style: TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: _isLoading ? null : () => _saveReview(isDraft: true),
                         ),
-                        const SizedBox(width: 10),
                         ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.orange.shade800, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
+                          key: const Key('draftBlCertifyBtn'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.emerald,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: _isCertifying
+                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Icon(Icons.verified_rounded, size: 18),
+                          label: const Text('اعتماد نهائي للمستندات', style: TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: _isLoading ? null : () => _saveReview(isDraft: false),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange.shade800,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
                           icon: const Icon(Icons.assignment_late, color: Colors.white, size: 18),
                           label: Text(context.l10n.draftBlRevisionReportCarrierButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                           onPressed: () => setState(() => _activeStep = 1),
@@ -1579,7 +1923,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                         final rowSummary = [label, corr, resp, rsn].join('\t');
 
                         return DataRow(cells: [
-                          DataCell(CopyableTableCell(
+                      DataCell(CopyableTableCell(
                             value: label,
                             rowSummary: rowSummary,
                             child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -1995,10 +2339,20 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   }
 
   // ===========================================================================
-  // STAGE 5: FINAL REGISTRY
+  // STAGE 5: FINAL REGISTRY & SESSIONS ARCHIVE
   // ===========================================================================
   Widget _buildStage5FinalRegistryView(List<DraftBLReviewModel> allReviews) {
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final totalCount = allReviews.length;
+    final certifiedCount = allReviews.where((r) => !r.isDraft).length;
+    final draftCount = allReviews.where((r) => r.isDraft).length;
+
     final filteredReviews = allReviews.where((r) {
+      if (_selectedStatusFilter == 'DRAFT' && !r.isDraft) return false;
+      if (_selectedStatusFilter == 'CERTIFIED' && r.isDraft) return false;
+      if (_filterImportFileId != null && r.importFileId != _filterImportFileId) return false;
       if (_registrySearchQuery.trim().isEmpty) return true;
       final q = _registrySearchQuery.trim().toLowerCase();
       final blNo = (r.draftExtractedData?['draft_bl_number'] ?? r.draftExtractedData?['bl_number'] ?? r.draftBlNumber).toString().toLowerCase();
@@ -2010,75 +2364,287 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
 
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.verified, color: Colors.green, size: 24),
-                    const SizedBox(width: 8),
-                    Text(context.l10n.draftBlFinalRegistryTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.cobalt,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            LayoutBuilder(
+              builder: (ctx, constraints) {
+                final actions = [
+                  OutlinedButton.icon(
+                    key: const Key('stage5SearchAndCloneBtn'),
+                    icon: const Icon(Icons.copy_all, size: 16, color: AppTheme.cobalt),
+                    label: Text(
+                      context.l10n.searchAndCloneDraftBlBtn,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? AppTheme.cobaltLight : AppTheme.cobalt,
+                      side: BorderSide(color: isDark ? AppTheme.cobaltLight : AppTheme.cobalt),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: _openSearchAndCloneDraftBlDialog,
                   ),
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: Text(context.l10n.draftBlRefreshRegistry, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  onPressed: () {
-                    ref.invalidate(draftBLReviewsProvider);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(context.l10n.draftBlRegistryUpdatedSuccess)),
-                    );
-                  },
-                ),
-              ],
+                  ElevatedButton.icon(
+                    key: const Key('stage5RefreshRegistryBtn'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.cobalt,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: Text(context.l10n.draftBlRefreshRegistry, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    onPressed: () {
+                      ref.invalidate(draftBLReviewsProvider);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(context.l10n.draftBlRegistryUpdatedSuccess)),
+                      );
+                    },
+                  ),
+                ];
+
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.verified, color: Colors.green, size: 24),
+                        const SizedBox(width: 8),
+                        Text(
+                          'سجل جلسات مراجعة وتدقيق بوالص الشحن (B/L)',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : AppTheme.charcoal,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: actions,
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 6),
-            Text(context.l10n.draftBlFinalRegistrySub, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-            const Divider(height: 24),
+            Text(
+              'سجل شامل لجلسات مسودات البوليصة المؤقتة والمعتمدة نهائياً مع تتبع الفروقات والموافقات',
+              style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
 
-            // Search Bar for B/L Number
+            // 1. KPI Cards Banner
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
+                color: isDark ? AppTheme.darkSurface : AppTheme.charcoal,
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Row(
+              child: Wrap(
+                spacing: 16,
+                runSpacing: 12,
+                alignment: WrapAlignment.spaceAround,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  const Icon(Icons.search, color: AppTheme.cobalt, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: context.l10n.draftBlSearchRegistryHint,
-                        border: InputBorder.none,
-                        isDense: true,
-                      ),
-                      onChanged: (val) {
-                        setState(() => _registrySearchQuery = val);
-                      },
-                    ),
+                  _sessionKpiCard(
+                    icon: Icons.assignment_turned_in,
+                    label: 'إجمالي جلسات البوليصة',
+                    value: '$totalCount',
+                    color: Colors.cyanAccent,
                   ),
-                  if (_registrySearchQuery.isNotEmpty)
-                    IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () => setState(() => _registrySearchQuery = ''),
-                    ),
+                  _sessionKpiCard(
+                    icon: Icons.verified_rounded,
+                    label: 'جلسات معتمدة نهائياً',
+                    value: '$certifiedCount',
+                    color: AppTheme.emerald,
+                  ),
+                  _sessionKpiCard(
+                    icon: Icons.bookmark_added_outlined,
+                    label: 'مسودات مؤقتة قيد التعديل',
+                    value: '$draftCount',
+                    color: AppTheme.orange,
+                  ),
                 ],
               ),
+            ),
+            const SizedBox(height: 16),
+
+            // 2. Filter & Actions Toolbar
+            Wrap(
+              spacing: 12,
+              runSpacing: 10,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                ChoiceChip(
+                  label: Text('الكل ($totalCount)'),
+                  selected: _selectedStatusFilter == 'ALL',
+                  onSelected: (_) => setState(() => _selectedStatusFilter = 'ALL'),
+                  selectedColor: AppTheme.cobalt,
+                  labelStyle: TextStyle(
+                    color: _selectedStatusFilter == 'ALL' ? Colors.white : (isDark ? Colors.white70 : AppTheme.charcoal),
+                    fontWeight: _selectedStatusFilter == 'ALL' ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 12,
+                  ),
+                ),
+                ChoiceChip(
+                  label: Text('معتمدة نهائية ($certifiedCount)'),
+                  selected: _selectedStatusFilter == 'CERTIFIED',
+                  onSelected: (_) => setState(() => _selectedStatusFilter = 'CERTIFIED'),
+                  selectedColor: AppTheme.emerald,
+                  labelStyle: TextStyle(
+                    color: _selectedStatusFilter == 'CERTIFIED' ? Colors.white : (isDark ? Colors.white70 : AppTheme.charcoal),
+                    fontWeight: _selectedStatusFilter == 'CERTIFIED' ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 12,
+                  ),
+                ),
+                ChoiceChip(
+                  label: Text('مسودات مؤقتة ($draftCount)'),
+                  selected: _selectedStatusFilter == 'DRAFT',
+                  onSelected: (_) => setState(() => _selectedStatusFilter = 'DRAFT'),
+                  selectedColor: AppTheme.orange,
+                  labelStyle: TextStyle(
+                    color: _selectedStatusFilter == 'DRAFT' ? Colors.white : (isDark ? Colors.white70 : AppTheme.charcoal),
+                    fontWeight: _selectedStatusFilter == 'DRAFT' ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 12,
+                  ),
+                ),
+                if (importFiles.isNotEmpty)
+                  SizedBox(
+                    width: 280,
+                    child: SearchableDropdownField<int?>(
+                      labelText: 'تصفية حسب ملف الشحنة',
+                      value: _filterImportFileId,
+                      items: [
+                        const SearchableDropdownItem<int?>(value: null, label: 'كافة الشحنات والملفات'),
+                        ...importFiles.map((f) => SearchableDropdownItem<int?>(
+                              value: f.importFileId,
+                              label: '${f.primaryNameWithCode} - ${f.supplierName}',
+                            )),
+                      ],
+                      onChanged: (val) => setState(() => _filterImportFileId = val),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Search Bar & Export Buttons
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = constraints.maxWidth < 768;
+                final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                final searchBar = Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.search, color: AppTheme.cobalt, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          key: const Key('draftBlRegistrySearchInput'),
+                          decoration: InputDecoration(
+                            hintText: context.l10n.draftBlSearchRegistryHint,
+                            hintStyle: TextStyle(color: isDark ? Colors.grey.shade400 : null),
+                            border: InputBorder.none,
+                            isDense: true,
+                          ),
+                          style: TextStyle(color: isDark ? Colors.white : null),
+                          onChanged: (val) {
+                            setState(() => _registrySearchQuery = val);
+                          },
+                        ),
+                      ),
+                      if (_registrySearchQuery.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () => setState(() => _registrySearchQuery = ''),
+                        ),
+                    ],
+                  ),
+                );
+
+                final actionButtons = [
+                  OutlinedButton.icon(
+                    key: const Key('draftBlRegistryCopyBtn'),
+                    icon: const Icon(Icons.copy, size: 16),
+                    label: Text(isAr ? 'نسخ TSV' : 'Copy TSV'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal,
+                      side: BorderSide(color: isDark ? AppTheme.wcagCobalt : AppTheme.charcoal),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                    onPressed: () => _copyDraftBlRegistryAsTsv(filteredReviews),
+                  ),
+                  OutlinedButton.icon(
+                    key: const Key('draftBlRegistryExcelBtn'),
+                    icon: const Icon(Icons.table_chart, size: 16, color: Colors.green),
+                    label: Text(isAr ? 'تصدير Excel' : 'Export Excel'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.green.shade700,
+                      side: const BorderSide(color: Colors.green),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                    onPressed: () => _exportDraftBlRegistryToExcel(filteredReviews),
+                  ),
+                  OutlinedButton.icon(
+                    key: const Key('draftBlRegistryPdfBtn'),
+                    icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.red),
+                    label: Text(isAr ? 'تصدير PDF' : 'Export PDF'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red.shade700,
+                      side: const BorderSide(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                    onPressed: () => _exportDraftBlRegistryToPdf(filteredReviews),
+                  ),
+                ];
+
+                if (isMobile) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      searchBar,
+                      const SizedBox(height: 10),
+                      Wrap(spacing: 8, runSpacing: 8, children: actionButtons),
+                      const SizedBox(height: 16),
+                    ],
+                  );
+                } else {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Row(
+                      children: [
+                        Expanded(child: searchBar),
+                        const SizedBox(width: 10),
+                        ...actionButtons.map((btn) => Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: btn,
+                        )),
+                      ],
+                    ),
+                  );
+                }
+              },
             ),
 
             if (filteredReviews.isEmpty)
@@ -2091,233 +2657,534 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       const SizedBox(height: 10),
                       Text(
                         _registrySearchQuery.isNotEmpty ? context.l10n.draftBlNoRegistriesFound : context.l10n.draftBlNoRegistriesYet,
-                        style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         _registrySearchQuery.isNotEmpty ? context.l10n.draftBlTryDifferentSearch : context.l10n.draftBlExtractNewDraftHint,
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                        style: TextStyle(color: isDark ? Colors.grey.shade500 : Colors.grey.shade600, fontSize: 12),
                       ),
                     ],
                   ),
                 ),
               )
             else
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  columnSpacing: 22,
-                  headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-                  columns: [
-                    DataColumn(label: Text(context.l10n.draftBlRegistryColSessionId, style: const TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text(context.l10n.draftBlRegistryColBlNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                    DataColumn(label: Text(context.l10n.draftBlRegistryColShippingLine, style: const TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text(context.l10n.draftBlRegistryColVesselVoyage, style: const TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text(context.l10n.draftBlRegistryColStage, style: const TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text(context.l10n.draftBlRegistryColImporterApproval, style: const TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text(context.l10n.draftBlRegistryColBrokerApproval, style: const TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text(context.l10n.draftBlRegistryColStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text(context.l10n.draftBlRegistryColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
-                  ],
-                  rows: filteredReviews.map((r) {
-                    final blNumber = (r.draftExtractedData?['draft_bl_number'] ??
-                            r.draftExtractedData?['bl_number'] ??
-                            r.systemDataSnapshot?['draft_bl_number'] ??
-                            r.draftBlNumber)
-                        .toString();
+              SelectionArea(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 950),
+                    child: DataTable(
+                      columnSpacing: 18,
+                      headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : Colors.grey.shade100),
+                      columns: [
+                        DataColumn(label: Text(context.l10n.draftBlRegistryColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        const DataColumn(label: Text('نوع الجلسة', style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(context.l10n.draftBlRegistryColSessionId, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(context.l10n.draftBlRegistryColBlNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                        DataColumn(label: Text(context.l10n.draftBlRegistryColShippingLine, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(context.l10n.draftBlRegistryColVesselVoyage, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(context.l10n.draftBlRegistryColStage, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(context.l10n.draftBlRegistryColImporterApproval, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(context.l10n.draftBlRegistryColBrokerApproval, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(context.l10n.draftBlRegistryColStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
+                      ],
+                      rows: filteredReviews.map((r) {
+                        final blNumber = (r.draftExtractedData?['draft_bl_number'] ??
+                                r.draftExtractedData?['bl_number'] ??
+                                r.systemDataSnapshot?['draft_bl_number'] ??
+                                r.draftBlNumber)
+                            .toString();
 
-                    final vesselVoyage = '${r.vesselName ?? "-"} / ${r.voyageNumber ?? "-"}';
-                    final importerApproval = r.importerApprovalStatus == 'Approved' ? context.l10n.approved : r.importerApprovalStatus;
-                    final brokerApproval = r.brokerApprovalStatus == 'Approved' ? context.l10n.approved : r.brokerApprovalStatus;
-                    final statusLabel = r.status == 'Final Approved' || r.status == 'Approved' ? context.l10n.approved : r.status;
-                    final rowSummary = [
-                      '#${r.blReviewId}',
-                      blNumber,
-                      r.shippingLine ?? '-',
-                      vesselVoyage,
-                      r.stage,
-                      importerApproval,
-                      brokerApproval,
-                      statusLabel,
-                    ].join('\t');
+                        final vesselVoyage = '${r.vesselName ?? "-"} / ${r.voyageNumber ?? "-"}';
+                        final importerApproval = r.importerApprovalStatus == 'Approved' ? context.l10n.approved : r.importerApprovalStatus;
+                        final brokerApproval = r.brokerApprovalStatus == 'Approved' ? context.l10n.approved : r.brokerApprovalStatus;
+                        final statusLabel = r.status == 'Final Approved' || r.status == 'Approved' ? context.l10n.approved : r.status;
+                        final isDraft = r.isDraft;
+                        final rowSummary = [
+                          isDraft ? 'مسودة مؤقتة' : 'معتمدة نهائية',
+                          '#${r.blReviewId}',
+                          blNumber,
+                          r.shippingLine ?? '-',
+                          vesselVoyage,
+                          r.stage,
+                          importerApproval,
+                          brokerApproval,
+                          statusLabel,
+                        ].join('\t');
 
-                    return DataRow(cells: [
-                      DataCell(CopyableTableCell(
-                        value: '#${r.blReviewId}',
-                        rowSummary: rowSummary,
-                        child: Text('#${r.blReviewId}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      )),
-                      DataCell(
-                        CopyableTableCell(
-                          value: blNumber,
-                          rowSummary: rowSummary,
-                          child: InkWell(
-                            onTap: () => CopyHelper.copy(context, blNumber),
-                            child: Container(
+                        return DataRow(cells: [
+                          DataCell(
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Tooltip(
+                                  message: context.l10n.cloneDraftBlRecordTooltip,
+                                  child: IconButton(
+                                    key: Key('cloneDraftBlRowBtn_${r.blReviewId}'),
+                                    icon: const Icon(Icons.copy_all, size: 18, color: AppTheme.emerald),
+                                    onPressed: () => _onCloneDraftBlSession(r),
+                                    constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                ),
+                                Tooltip(
+                                  message: 'استعادة وتحميل الجلسة في أداة الفحص',
+                                  child: IconButton(
+                                    icon: const Icon(Icons.play_circle_outline, size: 18, color: AppTheme.cobalt),
+                                    onPressed: () => _loadSessionIntoEditor(r),
+                                    constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                ),
+                                Tooltip(
+                                  message: 'عرض تفاصيل ومصفوفة الجلسة',
+                                  child: IconButton(
+                                    icon: const Icon(Icons.info_outline, size: 18, color: AppTheme.charcoal),
+                                    onPressed: () => _showDraftBLSessionDetailsDialog(r),
+                                    constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                ),
+                                Tooltip(
+                                  message: context.l10n.draftBlPrintBlTooltip,
+                                  child: IconButton(
+                                    icon: Icon(Icons.print, size: 18, color: isDark ? Colors.grey.shade300 : AppTheme.charcoal),
+                                    onPressed: () async {
+                                      try {
+                                        final sysData = r.systemDataSnapshot ?? {};
+                                        final draftData = r.draftExtractedData ?? {};
+                                        await DraftBLExportService.printDraftBL(
+                                          systemData: sysData,
+                                          draftData: draftData,
+                                          draftBlNumber: blNumber,
+                                        );
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text(context.l10n.draftBlPrintError(e.toString())), backgroundColor: Colors.red),
+                                          );
+                                        }
+                                      }
+                                    },
+                                    constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                ),
+                                Tooltip(
+                                  message: context.l10n.draftBlDownloadPdfTooltip,
+                                  child: IconButton(
+                                    icon: const Icon(Icons.picture_as_pdf, size: 18, color: AppTheme.crimson),
+                                    onPressed: () async {
+                                      try {
+                                        final sysData = r.systemDataSnapshot ?? {};
+                                        final draftData = r.draftExtractedData ?? {};
+                                        await DraftBLExportService.exportDraftBLToPdf(
+                                          systemData: sysData,
+                                          draftData: draftData,
+                                          draftBlNumber: blNumber,
+                                        );
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text(context.l10n.draftBlPdfExportError(e.toString())), backgroundColor: Colors.red),
+                                          );
+                                        }
+                                      }
+                                    },
+                                    constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                ),
+                                if (isDraft)
+                                  Tooltip(
+                                    message: 'حذف المسودة',
+                                    child: IconButton(
+                                      icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.crimson),
+                                      onPressed: () => _deleteDraftBLSession(r),
+                                      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                      padding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          DataCell(
+                            Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: AppTheme.cobalt.withOpacity(0.08),
+                                color: isDraft ? AppTheme.orange.withOpacity(0.12) : AppTheme.emerald.withOpacity(0.12),
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                border: Border.all(color: isDraft ? AppTheme.orange : AppTheme.emerald),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.confirmation_number_outlined, size: 14, color: AppTheme.cobalt),
-                                  const SizedBox(width: 6),
+                                  Icon(isDraft ? Icons.edit_document : Icons.verified_rounded, size: 13, color: isDraft ? AppTheme.orange : AppTheme.emerald),
+                                  const SizedBox(width: 4),
                                   Text(
-                                    blNumber,
-                                    style: const TextStyle(
+                                    isDraft ? 'مسودة مؤقتة' : 'معتمدة نهائية',
+                                    style: TextStyle(
+                                      fontSize: 11,
                                       fontWeight: FontWeight.bold,
-                                      color: AppTheme.cobalt,
-                                      fontFamily: 'monospace',
-                                      fontSize: 12.5,
+                                      color: isDraft ? AppTheme.orange : AppTheme.emerald,
                                     ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Tooltip(
-                                    message: context.l10n.draftBlCopyBlNumberTooltip,
-                                    child: const Icon(Icons.copy, size: 12, color: AppTheme.cobalt),
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                      DataCell(CopyableTableCell(
-                        value: r.shippingLine ?? '-',
-                        rowSummary: rowSummary,
-                        child: Text(r.shippingLine ?? '-', style: const TextStyle(fontWeight: FontWeight.w600)),
-                      )),
-                      DataCell(CopyableTableCell(
-                        value: vesselVoyage,
-                        rowSummary: rowSummary,
-                        child: Text(vesselVoyage, style: const TextStyle(fontSize: 11.5)),
-                      )),
-                      DataCell(CopyableTableCell(
-                        value: r.stage,
-                        rowSummary: rowSummary,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.blueGrey.shade50,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Colors.blueGrey.shade200),
-                          ),
-                          child: Text(r.stage, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800)),
-                        ),
-                      )),
-                      DataCell(CopyableTableCell(
-                        value: importerApproval,
-                        rowSummary: rowSummary,
-                        child: Text(importerApproval, style: TextStyle(color: r.importerApprovalStatus == 'Approved' ? Colors.green : Colors.orange, fontWeight: FontWeight.bold)),
-                      )),
-                      DataCell(CopyableTableCell(
-                        value: brokerApproval,
-                        rowSummary: rowSummary,
-                        child: Text(brokerApproval, style: TextStyle(color: r.brokerApprovalStatus == 'Approved' ? Colors.green : Colors.orange, fontWeight: FontWeight.bold)),
-                      )),
-                      DataCell(CopyableTableCell(
-                        value: statusLabel,
-                        rowSummary: rowSummary,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: r.status == 'Final Approved' || r.status == 'Approved' ? Colors.green.shade50 : Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: r.status == 'Final Approved' || r.status == 'Approved' ? Colors.green.shade300 : Colors.blue.shade300),
-                          ),
-                          child: Text(
-                            statusLabel,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11,
-                              color: r.status == 'Final Approved' || r.status == 'Approved' ? Colors.green.shade900 : Colors.blue.shade900,
-                            ),
-                          ),
-                        ),
-                      )),
-                      DataCell(
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Tooltip(
-                              message: context.l10n.draftBlViewBlTooltip,
-                              child: IconButton(
-                                icon: const Icon(Icons.visibility, size: 18, color: AppTheme.cobalt),
-                                onPressed: () {
-                                  setState(() {
-                                    _activeSession = r;
-                                    _activeStep = 3; // Jump to Dual Approval view of this session
-                                  });
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(context.l10n.draftBlPreviewSessionSnack(r.blReviewId, blNumber))),
-                                  );
-                                },
-                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                padding: EdgeInsets.zero,
+                          DataCell(CopyableTableCell(
+                            value: '#${r.blReviewId}',
+                            rowSummary: rowSummary,
+                            child: Text('#${r.blReviewId}', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.black87)),
+                          )),
+                          DataCell(
+                            CopyableTableCell(
+                              value: blNumber,
+                              rowSummary: rowSummary,
+                              child: InkWell(
+                                onTap: () => CopyHelper.copy(context, blNumber),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.cobalt.withOpacity(isDark ? 0.2 : 0.08),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.confirmation_number_outlined, size: 14, color: AppTheme.cobalt),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        blNumber,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: isDark ? AppTheme.cobaltLight : AppTheme.cobalt,
+                                          fontFamily: 'monospace',
+                                          fontSize: 12.5,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Tooltip(
+                                        message: context.l10n.draftBlCopyBlNumberTooltip,
+                                        child: Icon(Icons.copy, size: 12, color: isDark ? AppTheme.cobaltLight : AppTheme.cobalt),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
-                            Tooltip(
-                              message: context.l10n.draftBlPrintBlTooltip,
-                              child: IconButton(
-                                icon: const Icon(Icons.print, size: 18, color: AppTheme.charcoal),
-                                onPressed: () async {
-                                  try {
-                                    final sysData = r.systemDataSnapshot ?? {};
-                                    final draftData = r.draftExtractedData ?? {};
-                                    await DraftBLExportService.printDraftBL(
-                                      systemData: sysData,
-                                      draftData: draftData,
-                                      draftBlNumber: blNumber,
-                                    );
-                                  } catch (e) {
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text(context.l10n.draftBlPrintError(e.toString())), backgroundColor: Colors.red),
-                                      );
-                                    }
-                                  }
-                                },
-                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                padding: EdgeInsets.zero,
+                          ),
+                          DataCell(CopyableTableCell(
+                            value: r.shippingLine ?? '-',
+                            rowSummary: rowSummary,
+                            child: Text(r.shippingLine ?? '-', style: const TextStyle(fontWeight: FontWeight.w600)),
+                          )),
+                          DataCell(CopyableTableCell(
+                            value: vesselVoyage,
+                            rowSummary: rowSummary,
+                            child: Text(vesselVoyage, style: const TextStyle(fontSize: 11.5)),
+                          )),
+                          DataCell(CopyableTableCell(
+                            value: r.stage,
+                            rowSummary: rowSummary,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.blueGrey.shade900 : Colors.blueGrey.shade50,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: isDark ? Colors.blueGrey.shade700 : Colors.blueGrey.shade200),
+                              ),
+                              child: Text(
+                                r.stage,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.blueGrey.shade200 : Colors.blueGrey.shade800,
+                                ),
                               ),
                             ),
-                            Tooltip(
-                              message: context.l10n.draftBlDownloadPdfTooltip,
-                              child: IconButton(
-                                icon: const Icon(Icons.picture_as_pdf, size: 18, color: AppTheme.crimson),
-                                onPressed: () async {
-                                  try {
-                                    final sysData = r.systemDataSnapshot ?? {};
-                                    final draftData = r.draftExtractedData ?? {};
-                                    await DraftBLExportService.exportDraftBLToPdf(
-                                      systemData: sysData,
-                                      draftData: draftData,
-                                      draftBlNumber: blNumber,
-                                    );
-                                  } catch (e) {
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text(context.l10n.draftBlPdfExportError(e.toString())), backgroundColor: Colors.red),
-                                      );
-                                    }
-                                  }
-                                },
-                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                padding: EdgeInsets.zero,
+                          )),
+                          DataCell(CopyableTableCell(
+                            value: importerApproval,
+                            rowSummary: rowSummary,
+                            child: Text(
+                              importerApproval,
+                              style: TextStyle(
+                                color: r.importerApprovalStatus == 'Approved' ? Colors.green : Colors.orange,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ]);
-                  }).toList(),
+                          )),
+                          DataCell(CopyableTableCell(
+                            value: brokerApproval,
+                            rowSummary: rowSummary,
+                            child: Text(
+                              brokerApproval,
+                              style: TextStyle(
+                                color: r.brokerApprovalStatus == 'Approved' ? Colors.green : Colors.orange,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          )),
+                          DataCell(CopyableTableCell(
+                            value: statusLabel,
+                            rowSummary: rowSummary,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: r.status == 'Final Approved' || r.status == 'Approved'
+                                    ? (isDark ? Colors.green.shade900.withOpacity(0.3) : Colors.green.shade50)
+                                    : (isDark ? Colors.blue.shade900.withOpacity(0.3) : Colors.blue.shade50),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: r.status == 'Final Approved' || r.status == 'Approved'
+                                      ? (isDark ? Colors.green.shade600 : Colors.green.shade300)
+                                      : (isDark ? Colors.blue.shade600 : Colors.blue.shade300),
+                                ),
+                              ),
+                              child: Text(
+                                statusLabel,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                  color: r.status == 'Final Approved' || r.status == 'Approved'
+                                      ? (isDark ? Colors.greenAccent : Colors.green.shade900)
+                                      : (isDark ? Colors.lightBlueAccent : Colors.blue.shade900),
+                                ),
+                              ),
+                            ),
+                          )),
+                        ]);
+                      }).toList(),
+                    ),
+                  ),
                 ),
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _sessionKpiCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+              Text(value, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _loadSessionIntoEditor(DraftBLReviewModel session) {
+    setState(() {
+      _selectedImportFileId = session.importFileId;
+      _activeSession = session;
+      _draftBlNumberCtrl.text = session.draftBlNumber;
+      _shippingLineCtrl.text = session.shippingLine ?? '';
+      _vesselNameCtrl.text = session.vesselName ?? '';
+      _voyageCtrl.text = session.voyageNumber ?? '';
+      _bookingNoCtrl.text = session.bookingNumber ?? '';
+      _polCtrl.text = session.polName ?? '';
+      _podCtrl.text = session.podName ?? '';
+      _freightTermsCtrl.text = session.freightTerms ?? '';
+      _placeOfDeliveryCtrl.text = session.placeOfDelivery ?? '';
+      _grossWeightCtrl.text = session.systemDataSnapshot?['total_gross_weight_kg']?.toString() ?? '';
+      _netWeightCtrl.text = session.netWeightKg > 0 ? session.netWeightKg.toString() : '';
+      _cbmCtrl.text = session.measurementCbm > 0 ? session.measurementCbm.toString() : '';
+      _packagesCountCtrl.text = session.packagesCount > 0 ? session.packagesCount.toString() : '';
+      _containerNoCtrl.text = session.containerSummary ?? '';
+      _activeStep = 0; // jump to Review Sheet
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('تم استرجاع وتحميل بيانات الجلسة (${session.blReviewCode}) إلى أداة المراجعة بنجاح')),
+    );
+  }
+
+  Future<void> _deleteDraftBLSession(DraftBLReviewModel session) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.delete_forever, color: AppTheme.crimson),
+            SizedBox(width: 8),
+            Text('تأكيد حذف مسودة الجلسة'),
+          ],
+        ),
+        content: Text('هل أنت متأكد من حذف مسودة الجلسة (${session.blReviewCode})؟ لن يؤثر ذلك على بيانات الشحنة الأصلية.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('تأكيد الحذف'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(draftBLReviewsProvider.notifier).deleteDraftBLReview(session.blReviewId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم حذف مسودة الجلسة بنجاح'), backgroundColor: AppTheme.crimson),
+        );
+      }
+    }
+  }
+
+  void _showDraftBLSessionDetailsDialog(DraftBLReviewModel session) {
+    final matrix = session.comparisonMatrix;
+    final isDraft = session.isDraft;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (isDraft ? AppTheme.orange : AppTheme.emerald).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                isDraft ? Icons.bookmark_added_rounded : Icons.verified_rounded,
+                color: isDraft ? AppTheme.orange : AppTheme.emerald,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'تفاصيل الجلسة: ${session.blReviewCode}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'رقم البوليصة: ${session.draftBlNumber}  |  تاريخ الإنشاء: ${session.createdAt}',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: (isDraft ? AppTheme.orange : AppTheme.emerald).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDraft ? AppTheme.orange : AppTheme.emerald),
+              ),
+              child: Text(
+                isDraft ? 'مسودة مؤقتة' : 'معتمدة نهائية',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: isDraft ? AppTheme.orange : AppTheme.emerald,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 850,
+          height: 480,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                const Text('مصفوفة الفحص والمقارنة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 8),
+                if (matrix.isEmpty)
+                  const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('لا توجد بنود مصفوفة محفوظة')))
+                else
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
+                      headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                      columns: const [
+                        DataColumn(label: Text('الحقل المعياري')),
+                        DataColumn(label: Text('القيمة المسجلة بالسيستم')),
+                        DataColumn(label: Text('القيمة بمسودة البوليصة')),
+                        DataColumn(label: Text('حالة التطابق')),
+                      ],
+                      rows: matrix.map((item) {
+                        return DataRow(cells: [
+                          DataCell(Text(item.fieldLabelAr, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataCell(Text(item.systemValue?.toString() ?? '—')),
+                          DataCell(Text(item.draftValue?.toString() ?? '—')),
+                          DataCell(
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: item.matchStatus == 'MATCH' ? Colors.green.withOpacity(0.12) : Colors.red.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                item.matchStatus == 'MATCH' ? 'متطابق' : 'فارق',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: item.matchStatus == 'MATCH' ? Colors.green : Colors.red,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ]);
+                      }).toList(),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _loadSessionIntoEditor(session);
+            },
+            icon: const Icon(Icons.play_circle_outline, size: 16, color: AppTheme.emerald),
+            label: const Text('استعادة وتحميل في أداة المراجعة',
+                style: TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إغلاق'),
+          ),
+        ],
       ),
     );
   }
@@ -2335,5 +3202,134 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
       ),
     );
+  }
+
+  Future<void> _exportDraftBlRegistryToExcel(List<dynamic> reviews) async {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final headers = [
+      isAr ? 'نوع الجلسة' : 'Session Type',
+      context.l10n.draftBlRegistryColSessionId,
+      context.l10n.draftBlRegistryColBlNumber,
+      context.l10n.draftBlRegistryColShippingLine,
+      context.l10n.draftBlRegistryColVesselVoyage,
+      context.l10n.draftBlRegistryColStage,
+      context.l10n.draftBlRegistryColImporterApproval,
+      context.l10n.draftBlRegistryColBrokerApproval,
+      context.l10n.draftBlRegistryColStatus,
+    ];
+    final rows = reviews.map((r) {
+      final blNumber = (r.draftExtractedData?['draft_bl_number'] ??
+              r.draftExtractedData?['bl_number'] ??
+              r.systemDataSnapshot?['draft_bl_number'] ??
+              r.draftBlNumber)
+          .toString();
+      final vesselVoyage = '${r.vesselName ?? "-"} / ${r.voyageNumber ?? "-"}';
+      final importerApproval = r.importerApprovalStatus == 'Approved' ? context.l10n.approved : r.importerApprovalStatus;
+      final brokerApproval = r.brokerApprovalStatus == 'Approved' ? context.l10n.approved : r.brokerApprovalStatus;
+      final statusLabel = r.status == 'Final Approved' || r.status == 'Approved' ? context.l10n.approved : r.status;
+      return [
+        r.isDraft ? (isAr ? 'مسودة مؤقتة' : 'Draft') : (isAr ? 'معتمدة نهائية' : 'Certified'),
+        '#${r.blReviewId}',
+        blNumber,
+        r.shippingLine ?? '-',
+        vesselVoyage,
+        r.stage,
+        importerApproval,
+        brokerApproval,
+        statusLabel,
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToExcel(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isAr ? 'سجل بوالص الشحن المبدئية' : 'Draft B/L Registry',
+      importFileNameOrCode: 'Draft_BL_Registry',
+    );
+  }
+
+  Future<void> _exportDraftBlRegistryToPdf(List<dynamic> reviews) async {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final headers = [
+      isAr ? 'نوع الجلسة' : 'Session Type',
+      context.l10n.draftBlRegistryColSessionId,
+      context.l10n.draftBlRegistryColBlNumber,
+      context.l10n.draftBlRegistryColShippingLine,
+      context.l10n.draftBlRegistryColVesselVoyage,
+      context.l10n.draftBlRegistryColStage,
+      context.l10n.draftBlRegistryColImporterApproval,
+      context.l10n.draftBlRegistryColBrokerApproval,
+      context.l10n.draftBlRegistryColStatus,
+    ];
+    final rows = reviews.map((r) {
+      final blNumber = (r.draftExtractedData?['draft_bl_number'] ??
+              r.draftExtractedData?['bl_number'] ??
+              r.systemDataSnapshot?['draft_bl_number'] ??
+              r.draftBlNumber)
+          .toString();
+      final vesselVoyage = '${r.vesselName ?? "-"} / ${r.voyageNumber ?? "-"}';
+      final importerApproval = r.importerApprovalStatus == 'Approved' ? context.l10n.approved : r.importerApprovalStatus;
+      final brokerApproval = r.brokerApprovalStatus == 'Approved' ? context.l10n.approved : r.brokerApprovalStatus;
+      final statusLabel = r.status == 'Final Approved' || r.status == 'Approved' ? context.l10n.approved : r.status;
+      return [
+        r.isDraft ? (isAr ? 'مسودة مؤقتة' : 'Draft') : (isAr ? 'معتمدة نهائية' : 'Certified'),
+        '#${r.blReviewId}',
+        blNumber,
+        r.shippingLine ?? '-',
+        vesselVoyage,
+        r.stage,
+        importerApproval,
+        brokerApproval,
+        statusLabel,
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToPdf(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isAr ? 'سجل بوالص الشحن المبدئية' : 'Draft B/L Registry',
+      importFileNameOrCode: 'Draft_BL_Registry',
+    );
+  }
+
+  void _copyDraftBlRegistryAsTsv(List<dynamic> reviews) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final headers = [
+      isAr ? 'نوع الجلسة' : 'Session Type',
+      context.l10n.draftBlRegistryColSessionId,
+      context.l10n.draftBlRegistryColBlNumber,
+      context.l10n.draftBlRegistryColShippingLine,
+      context.l10n.draftBlRegistryColVesselVoyage,
+      context.l10n.draftBlRegistryColStage,
+      context.l10n.draftBlRegistryColImporterApproval,
+      context.l10n.draftBlRegistryColBrokerApproval,
+      context.l10n.draftBlRegistryColStatus,
+    ];
+    final rows = reviews.map((r) {
+      final blNumber = (r.draftExtractedData?['draft_bl_number'] ??
+              r.draftExtractedData?['bl_number'] ??
+              r.systemDataSnapshot?['draft_bl_number'] ??
+              r.draftBlNumber)
+          .toString();
+      final vesselVoyage = '${r.vesselName ?? "-"} / ${r.voyageNumber ?? "-"}';
+      final importerApproval = r.importerApprovalStatus == 'Approved' ? context.l10n.approved : r.importerApprovalStatus;
+      final brokerApproval = r.brokerApprovalStatus == 'Approved' ? context.l10n.approved : r.brokerApprovalStatus;
+      final statusLabel = r.status == 'Final Approved' || r.status == 'Approved' ? context.l10n.approved : r.status;
+      return [
+        r.isDraft ? (isAr ? 'مسودة مؤقتة' : 'Draft') : (isAr ? 'معتمدة نهائية' : 'Certified'),
+        '#${r.blReviewId}',
+        blNumber,
+        r.shippingLine ?? '-',
+        vesselVoyage,
+        r.stage,
+        importerApproval,
+        brokerApproval,
+        statusLabel,
+      ];
+    }).toList();
+
+    TableCopyHelper.copyTable(context, headers, rows);
   }
 }

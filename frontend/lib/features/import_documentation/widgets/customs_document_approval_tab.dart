@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/table_export_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/docs_customs_approval_model.dart';
 import '../providers/docs_customs_approval_provider.dart';
 import '../screens/central_docs_archive_screen.dart';
+import 'search_and_clone_customs_approval_dialog.dart';
 
 class CustomsDocumentApprovalTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -16,10 +21,10 @@ class CustomsDocumentApprovalTab extends ConsumerStatefulWidget {
   const CustomsDocumentApprovalTab({super.key, this.initialImportFileId});
 
   @override
-  ConsumerState<CustomsDocumentApprovalTab> createState() => _CustomsDocumentApprovalTabState();
+  ConsumerState<CustomsDocumentApprovalTab> createState() => CustomsDocumentApprovalTabState();
 }
 
-class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentApprovalTab> {
+class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentApprovalTab> {
   int? _selectedImportFileId;
   CrossDocumentMatrixResultModel? _matrixResult;
   bool _isRunningMatrixCheck = false;
@@ -140,7 +145,74 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
     );
   }
 
-  void _showRaiseTicketDialog([CustomsDocumentApprovalModel? item]) {
+  void openSearchAndCloneDialog([List<CustomsDocumentApprovalModel>? items]) {
+    _openSearchAndCloneDialog(items);
+  }
+
+  Future<void> _openSearchAndCloneDialog([List<CustomsDocumentApprovalModel>? items]) async {
+    final available = items ?? (ref.read(docsCustomsApprovalProvider).valueOrNull ?? []);
+    showDialog(
+      context: context,
+      builder: (ctx) => SearchAndCloneCustomsApprovalDialog(
+        items: available,
+        onSelectItem: (item) {
+          _cloneApprovalItem(item);
+        },
+      ),
+    );
+  }
+
+  void _cloneApprovalItem(CustomsDocumentApprovalModel sourceItem) {
+    final l = context.l10n;
+    final suggestedCode = 'DOCAPPR-2026-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+    final docType = _getLocalizedDocType(sourceItem.documentType, l);
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => CloneEntityReviewDialog(
+        entityType: l.searchAndCloneCustomsApprovalDialogTitle,
+        sourceCode: sourceItem.approvalCode,
+        sourceTitle: '$docType - ${sourceItem.documentReferenceNo ?? "REF"}',
+        suggestedNewCode: suggestedCode,
+        copiedFieldsSummary: {
+          'نوع المستند': docType,
+          'الرقم المرجعي': sourceItem.documentReferenceNo != null ? '${sourceItem.documentReferenceNo}-COPY' : '—',
+          'ملف الشحنة': sourceItem.importFileCode ?? '—',
+        },
+        mandatorilyResetFields: [
+          l.customsApprovalClonedResetNotice,
+          'حالة الاعتماد التجاري: إعادة تعيين إلى قيد الانتظار (Pending)',
+          'حالة اعتماد المخلص الجمركي: إعادة تعيين إلى قيد الانتظار (Pending)',
+          'الحالة العامة: إعادة تعيين إلى مسودة قيد التدقيق (Draft)',
+          'تفريغ توقيعات وملاحظات المراجعين بالكامل لبدء اعتماد مستقل',
+        ],
+        allowCopyLineItems: false,
+        allowCopyAttachments: false,
+        onConfirm: ({
+          required String newCode,
+          required String newTitle,
+          required bool copyLineItems,
+          required bool copyAttachments,
+          String? notes,
+        }) async {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(l.cloneCustomsApprovalSuccess),
+                backgroundColor: AppTheme.emerald,
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  void _cloneTicket(DiscrepancyRectificationTicketModel sourceTicket) {
+    _showRaiseTicketDialog(null, sourceTicket);
+  }
+
+  void _showRaiseTicketDialog([CustomsDocumentApprovalModel? item, DiscrepancyRectificationTicketModel? initialTicket]) {
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.customsApprovalSelectFileForTicketWarning)),
@@ -152,6 +224,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
       builder: (c) => _RaiseTicketDialog(
         importFileId: _selectedImportFileId!,
         approvalItem: item,
+        initialTicket: initialTicket,
       ),
     );
   }
@@ -160,6 +233,198 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
     showDialog(
       context: context,
       builder: (c) => _ResolveTicketDialog(ticket: ticket, importFileId: _selectedImportFileId),
+    );
+  }
+
+  void _copyApprovalsAsTsv(List<CustomsDocumentApprovalModel> approvals) {
+    final isAr = context.l10n.isArabic;
+    final headers = [
+      isAr ? 'كود الاعتماد' : 'Approval Code',
+      isAr ? 'نوع المستند' : 'Document Type',
+      isAr ? 'الرقم المرجعي' : 'Ref Number',
+      isAr ? 'الاعتماد التجاري' : 'Commercial Status',
+      isAr ? 'المراجع التجاري' : 'Commercial Reviewer',
+      isAr ? 'اعتماد المخلص' : 'Broker Status',
+      isAr ? 'المخلص الجمركي' : 'Broker Reviewer',
+      isAr ? 'الحالة العامة' : 'Overall Status',
+    ];
+    final rows = approvals.map((a) {
+      return [
+        a.approvalCode,
+        _getLocalizedDocType(a.documentType, context.l10n),
+        a.documentReferenceNo ?? '-',
+        _getLocalizedCommercialStatus(a.commercialStatus, context.l10n),
+        a.commercialReviewedBy ?? '-',
+        _getLocalizedBrokerStatus(a.customsStatus, context.l10n),
+        a.customsReviewedBy ?? a.customsBrokerName ?? '-',
+        _getLocalizedOverallStatus(a.overallStatus, context.l10n),
+      ];
+    }).toList();
+    TableCopyHelper.copyTable(context, headers, rows);
+  }
+
+  Future<void> _exportApprovalsToExcel(List<CustomsDocumentApprovalModel> approvals) async {
+    final isAr = context.l10n.isArabic;
+    final headers = [
+      isAr ? 'كود الاعتماد' : 'Approval Code',
+      isAr ? 'نوع المستند' : 'Document Type',
+      isAr ? 'الرقم المرجعي' : 'Ref Number',
+      isAr ? 'الاعتماد التجاري' : 'Commercial Status',
+      isAr ? 'المراجع التجاري' : 'Commercial Reviewer',
+      isAr ? 'اعتماد المخلص' : 'Broker Status',
+      isAr ? 'المخلص الجمركي' : 'Broker Reviewer',
+      isAr ? 'الحالة العامة' : 'Overall Status',
+    ];
+    final rows = approvals.map((a) {
+      return [
+        a.approvalCode,
+        _getLocalizedDocType(a.documentType, context.l10n),
+        a.documentReferenceNo ?? '-',
+        _getLocalizedCommercialStatus(a.commercialStatus, context.l10n),
+        a.commercialReviewedBy ?? '-',
+        _getLocalizedBrokerStatus(a.customsStatus, context.l10n),
+        a.customsReviewedBy ?? a.customsBrokerName ?? '-',
+        _getLocalizedOverallStatus(a.overallStatus, context.l10n),
+      ];
+    }).toList();
+    await TableExportService.exportTableToExcel(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isAr ? 'مصفوفة اعتماد المستندات' : 'Customs Document Approvals',
+      importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'Customs_Approvals',
+    );
+  }
+
+  Future<void> _exportApprovalsToPdf(List<CustomsDocumentApprovalModel> approvals) async {
+    final isAr = context.l10n.isArabic;
+    final headers = [
+      isAr ? 'الكود' : 'Code',
+      isAr ? 'المستند' : 'Doc',
+      isAr ? 'المرجع' : 'Ref',
+      isAr ? 'التجاري' : 'Commercial',
+      isAr ? 'المخلص' : 'Broker',
+      isAr ? 'الحالة' : 'Status',
+    ];
+    final rows = approvals.map((a) {
+      return [
+        a.approvalCode,
+        _getLocalizedDocType(a.documentType, context.l10n),
+        a.documentReferenceNo ?? '-',
+        _getLocalizedCommercialStatus(a.commercialStatus, context.l10n),
+        _getLocalizedBrokerStatus(a.customsStatus, context.l10n),
+        _getLocalizedOverallStatus(a.overallStatus, context.l10n),
+      ];
+    }).toList();
+    await TableExportService.exportTableToPdf(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isAr ? 'مصفوفة اعتماد المستندات' : 'Customs Document Approvals',
+      importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'Customs_Approvals',
+      headerContext: TableExportHeaderContext(
+        title: isAr ? 'تقرير ومصفوفة اعتماد المستندات الجمركية' : 'Customs Document Approvals Report',
+        subtitle: 'Sorour Logistics ERP — Import Documentation',
+        metadata: {
+          isAr ? 'ملف الشحنة' : 'File': _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : '-',
+          isAr ? 'إجمالي المستندات' : 'Total Docs': '${approvals.length}',
+          isAr ? 'التاريخ' : 'Date': DateTime.now().toString().substring(0, 10),
+        },
+      ),
+    );
+  }
+
+  void _copyTicketsAsTsv(List<DiscrepancyRectificationTicketModel> tickets) {
+    final isAr = context.l10n.isArabic;
+    final headers = [
+      isAr ? 'كود التذكرة' : 'Ticket Code',
+      isAr ? 'تصنيف المشكلة' : 'Issue Category',
+      isAr ? 'درجة الخطورة' : 'Severity',
+      isAr ? 'الحالة' : 'Status',
+      isAr ? 'الوصف' : 'Description',
+      isAr ? 'القيمة المتوقعة' : 'Expected',
+      isAr ? 'القيمة الفعلية' : 'Found',
+    ];
+    final rows = tickets.map((t) {
+      return [
+        t.ticketCode,
+        t.issueCategory,
+        _getLocalizedSeverity(t.severity, context.l10n),
+        _getLocalizedTicketStatus(t.status, context.l10n),
+        t.description,
+        t.expectedValue ?? '-',
+        t.foundValue ?? '-',
+      ];
+    }).toList();
+    TableCopyHelper.copyTable(context, headers, rows);
+  }
+
+  Future<void> _exportTicketsToExcel(List<DiscrepancyRectificationTicketModel> tickets) async {
+    final isAr = context.l10n.isArabic;
+    final headers = [
+      isAr ? 'كود التذكرة' : 'Ticket Code',
+      isAr ? 'تصنيف المشكلة' : 'Issue Category',
+      isAr ? 'درجة الخطورة' : 'Severity',
+      isAr ? 'الحالة' : 'Status',
+      isAr ? 'الوصف' : 'Description',
+      isAr ? 'القيمة المتوقعة' : 'Expected',
+      isAr ? 'القيمة الفعلية' : 'Found',
+    ];
+    final rows = tickets.map((t) {
+      return [
+        t.ticketCode,
+        t.issueCategory,
+        _getLocalizedSeverity(t.severity, context.l10n),
+        _getLocalizedTicketStatus(t.status, context.l10n),
+        t.description,
+        t.expectedValue ?? '-',
+        t.foundValue ?? '-',
+      ];
+    }).toList();
+    await TableExportService.exportTableToExcel(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isAr ? 'سجل تذاكر الاستدراك' : 'Rectification Tickets',
+      importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'Tickets',
+    );
+  }
+
+  Future<void> _exportTicketsToPdf(List<DiscrepancyRectificationTicketModel> tickets) async {
+    final isAr = context.l10n.isArabic;
+    final headers = [
+      isAr ? 'الكود' : 'Code',
+      isAr ? 'الخطورة' : 'Severity',
+      isAr ? 'الحالة' : 'Status',
+      isAr ? 'الوصف' : 'Description',
+      isAr ? 'المتوقع' : 'Expected',
+      isAr ? 'الفعلي' : 'Found',
+    ];
+    final rows = tickets.map((t) {
+      return [
+        t.ticketCode,
+        _getLocalizedSeverity(t.severity, context.l10n),
+        _getLocalizedTicketStatus(t.status, context.l10n),
+        t.description,
+        t.expectedValue ?? '-',
+        t.foundValue ?? '-',
+      ];
+    }).toList();
+    await TableExportService.exportTableToPdf(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isAr ? 'سجل تذاكر الاستدراك' : 'Rectification Tickets',
+      importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'Tickets',
+      headerContext: TableExportHeaderContext(
+        title: isAr ? 'سجل تذاكر واستفسارات استدراك المستندات' : 'Rectification Tickets Report',
+        subtitle: 'Sorour Logistics ERP — Discrepancies Hub',
+        metadata: {
+          isAr ? 'ملف الشحنة' : 'File': _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : '-',
+          isAr ? 'إجمالي التذاكر' : 'Total Tickets': '${tickets.length}',
+          isAr ? 'التاريخ' : 'Date': DateTime.now().toString().substring(0, 10),
+        },
+      ),
     );
   }
 
@@ -286,15 +551,23 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final approvalsState = ref.watch(docsCustomsApprovalProvider);
     final ticketsState = ref.watch(discrepancyTicketsProvider);
 
-    return Column(
-      children: [
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyD, control: true): () => _openSearchAndCloneDialog(),
+      },
+      child: Focus(
+        autofocus: true,
+        child: Column(
+          children: [
         // --- Control Toolbar ---
         Card(
           elevation: 2,
+          color: isDark ? AppTheme.darkCardBackground : null,
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           child: Padding(
@@ -340,7 +613,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                   const SizedBox(width: 8),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.charcoal,
+                      foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                     ),
                     onPressed: _handleAutoGenerate,
@@ -365,14 +638,15 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                   DropdownButton<String>(
                     value: _selectedStatusFilter,
                     underline: const SizedBox.shrink(),
-                    icon: const Icon(Icons.filter_list, size: 18, color: AppTheme.charcoal),
+                    icon: Icon(Icons.filter_list, size: 18, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                     borderRadius: BorderRadius.circular(8),
+                    dropdownColor: isDark ? AppTheme.darkCardBackground : null,
                     items: [
-                      DropdownMenuItem(value: 'All', child: Text(context.l10n.customsApprovalFilterAll)),
-                      DropdownMenuItem(value: 'Pending', child: Text(context.l10n.customsApprovalFilterPending)),
-                      DropdownMenuItem(value: 'Approved', child: Text(context.l10n.customsApprovalFilterApproved)),
-                      DropdownMenuItem(value: 'Rejected', child: Text(context.l10n.customsApprovalFilterRejected)),
-                      DropdownMenuItem(value: 'Discrepancy', child: Text(context.l10n.customsApprovalFilterDiscrepancy)),
+                      DropdownMenuItem(value: 'All', child: Text(context.l10n.customsApprovalFilterAll, style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : null))),
+                      DropdownMenuItem(value: 'Pending', child: Text(context.l10n.customsApprovalFilterPending, style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : null))),
+                      DropdownMenuItem(value: 'Approved', child: Text(context.l10n.customsApprovalFilterApproved, style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : null))),
+                      DropdownMenuItem(value: 'Rejected', child: Text(context.l10n.customsApprovalFilterRejected, style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : null))),
+                      DropdownMenuItem(value: 'Discrepancy', child: Text(context.l10n.customsApprovalFilterDiscrepancy, style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : null))),
                     ],
                     onChanged: (val) {
                       if (val == null) return;
@@ -394,22 +668,24 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
             child: Row(
               children: [
                 ChoiceChip(
+                  key: const Key('dualSignoffChoiceChip'),
                   avatar: Icon(Icons.verified_user, size: 16, color: _activeViewIndex == 0 ? Colors.white : AppTheme.cobalt),
                   label: Text(context.l10n.customsApprovalTabDualSignoff, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   selected: _activeViewIndex == 0,
                   selectedColor: AppTheme.cobalt,
-                  labelStyle: TextStyle(color: _activeViewIndex == 0 ? Colors.white : AppTheme.charcoal),
+                  labelStyle: TextStyle(color: _activeViewIndex == 0 ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                   onSelected: (selected) {
                     if (selected) setState(() => _activeViewIndex = 0);
                   },
                 ),
                 const SizedBox(width: 8),
                 ChoiceChip(
+                  key: const Key('centralArchiveChoiceChip'),
                   avatar: Icon(Icons.inventory_2_outlined, size: 16, color: _activeViewIndex == 1 ? Colors.white : AppTheme.emerald),
                   label: Text(context.l10n.customsApprovalTabCentralArchive, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   selected: _activeViewIndex == 1,
                   selectedColor: AppTheme.emerald,
-                  labelStyle: TextStyle(color: _activeViewIndex == 1 ? Colors.white : AppTheme.charcoal),
+                  labelStyle: TextStyle(color: _activeViewIndex == 1 ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                   onSelected: (selected) {
                     if (selected) setState(() => _activeViewIndex = 1);
                   },
@@ -469,7 +745,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                         if (_matrixResult!.recommendations.isNotEmpty)
                           CopyableText(
                             context.l10n.customsApprovalMatrixRecommendations(_matrixResult!.recommendations.join(' | ')),
-                            style: const TextStyle(fontSize: 11, color: Colors.black87),
+                            style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
                             isSelectable: false,
                           ),
                       ],
@@ -477,7 +753,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                   ),
                   CopyableText(
                     context.l10n.customsApprovalMatrixOpenTicketsCount(_matrixResult!.openTicketsCount),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                     isSelectable: false,
                   ),
                 ],
@@ -497,21 +773,19 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // --- Left Column: Dual-Tier Approvals ---
-                  Expanded(
-                    flex: 3,
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      child: SelectionArea(
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isNarrow = constraints.maxWidth < 950;
+                  final leftCol = Card(
+                    elevation: 2,
+                    color: isDark ? AppTheme.darkCardBackground : null,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    child: SelectionArea(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Row(
                               children: [
                                 const Icon(Icons.verified_user, color: AppTheme.cobalt),
@@ -519,9 +793,37 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                                 Expanded(
                                   child: Text(
                                     context.l10n.customsApprovalDualTierHeader,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                    ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
+                                ),
+                                IconButton(
+                                  key: const Key('copyApprovalsBtn'),
+                                  icon: const Icon(Icons.copy_outlined, size: 18),
+                                  onPressed: approvalsState.valueOrNull == null || approvalsState.valueOrNull!.isEmpty
+                                      ? null
+                                      : () => _copyApprovalsAsTsv(approvalsState.valueOrNull!),
+                                  tooltip: context.l10n.isArabic ? 'نسخ الجدول كـ TSV' : 'Copy Table as TSV',
+                                ),
+                                IconButton(
+                                  key: const Key('exportApprovalsExcelBtn'),
+                                  icon: const Icon(Icons.table_chart_outlined, size: 18),
+                                  onPressed: approvalsState.valueOrNull == null || approvalsState.valueOrNull!.isEmpty
+                                      ? null
+                                      : () => _exportApprovalsToExcel(approvalsState.valueOrNull!),
+                                  tooltip: context.l10n.isArabic ? 'تصدير إكسيل' : 'Export Excel',
+                                ),
+                                IconButton(
+                                  key: const Key('exportApprovalsPdfBtn'),
+                                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                                  onPressed: approvalsState.valueOrNull == null || approvalsState.valueOrNull!.isEmpty
+                                      ? null
+                                      : () => _exportApprovalsToPdf(approvalsState.valueOrNull!),
+                                  tooltip: context.l10n.isArabic ? 'تصدير PDF' : 'Export PDF',
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.refresh, size: 20),
@@ -538,7 +840,10 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                                 data: (approvals) {
                                   if (approvals.isEmpty) {
                                     return Center(
-                                      child: Text(context.l10n.customsApprovalNoDocuments),
+                                      child: Text(
+                                        context.l10n.customsApprovalNoDocuments,
+                                        style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
+                                      ),
                                     );
                                   }
                                   return ListView.separated(
@@ -556,15 +861,11 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                         ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
+                  );
 
-                // --- Right Column: Matrix Checks & Discrepancy Tickets ---
-                Expanded(
-                  flex: 2,
-                  child: Card(
+                  final rightCol = Card(
                     elevation: 2,
+                    color: isDark ? AppTheme.darkCardBackground : null,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     child: SelectionArea(
                       child: Padding(
@@ -579,9 +880,37 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                                 Expanded(
                                   child: Text(
                                     context.l10n.customsApprovalTicketsHeader,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                    ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
+                                ),
+                                IconButton(
+                                  key: const Key('copyTicketsBtn'),
+                                  icon: const Icon(Icons.copy_outlined, size: 18),
+                                  onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
+                                      ? null
+                                      : () => _copyTicketsAsTsv(ticketsState.valueOrNull!),
+                                  tooltip: context.l10n.isArabic ? 'نسخ التذاكر كـ TSV' : 'Copy Tickets as TSV',
+                                ),
+                                IconButton(
+                                  key: const Key('exportTicketsExcelBtn'),
+                                  icon: const Icon(Icons.table_chart_outlined, size: 18),
+                                  onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
+                                      ? null
+                                      : () => _exportTicketsToExcel(ticketsState.valueOrNull!),
+                                  tooltip: context.l10n.isArabic ? 'تصدير إكسيل' : 'Export Excel',
+                                ),
+                                IconButton(
+                                  key: const Key('exportTicketsPdfBtn'),
+                                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                                  onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
+                                      ? null
+                                      : () => _exportTicketsToPdf(ticketsState.valueOrNull!),
+                                  tooltip: context.l10n.isArabic ? 'تصدير PDF' : 'Export PDF',
                                 ),
                                 TextButton.icon(
                                   icon: const Icon(Icons.add, size: 16),
@@ -598,7 +927,10 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                                 data: (tickets) {
                                   if (tickets.isEmpty) {
                                     return Center(
-                                      child: Text(context.l10n.customsApprovalNoTickets),
+                                      child: Text(
+                                        context.l10n.customsApprovalNoTickets,
+                                        style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
+                                      ),
                                     );
                                   }
                                   return ListView.separated(
@@ -616,17 +948,38 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                         ),
                       ),
                     ),
-                  ),
-                ),
-              ],
+                  );
+
+                  if (isNarrow) {
+                    return ListView(
+                      children: [
+                        SizedBox(height: 400, child: leftCol),
+                        const SizedBox(height: 12),
+                        SizedBox(height: 400, child: rightCol),
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 3, child: leftCol),
+                      const SizedBox(width: 12),
+                      Expanded(flex: 2, child: rightCol),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
-        ),
       ],
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildApprovalRow(CustomsDocumentApprovalModel item) {
+    final isDark = AppTheme.isDark(context);
     final l = context.l10n;
     Color overallColor = AppTheme.orange;
     if (item.overallStatus == 'Approved for Clearance') overallColor = AppTheme.emerald;
@@ -642,46 +995,58 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cobalt.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: CopyableText(
-                    localizedDocType,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
-                    overflow: TextOverflow.ellipsis,
-                    isSelectable: false,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (item.documentReferenceNo != null)
-                Flexible(
-                  child: CopyableText(
-                    l.customsApprovalDocRef(item.documentReferenceNo!),
-                    style: const TextStyle(fontSize: 12, color: Colors.black54),
-                    overflow: TextOverflow.ellipsis,
-                    isSelectable: false,
-                  ),
-                ),
-              const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: overallColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: overallColor.withOpacity(0.5)),
+                  color: AppTheme.cobalt.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: CopyableText(
-                  localizedOverallStatus,
-                  style: TextStyle(color: overallColor, fontWeight: FontWeight.bold, fontSize: 11),
+                  localizedDocType,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                  overflow: TextOverflow.ellipsis,
                   isSelectable: false,
                 ),
+              ),
+              if (item.documentReferenceNo != null)
+                CopyableText(
+                  l.customsApprovalDocRef(item.documentReferenceNo!),
+                  style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.black54),
+                  overflow: TextOverflow.ellipsis,
+                  isSelectable: false,
+                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: overallColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: overallColor.withOpacity(0.5)),
+                    ),
+                    child: CopyableText(
+                      localizedOverallStatus,
+                      style: TextStyle(color: overallColor, fontWeight: FontWeight.bold, fontSize: 11),
+                      isSelectable: false,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    key: Key('cloneApprovalRowBtn_${item.approvalId}'),
+                    icon: const Icon(Icons.copy_all, size: 16, color: AppTheme.wcagCobalt),
+                    tooltip: l.cloneApprovalRecordTooltip,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _cloneApprovalItem(item),
+                  ),
+                ],
               ),
             ],
           ),
@@ -699,27 +1064,32 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                   decoration: BoxDecoration(
                     color: item.commercialStatus == 'Approved'
                         ? AppTheme.emerald.withOpacity(0.08)
-                        : Colors.grey.shade100,
+                        : (isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade100),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: item.commercialStatus == 'Approved' ? AppTheme.emerald : Colors.grey.shade300,
+                      color: item.commercialStatus == 'Approved'
+                          ? AppTheme.emerald
+                          : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 4,
+                    runSpacing: 2,
                     children: [
                       Icon(
                         item.commercialStatus == 'Approved' ? Icons.check_circle : Icons.person_outline,
                         size: 16,
-                        color: item.commercialStatus == 'Approved' ? AppTheme.emerald : Colors.grey,
+                        color: item.commercialStatus == 'Approved' ? AppTheme.emerald : (isDark ? AppTheme.darkTextSecondary : Colors.grey),
                       ),
-                      const SizedBox(width: 4),
                       Text(
                         l.customsApprovalCommercialReviewStatus(localizedCommercialStatus),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: item.commercialStatus == 'Approved' ? AppTheme.emerald : Colors.black87,
+                          color: item.commercialStatus == 'Approved'
+                              ? AppTheme.emerald
+                              : (isDark ? AppTheme.darkTextPrimary : Colors.black87),
                         ),
                       ),
                     ],
@@ -736,27 +1106,32 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                   decoration: BoxDecoration(
                     color: item.customsStatus == 'Approved'
                         ? AppTheme.emerald.withOpacity(0.08)
-                        : Colors.grey.shade100,
+                        : (isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade100),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: item.customsStatus == 'Approved' ? AppTheme.emerald : Colors.grey.shade300,
+                      color: item.customsStatus == 'Approved'
+                          ? AppTheme.emerald
+                          : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 4,
+                    runSpacing: 2,
                     children: [
                       Icon(
                         item.customsStatus == 'Approved' ? Icons.verified : Icons.gavel,
                         size: 16,
-                        color: item.customsStatus == 'Approved' ? AppTheme.emerald : Colors.grey,
+                        color: item.customsStatus == 'Approved' ? AppTheme.emerald : (isDark ? AppTheme.darkTextSecondary : Colors.grey),
                       ),
-                      const SizedBox(width: 4),
                       Text(
                         l.customsApprovalBrokerReviewStatus(localizedBrokerStatus),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: item.customsStatus == 'Approved' ? AppTheme.emerald : Colors.black87,
+                          color: item.customsStatus == 'Approved'
+                              ? AppTheme.emerald
+                              : (isDark ? AppTheme.darkTextPrimary : Colors.black87),
                         ),
                       ),
                     ],
@@ -771,6 +1146,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
   }
 
   Widget _buildTicketCard(DiscrepancyRectificationTicketModel ticket) {
+    final isDark = AppTheme.isDark(context);
     final l = context.l10n;
     final isResolved = ticket.status == 'Resolved';
     final localizedSeverity = _getLocalizedSeverity(ticket.severity, l);
@@ -781,9 +1157,15 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: isResolved ? AppTheme.emerald.withOpacity(0.06) : AppTheme.orange.withOpacity(0.06),
+          color: isResolved
+              ? AppTheme.emerald.withOpacity(0.06)
+              : (isDark ? AppTheme.darkElevatedSurface : AppTheme.orange.withOpacity(0.06)),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: isResolved ? AppTheme.emerald.withOpacity(0.4) : AppTheme.orange.withOpacity(0.4)),
+          border: Border.all(
+            color: isResolved
+                ? AppTheme.emerald.withOpacity(0.4)
+                : (isDark ? AppTheme.darkBorder : AppTheme.orange.withOpacity(0.4)),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -795,7 +1177,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
               children: [
                 CopyableText(
                   ticket.ticketCode,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                   isSelectable: false,
                 ),
                 Container(
@@ -819,12 +1201,20 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                   ),
                   isSelectable: false,
                 ),
+                IconButton(
+                  key: Key('cloneTicketRowBtn_${ticket.ticketId}'),
+                  icon: const Icon(Icons.copy_all, size: 16, color: AppTheme.wcagCobalt),
+                  tooltip: l.cloneTicketRecordTooltip,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () => _cloneTicket(ticket),
+                ),
               ],
             ),
             const SizedBox(height: 4),
             CopyableText(
               ticket.description,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
               isSelectable: false,
             ),
             if (ticket.expectedValue != null || ticket.foundValue != null)
@@ -832,7 +1222,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                 padding: const EdgeInsets.only(top: 2),
                 child: CopyableText(
                   l.customsApprovalTicketExpectedVsFound(ticket.expectedValue ?? "-", ticket.foundValue ?? "-"),
-                  style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
+                  style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.blueGrey),
                   isSelectable: false,
                 ),
               ),
@@ -890,10 +1280,12 @@ class _CommercialReviewDialogState extends State<_CommercialReviewDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Consumer(builder: (context, ref, _) {
       return AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkElevatedSurface : null,
         title: Text(context.l10n.customsApprovalCommercialDialogTitle(
-          _CustomsDocumentApprovalTabState._getLocalizedDocType(widget.item.documentType, context.l10n),
+          CustomsDocumentApprovalTabState._getLocalizedDocType(widget.item.documentType, context.l10n),
         )),
         content: Form(
           key: _formKey,
@@ -1007,10 +1399,12 @@ class _CustomsBrokerReviewDialogState extends State<_CustomsBrokerReviewDialog> 
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Consumer(builder: (context, ref, _) {
       return AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkElevatedSurface : null,
         title: Text(context.l10n.customsApprovalBrokerDialogTitle(
-          _CustomsDocumentApprovalTabState._getLocalizedDocType(widget.item.documentType, context.l10n),
+          CustomsDocumentApprovalTabState._getLocalizedDocType(widget.item.documentType, context.l10n),
         )),
         content: Form(
           key: _formKey,
@@ -1095,8 +1489,9 @@ class _CustomsBrokerReviewDialogState extends State<_CustomsBrokerReviewDialog> 
 class _RaiseTicketDialog extends StatefulWidget {
   final int importFileId;
   final CustomsDocumentApprovalModel? approvalItem;
+  final DiscrepancyRectificationTicketModel? initialTicket;
 
-  const _RaiseTicketDialog({required this.importFileId, this.approvalItem});
+  const _RaiseTicketDialog({required this.importFileId, this.approvalItem, this.initialTicket});
 
   @override
   State<_RaiseTicketDialog> createState() => _RaiseTicketDialogState();
@@ -1113,6 +1508,19 @@ class _RaiseTicketDialogState extends State<_RaiseTicketDialog> {
   bool _isSubmitting = false;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.initialTicket != null) {
+      _issueCategory = widget.initialTicket!.issueCategory;
+      _severity = widget.initialTicket!.severity;
+      _descCtrl.text = widget.initialTicket!.description;
+      _expectedCtrl.text = widget.initialTicket!.expectedValue ?? '';
+      _foundCtrl.text = widget.initialTicket!.foundValue ?? '';
+      _actionCtrl.text = widget.initialTicket!.supplierActionRequired ?? '';
+    }
+  }
+
+  @override
   void dispose() {
     _descCtrl.dispose();
     _expectedCtrl.dispose();
@@ -1123,8 +1531,10 @@ class _RaiseTicketDialogState extends State<_RaiseTicketDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Consumer(builder: (context, ref, _) {
       return AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkElevatedSurface : null,
         title: Text(context.l10n.customsApprovalRaiseTicketDialogTitle),
         content: Form(
           key: _formKey,
@@ -1276,8 +1686,10 @@ class _ResolveTicketDialogState extends State<_ResolveTicketDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Consumer(builder: (context, ref, _) {
       return AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkElevatedSurface : null,
         title: Text(context.l10n.customsApprovalResolveTicketDialogTitle(widget.ticket.ticketCode)),
         content: Form(
           key: _formKey,

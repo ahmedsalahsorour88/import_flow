@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from .model import InboundEmailLog, EmailSettings
+from .crypto import encrypt_email_password
 from modules.import_files.model import ImportFile
 from modules.smart_tasks.model import SmartTask
 

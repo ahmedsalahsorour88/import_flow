@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import '../widgets/saved_scenarios_registry_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,6 +30,8 @@ import '../../currencies/providers/currencies_provider.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/performance/dispose_tracker.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
+import '../../../core/widgets/directional_icon.dart';
 
 
 class ShippingScenariosScreen extends ConsumerStatefulWidget {
@@ -65,7 +68,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
   int? _selectedImportFileId;
   int? _selectedPoId;
   int? _selectedProjectId;
-  final String _sessionNotes = '';
+  String _sessionNotes = '';
 
   // Carrier Options List
   final List<ShippingScenarioItemModel> _evalItems = [];
@@ -74,7 +77,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
 
   // ── Smart AI Extractor State (Text & OCR) ──────────────────────────────
   bool _isFreightExtractorExpanded = true;
-  final bool _isFreightExtracting = false;
+  bool _isFreightExtracting = false;
   final TextEditingController _rawFreightQuoteController = TextEditingController();
   List<ExtractedQuotationOption> _extractedOptions = [];
   Map<String, dynamic>? _extractedFreightMetadata;
@@ -86,7 +89,124 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
   bool _hasVisitedTab0 = false;
   bool _hasVisitedTab1 = false;
 
-  void _loadSessionForEditing(ShippingEvaluationModel sess) {
+  
+  void _cloneCarrierOption(int idx) {
+    if (idx < 0 || idx >= _evalItems.length) return;
+    final source = _evalItems[idx];
+    final l = context.l10n;
+    final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
+    final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
+    final copySuffix = isArabic ? ' (نسخة)' : ' (Copy)';
+    final clonedItem = source.copyWith(
+      vesselName: '${source.vesselName}$copySuffix',
+      isRecommended: false,
+      isSelected: false,
+    );
+    setState(() {
+      _evalItems.insert(idx + 1, clonedItem);
+      _expandedQuotes[idx + 1] = true;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l.carrierOptionClonedSuccess),
+        backgroundColor: AppTheme.wcagEmerald,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showCloneStudyReviewDialog(BuildContext context, ShippingEvaluationModel source) {
+    final l = context.l10n;
+    final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
+    final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
+    final copySuffix = isArabic ? ' (نسخة)' : ' (Copy)';
+    final initialName = '${source.title ?? source.sessionCode}$copySuffix';
+
+    final copiedMap = <String, String>{
+      l.shippingCarrierOptions: '${source.items.length}',
+      l.crdLabel: source.cargoReadyDate,
+    };
+    if (source.recommendedScenarioProvider != null) {
+      copiedMap[l.recommendedLineMetric] = source.recommendedScenarioProvider!;
+    }
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: isArabic ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: textDir,
+          child: CloneEntityReviewDialog(
+            entityType: l.cloneStudyDialogTitle,
+            sourceCode: source.sessionCode,
+            suggestedNewCode: '${source.sessionCode}-CLONE',
+            sourceTitle: initialName,
+            copiedFieldsSummary: copiedMap,
+            mandatorilyResetFields: [
+              l.cloneFieldStudyCodeGenerated,
+              l.cloneFieldImportFileReset,
+              l.cloneFieldPoReset,
+              l.cloneFieldSelectionReset,
+            ],
+            onConfirm: ({
+              required String newCode,
+              required String newTitle,
+              required bool copyLineItems,
+              required bool copyAttachments,
+              String? notes,
+            }) async {
+              final sId = source.sessionId;
+              if (sId == null) return;
+              final messenger = ScaffoldMessenger.of(context);
+              final cloned = await ref.read(shippingScenariosProvider.notifier).cloneSession(
+                sId,
+                newTitle: newTitle,
+                remarks: notes,
+                unlinkImportFile: true,
+                unlinkPo: true,
+                copyCarrierOptions: copyLineItems,
+              );
+              if (cloned != null) {
+                _loadSessionForEditing(cloned, showLoadedSnackbar: false);
+                messenger.hideCurrentSnackBar();
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(l.cloneStudySuccess(cloned.sessionCode)),
+                    backgroundColor: AppTheme.wcagEmerald,
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openSearchAndCloneStudyDialog(BuildContext context) {
+    final state = ref.read(shippingScenariosProvider);
+    final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
+    final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: isArabic ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: textDir,
+          child: SearchAndCloneStudyDialog(
+            sessions: state.sessions,
+            onSelectStudy: (session) {
+              Navigator.of(dialogCtx).pop();
+              _showCloneStudyReviewDialog(context, session);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _loadSessionForEditing(ShippingEvaluationModel sess, {bool showLoadedSnackbar = true}) {
     setState(() {
       _hasVisitedTab0 = true;
       _editFormVersion++;
@@ -108,12 +228,14 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
       }
     });
     _tabController.animateTo(0);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.sessionLoadedMsg(sess.sessionCode)),
-        backgroundColor: AppTheme.cobalt,
-      ),
-    );
+    if (showLoadedSnackbar) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.sessionLoadedMsg(sess.sessionCode)),
+          backgroundColor: AppTheme.cobalt,
+        ),
+      );
+    }
   }
 
   void _resetFormForNewStudy() {
@@ -683,17 +805,22 @@ Best regards,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
-                    const SizedBox(width: 6),
-                    const Icon(Icons.bolt, color: Colors.white, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      l.freightExtractorTitle,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                  ],
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
+                      const SizedBox(width: 6),
+                      const Icon(Icons.bolt, color: Colors.white, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l.freightExtractorTitle,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 IconButton(
                   icon: Icon(_isFreightExtractorExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: Colors.white),
@@ -1176,6 +1303,18 @@ Best regards,
         if (index == 1) _hasVisitedTab1 = true;
       }),
       headerActions: [
+        ElevatedButton.icon(
+          key: const ValueKey('searchAndCloneStudyBtn'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.wcagCobalt,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+          icon: const Icon(Icons.copy_all_rounded, size: 16),
+          label: Text(l.searchAndCloneStudyBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          onPressed: () => _openSearchAndCloneStudyDialog(context),
+        ),
+        const SizedBox(width: 8),
         SmartUploadButton(
           module: SmartUploadModule.freightQuotation,
           label: '🚀 ${l.extractFreightQuotes}',
@@ -1217,6 +1356,7 @@ Best regards,
   ) {
     final crd = _cargoReadyDate;
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Calculate Scenario lead times
 
@@ -1355,49 +1495,84 @@ Best regards,
                     ),
                     const SizedBox(height: 16),
                   ],
-                  // Top Metrics Cards Row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildMetricCard(
-                          l.avgWarehouseArrivalMetric,
-                          avgArrivalDate,
-                          Icons.date_range,
-                          AppTheme.emerald,
-                          subtitle: l.avgDaysFromReadiness(avgTotalDays),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildMetricCard(
-                          l.earliestLineMetric,
-                          earliestItemMap != null ? (earliestItemMap["item"] as ShippingScenarioItemModel).providerName : 'N/A',
-                          Icons.speed,
-                          AppTheme.cobalt,
-                          subtitle: earliestItemMap != null ? '${l.estimatedArrivalDateCol}: ${earliestItemMap["expectedWhDate"]}' : null,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildMetricCard(
-                          l.latestLineMetric,
-                          latestItemMap != null ? (latestItemMap["item"] as ShippingScenarioItemModel).providerName : 'N/A',
-                          Icons.warning_amber_rounded,
-                          Colors.amber.shade900,
-                          subtitle: latestItemMap != null ? '${l.estimatedArrivalDateCol}: ${latestItemMap["expectedWhDate"]}' : null,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildMetricCard(
-                          l.recommendedLineMetric,
-                          recItem != null ? '${recItem.providerName} (${recItem.vesselName})' : l.unassigned,
-                          Icons.stars_rounded,
-                          Colors.purple,
-                          subtitle: recItemMap != null ? '${l.avgWarehouseArrivalMetric}: ${recItemMap["expectedWhDate"]} (${recItemMap["totalDays"]} d)' : null,
-                        ),
-                      ),
-                    ],
+                  // Top Metrics Cards Responsive Layout
+                  LayoutBuilder(
+                    builder: (context, metricConstraints) {
+                      final card1 = _buildMetricCard(
+                        l.avgWarehouseArrivalMetric,
+                        avgArrivalDate,
+                        Icons.date_range,
+                        AppTheme.wcagEmerald,
+                        subtitle: l.avgDaysFromReadiness(avgTotalDays),
+                      );
+                      final card2 = _buildMetricCard(
+                        l.earliestLineMetric,
+                        earliestItemMap != null ? (earliestItemMap["item"] as ShippingScenarioItemModel).providerName : 'N/A',
+                        Icons.speed,
+                        AppTheme.wcagCobalt,
+                        subtitle: earliestItemMap != null ? '${l.estimatedArrivalDateCol}: ${earliestItemMap["expectedWhDate"]}' : null,
+                      );
+                      final card3 = _buildMetricCard(
+                        l.latestLineMetric,
+                        latestItemMap != null ? (latestItemMap["item"] as ShippingScenarioItemModel).providerName : 'N/A',
+                        Icons.warning_amber_rounded,
+                        AppTheme.wcagOrange,
+                        subtitle: latestItemMap != null ? '${l.estimatedArrivalDateCol}: ${latestItemMap["expectedWhDate"]}' : null,
+                      );
+                      final card4 = _buildMetricCard(
+                        l.recommendedLineMetric,
+                        recItem != null ? '${recItem.providerName} (${recItem.vesselName})' : l.unassigned,
+                        Icons.stars_rounded,
+                        Colors.purple,
+                        subtitle: recItemMap != null ? '${l.avgWarehouseArrivalMetric}: ${recItemMap["expectedWhDate"]} (${recItemMap["totalDays"]} d)' : null,
+                      );
+
+                      if (metricConstraints.maxWidth < 600) {
+                        return Column(
+                          children: [
+                            card1,
+                            const SizedBox(height: 8),
+                            card2,
+                            const SizedBox(height: 8),
+                            card3,
+                            const SizedBox(height: 8),
+                            card4,
+                          ],
+                        );
+                      } else if (metricConstraints.maxWidth < 1050) {
+                        return Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(child: card1),
+                                const SizedBox(width: 12),
+                                Expanded(child: card2),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(child: card3),
+                                const SizedBox(width: 12),
+                                Expanded(child: card4),
+                              ],
+                            ),
+                          ],
+                        );
+                      } else {
+                        return Row(
+                          children: [
+                            Expanded(child: card1),
+                            const SizedBox(width: 12),
+                            Expanded(child: card2),
+                            const SizedBox(width: 12),
+                            Expanded(child: card3),
+                            const SizedBox(width: 12),
+                            Expanded(child: card4),
+                          ],
+                        );
+                      }
+                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -1407,155 +1582,202 @@ Best regards,
                   // Study Main Settings Card
                   Card(
                     elevation: 2,
+                    color: isDark ? AppTheme.darkCardBackground : Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.tune, color: AppTheme.cobalt, size: 18),
-                              const SizedBox(width: 8),
-                              Text(l.studySetupAndParameters, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
+                      child: LayoutBuilder(
+                        builder: (context, paramConstraints) {
+                          final isNarrowParam = paramConstraints.maxWidth < 768;
 
-                          // Parameters Row 1
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: TextFormField(
-                                  key: ValueKey('title_${_editingSessionId ?? "new"}_$_editFormVersion'),
-                                  initialValue: _title,
-                                  decoration: InputDecoration(labelText: '${l.studyTitleLabel} *', hintText: l.studyTitleLabel, isDense: true),
-                                  validator: (v) => v == null || v.trim().isEmpty ? l.requiredField : null,
-                                  onChanged: (v) => _title = v.trim(),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: InkWell(
-                                  onTap: () async {
-                                    final picked = await showDatePicker(
-                                      context: context,
-                                      initialDate: _cargoReadyDate,
-                                      firstDate: DateTime(2020),
-                                      lastDate: DateTime(2030),
-                                    );
-                                    if (picked != null) {
-                                      setState(() {
-                                        _cargoReadyDate = picked;
-                                      });
-                                    }
-                                  },
-                                  child: InputDecorator(
-                                    decoration: InputDecoration(labelText: '${l.crdLabel} *', isDense: true),
-                                    child: Text(_cargoReadyDate.toString().substring(0, 10), style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: SearchableDropdownField<int?>(
-                                  value: _selectedImportFileId,
-                                  labelText: l.linkImportFile,
-                                  items: [
-                                    SearchableDropdownItem<int?>(value: null, label: l.unassigned),
-                                    ...(ref.watch(importFilesProvider).valueOrNull ?? []).map((f) => SearchableDropdownItem<int?>(
-                                          value: f.importFileId,
-                                          label: '${f.primaryNameWithCode} - ${f.companyName}',
-                                        )),
-                                  ],
-                                  onChanged: (v) {
-                                    setState(() {
-                                      _selectedImportFileId = v;
-                                      if (v != null) {
-                                        final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
-                                        final f = importFiles.where((file) => file.importFileId == v).firstOrNull;
-                                        if (f != null) {
-                                          final fCode = f.displayName;
-                                          _title = '[$fCode] ${f.companyName}';
-                                        }
-                                      }
-                                    });
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
+                          final titleWidget = TextFormField(
+                            key: ValueKey('title_${_editingSessionId ?? "new"}_$_editFormVersion'),
+                            initialValue: _title,
+                            decoration: InputDecoration(labelText: '${l.studyTitleLabel} *', hintText: l.studyTitleLabel, isDense: true),
+                            validator: (v) => v == null || v.trim().isEmpty ? l.requiredField : null,
+                            onChanged: (v) => _title = v.trim(),
+                          );
 
-                          // Parameters Row 2 (Pick-up Address)
-                          TextFormField(
-                            key: ValueKey('pickup_addr_${_editingSessionId ?? "new"}_$_editFormVersion'),
-                            initialValue: _pickUpAddress,
-                            decoration: InputDecoration(
-                              labelText: l.pickupAddressLabel,
-                              hintText: 'Factory / Industrial Zone, Origin Country',
-                              prefixIcon: const Icon(Icons.location_on_outlined, color: AppTheme.cobalt),
-                              isDense: true,
+                          final crdWidget = InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: _cargoReadyDate,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime(2030),
+                              );
+                              if (picked != null) {
+                                setState(() {
+                                  _cargoReadyDate = picked;
+                                });
+                              }
+                            },
+                            child: InputDecorator(
+                              decoration: InputDecoration(labelText: '${l.crdLabel} *', isDense: true),
+                              child: Text(_cargoReadyDate.toString().substring(0, 10), style: const TextStyle(fontWeight: FontWeight.bold)),
                             ),
-                            onChanged: (v) => _pickUpAddress = v.trim(),
-                          ),
-                          const SizedBox(height: 12),
+                          );
 
-                          // Parameters Row 3 (PO Link & Project Link)
-                          Row(
-                            children: [
-                              Expanded(
-                                child: SearchableDropdownField<int?>(
-                                  value: _selectedPoId,
-                                  labelText: l.linkPurchaseOrder,
-                                  items: [
-                                    SearchableDropdownItem<int?>(value: null, label: l.unassigned),
-                                    ...poList.map((po) => SearchableDropdownItem<int?>(
-                                          value: po.poId,
-                                          label: '${po.displayName} (${po.poNumber}) (${po.supplierName ?? "Supplier"})',
-                                        )),
-                                  ],
-                                  onChanged: (v) => setState(() => _selectedPoId = v),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: SearchableDropdownField<int?>(
-                                  value: _selectedProjectId,
-                                  labelText: l.linkProject,
-                                  items: [
-                                    SearchableDropdownItem<int?>(value: null, label: l.unassigned),
-                                    ...projectsList.map((p) => SearchableDropdownItem<int?>(
-                                          value: p.projectId,
-                                          label: '${p.projectCode} - ${p.projectName}',
-                                        )),
-                                  ],
-                                  onChanged: (v) => setState(() => _selectedProjectId = v),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: TextFormField(
-                                  key: ValueKey('avg_form4_${_editingSessionId ?? "new"}_$_editFormVersion'),
-                                  initialValue: _avgForm4Days.toString(),
-                                  keyboardType: TextInputType.number,
-                                  decoration: InputDecoration(labelText: l.avgForm4DaysLabel, isDense: true, suffixText: 'd'),
-                                  onChanged: (v) => _avgForm4Days = int.tryParse(v) ?? 5,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: TextFormField(
-                                  key: ValueKey('avg_clearance_${_editingSessionId ?? "new"}_$_editFormVersion'),
-                                  initialValue: _avgClearanceDays.toString(),
-                                  keyboardType: TextInputType.number,
-                                  decoration: InputDecoration(labelText: l.avgClearanceDaysLabel, isDense: true, suffixText: 'd'),
-                                  onChanged: (v) => _avgClearanceDays = int.tryParse(v) ?? 7,
-                                ),
-                              ),
+                          final importFileWidget = SearchableDropdownField<int?>(
+                            value: _selectedImportFileId,
+                            labelText: l.linkImportFile,
+                            items: [
+                              SearchableDropdownItem<int?>(value: null, label: l.unassigned),
+                              ...(ref.watch(importFilesProvider).valueOrNull ?? []).map((f) => SearchableDropdownItem<int?>(
+                                    value: f.importFileId,
+                                    label: '${f.primaryNameWithCode} - ${f.companyName}',
+                                  )),
                             ],
-                          ),
+                            onChanged: (v) {
+                              setState(() {
+                                _selectedImportFileId = v;
+                                if (v != null) {
+                                  final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+                                  final f = importFiles.where((file) => file.importFileId == v).firstOrNull;
+                                  if (f != null) {
+                                    final fCode = f.displayName;
+                                    _title = '[$fCode] ${f.companyName}';
+                                  }
+                                }
+                              });
+                            },
+                          );
+
+                          final poWidget = SearchableDropdownField<int?>(
+                            value: _selectedPoId,
+                            labelText: l.linkPurchaseOrder,
+                            items: [
+                              SearchableDropdownItem<int?>(value: null, label: l.unassigned),
+                              ...poList.map((po) => SearchableDropdownItem<int?>(
+                                    value: po.poId,
+                                    label: '${po.displayName} (${po.poNumber}) (${po.supplierName ?? "Supplier"})',
+                                  )),
+                            ],
+                            onChanged: (v) => setState(() => _selectedPoId = v),
+                          );
+
+                          final projectWidget = SearchableDropdownField<int?>(
+                            value: _selectedProjectId,
+                            labelText: l.linkProject,
+                            items: [
+                              SearchableDropdownItem<int?>(value: null, label: l.unassigned),
+                              ...projectsList.map((p) => SearchableDropdownItem<int?>(
+                                    value: p.projectId,
+                                    label: '${p.projectCode} - ${p.projectName}',
+                                  )),
+                            ],
+                            onChanged: (v) => setState(() => _selectedProjectId = v),
+                          );
+
+                          final form4Widget = TextFormField(
+                            key: ValueKey('avg_form4_${_editingSessionId ?? "new"}_$_editFormVersion'),
+                            initialValue: _avgForm4Days.toString(),
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(labelText: l.avgForm4DaysLabel, isDense: true, suffixText: 'd'),
+                            onChanged: (v) => _avgForm4Days = int.tryParse(v) ?? 5,
+                          );
+
+                          final clearanceWidget = TextFormField(
+                            key: ValueKey('avg_clearance_${_editingSessionId ?? "new"}_$_editFormVersion'),
+                            initialValue: _avgClearanceDays.toString(),
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(labelText: l.avgClearanceDaysLabel, isDense: true, suffixText: 'd'),
+                            onChanged: (v) => _avgClearanceDays = int.tryParse(v) ?? 7,
+                          );
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.tune, color: AppTheme.cobalt, size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      l.studySetupAndParameters,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Parameters Row 1
+                              if (isNarrowParam) ...[
+                                titleWidget,
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    Expanded(child: crdWidget),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: importFileWidget),
+                                  ],
+                                ),
+                              ] else ...[
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 2,
+                                      child: titleWidget,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: crdWidget),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: importFileWidget),
+                                  ],
+                                ),
+                              ],
+                              const SizedBox(height: 12),
+
+                              // Parameters Row 2 (Pick-up Address)
+                              TextFormField(
+                                key: ValueKey('pickup_addr_${_editingSessionId ?? "new"}_$_editFormVersion'),
+                                initialValue: _pickUpAddress,
+                                decoration: InputDecoration(
+                                  labelText: l.pickupAddressLabel,
+                                  hintText: 'Factory / Industrial Zone, Origin Country',
+                                  prefixIcon: const Icon(Icons.location_on_outlined, color: AppTheme.cobalt),
+                                  isDense: true,
+                                ),
+                                onChanged: (v) => _pickUpAddress = v.trim(),
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Parameters Row 3 (PO Link & Project Link)
+                              if (isNarrowParam) ...[
+                                Row(
+                                  children: [
+                                    Expanded(child: poWidget),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: projectWidget),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    Expanded(child: form4Widget),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: clearanceWidget),
+                                  ],
+                                ),
+                              ] else ...[
+                                Row(
+                                  children: [
+                                    Expanded(child: poWidget),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: projectWidget),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: form4Widget),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: clearanceWidget),
+                                  ],
+                                ),
+                              ],
 
                           // Linked Packing List & Container Engine Section
                           if (_selectedImportFileId != null || _selectedPoId != null) ...[
@@ -1685,17 +1907,26 @@ Best regards,
                             ),
                           ],
                         ],
-                      ),
-                    ),
+                      );
+                    },
                   ),
-                  const SizedBox(height: 20),
+                ),
+              ),
+              const SizedBox(height: 20),
 
                   // Carrier Options Section Header
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(l.shippingCarrierOptions, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal)),
-                      ElevatedButton.icon(
+                  LayoutBuilder(
+                    builder: (context, headerConstraints) {
+                      final isNarrowHeader = headerConstraints.maxWidth < 650;
+                      final titleWidget = Text(
+                        l.shippingCarrierOptions,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                        ),
+                      );
+                      final addBtn = ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
                         icon: const Icon(Icons.add, size: 18),
                         label: Text(l.addNewShippingOption),
@@ -1713,8 +1944,26 @@ Best regards,
                             ));
                           });
                         },
-                      ),
-                    ],
+                      );
+                      if (isNarrowHeader) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            titleWidget,
+                            const SizedBox(height: 8),
+                            addBtn,
+                          ],
+                        );
+                      }
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(child: titleWidget),
+                          const SizedBox(width: 8),
+                          addBtn,
+                        ],
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 12),
@@ -1733,294 +1982,391 @@ Best regards,
 
                     return Card(
                       elevation: 1.5,
+                      color: isDark ? AppTheme.darkCardBackground : Colors.white,
                       margin: const EdgeInsets.only(bottom: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                         side: BorderSide(
                           color: item.isRecommended 
                               ? AppTheme.emerald 
-                              : (item.isExcludedFromAverage ? Colors.grey.shade400 : Colors.blue.shade200), 
+                              : (item.isExcludedFromAverage ? (isDark ? Colors.grey.shade700 : Colors.grey.shade400) : (isDark ? const Color(0xFF334155) : Colors.blue.shade200)), 
                           width: item.isRecommended ? 2 : 1
                         ),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(12),
-                        child: Column(
-                          children: [
-                            // Row 1: Freight Forwarder, Shipping Line, Vessel & Voyage
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 14,
-                                  backgroundColor: item.isRecommended ? AppTheme.emerald : AppTheme.cobalt,
-                                  child: Text('${idx + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  flex: 2,
-                                  child: SearchableDropdownField<int?>(
-                                    value: item.providerId,
-                                    labelText: l.freightForwarderCol,
-                                    searchHintText: l.forwarderSearchHint,
-                                    items: [
-                                      SearchableDropdownItem<int?>(value: null, label: l.unassigned),
-                                      ...freightForwarders.map((p) => SearchableDropdownItem<int?>(
-                                            value: p.providerId,
-                                            label: '${p.partnerName}${p.partnerCode.isNotEmpty ? " (${p.partnerCode})" : ""}',
-                                            searchValue: '${p.partnerName} ${p.partnerCode} ${p.partnerType}',
-                                          )),
-                                    ],
-                                    onChanged: (val) {
-                                      final partner = freightForwarders.where((p) => p.providerId == val).firstOrNull;
-                                      _updateItem(idx, item.copyWith(
-                                        providerId: val,
-                                        providerName: partner != null ? partner.partnerName : item.providerName,
-                                      ), currenciesList);
-                                    },
+                        child: LayoutBuilder(
+                          builder: (context, cardConstraints) {
+                            final isNarrowCard = cardConstraints.maxWidth < 800;
+
+                            final avatarWidget = CircleAvatar(
+                              radius: 14,
+                              backgroundColor: item.isRecommended ? AppTheme.emerald : AppTheme.cobalt,
+                              child: Text('${idx + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                            );
+
+                            final forwarderDropdown = SearchableDropdownField<int?>(
+                              value: item.providerId,
+                              labelText: l.freightForwarderCol,
+                              searchHintText: l.forwarderSearchHint,
+                              items: [
+                                SearchableDropdownItem<int?>(value: null, label: l.unassigned),
+                                ...freightForwarders.map((p) => SearchableDropdownItem<int?>(
+                                      value: p.providerId,
+                                      label: '${p.partnerName}${p.partnerCode.isNotEmpty ? " (${p.partnerCode})" : ""}',
+                                      searchValue: '${p.partnerName} ${p.partnerCode} ${p.partnerType}',
+                                    )),
+                              ],
+                              onChanged: (val) {
+                                final partner = freightForwarders.where((p) => p.providerId == val).firstOrNull;
+                                _updateItem(idx, item.copyWith(
+                                  providerId: val,
+                                  providerName: partner != null ? partner.partnerName : item.providerName,
+                                ), currenciesList);
+                              },
+                            );
+
+                            final shippingLineDropdown = SearchableDropdownField<String>(
+                              value: shippingLines.any((p) => p.partnerName == item.providerName)
+                                  ? item.providerName
+                                  : (item.providerName.isNotEmpty ? item.providerName : ''),
+                              labelText: '${l.shippingLineCol} *',
+                              searchHintText: l.shippingLineSearchHint,
+                              items: [
+                                SearchableDropdownItem<String>(value: '', label: l.unassigned),
+                                if (item.providerName.isNotEmpty && !shippingLines.any((p) => p.partnerName == item.providerName))
+                                  SearchableDropdownItem<String>(
+                                    value: item.providerName,
+                                    label: '★ ${item.providerName} (${l.suggestedSuffix})',
+                                    searchValue: item.providerName,
                                   ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  flex: 2,
-                                  child: SearchableDropdownField<String>(
-                                    value: shippingLines.any((p) => p.partnerName == item.providerName)
-                                        ? item.providerName
-                                        : (item.providerName.isNotEmpty ? item.providerName : ''),
-                                    labelText: '${l.shippingLineCol} *',
-                                    searchHintText: l.shippingLineSearchHint,
-                                    items: [
-                                      SearchableDropdownItem<String>(value: '', label: l.unassigned),
-                                      if (item.providerName.isNotEmpty && !shippingLines.any((p) => p.partnerName == item.providerName))
-                                        SearchableDropdownItem<String>(
-                                          value: item.providerName,
-                                          label: '★ ${item.providerName} (${l.suggestedSuffix})',
-                                          searchValue: item.providerName,
+                                ...shippingLines.map((p) => SearchableDropdownItem<String>(
+                                      value: p.partnerName,
+                                      label: '${p.partnerName}${p.scacCode != null && p.scacCode!.isNotEmpty ? " (${p.scacCode})" : ""}',
+                                      searchValue: '${p.partnerName} ${p.partnerCode} ${p.scacCode ?? ""} ${p.partnerType}',
+                                      subtitle: p.scacCode != null && p.scacCode!.isNotEmpty ? 'SCAC: ${p.scacCode}' : p.partnerCode,
+                                    )),
+                              ],
+                              onChanged: (val) {
+                                if (val != null && val.isNotEmpty) {
+                                  _updateItem(idx, item.copyWith(providerName: val), currenciesList);
+                                }
+                              },
+                            );
+
+                            final addShippingLineBtn = IconButton(
+                              icon: const Icon(Icons.add_business_outlined, color: AppTheme.emerald, size: 20),
+                              tooltip: l.addNewLineTooltip,
+                              onPressed: () => UniversalEntityExtractorDialog.showShippingLineExtractor(
+                                context,
+                                onSaved: () => _refreshData(force: true),
+                              ),
+                            );
+
+                            final vesselField = TextFormField(
+                              key: ValueKey('vessel_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
+                              initialValue: item.vesselName,
+                              decoration: InputDecoration(labelText: '${l.vesselNameCol} *', isDense: true),
+                              validator: (v) => v == null || v.trim().isEmpty ? l.requiredField : null,
+                              onChanged: (v) => _updateItem(idx, item.copyWith(vesselName: v.trim()), currenciesList),
+                            );
+
+                            final voyageField = TextFormField(
+                              key: ValueKey('voyage_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
+                              initialValue: item.voyageNumber ?? '',
+                              decoration: InputDecoration(labelText: l.voyageCol, isDense: true),
+                              onChanged: (v) => _updateItem(idx, item.copyWith(voyageNumber: v.trim()), currenciesList),
+                            );
+
+                            final cloneCarrierBtn = IconButton(
+                              icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 20),
+                              tooltip: l.cloneCarrierOptionTooltip,
+                              onPressed: () => _cloneCarrierOption(idx),
+                            );
+
+                            final deleteCarrierBtn = IconButton(
+                              icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
+                              onPressed: _evalItems.length <= 1
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        _evalItems.removeAt(idx);
+                                        _expandedQuotes.remove(idx);
+                                      });
+                                    },
+                            );
+
+                            final polDropdown = SearchableDropdownField<int?>(
+                              value: item.portOfLoadingId,
+                              labelText: l.portOfLoadingCol,
+                              items: [
+                                SearchableDropdownItem<int?>(value: null, label: l.unassigned),
+                                ...portsList.map((p) => SearchableDropdownItem<int?>(
+                                      value: p.locationId,
+                                      label: '${p.unLocode} - ${p.locationName} (${p.country})',
+                                    )),
+                              ],
+                              onChanged: (val) {
+                                final selectedPort = portsList.where((p) => p.locationId == val).firstOrNull;
+                                _updateItem(idx, item.copyWith(
+                                  portOfLoadingId: val,
+                                  polName: selectedPort != null ? selectedPort.locationName : item.polName,
+                                ), currenciesList);
+                              },
+                            );
+
+                            final podDropdown = SearchableDropdownField<int?>(
+                              value: item.portOfDischargeId,
+                              labelText: l.portOfDischargeCol,
+                              items: [
+                                SearchableDropdownItem<int?>(value: null, label: l.unassigned),
+                                ...portsList.map((p) => SearchableDropdownItem<int?>(
+                                      value: p.locationId,
+                                      label: '${p.unLocode} - ${p.locationName} (${p.country})',
+                                    )),
+                              ],
+                              onChanged: (val) {
+                                final selectedPort = portsList.where((p) => p.locationId == val).firstOrNull;
+                                _updateItem(idx, item.copyWith(
+                                  portOfDischargeId: val,
+                                  podName: selectedPort != null ? selectedPort.locationName : item.podName,
+                                ), currenciesList);
+                              },
+                            );
+
+                            final brokerDropdown = SearchableDropdownField<int?>(
+                              value: item.customsBrokerId,
+                              labelText: l.customsBrokerLabel,
+                              items: [
+                                SearchableDropdownItem<int?>(value: null, label: l.unassigned),
+                                ...customsBrokers.map((p) => SearchableDropdownItem<int?>(
+                                      value: p.providerId,
+                                      label: p.partnerName,
+                                    )),
+                              ],
+                              onChanged: (val) {
+                                final partner = customsBrokers.where((p) => p.providerId == val).firstOrNull;
+                                final hasClearance = item.clearanceFeePrice > 0;
+                                _updateItem(idx, item.copyWith(
+                                  customsBrokerId: val,
+                                  customsBrokerName: partner?.partnerName,
+                                  clearanceFeeApplicable: val != null ? true : item.clearanceFeeApplicable,
+                                  clearanceFeePrice: (!hasClearance && val != null) ? 2500.0 : item.clearanceFeePrice,
+                                  clearanceFeeCurrency: "EGP",
+                                  inspectionFeeApplicable: val != null ? true : item.inspectionFeeApplicable,
+                                  inspectionFeePrice: (!hasClearance && val != null) ? 3500.0 : item.inspectionFeePrice,
+                                  inspectionFeeCurrency: "EGP",
+                                  inlandTransportFeeApplicable: val != null ? true : item.inlandTransportFeeApplicable,
+                                  inlandTransportFeePrice: (!hasClearance && val != null) ? 14800.0 : item.inlandTransportFeePrice,
+                                  inlandTransportFeeCurrency: "EGP",
+                                  portExpensesApplicable: val != null ? true : item.portExpensesApplicable,
+                                  portExpensesPrice: (!hasClearance && val != null) ? 4750.0 : item.portExpensesPrice,
+                                  portExpensesCurrency: "EGP",
+                                ), currenciesList);
+                              },
+                            );
+
+                            final sailingDatePicker = InkWell(
+                              onTap: () async {
+                                final sDate = DateTime.tryParse(item.sailingDate) ?? DateTime.now();
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: sDate,
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2030),
+                                );
+                                if (picked != null) {
+                                  _updateItem(idx, item.copyWith(sailingDate: picked.toString().substring(0, 10)), currenciesList);
+                                }
+                              },
+                              child: InputDecorator(
+                                decoration: InputDecoration(labelText: '${l.sailingDateCol} *', isDense: true),
+                                child: Text(item.sailingDate, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                              ),
+                            );
+
+                            final etaDatePicker = InkWell(
+                              onTap: () async {
+                                final etaDate = DateTime.tryParse(item.estimatedArrivalDate) ?? DateTime.now();
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: etaDate,
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2030),
+                                );
+                                if (picked != null) {
+                                  _updateItem(idx, item.copyWith(estimatedArrivalDate: picked.toString().substring(0, 10)), currenciesList);
+                                }
+                              },
+                              child: InputDecorator(
+                                decoration: InputDecoration(labelText: '${l.estimatedArrivalDateCol} *', isDense: true),
+                                child: Text(item.estimatedArrivalDate, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                              ),
+                            );
+
+                            final delayField = TextFormField(
+                              key: ValueKey('delay_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
+                              initialValue: item.expectedLineDelayDays.toString(),
+                              keyboardType: TextInputType.number,
+                              decoration: InputDecoration(labelText: l.expectedDelayCol, isDense: true),
+                              onChanged: (v) {
+                                final delay = int.tryParse(v) ?? 0;
+                                _updateItem(idx, item.copyWith(expectedLineDelayDays: delay), currenciesList);
+                              },
+                            );
+
+                            final riskDropdown = SearchableDropdownField<String>(
+                              value: item.riskLevel,
+                              labelText: l.riskLevelCol,
+                              items: const [
+                                SearchableDropdownItem(value: 'Low', label: 'Low Risk 🟢'),
+                                SearchableDropdownItem(value: 'Medium', label: 'Medium Risk 🟠'),
+                                SearchableDropdownItem(value: 'High', label: 'High Risk 🔴'),
+                              ],
+                              onChanged: (v) {
+                                if (v != null) {
+                                  _updateItem(idx, item.copyWith(riskLevel: v), currenciesList);
+                                }
+                              },
+                            );
+
+                            final excludedChip = FilterChip(
+                              label: Text(item.isExcludedFromAverage ? l.excludedFromAvg : l.includedInAvg, style: TextStyle(fontSize: 11, color: item.isExcludedFromAverage ? Colors.red.shade800 : AppTheme.cobalt)),
+                              selected: item.isExcludedFromAverage,
+                              onSelected: (val) {
+                                _updateItem(idx, item.copyWith(isExcludedFromAverage: val), currenciesList);
+                              },
+                            );
+
+                            return Column(
+                              children: [
+                                if (isNarrowCard) ...[
+                                  // Header Row for Narrow Viewports
+                                  Row(
+                                    children: [
+                                      avatarWidget,
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          item.providerName.isNotEmpty ? item.providerName : '${l.carrierOptionHeader} #${idx + 1}',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                      ...shippingLines.map((p) => SearchableDropdownItem<String>(
-                                            value: p.partnerName,
-                                            label: '${p.partnerName}${p.scacCode != null && p.scacCode!.isNotEmpty ? " (${p.scacCode})" : ""}',
-                                            searchValue: '${p.partnerName} ${p.partnerCode} ${p.scacCode ?? ""} ${p.partnerType}',
-                                            subtitle: p.scacCode != null && p.scacCode!.isNotEmpty ? 'SCAC: ${p.scacCode}' : p.partnerCode,
-                                          )),
+                                      ),
+                                      cloneCarrierBtn,
+                                      deleteCarrierBtn,
                                     ],
-                                    onChanged: (val) {
-                                      if (val != null && val.isNotEmpty) {
-                                        _updateItem(idx, item.copyWith(providerName: val), currenciesList);
-                                      }
-                                    },
                                   ),
-                                ),
-                                const SizedBox(width: 4),
-                                IconButton(
-                                  icon: const Icon(Icons.add_business_outlined, color: AppTheme.emerald, size: 20),
-                                  tooltip: l.addNewLineTooltip,
-                                  onPressed: () => UniversalEntityExtractorDialog.showShippingLineExtractor(
-                                    context,
-                                    onSaved: () => _refreshData(force: true),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  flex: 2,
-                                  child: TextFormField(
-                                    key: ValueKey('vessel_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
-                                    initialValue: item.vesselName,
-                                    decoration: InputDecoration(labelText: '${l.vesselNameCol} *', isDense: true),
-                                    validator: (v) => v == null || v.trim().isEmpty ? l.requiredField : null,
-                                    onChanged: (v) => _updateItem(idx, item.copyWith(vesselName: v.trim()), currenciesList),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: TextFormField(
-                                    key: ValueKey('voyage_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
-                                    initialValue: item.voyageNumber ?? '',
-                                    decoration: InputDecoration(labelText: l.voyageCol, isDense: true),
-                                    onChanged: (v) => _updateItem(idx, item.copyWith(voyageNumber: v.trim()), currenciesList),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
-                                  onPressed: _evalItems.length <= 1
-                                      ? null
-                                      : () {
-                                          setState(() {
-                                            _evalItems.removeAt(idx);
-                                            _expandedQuotes.remove(idx);
-                                          });
-                                        },
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
+                                  const SizedBox(height: 10),
 
-                            // Row 2: POL, POD & Customs Broker Selector
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: SearchableDropdownField<int?>(
-                                    value: item.portOfLoadingId,
-                                    labelText: l.portOfLoadingCol,
-                                    items: [
-                                      SearchableDropdownItem<int?>(value: null, label: l.unassigned),
-                                      ...portsList.map((p) => SearchableDropdownItem<int?>(
-                                            value: p.locationId,
-                                            label: '${p.unLocode} - ${p.locationName} (${p.country})',
-                                          )),
+                                  // Forwarder & Shipping Line
+                                  Row(
+                                    children: [
+                                      Expanded(child: forwarderDropdown),
+                                      const SizedBox(width: 8),
+                                      Expanded(child: shippingLineDropdown),
+                                      addShippingLineBtn,
                                     ],
-                                    onChanged: (val) {
-                                      final selectedPort = portsList.where((p) => p.locationId == val).firstOrNull;
-                                      _updateItem(idx, item.copyWith(
-                                        portOfLoadingId: val,
-                                        polName: selectedPort != null ? selectedPort.locationName : item.polName,
-                                      ), currenciesList);
-                                    },
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: SearchableDropdownField<int?>(
-                                    value: item.portOfDischargeId,
-                                    labelText: l.portOfDischargeCol,
-                                    items: [
-                                      SearchableDropdownItem<int?>(value: null, label: l.unassigned),
-                                      ...portsList.map((p) => SearchableDropdownItem<int?>(
-                                            value: p.locationId,
-                                            label: '${p.unLocode} - ${p.locationName} (${p.country})',
-                                          )),
-                                    ],
-                                    onChanged: (val) {
-                                      final selectedPort = portsList.where((p) => p.locationId == val).firstOrNull;
-                                      _updateItem(idx, item.copyWith(
-                                        portOfDischargeId: val,
-                                        podName: selectedPort != null ? selectedPort.locationName : item.podName,
-                                      ), currenciesList);
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: SearchableDropdownField<int?>(
-                                    value: item.customsBrokerId,
-                                    labelText: l.customsBrokerLabel,
-                                    items: [
-                                      SearchableDropdownItem<int?>(value: null, label: l.unassigned),
-                                      ...customsBrokers.map((p) => SearchableDropdownItem<int?>(
-                                            value: p.providerId,
-                                            label: p.partnerName,
-                                          )),
-                                    ],
-                                    onChanged: (val) {
-                                      final partner = customsBrokers.where((p) => p.providerId == val).firstOrNull;
-                                      final hasClearance = item.clearanceFeePrice > 0;
-                                      _updateItem(idx, item.copyWith(
-                                        customsBrokerId: val,
-                                        customsBrokerName: partner?.partnerName,
-                                        clearanceFeeApplicable: val != null ? true : item.clearanceFeeApplicable,
-                                        clearanceFeePrice: (!hasClearance && val != null) ? 2500.0 : item.clearanceFeePrice,
-                                        clearanceFeeCurrency: "EGP",
-                                        inspectionFeeApplicable: val != null ? true : item.inspectionFeeApplicable,
-                                        inspectionFeePrice: (!hasClearance && val != null) ? 3500.0 : item.inspectionFeePrice,
-                                        inspectionFeeCurrency: "EGP",
-                                        inlandTransportFeeApplicable: val != null ? true : item.inlandTransportFeeApplicable,
-                                        inlandTransportFeePrice: (!hasClearance && val != null) ? 14800.0 : item.inlandTransportFeePrice,
-                                        inlandTransportFeeCurrency: "EGP",
-                                        portExpensesApplicable: val != null ? true : item.portExpensesApplicable,
-                                        portExpensesPrice: (!hasClearance && val != null) ? 4750.0 : item.portExpensesPrice,
-                                        portExpensesCurrency: "EGP",
-                                      ), currenciesList);
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
+                                  const SizedBox(height: 10),
 
-                            // Row 3: Sailing Date, ETA, Delays & Risk
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: () async {
-                                      final sDate = DateTime.tryParse(item.sailingDate) ?? DateTime.now();
-                                      final picked = await showDatePicker(
-                                        context: context,
-                                        initialDate: sDate,
-                                        firstDate: DateTime(2020),
-                                        lastDate: DateTime(2030),
-                                      );
-                                      if (picked != null) {
-                                        _updateItem(idx, item.copyWith(sailingDate: picked.toString().substring(0, 10)), currenciesList);
-                                      }
-                                    },
-                                    child: InputDecorator(
-                                      decoration: InputDecoration(labelText: '${l.sailingDateCol} *', isDense: true),
-                                      child: Text(item.sailingDate, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: () async {
-                                      final etaDate = DateTime.tryParse(item.estimatedArrivalDate) ?? DateTime.now();
-                                      final picked = await showDatePicker(
-                                        context: context,
-                                        initialDate: etaDate,
-                                        firstDate: DateTime(2020),
-                                        lastDate: DateTime(2030),
-                                      );
-                                      if (picked != null) {
-                                        _updateItem(idx, item.copyWith(estimatedArrivalDate: picked.toString().substring(0, 10)), currenciesList);
-                                      }
-                                    },
-                                    child: InputDecorator(
-                                      decoration: InputDecoration(labelText: '${l.estimatedArrivalDateCol} *', isDense: true),
-                                      child: Text(item.estimatedArrivalDate, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: TextFormField(
-                                    key: ValueKey('delay_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
-                                    initialValue: item.expectedLineDelayDays.toString(),
-                                    keyboardType: TextInputType.number,
-                                    decoration: InputDecoration(labelText: l.expectedDelayCol, isDense: true),
-                                    onChanged: (v) {
-                                      final delay = int.tryParse(v) ?? 0;
-                                      _updateItem(idx, item.copyWith(expectedLineDelayDays: delay), currenciesList);
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: SearchableDropdownField<String>(
-                                    value: item.riskLevel,
-                                    labelText: l.riskLevelCol,
-                                    items: const [
-                                      SearchableDropdownItem(value: 'Low', label: 'Low Risk 🟢'),
-                                      SearchableDropdownItem(value: 'Medium', label: 'Medium Risk 🟠'),
-                                      SearchableDropdownItem(value: 'High', label: 'High Risk 🔴'),
+                                  // Vessel & Voyage
+                                  Row(
+                                    children: [
+                                      Expanded(flex: 2, child: vesselField),
+                                      const SizedBox(width: 8),
+                                      Expanded(child: voyageField),
                                     ],
-                                    onChanged: (v) {
-                                      if (v != null) {
-                                        _updateItem(idx, item.copyWith(riskLevel: v), currenciesList);
-                                      }
-                                    },
                                   ),
-                                ),
-                                const SizedBox(width: 10),
-                                FilterChip(
-                                  label: Text(item.isExcludedFromAverage ? l.excludedFromAvg : l.includedInAvg, style: TextStyle(fontSize: 11, color: item.isExcludedFromAverage ? Colors.red.shade800 : AppTheme.cobalt)),
-                                  selected: item.isExcludedFromAverage,
-                                  onSelected: (val) {
-                                    _updateItem(idx, item.copyWith(isExcludedFromAverage: val), currenciesList);
-                                  },
-                                ),
-                              ],
-                            ),
+                                  const SizedBox(height: 10),
+
+                                  // Ports & Broker
+                                  Row(
+                                    children: [
+                                      Expanded(child: polDropdown),
+                                      const SizedBox(width: 8),
+                                      Expanded(child: podDropdown),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  brokerDropdown,
+                                  const SizedBox(height: 10),
+
+                                  // Sailing Date & ETA
+                                  Row(
+                                    children: [
+                                      Expanded(child: sailingDatePicker),
+                                      const SizedBox(width: 8),
+                                      Expanded(child: etaDatePicker),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+
+                                  // Delays, Risk & Average exclusion
+                                  Row(
+                                    children: [
+                                      Expanded(child: delayField),
+                                      const SizedBox(width: 8),
+                                      Expanded(child: riskDropdown),
+                                      const SizedBox(width: 8),
+                                      excludedChip,
+                                    ],
+                                  ),
+                                ] else ...[
+                                  // Full Desktop Layout
+                                  // Row 1: Freight Forwarder, Shipping Line, Vessel & Voyage
+                                  Row(
+                                    children: [
+                                      avatarWidget,
+                                      const SizedBox(width: 10),
+                                      Expanded(flex: 2, child: forwarderDropdown),
+                                      const SizedBox(width: 10),
+                                      Expanded(flex: 2, child: shippingLineDropdown),
+                                      const SizedBox(width: 4),
+                                      addShippingLineBtn,
+                                      const SizedBox(width: 6),
+                                      Expanded(flex: 2, child: vesselField),
+                                      const SizedBox(width: 10),
+                                      Expanded(child: voyageField),
+                                      const SizedBox(width: 4),
+                                      cloneCarrierBtn,
+                                      const SizedBox(width: 4),
+                                      deleteCarrierBtn,
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+
+                                  // Row 2: POL, POD & Customs Broker Selector
+                                  Row(
+                                    children: [
+                                      Expanded(child: polDropdown),
+                                      const SizedBox(width: 12),
+                                      Expanded(child: podDropdown),
+                                      const SizedBox(width: 12),
+                                      Expanded(child: brokerDropdown),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+
+                                  // Row 3: Sailing Date, ETA, Delays & Risk
+                                  Row(
+                                    children: [
+                                      Expanded(child: sailingDatePicker),
+                                      const SizedBox(width: 10),
+                                      Expanded(child: etaDatePicker),
+                                      const SizedBox(width: 10),
+                                      Expanded(child: delayField),
+                                      const SizedBox(width: 10),
+                                      Expanded(child: riskDropdown),
+                                      const SizedBox(width: 10),
+                                      excludedChip,
+                                    ],
+                                  ),
+                                ],
 
                             // Live Calculation & Expand Quote buttons
                             if (calc.isNotEmpty) ...[
@@ -2028,7 +2374,10 @@ Best regards,
                               Container(
                                 width: double.infinity,
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(6)),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF1B2838) : Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
                                 child: SingleChildScrollView(
                                   scrollDirection: Axis.horizontal,
                                   child: Row(
@@ -2036,7 +2385,7 @@ Best regards,
                                     children: [
                                       Text(
                                         l.polToPodLeadTimeStrip(item.polName ?? '-', item.podName ?? '-', calc["vesselLeadTime"] as int, calc["totalDays"] as int),
-                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                       ),
                                       const SizedBox(width: 16),
                                       Row(
@@ -2067,9 +2416,9 @@ Best regards,
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.shade50,
+                                  color: isDark ? const Color(0xFF1E2631) : Colors.grey.shade50,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.grey.shade300),
+                                  border: Border.all(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2406,27 +2755,30 @@ Best regards,
                               ),
                             ],
                           ],
-                        ),
-                      ),
-                    );
-                  }),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              }),
                   const SizedBox(height: 20),
 
                   // Comparison Summary Table
                   Card(
                     elevation: 2,
+                    color: isDark ? AppTheme.darkCardBackground : Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(l.sideBySideComparison, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                          Text(l.sideBySideComparison, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                           const SizedBox(height: 10),
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: DataTable(
-                              headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
+                              headingRowColor: WidgetStateProperty.all(isDark ? const Color(0xFF141A22) : AppTheme.charcoal),
                               headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                               columns: [
                                 const DataColumn(label: Text('#')),
@@ -2472,7 +2824,7 @@ Best regards,
                                         ],
                                       ),
                                     )),
-                                    DataCell(CopyableTableCell(value: '${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', rowSummary: rowSummary, child: Text('${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', style: const TextStyle(fontSize: 11)))),
+                                    DataCell(CopyableTableCell(value: '${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', rowSummary: rowSummary, child: Row(mainAxisSize: MainAxisSize.min, children: [Text(item.polName ?? '-', style: const TextStyle(fontSize: 11)), const SizedBox(width: 4), const DirectionalIcon(Icons.arrow_forward, size: 12), const SizedBox(width: 4), Text(item.podName ?? '-', style: const TextStyle(fontSize: 11))]))),
                                     DataCell(CopyableTableCell(value: '${item.vesselName} (${item.voyageNumber ?? "-"})', rowSummary: rowSummary, child: Text('${item.vesselName} (${item.voyageNumber ?? "-"})'))),
                                     DataCell(CopyableTableCell(value: item.sailingDate, rowSummary: rowSummary, child: Text(item.sailingDate))),
                                     DataCell(CopyableTableCell(value: item.estimatedArrivalDate, rowSummary: rowSummary, child: Text(item.estimatedArrivalDate))),
@@ -2507,7 +2859,7 @@ Best regards,
           ),
         ),
 
-          // Bottom Fixed Action Bar with 3 Standard ERP Action Buttons
+          // Bottom Fixed Action Bar with 3 Standard ERP Action Buttons (WCAG AA & Dark Mode)
           Positioned(
             left: 0,
             right: 0,
@@ -2515,8 +2867,9 @@ Best regards,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, -2))],
+                color: isDark ? const Color(0xFF253140) : Colors.white,
+                border: Border(top: BorderSide(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300)),
+                boxShadow: [BoxShadow(color: isDark ? Colors.black26 : Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, -2))],
               ),
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -2533,8 +2886,8 @@ Best regards,
                               // 1. Live Refresh Button
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppTheme.charcoal,
-                                  side: BorderSide(color: Colors.grey.shade400),
+                                  foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                  side: BorderSide(color: isDark ? const Color(0xFF475569) : Colors.grey.shade400),
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                 ),
                                 icon: const Icon(Icons.refresh, size: 18, color: AppTheme.cobalt),
@@ -2546,8 +2899,8 @@ Best regards,
                               // 2. Clear Form & Start New
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.grey.shade800,
-                                  side: BorderSide(color: Colors.grey.shade400),
+                                  foregroundColor: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800,
+                                  side: BorderSide(color: isDark ? const Color(0xFF475569) : Colors.grey.shade400),
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                 ),
                                 icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: Colors.blueGrey),
@@ -2559,8 +2912,8 @@ Best regards,
                               // 3. Save Draft & Continue Later
                               ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFEFF6FF),
-                                  foregroundColor: AppTheme.cobalt,
+                                  backgroundColor: isDark ? const Color(0xFF1E2631) : const Color(0xFFEFF6FF),
+                                  foregroundColor: isDark ? AppTheme.darkHyperlink : AppTheme.wcagCobalt,
                                   elevation: 0,
                                   side: const BorderSide(color: AppTheme.cobalt),
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -2576,7 +2929,7 @@ Best regards,
                           // 4. Final Submit / Save Study
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.emerald,
+                              backgroundColor: AppTheme.wcagEmerald,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
                               elevation: 2,
@@ -2620,58 +2973,39 @@ Best regards,
     required List<CurrencyModel> currenciesList,
   }) {
     final l = context.l10n;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          // Title
-          Expanded(
-            flex: 3,
-            child: Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Price field (always visible with stable key)
-          Expanded(
-            flex: 2,
-            child: TextFormField(
-              key: ValueKey('price_${rowKey}_${_editingSessionId ?? "new"}_$_editFormVersion'),
-              initialValue: price == 0.0 ? '' : price.toString(),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(labelText: l.itemPriceCol, isDense: true),
-              onChanged: (v) {
-                final p = double.tryParse(v) ?? 0.0;
-                onPriceChanged(p);
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Currency dropdown (always visible, dynamic list from DB)
-          Expanded(
-            flex: 2,
-            child: SearchableDropdownField<String>(
-              value: currenciesList.any((c) => c.currencyCode == currency) ? currency : (currenciesList.isNotEmpty ? currenciesList.first.currencyCode : 'USD'),
-              labelText: l.currency,
-              items: currenciesList.map((c) => SearchableDropdownItem(
-                    value: c.currencyCode,
-                    label: '${c.currencyCode} (${c.currencySymbol})',
-                  )).toList(),
-              onChanged: (v) {
-                if (v != null) {
-                  onCurrencyChanged(v);
-                }
-              },
-            ),
-          ),
-          if (showQty) ...[
-            const SizedBox(width: 8),
-            // Qty field (always visible when showQty is true with stable key)
-            Expanded(
-              flex: 2,
-              child: TextFormField(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return LayoutBuilder(
+      builder: (context, costConstraints) {
+        final isNarrow = costConstraints.maxWidth < 650;
+
+        final priceField = TextFormField(
+          key: ValueKey('price_${rowKey}_${_editingSessionId ?? "new"}_$_editFormVersion'),
+          initialValue: price == 0.0 ? '' : price.toString(),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(labelText: l.itemPriceCol, isDense: true),
+          onChanged: (v) {
+            final p = double.tryParse(v) ?? 0.0;
+            onPriceChanged(p);
+          },
+        );
+
+        final currencyField = SearchableDropdownField<String>(
+          value: currenciesList.any((c) => c.currencyCode == currency) ? currency : (currenciesList.isNotEmpty ? currenciesList.first.currencyCode : 'USD'),
+          labelText: l.currency,
+          items: currenciesList.map((c) => SearchableDropdownItem(
+                value: c.currencyCode,
+                label: '${c.currencyCode} (${c.currencySymbol})',
+              )).toList(),
+          onChanged: (v) {
+            if (v != null) {
+              onCurrencyChanged(v);
+            }
+          },
+        );
+
+        final qtyField = showQty
+            ? TextFormField(
                 key: qtyReadOnly
                     ? ValueKey('readonly_qty_${rowKey}_$qty')
                     : ValueKey('qty_${rowKey}_${_editingSessionId ?? "new"}_$_editFormVersion'),
@@ -2679,72 +3013,148 @@ Best regards,
                 initialValue: qty == 0.0 ? '' : (isIntegerQty ? qty.toInt().toString() : qty.toString()),
                 keyboardType: TextInputType.numberWithOptions(decimal: !isIntegerQty),
                 decoration: InputDecoration(labelText: l.quantity, isDense: true),
-                onChanged: qtyReadOnly ? null : (v) {
-                  final q = double.tryParse(v) ?? 0.0;
-                  if (onQtyChanged != null) {
-                    onQtyChanged(q);
-                  }
-                },
+                onChanged: qtyReadOnly
+                    ? null
+                    : (v) {
+                        final q = double.tryParse(v) ?? 0.0;
+                        if (onQtyChanged != null) {
+                          onQtyChanged(q);
+                        }
+                      },
+              )
+            : null;
+
+        final switchWidget = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Switch(
+              value: applicable,
+              activeColor: AppTheme.cobalt,
+              onChanged: onApplicableChanged,
+            ),
+            Text(
+              applicable ? l.applicable : l.notApplicable,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: applicable ? AppTheme.emerald : Colors.red.shade900,
               ),
             ),
           ],
-          const SizedBox(width: 12),
-          // Applicable switch (moved after inputs)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Switch(
-                value: applicable,
-                activeColor: AppTheme.cobalt,
-                onChanged: onApplicableChanged,
-              ),
-              Text(
-                applicable ? l.applicable : l.notApplicable,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: applicable ? AppTheme.emerald : Colors.red.shade900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          // Line total display (dynamically shows 0.0 if not applicable)
-          Expanded(
-            flex: 2,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              decoration: BoxDecoration(
-                color: applicable ? Colors.green.shade50 : Colors.red.shade50,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: applicable ? Colors.green.shade200 : Colors.red.shade200),
-              ),
-              child: Text(
-                applicable 
-                    ? '${(price * qty).toStringAsFixed(0)} $currency'
-                    : '0.0 $currency',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold, 
-                  fontSize: 11, 
-                  color: applicable ? AppTheme.emerald : Colors.red.shade900
-                ),
-                textAlign: TextAlign.center,
-              ),
+        );
+
+        final totalDisplay = Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            color: applicable 
+                ? (isDark ? const Color(0xFF132E1B) : Colors.green.shade50)
+                : (isDark ? const Color(0xFF2C1517) : Colors.red.shade50),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: applicable 
+                  ? (isDark ? AppTheme.emerald : Colors.green.shade200)
+                  : (isDark ? AppTheme.crimson : Colors.red.shade200),
             ),
           ),
-        ],
-      ),
+          child: Text(
+            applicable 
+                ? '${(price * qty).toStringAsFixed(0)} $currency'
+                : '0.0 $currency',
+            style: TextStyle(
+              fontWeight: FontWeight.bold, 
+              fontSize: 11, 
+              color: applicable ? AppTheme.emerald : Colors.red.shade900,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        );
+
+        if (isNarrow) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    switchWidget,
+                    const SizedBox(width: 8),
+                    totalDisplay,
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(flex: 2, child: priceField),
+                    const SizedBox(width: 8),
+                    Expanded(flex: 2, child: currencyField),
+                    if (showQty && qtyField != null) ...[
+                      const SizedBox(width: 8),
+                      Expanded(flex: 2, child: qtyField),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(flex: 2, child: priceField),
+              const SizedBox(width: 8),
+              Expanded(flex: 2, child: currencyField),
+              if (showQty && qtyField != null) ...[
+                const SizedBox(width: 8),
+                Expanded(flex: 2, child: qtyField),
+              ],
+              const SizedBox(width: 12),
+              switchWidget,
+              const SizedBox(width: 12),
+              Expanded(flex: 2, child: totalDisplay),
+            ],
+          ),
+        );
+      },
     );
   }
 
   Widget _buildMetricCard(String title, String val, IconData icon, Color color, {String? subtitle}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppTheme.darkCardBackground : Colors.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withOpacity(0.3)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: isDark ? Colors.black26 : Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2753,14 +3163,14 @@ Best regards,
             children: [
               Icon(icon, color: color, size: 20),
               const SizedBox(width: 6),
-              Expanded(child: Text(title, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+              Expanded(child: Text(title, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
             ],
           ),
           const SizedBox(height: 6),
           CopyableText(val, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color), overflow: TextOverflow.ellipsis),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
-            CopyableText(subtitle, style: const TextStyle(fontSize: 10, color: Colors.black87, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+            CopyableText(subtitle, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextPrimary : Colors.black87, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
           ],
         ],
       ),
@@ -2957,7 +3367,10 @@ Best regards,
           for (int i = 0; i < _evalItems.length; i++) {
             final o = oldSession.items[i];
             final n = _evalItems[i];
-            final quoteTitle = 'عرض #${i + 1} (${n.providerName.isNotEmpty ? n.providerName : "ناقل"})';
+            final isAr = Directionality.maybeOf(context) == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
+            final defaultCarrier = isAr ? "ناقل" : "Carrier";
+            final quotePrefix = isAr ? "عرض" : "Quote";
+            final quoteTitle = '$quotePrefix #${i + 1} (${n.providerName.isNotEmpty ? n.providerName : defaultCarrier})';
 
             if (FieldChangeItem.isDifferent(o.providerName, n.providerName)) {
               changes.add(FieldChangeItem(
@@ -3788,6 +4201,229 @@ Best regards,
     return SavedScenariosRegistryTab(
       onEditSession: _loadSessionForEditing,
       onSwitchToEvaluator: () => _tabController.animateTo(0),
+    );
+  }
+}
+
+// ==================================================
+// Dedicated Search & Clone Dialog for Shipping Scenarios (UX-CLONE-012)
+// ==================================================
+class SearchAndCloneStudyDialog extends StatefulWidget {
+  final List<ShippingEvaluationModel> sessions;
+  final ValueChanged<ShippingEvaluationModel> onSelectStudy;
+
+  const SearchAndCloneStudyDialog({
+    super.key,
+    required this.sessions,
+    required this.onSelectStudy,
+  });
+
+  @override
+  State<SearchAndCloneStudyDialog> createState() => _SearchAndCloneStudyDialogState();
+}
+
+class _SearchAndCloneStudyDialogState extends State<SearchAndCloneStudyDialog> {
+  final TextEditingController _queryController = TextEditingController();
+  late List<ShippingEvaluationModel> _filteredStudies;
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredStudies = widget.sessions;
+    _queryController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _queryController.removeListener(_onSearchChanged);
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final query = _queryController.text.trim().toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredStudies = widget.sessions;
+      } else {
+        _filteredStudies = widget.sessions.where((s) {
+          final code = s.sessionCode.toLowerCase();
+          final title = (s.title ?? '').toLowerCase();
+          final imp = (s.importFileCode ?? '').toLowerCase();
+          final po = (s.poNumber ?? '').toLowerCase();
+          final prj = (s.projectName ?? '').toLowerCase();
+          final rec = (s.recommendedScenarioProvider ?? '').toLowerCase();
+          return code.contains(query) ||
+              title.contains(query) ||
+              imp.contains(query) ||
+              po.contains(query) ||
+              prj.contains(query) ||
+              rec.contains(query);
+        }).toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+      child: Container(
+        width: math.min(720.0, screenWidth - 32),
+        height: math.min(600.0, screenHeight - 64),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cobalt.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.copy_all_rounded, color: AppTheme.cobalt, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l.searchAndCloneStudyDialogTitle,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        l.searchAndCloneStudySubtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Search input
+            TextField(
+              controller: _queryController,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: l.searchByStudyCodeOrTitleHint,
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _queryController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () => _queryController.clear(),
+                      )
+                    : null,
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Results list
+            Expanded(
+              child: _filteredStudies.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
+                          const SizedBox(height: 12),
+                          Text(
+                            l.noMatchingStudiesFound,
+                            style: TextStyle(
+                              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: _filteredStudies.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final study = _filteredStudies[index];
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          leading: CircleAvatar(
+                            backgroundColor: AppTheme.cobalt.withOpacity(0.15),
+                            child: const Icon(Icons.alt_route, color: AppTheme.cobalt, size: 20),
+                          ),
+                          title: Row(
+                            children: [
+                              Text(
+                                study.sessionCode,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                              ),
+                              if (study.title != null && study.title!.isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    study.title!,
+                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: [
+                                Text('${l.crdLabel}: ${study.cargoReadyDate}', style: const TextStyle(fontSize: 11)),
+                                Text('• ${study.items.length} ${l.shippingCarrierOptions}', style: const TextStyle(fontSize: 11)),
+                                if (study.recommendedScenarioProvider != null)
+                                  Text('• 🏆 ${study.recommendedScenarioProvider}', style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.w600)),
+                                if (study.importFileCode != null)
+                                  Text('• 📁 ${study.importFileCode}', style: const TextStyle(fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                          trailing: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.wcagCobalt,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            ),
+                            icon: const Icon(Icons.copy_rounded, size: 14),
+                            label: Text(l.cloneRowTooltip, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            onPressed: () => widget.onSelectStudy(study),
+                          ),
+                          onTap: () => widget.onSelectStudy(study),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

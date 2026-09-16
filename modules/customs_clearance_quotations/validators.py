@@ -18,17 +18,17 @@ from modules.customs_clearance_quotations.schemas import (
 def validate_rfq_create(data: CustomsClearanceRFQCreate) -> None:
     if not data.title or len(data.title.strip()) < 3:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="عنوان طلب عرض أسعار التخليص مطلوب ويجب ألا يقل عن 3 أحرف.",
         )
     if not data.port_name or len(data.port_name.strip()) < 2:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="ميناء التخليص الجمركي مطلوب.",
         )
     if data.containers_count < 1:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="عدد الحاويات / الشحنات يجب أن يكون 1 على الأقل.",
         )
 
@@ -36,17 +36,17 @@ def validate_rfq_create(data: CustomsClearanceRFQCreate) -> None:
 def validate_quotation_create(data: CustomsClearanceQuotationCreate) -> None:
     if not data.provider_name or len(data.provider_name.strip()) < 2:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="اسم المخلص الجمركي / المكتب مطلوب.",
         )
     if data.provider_id <= 0:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="معرف الشريك / المخلص الجمركي غير صالح.",
         )
     if (data.clearance_fee + data.inland_transport_fee + data.inspection_fee + data.port_expenses + data.miscellaneous_fee) <= 0:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="يجب إدخال قيمة موجبة لأحد بنود عرض أسعار التخليص على الأقل.",
         )
 
@@ -54,11 +54,11 @@ def validate_quotation_create(data: CustomsClearanceQuotationCreate) -> None:
 def validate_price_item_create(data: ClearancePriceListItemCreate) -> None:
     if data.unit_price <= 0:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="سعر البند في قائمة الأسعار يجب أن يكون أكبر من الصفر.",
         )
     if not data.port_name or len(data.port_name.strip()) < 2:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="ميناء الخدمة مطلوب.",
         )

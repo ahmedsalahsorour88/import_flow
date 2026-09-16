@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../helpers/table_copy_helper.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 
@@ -155,12 +156,15 @@ class _CopyableTextState extends State<CopyableText> {
   }
 }
 
-/// A cell wrapper for data tables or key-value summary rows that enables
-/// copying either the cell value or the full row summary.
+/// A cell wrapper for data tables or key-value summary rows that enables:
+/// 1. Native cell-level text selection (highlight words/numbers with mouse drag and Ctrl+C).
+/// 2. Right-click context menu to copy either cell value or full row formatted as Excel-ready TSV.
 class CopyableTableCell extends StatelessWidget {
   final Widget child;
   final String value;
   final String? rowSummary;
+  final List<dynamic>? rowValues;
+  final List<String>? rowHeaders;
   final String? customMessage;
 
   const CopyableTableCell({
@@ -168,6 +172,8 @@ class CopyableTableCell extends StatelessWidget {
     required this.child,
     required this.value,
     this.rowSummary,
+    this.rowValues,
+    this.rowHeaders,
     this.customMessage,
   });
 
@@ -177,6 +183,9 @@ class CopyableTableCell extends StatelessWidget {
 
     return GestureDetector(
       onSecondaryTapUp: (details) async {
+        final hasRowData = (rowValues != null && rowValues!.isNotEmpty) ||
+            (rowSummary != null && rowSummary!.isNotEmpty);
+
         final selected = await showMenu<String>(
           context: context,
           position: RelativeRect.fromLTRB(
@@ -196,7 +205,7 @@ class CopyableTableCell extends StatelessWidget {
                 ],
               ),
             ),
-            if (rowSummary != null && rowSummary!.isNotEmpty)
+            if (hasRowData)
               PopupMenuItem<String>(
                 value: 'row',
                 child: Row(
@@ -213,8 +222,12 @@ class CopyableTableCell extends StatelessWidget {
         if (!context.mounted) return;
         if (selected == 'cell') {
           CopyHelper.copy(context, value, customMessage: customMessage);
-        } else if (selected == 'row' && rowSummary != null) {
-          CopyHelper.copy(context, rowSummary!, customMessage: l10n.copiedToClipboardGeneric);
+        } else if (selected == 'row') {
+          if (rowValues != null && rowValues!.isNotEmpty) {
+            TableCopyHelper.copyRow(context, rowValues!, headers: rowHeaders);
+          } else if (rowSummary != null) {
+            CopyHelper.copy(context, rowSummary!, customMessage: l10n.copiedToClipboardGeneric);
+          }
         }
       },
       child: Tooltip(

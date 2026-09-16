@@ -1,14 +1,42 @@
 import io
-from typing import List, Dict, Any
+from datetime import datetime, date
+from typing import List, Dict, Any, Optional
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from fastapi import Response, HTTPException, status
 
 
 class MasterDataExportImportHelper:
+    @staticmethod
+    def as_excel_response(filename: str, content: bytes) -> Response:
+        """Constructs a standard attachment response for downloadable Excel spreadsheets."""
+        return Response(
+            content=content,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+
+    @staticmethod
+    def parse_date_safe(val: Any, default: Optional[date] = None) -> Optional[date]:
+        """Safely parses string/object to date without raising exceptions on corrupt inputs."""
+        if not val:
+            return default
+        try:
+            return datetime.strptime(str(val)[:10], "%Y-%m-%d").date()
+        except Exception:
+            return default
+
+    @staticmethod
+    def parse_bool_safe(val: Any) -> bool:
+        """Standardized boolean converter supporting common Arabic and English truthy literals."""
+        if not val:
+            return False
+        return str(val).strip().lower() in ['true', '1', 'yes', 'نعم', 't']
+
     @staticmethod
     def create_excel_template(columns: List[str], sample_row: Dict[str, Any] = None) -> bytes:
         wb = openpyxl.Workbook()
@@ -42,10 +70,38 @@ class MasterDataExportImportHelper:
         buf.seek(0)
         return buf.getvalue()
 
+    MAX_EXCEL_FILE_SIZE: int = 20 * 1024 * 1024  # 20 MB
+
     @staticmethod
-    def parse_excel_file(file_bytes: bytes, required_columns: List[str]) -> List[Dict[str, Any]]:
-        wb = openpyxl.load_workbook(filename=io.BytesIO(file_bytes), data_only=True)
+    def parse_excel_file(
+        file_bytes: bytes,
+        required_columns: List[str],
+        max_size_bytes: int = MAX_EXCEL_FILE_SIZE,
+    ) -> List[Dict[str, Any]]:
+        if not file_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Uploaded Excel file is empty.",
+            )
+
+        if len(file_bytes) > max_size_bytes:
+            max_mb = max_size_bytes / (1024 * 1024)
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail=f"Excel file size ({len(file_bytes) / (1024 * 1024):.1f} MB) exceeds maximum allowed limit of {max_mb:.0f} MB.",
+            )
+
+        try:
+            wb = openpyxl.load_workbook(filename=io.BytesIO(file_bytes), data_only=True)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid or corrupted Excel spreadsheet: {str(e)}",
+            )
+
         ws = wb.active
+        if ws is None:
+            return []
 
         rows = list(ws.iter_rows(values_only=True))
         if not rows:

@@ -78,6 +78,8 @@ class BudgetPrefillModel {
   final double estimatedFreightCostEgp;
   final double estimatedCustomsDutiesEgp;
   final double estimatedClearanceFeesEgp;
+  final int? brokerId;
+  final String? brokerName;
   final double estimatedGrandTotalEgp;
   final double exchangeRate;
 
@@ -103,6 +105,8 @@ class BudgetPrefillModel {
     required this.estimatedFreightCostEgp,
     required this.estimatedCustomsDutiesEgp,
     required this.estimatedClearanceFeesEgp,
+    this.brokerId,
+    this.brokerName,
     required this.estimatedGrandTotalEgp,
     this.exchangeRate = 50.0,
   });
@@ -135,6 +139,8 @@ class BudgetPrefillModel {
       estimatedFreightCostEgp: (json['estimated_freight_cost_egp'] as num?)?.toDouble() ?? 0.0,
       estimatedCustomsDutiesEgp: (json['estimated_customs_duties_egp'] as num?)?.toDouble() ?? 0.0,
       estimatedClearanceFeesEgp: (json['estimated_clearance_fees_egp'] as num?)?.toDouble() ?? 0.0,
+      brokerId: json['broker_id'],
+      brokerName: json['broker_name'],
       estimatedGrandTotalEgp: (json['estimated_grand_total_egp'] as num?)?.toDouble() ?? 0.0,
       exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 50.0,
     );
@@ -310,6 +316,13 @@ class ImportBudgetModel {
   final String budgetStatus;
   final String? approvedBy;
   final String? approvedDate;
+  final int? parentBudgetId;
+  final int revisionNumber;
+  final String? lastVarianceCheck;
+  final bool hasUnresolvedVariance;
+  final String? varianceOverrideReason;
+  final String? varianceOverriddenBy;
+  final String? upstreamModifiedBy;
   final String? notes;
   final bool isActive;
   final String createdAt;
@@ -336,6 +349,13 @@ class ImportBudgetModel {
     required this.budgetStatus,
     this.approvedBy,
     this.approvedDate,
+    this.parentBudgetId,
+    this.revisionNumber = 1,
+    this.lastVarianceCheck,
+    this.hasUnresolvedVariance = false,
+    this.varianceOverrideReason,
+    this.varianceOverriddenBy,
+    this.upstreamModifiedBy,
     this.notes,
     this.isActive = true,
     required this.createdAt,
@@ -364,6 +384,13 @@ class ImportBudgetModel {
       budgetStatus: json['budget_status'] ?? 'Pending Review',
       approvedBy: json['approved_by'],
       approvedDate: json['approved_date'],
+      parentBudgetId: json['parent_budget_id'],
+      revisionNumber: json['revision_number'] ?? 1,
+      lastVarianceCheck: json['last_variance_check'],
+      hasUnresolvedVariance: json['has_unresolved_variance'] ?? false,
+      varianceOverrideReason: json['variance_override_reason'],
+      varianceOverriddenBy: json['variance_overridden_by'],
+      upstreamModifiedBy: json['upstream_modified_by'],
       notes: json['notes'],
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
@@ -393,6 +420,13 @@ class ImportBudgetModel {
       'budget_status': budgetStatus,
       'approved_by': approvedBy,
       'approved_date': approvedDate,
+      'parent_budget_id': parentBudgetId,
+      'revision_number': revisionNumber,
+      'last_variance_check': lastVarianceCheck,
+      'has_unresolved_variance': hasUnresolvedVariance,
+      'variance_override_reason': varianceOverrideReason,
+      'variance_overridden_by': varianceOverriddenBy,
+      'upstream_modified_by': upstreamModifiedBy,
       'notes': notes,
       'is_active': isActive,
     };
@@ -433,3 +467,253 @@ class SmartSwiftExtractResultModel {
     );
   }
 }
+
+class BudgetVarianceLogModel {
+  final int id;
+  final int budgetId;
+  final int importFileId;
+  final String fieldName;
+  final double oldValue;
+  final double newValue;
+  final double varianceAmount;
+  final double variancePercentage;
+  final double thresholdPercentage;
+  final bool isHardBlock;
+  final String detectedAt;
+  final String? modifiedBy;
+  final String? resolvedAt;
+  final String? resolvedBy;
+  final String resolutionType;
+  final String? justificationNote;
+
+  BudgetVarianceLogModel({
+    required this.id,
+    required this.budgetId,
+    required this.importFileId,
+    required this.fieldName,
+    required this.oldValue,
+    required this.newValue,
+    required this.varianceAmount,
+    required this.variancePercentage,
+    required this.thresholdPercentage,
+    required this.isHardBlock,
+    required this.detectedAt,
+    this.modifiedBy,
+    this.resolvedAt,
+    this.resolvedBy,
+    required this.resolutionType,
+    this.justificationNote,
+  });
+
+  factory BudgetVarianceLogModel.fromJson(Map<String, dynamic> json) {
+    return BudgetVarianceLogModel(
+      id: json['id'] ?? 0,
+      budgetId: json['budget_id'] ?? 0,
+      importFileId: json['import_file_id'] ?? 0,
+      fieldName: json['field_name'] ?? '',
+      oldValue: (json['old_value'] as num?)?.toDouble() ?? 0.0,
+      newValue: (json['new_value'] as num?)?.toDouble() ?? 0.0,
+      varianceAmount: (json['variance_amount'] as num?)?.toDouble() ?? 0.0,
+      variancePercentage: (json['variance_percentage'] as num?)?.toDouble() ?? 0.0,
+      thresholdPercentage: (json['threshold_percentage'] as num?)?.toDouble() ?? 5.0,
+      isHardBlock: json['is_hard_block'] ?? false,
+      detectedAt: json['detected_at'] ?? '',
+      modifiedBy: json['modified_by'],
+      resolvedAt: json['resolved_at'],
+      resolvedBy: json['resolved_by'],
+      resolutionType: json['resolution_type'] ?? 'pending',
+      justificationNote: json['justification_note'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'budget_id': budgetId,
+      'import_file_id': importFileId,
+      'field_name': fieldName,
+      'old_value': oldValue,
+      'new_value': newValue,
+      'variance_amount': varianceAmount,
+      'variance_percentage': variancePercentage,
+      'threshold_percentage': thresholdPercentage,
+      'is_hard_block': isHardBlock,
+      'detected_at': detectedAt,
+      'modified_by': modifiedBy,
+      'resolved_at': resolvedAt,
+      'resolved_by': resolvedBy,
+      'resolution_type': resolutionType,
+      'justification_note': justificationNote,
+    };
+  }
+}
+
+class BudgetSyncResultModel {
+  final ImportBudgetModel budget;
+  final String actionTaken;
+  final bool revisionCreated;
+  final String? originalBudgetStatus;
+  final List<BudgetVarianceLogModel> varianceLogs;
+  final String message;
+
+  BudgetSyncResultModel({
+    required this.budget,
+    required this.actionTaken,
+    this.revisionCreated = false,
+    this.originalBudgetStatus,
+    this.varianceLogs = const [],
+    required this.message,
+  });
+
+  factory BudgetSyncResultModel.fromJson(Map<String, dynamic> json) {
+    return BudgetSyncResultModel(
+      budget: ImportBudgetModel.fromJson(json['budget']),
+      actionTaken: json['action_taken'] ?? '',
+      revisionCreated: json['revision_created'] ?? false,
+      originalBudgetStatus: json['original_budget_status'],
+      varianceLogs: (json['variance_logs'] as List<dynamic>?)
+              ?.map((l) => BudgetVarianceLogModel.fromJson(l))
+              .toList() ??
+          [],
+      message: json['message'] ?? '',
+    );
+  }
+}
+
+
+class SwiftFieldModel {
+  final int id;
+  final int batchId;
+  final String fieldKey;
+  final String? swiftFieldCode;
+  final String fieldLabel;
+  final String? rawOcrText;
+  final String? parsedValue;
+  final double confidenceScore;
+  final bool isEditedByUser;
+  final String? editedValue;
+  final String? finalValue;
+  final bool isMandatory;
+  final bool isEmpty;
+
+  SwiftFieldModel({
+    required this.id,
+    required this.batchId,
+    required this.fieldKey,
+    this.swiftFieldCode,
+    required this.fieldLabel,
+    this.rawOcrText,
+    this.parsedValue,
+    required this.confidenceScore,
+    required this.isEditedByUser,
+    this.editedValue,
+    this.finalValue,
+    required this.isMandatory,
+    required this.isEmpty,
+  });
+
+  factory SwiftFieldModel.fromJson(Map<String, dynamic> json) {
+    return SwiftFieldModel(
+      id: json['id'] ?? 0,
+      batchId: json['batch_id'] ?? 0,
+      fieldKey: json['field_key'] ?? '',
+      swiftFieldCode: json['swift_field_code'],
+      fieldLabel: json['field_label'] ?? '',
+      rawOcrText: json['raw_ocr_text'],
+      parsedValue: json['parsed_value'],
+      confidenceScore: () {
+        final raw = (json['confidence_score'] as num?)?.toDouble() ?? 0.0;
+        return raw > 1.0 ? raw / 100.0 : raw;
+      }(),
+      isEditedByUser: json['is_edited_by_user'] ?? false,
+      editedValue: json['edited_value'],
+      finalValue: json['final_value'],
+      isMandatory: json['is_mandatory'] ?? false,
+      isEmpty: json['is_empty'] ?? false,
+    );
+  }
+
+  SwiftFieldModel copyWith({
+    String? editedValue,
+    String? finalValue,
+    bool? isEditedByUser,
+    bool? isEmpty,
+    double? confidenceScore,
+  }) {
+    return SwiftFieldModel(
+      id: id,
+      batchId: batchId,
+      fieldKey: fieldKey,
+      swiftFieldCode: swiftFieldCode,
+      fieldLabel: fieldLabel,
+      rawOcrText: rawOcrText,
+      parsedValue: parsedValue,
+      confidenceScore: confidenceScore ?? this.confidenceScore,
+      isEditedByUser: isEditedByUser ?? this.isEditedByUser,
+      editedValue: editedValue ?? this.editedValue,
+      finalValue: finalValue ?? this.finalValue,
+      isMandatory: isMandatory,
+      isEmpty: isEmpty ?? this.isEmpty,
+    );
+  }
+}
+
+class SwiftBatchModel {
+  final int batchId;
+  final String batchCode;
+  final String? sourceFilename;
+  final String? sourceFileType;
+  final String rawSourceText;
+  final String? normalizedText;
+  final String status;
+  final String? reviewedBy;
+  final String? reviewedAt;
+  final int? matchedPaymentId;
+  final String? reconciledAt;
+  final List<SwiftFieldModel> fields;
+  final bool allMandatoryValid;
+  final List<String> missingMandatoryFields;
+
+  SwiftBatchModel({
+    required this.batchId,
+    required this.batchCode,
+    this.sourceFilename,
+    this.sourceFileType,
+    required this.rawSourceText,
+    this.normalizedText,
+    required this.status,
+    this.reviewedBy,
+    this.reviewedAt,
+    this.matchedPaymentId,
+    this.reconciledAt,
+    required this.fields,
+    required this.allMandatoryValid,
+    required this.missingMandatoryFields,
+  });
+
+  factory SwiftBatchModel.fromJson(Map<String, dynamic> json) {
+    return SwiftBatchModel(
+      batchId: json['batch_id'] ?? 0,
+      batchCode: json['batch_code'] ?? '',
+      sourceFilename: json['source_filename'],
+      sourceFileType: json['source_file_type'],
+      rawSourceText: json['raw_source_text'] ?? '',
+      normalizedText: json['normalized_text'],
+      status: json['status'] ?? 'EXTRACTED_PENDING_REVIEW',
+      reviewedBy: json['reviewed_by'],
+      reviewedAt: json['reviewed_at'],
+      matchedPaymentId: json['matched_payment_id'],
+      reconciledAt: json['reconciled_at'],
+      fields: (json['fields'] as List<dynamic>?)
+              ?.map((f) => SwiftFieldModel.fromJson(f as Map<String, dynamic>))
+              .toList() ??
+          [],
+      allMandatoryValid: json['all_mandatory_valid'] ?? false,
+      missingMandatoryFields: (json['missing_mandatory_fields'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+    );
+  }
+}
+

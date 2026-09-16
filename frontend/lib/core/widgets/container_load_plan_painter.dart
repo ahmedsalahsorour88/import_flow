@@ -272,12 +272,18 @@ class ContainerLoadPlanPainter extends CustomPainter {
         canvas.drawRRect(RRect.fromRectAndRadius(highlightRect, const Radius.circular(2)), highlightPaint);
       }
 
-      // 3. Subtle Outer Border
+      // 3. Subtle Outer Border & High-Contrast Inner Edge
       final Paint borderPaint = Paint()
-        ..color = Colors.black.withOpacity(0.4)
+        ..color = Colors.black.withOpacity(0.45)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0;
       canvas.drawRRect(RRect.fromRectAndRadius(itemRect, const Radius.circular(2)), borderPaint);
+
+      final Paint borderHighlight = Paint()
+        ..color = Colors.white.withOpacity(0.25)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.6;
+      canvas.drawRRect(RRect.fromRectAndRadius(itemRect.deflate(0.5), const Radius.circular(1.5)), borderHighlight);
 
       // 4. Circular Number Badge (Upper Center: (1), (2), (3)...)
       final String seqNumber = p.item.itemId;

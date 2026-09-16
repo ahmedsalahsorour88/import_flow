@@ -764,6 +764,21 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.charcoal,
+                    side: const BorderSide(color: AppTheme.cobalt),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.save_outlined, size: 18, color: AppTheme.cobalt),
+                  label: const Text(
+                    'حفظ مؤقت للمظروف (Save Draft)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  onPressed: _isSavingEnvelope ? null : () => _submitCreateEnvelope(isDraft: true),
+                ),
+                const SizedBox(width: 12),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.cobalt,
@@ -778,7 +793,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                     context.l10n.cargoxGenerateAndSignEnvelopeBtn,
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
-                  onPressed: _isSavingEnvelope ? null : _submitCreateEnvelope,
+                  onPressed: _isSavingEnvelope ? null : () => _submitCreateEnvelope(isDraft: false),
                 ),
               ],
             ),
@@ -837,9 +852,9 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     );
   }
 
-  Future<void> _submitCreateEnvelope() async {
-    if (!_envelopeFormKey.currentState!.validate()) return;
-    if (_attachedDocs.isEmpty) {
+  Future<void> _submitCreateEnvelope({bool isDraft = false}) async {
+    if (!isDraft && !_envelopeFormKey.currentState!.validate()) return;
+    if (!isDraft && _attachedDocs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.cargoxAtLeastOneDocError), backgroundColor: AppTheme.orange),
       );
@@ -850,7 +865,9 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     try {
       final payload = {
         'import_file_id': _selectedImportFileId,
-        'acid_number': _acidNumberCtrl.text.trim(),
+        'acid_number': _acidNumberCtrl.text.trim().isNotEmpty
+            ? _acidNumberCtrl.text.trim()
+            : 'DRAFT-${DateTime.now().millisecondsSinceEpoch}',
         'importer_company_id': _selectedCompanyId,
         'importer_company_name': _importerNameCtrl.text.trim(),
         'importer_tax_number': _importerTaxCtrl.text.trim(),
@@ -861,14 +878,20 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
         'notes': _notesCtrl.text.trim(),
         'documents': _attachedDocs,
         'mode': 'MOCK',
+        'is_draft': isDraft,
+        'status': isDraft ? 'DRAFT' : null,
       };
 
       final created = await ref.read(cargoxEnvelopesProvider.notifier).createEnvelope(payload);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(context.l10n.cargoxEnvelopeCreatedSuccess(created.envelopeCode)),
-            backgroundColor: AppTheme.emerald,
+            content: Text(
+              isDraft
+                  ? 'تم حفظ مسودة المظروف بنجاح (${created.envelopeCode})'
+                  : context.l10n.cargoxEnvelopeCreatedSuccess(created.envelopeCode),
+            ),
+            backgroundColor: isDraft ? AppTheme.cobalt : AppTheme.emerald,
           ),
         );
         setState(() => _selectedSubTab = 1);

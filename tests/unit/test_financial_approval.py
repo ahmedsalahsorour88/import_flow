@@ -23,8 +23,10 @@ from modules.customs_consultation.model import CustomsConsultationSession
 from modules.financial_approval.model import PaymentRequestSession, ImportBudgetApproval
 from modules.financial_approval.schemas import (
     PaymentRequestCreate,
+    ClonePaymentRequestRequest,
     PaymentRequestUpdate,
     ImportBudgetCreate,
+    CloneImportBudgetRequest,
     ImportBudgetUpdate,
 )
 import modules.financial_approval.service as service
@@ -602,3 +604,379 @@ class TestFinancialApprovalBackend:
         restored = service.get_import_budget_by_id_service(db_session, budget.budget_id)
         assert restored is not None
         assert restored.is_active is True
+
+    def test_clone_payment_request(self, db_session):
+        """Tests cloning a payment request with mandatory invariant resets."""
+        # 1. Create an executed payment request
+        payload = PaymentRequestCreate(
+            title="Original Advance Payment for Machinery",
+            supplier_name="Shanghai Super Machinery Ltd",
+            payment_type="Advance Payment",
+            requested_amount=15000.0,
+            currency_code="USD",
+            exchange_rate=50.0,
+            due_date=date(2026, 9, 30),
+            bank_name="Bank of China",
+            swift_code="BKCHCNBJ",
+            iban_account_no="CN9988776655",
+            bank_country="China",
+            notes="Original critical payment",
+        )
+        orig = service.create_payment_request_service(db_session, payload)
+        # Execute it
+        service.execute_payment_service(db_session, orig.payment_id, swift_reference_no="SWIFT-998877")
+        assert orig.status == "Paid"
+        assert orig.swift_reference_no == "SWIFT-998877"
+
+        # 2. Clone it
+        clone_req = ClonePaymentRequestRequest(
+            new_title="Cloned Advance Payment - Second Batch",
+            new_requested_amount=12000.0,
+            unlink_import_file=True,
+            remarks="Cloned for batch 2",
+        )
+        cloned = service.clone_payment_request_service(db_session, orig.payment_id, clone_req)
+
+        # 3. Verify invariants
+        assert cloned.payment_id != orig.payment_id
+        assert cloned.payment_code != orig.payment_code
+        assert cloned.title == "Cloned Advance Payment - Second Batch"
+        assert cloned.status == "Draft"  # Invariant: Status MUST reset to Draft
+        assert cloned.swift_reference_no is None  # Invariant: SWIFT reference MUST be cleared
+        assert cloned.swift_receipt_date is None
+        assert cloned.swift_transferred_amount is None
+        assert cloned.import_file_id is None  # Invariant: unlinked as requested
+        assert cloned.requested_amount == 12000.0
+        assert cloned.currency_code == "USD"
+        assert cloned.exchange_rate == 50.0
+        assert cloned.requested_amount_egp == 600000.0
+        assert cloned.bank_name == "Bank of China"
+        assert cloned.swift_code == "BKCHCNBJ"
+        assert cloned.iban_account_no == "CN9988776655"
+        assert cloned.bank_country == "China"
+        assert "Cloned for batch 2" in (cloned.notes or "")
+        assert cloned.is_active is True
+
+    def test_clone_import_budget(self, db_session):
+        """Tests cloning an import budget with mandatory invariant resets."""
+        # 1. Create and approve an import budget
+        payload = ImportBudgetCreate(
+            title="Original Machinery Import Budget 2026",
+            invoice_amount_foreign=20000.0,
+            invoice_currency="USD",
+            invoice_amount_egp=1000000.0,
+            freight_cost_foreign=3000.0,
+            freight_currency="USD",
+            freight_cost_egp=150000.0,
+            customs_duties_egp=200000.0,
+            clearance_inland_egp=40000.0,
+            exchange_rate=50.0,
+            notes="Original high-priority budget",
+        )
+        orig = service.create_import_budget_service(db_session, payload)
+        approved = service.approve_import_budget_service(db_session, orig.budget_id, approved_by="CFO Ahmed")
+        assert approved.budget_status == "Budget Approved"
+        assert approved.approved_by == "CFO Ahmed"
+        assert approved.approved_date is not None
+
+        # 2. Clone it with new rate and title
+        clone_req = CloneImportBudgetRequest(
+            new_title="Cloned Machinery Budget - 2027 Expansion",
+            new_exchange_rate=52.0,
+            unlink_import_file=True,
+            remarks="Cloned for expansion review",
+        )
+        cloned = service.clone_import_budget_service(db_session, orig.budget_id, clone_req)
+
+        # 3. Verify invariants
+        assert cloned.budget_id != orig.budget_id
+        assert cloned.budget_code != orig.budget_code
+        assert cloned.title == "Cloned Machinery Budget - 2027 Expansion"
+        assert cloned.budget_status == "Pending Review"  # Invariant: Status MUST reset to Pending Review / Draft
+        assert cloned.approved_by is None  # Invariant: Approval signatures MUST be cleared
+        assert cloned.approved_date is None
+        assert cloned.import_file_id is None  # Invariant: Unlinked from original file
+        assert cloned.exchange_rate == 52.0
+        # Recalculated amounts: 20000 * 52 = 1,040,000, 3000 * 52 = 156,000
+        assert cloned.invoice_amount_foreign == 20000.0
+        assert cloned.invoice_amount_egp == 1040000.0
+        assert cloned.freight_cost_foreign == 3000.0
+        assert cloned.freight_cost_egp == 156000.0
+        assert cloned.customs_duties_egp == 200000.0
+        assert cloned.clearance_inland_egp == 40000.0
+        # Total = 1040000 + 156000 + 200000 + 40000 = 1436000.0
+        assert cloned.total_budget_egp == 1436000.0
+        assert "Cloned for expansion review" in (cloned.notes or "")
+        assert cloned.is_active is True
+
+    def test_budget_prefill_includes_broker_details(self, db_session):
+        from modules.import_files.model import ImportFile
+        from modules.customs_consultation.model import CustomsConsultationSession
+        from modules.financial_approval.service import get_budget_prefill_service
+
+        imp = ImportFile(
+            import_file_code="IMP-2026-BRK-01",
+            custom_file_number="FILE-BRK-01",
+            company_name="Test Importer Co",
+            supplier_name="Broker Test Supplier",
+        )
+        db_session.add(imp)
+        db_session.commit()
+        db_session.refresh(imp)
+
+        # Create customs consultation session with broker info
+        session = CustomsConsultationSession(
+            consultation_code="CS-2026-BRK-01",
+            title="Customs Clearance Study for IMP-BRK-01",
+            broker_id=12,
+            broker_name="Nabil Naseef .ACC",
+            import_file_id=imp.import_file_id,
+            estimated_duties_egp=350000.0,
+            total_broker_fees_egp=50800.0,
+            overall_status="Clearance Ready",
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        prefill = get_budget_prefill_service(db_session, imp.import_file_id)
+        assert prefill.estimated_clearance_fees_egp == 50800.0
+        assert prefill.broker_id == 12
+        assert prefill.broker_name == "Nabil Naseef .ACC"
+
+    def test_sync_budget_with_upstream_service(self, db_session):
+        from modules.import_files.model import ImportFile
+        from modules.customs_consultation.model import CustomsConsultationSession
+        from modules.financial_approval.model import ImportBudgetApproval
+        from modules.financial_approval.service import sync_budget_with_upstream_service
+        from fastapi import HTTPException
+
+        imp = ImportFile(
+            import_file_code="IMP-2026-SYNC-01",
+            custom_file_number="FILE-SYNC-01",
+            company_name="Sync Test Importer",
+            supplier_name="Sync Test Supplier",
+            estimated_cost=10000.0,
+            estimated_cost_currency="USD",
+        )
+        db_session.add(imp)
+        db_session.commit()
+        db_session.refresh(imp)
+
+        # 1. Budget created initially with clearance = 0
+        budget = ImportBudgetApproval(
+            budget_code="BGT-2026-SYNC-01",
+            title="Budget for IMP-SYNC-01",
+            import_file_id=imp.import_file_id,
+            invoice_amount_foreign=10000.0,
+            invoice_currency="USD",
+            invoice_amount_egp=500000.0,
+            freight_cost_foreign=1000.0,
+            freight_currency="USD",
+            freight_cost_egp=50000.0,
+            customs_duties_egp=100000.0,
+            clearance_inland_egp=0.0,  # Initially 0
+            exchange_rate=50.0,
+            total_budget_egp=650000.0,
+            budget_status="Budget Approved",
+            approved_by="Finance Director",
+            approved_date=date.today(),
+            is_active=True,
+        )
+        db_session.add(budget)
+        db_session.commit()
+        db_session.refresh(budget)
+
+        # 2. Later, customs consultation adds clearance expenses = 50,800 EGP
+        session = CustomsConsultationSession(
+            consultation_code="CS-2026-SYNC-01",
+            title="Customs Clearance Study for IMP-SYNC-01",
+            broker_id=5,
+            broker_name="Nabil Naseef .ACC",
+            import_file_id=imp.import_file_id,
+            estimated_duties_egp=100000.0,
+            total_broker_fees_egp=50800.0,
+            overall_status="Clearance Ready",
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # 3. Hard Block test: Syncing without justification when variance > 5% raises 400
+        try:
+            sync_budget_with_upstream_service(db_session, budget.budget_id)
+            assert False, "Should have raised HTTPException 400 for Hard Block without justification"
+        except HTTPException as exc:
+            assert exc.status_code == 400
+            assert "Hard Block" in exc.detail
+
+        # 4. Sync with justification: Creates Revision 2, archives original as Superseded
+        result = sync_budget_with_upstream_service(
+            db_session,
+            budget.budget_id,
+            override_justification="Authorized broker fees addition by CFO",
+        )
+
+        assert result.revision_created is True
+        assert result.action_taken == "revision_created"
+        assert result.budget.revision_number == 2
+        assert result.budget.parent_budget_id == budget.budget_id
+        assert result.budget.budget_code == "BGT-2026-SYNC-01-REV2"
+        assert result.budget.budget_status == "Pending Review"
+        assert result.budget.clearance_inland_egp == 50800.0
+        assert result.budget.total_budget_egp == 500000.0 + 100000.0 + 50800.0
+
+        # Verify original budget is now Superseded (strict immutability)
+        db_session.refresh(budget)
+        assert budget.budget_status == "Superseded"
+
+    def test_segregation_of_duties_enforcement(self, db_session):
+        from modules.import_files.model import ImportFile
+        from modules.customs_consultation.model import CustomsConsultationSession
+        from modules.financial_approval.model import ImportBudgetApproval
+        from modules.financial_approval.service import sync_budget_with_upstream_service
+        from modules.users.model import User
+        from fastapi import HTTPException
+
+        imp = ImportFile(
+            import_file_code="IMP-2026-SOD-01",
+            custom_file_number="FILE-SOD-01",
+            company_name="SoD Test Importer",
+            supplier_name="SoD Test Supplier",
+            estimated_cost=10000.0,
+            estimated_cost_currency="USD",
+        )
+        db_session.add(imp)
+        db_session.commit()
+
+        budget = ImportBudgetApproval(
+            budget_code="BGT-2026-SOD-01",
+            title="Budget for SoD Test",
+            import_file_id=imp.import_file_id,
+            invoice_amount_egp=500000.0,
+            freight_cost_egp=50000.0,
+            customs_duties_egp=100000.0,
+            clearance_inland_egp=0.0,
+            total_budget_egp=650000.0,
+            budget_status="Budget Approved",
+            upstream_modified_by="customs_agent_ali",
+            is_active=True,
+        )
+        db_session.add(budget)
+        db_session.commit()
+
+        session = CustomsConsultationSession(
+            consultation_code="CS-2026-SOD-01",
+            title="Customs Study",
+            broker_id=1,
+            broker_name="Nabil Naseef",
+            import_file_id=imp.import_file_id,
+            total_broker_fees_egp=20000.0,
+            overall_status="Clearance Ready",
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # User who modified upstream (customs_agent_ali) cannot sync approved budget
+        modifier_user = User(
+            user_id=101,
+            username="customs_agent_ali",
+            email="ali@example.com",
+            role="USER",
+            is_active=True,
+        )
+        try:
+            sync_budget_with_upstream_service(
+                db_session,
+                budget.budget_id,
+                current_user=modifier_user,
+                override_justification="Trying to sync my own change",
+            )
+            assert False, "Should raise 403 Forbidden for Segregation of Duties"
+        except HTTPException as exc:
+            assert exc.status_code == 403
+
+        # Another authorized user (e.g. Admin or Finance Officer) CAN sync
+        admin_user = User(
+            user_id=1,
+            username="finance_director",
+            email="cfo@example.com",
+            role="ADMIN",
+            is_active=True,
+        )
+        result = sync_budget_with_upstream_service(
+            db_session,
+            budget.budget_id,
+            current_user=admin_user,
+            override_justification="Authorized by CFO",
+        )
+        assert result.revision_created is True
+
+    def test_status_machine_and_variance_evaluation(self, db_session):
+        from modules.import_files.model import ImportFile
+        from modules.customs_consultation.model import CustomsConsultationSession
+        from modules.financial_approval.model import ImportBudgetApproval
+        from modules.financial_approval.service import (
+            evaluate_and_record_budget_variance_service,
+            override_budget_variance_service,
+        )
+
+        imp = ImportFile(
+            import_file_code="IMP-2026-STAT-01",
+            custom_file_number="FILE-STAT-01",
+            company_name="Stat Test Importer",
+            supplier_name="Stat Test Supplier",
+            estimated_cost=10000.0,
+            estimated_cost_currency="USD",
+        )
+        db_session.add(imp)
+        db_session.commit()
+
+        # 1. Test Pending Review budget transitions to Needs Revalidation
+        pending_budget = ImportBudgetApproval(
+            budget_code="BGT-2026-PENDING-01",
+            title="Pending Budget",
+            import_file_id=imp.import_file_id,
+            invoice_amount_egp=500000.0,
+            freight_cost_egp=50000.0,
+            customs_duties_egp=100000.0,
+            clearance_inland_egp=10000.0,
+            total_budget_egp=660000.0,
+            budget_status="Pending Review",
+            is_active=True,
+        )
+        db_session.add(pending_budget)
+        db_session.commit()
+
+        # Add consultation with different clearance fees (from 10k to 35k)
+        session = CustomsConsultationSession(
+            consultation_code="CS-2026-STAT-01",
+            title="Customs Study",
+            broker_id=1,
+            broker_name="Nabil Naseef",
+            import_file_id=imp.import_file_id,
+            total_broker_fees_egp=35000.0,
+            overall_status="Clearance Ready",
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Trigger event evaluation
+        logs = evaluate_and_record_budget_variance_service(
+            db_session, imp.import_file_id, modified_by="broker_specialist"
+        )
+        assert len(logs) > 0
+
+        db_session.refresh(pending_budget)
+        assert pending_budget.budget_status == "Needs Revalidation"
+        assert pending_budget.has_unresolved_variance is True
+        assert pending_budget.upstream_modified_by == "broker_specialist"
+
+        # 2. Test Override Service
+        override_budget_variance_service(
+            db_session,
+            pending_budget.budget_id,
+            justification_note="Variance accepted after vendor confirmation",
+        )
+        db_session.refresh(pending_budget)
+        assert pending_budget.variance_override_reason == "Variance accepted after vendor confirmation"
+
+

@@ -219,11 +219,11 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get createNewCurrency => 'إدخال عملة جديدة';
   @override String get createNewExchangeRate => 'تعديل سعر صرف جديد';
   @override String get interactiveOperationsBoardTitle => 'لوحة تتبع ومراحل الشحنات التفاعلية';
-  @override String get interactiveOperationsBoardDesc => 'لوحة بصرية متكاملة مدمجة داخل البرنامج (6 مراحل كبرى — 21 خطوة تشغيلية) تدعم تتبع وتعدد المراحل النشطة ونقل الشحنات لحظياً.';
+  @override String get interactiveOperationsBoardDesc => 'لوحة بصرية متكاملة مدمجة داخل البرنامج (6 مراحل كبرى — 25 خطوة تشغيلية) تدعم تتبع وتعدد المراحل النشطة ونقل الشحنات لحظياً.';
   @override String get openInteractiveBoard => 'فتح لوحة المراحل التفاعلية';
-  @override String get lifecycleBoardSummaryTitle => 'ملخص مسار عمليات الشحنات (21 خطوة تشغيلية)';
-  @override String get lifecycleBoardSummaryDesc => 'متابعة حية لتوزيع ملفات الشحنات عبر 6 مراحل رئيسية و 21 خطوة تشغيلية تفصيلية';
-  @override String get fullOperationsBoardButton => 'لوحة مسار العمليات الكاملة (21 خطوة) ↗️';
+  @override String get lifecycleBoardSummaryTitle => 'ملخص مسار عمليات الشحنات (25 خطوة تشغيلية)';
+  @override String get lifecycleBoardSummaryDesc => 'متابعة حية لتوزيع ملفات الشحنات عبر 6 مراحل رئيسية و 25 خطوة تشغيلية تفصيلية';
+  @override String get fullOperationsBoardButton => 'لوحة مسار العمليات الكاملة (25 خطوة) ↗️';
   @override String get shipmentCountUnit => 'شحنة';
   @override String get tasksCountUnit => 'مهام';
   @override String get kpiTodaysTasks => 'مهام اليوم';
@@ -451,6 +451,15 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get scenarioAllStackableTitle => 'الاحتمال الأول: بضائع تقبل الرص بالكامل';
   @override String get scenarioAllNonStackableTitle => 'الاحتمال الثاني: بضائع لا تقبل الرص';
   @override String get scenarioMixedStackingTitle => 'الاحتمال الثالث: مزيج يقبل ولا يقبل الرص';
+  @override String get saveContainerImageTooltip => 'حفظ صورة المخطط (Save Image PNG)';
+  @override String get exportContainerExcelTooltip => 'تصدير إكسل (Export Excel)';
+  @override String get exportContainerPdfTooltip => 'تصدير تقرير PDF (Export PDF)';
+  @override String get saveContainerImageDialogTitle => 'حفظ صورة مخطط الحاوية PNG';
+  @override String get exportContainerExcelDialogTitle => 'تصدير جدول محاكي الحاويات Excel';
+  @override String get exportContainerPdfDialogTitle => 'تصدير تقرير محاكي الحاويات PDF';
+  @override String get containerImageCaptureError => 'تعذر التقاط صورة المخطط من الشاشة.';
+  @override String get containerExportError => 'خطأ أثناء تصدير الملف: ';
+  @override String get closePlannerBtn => 'إغلاق المخطط';
   @override String get savedShippingStudiesTitle => 'دراسات وسيناريوهات الشحن المسجلة للشحنة';
   @override String get date => 'التاريخ';
   @override String get shipmentCategoryLabel => 'تصنيف الشحنة';
@@ -920,6 +929,35 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get selectBrokerRequired => 'الرجاء اختيار المستخلص الجمركي';
   @override String get priceListUpdatedSuccess => 'تم تحديث وتعديل أسعار القائمة بنجاح!';
   @override String get priceListCreatedSuccess => 'تم إنشاء قائمة أسعار المخلص وحفظ الأسعار بنجاح!';
+  @override String get customsExpenseCodingTitle => 'تكويد المصروفات الجمركية المرجعية';
+  @override String get linkAsAliasTab => '🔗 ربط كمرادف لبند معتمد';
+  @override String get registerNewCatalogCodeTab => '➕ تسجيل كود جديد بالكتالوج';
+  @override String get approvedCatalogItemLabel => 'البند المعتمد في الكتالوج *';
+  @override String get searchApprovedCatalogHint => 'ابحث في بنود الكتالوج المعتمدة...';
+  @override String get documentAliasLabel => 'الاسم أو المرادف في المستند *';
+  @override String get documentAliasHint => 'مثال: عوائد تفريغ ميناء / كارتة / أتعاب استثنائية';
+  @override String get referenceItemCodeLabel => 'كود البند المرجعي *';
+  @override String get searchReferenceCodeHint => 'ابحث في الأكواد المرجعية...';
+  @override String get officialCategoryLabel => 'الفئة الرسمية *';
+  @override String get canonicalArabicNameLabel => 'الاسم العربي المعتمد للبند *';
+  @override String get canonicalEnglishNameOptionalLabel => 'الاسم بالإنجليزية (اختياري)';
+  @override String get unitTypeLabel => 'نوع الوحدة *';
+  @override String get approvedPriceLabel => 'السعر المعتمد *';
+  @override String get itemNotesAndConditionsLabel => 'ملاحظات وشروط البند';
+  @override String get saveAndMapAliasBtn => 'حفظ وتكويد المرادف';
+  @override String get registerCodeInCatalogBtn => 'تسجيل الكود بالكتالوج';
+  @override String itemCodedSuccessfullyToast(dynamic alias, dynamic code) => '✨ تم تكويد "$alias" وربطه بنجاح بالكود المرجعي $code';
+  @override String itemRegisteredInCatalogToast(dynamic code) => '✨ تم تسجيل الكود المرجعي الجديد $code بالكتالوج بنجاح';
+  @override String get needsCodingBadge => 'بحاجة لتكويد';
+  @override String get customItemBadge => 'بند مخصص';
+  @override String get deleteCustomItemTooltip => 'حذف البند المخصص';
+  @override String get addCustomItemOrAliasBtn => '➕ تكويد بند جديد أو ربط مرادف';
+  @override String get smartFileExtractionBtn => '✨ استخراج ذكي من ملف';
+  @override String get fillApprovedArabicNameRequired => 'يرجى إدخال الاسم العربي المعتمد للبند';
+  @override String get selectReferenceCodeRequired => 'يرجى اختيار أو تحديد كود البند المرجعي';
+  @override String get pleaseEnterItemPrice => 'يرجى تحديد السعر';
+  @override String get invalidItemPrice => 'السعر غير صالح';
+  @override String get selectDateTooltip => 'اختيار التاريخ';
   @override String get showArchivedChip => 'إظهار المؤرشفة';
   @override String get hideArchivedChip => 'إخفاء المؤرشفة';
   @override String get restoreConsultationTitle => 'استعادة دراسة الاستشارة';
@@ -1139,6 +1177,22 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get originalDocsRegistryTsvHeaderUpdatedAt => 'تاريخ التحديث';
   @override String get originalDocsRegistryCopiedSuccess => 'تم نسخ سجل الجلسات إلى الحافظة بنجاح';
   @override String get originalDocsLoadSessionTooltip => 'فتح وتحميل الجلسة';
+  @override String get courierAlertsHeader => 'تنبيهات ومتابعة الكورير ومواعيد الاستلام';
+  @override String courierAlertCriticalCount(dynamic count) => '$count طرود متأخرة تجاوزت المهلة المحددة';
+  @override String courierAlertWarningCount(dynamic count) => '$count طرود تقترب من مهلة التسليم';
+  @override String get courierTrackingRegistryTab => 'سجل تتبع الكورير وإثبات ميعاد الاستلام';
+  @override String get sessionsRegistryTab => 'سجل جلسات تحصيل المستندات';
+  @override String get confirmCourierDeliveryBtn => 'إثبات وتأكيد ميعاد الاستلام';
+  @override String get courierDeliveryProofDialogTitle => 'إثبات ميعاد استلام طرد الكورير (POD)';
+  @override String get courierReceiptDateLabel => 'تاريخ الاستلام الفعلي';
+  @override String get courierReceiptTimeLabel => 'وقت الاستلام (HH:mm)';
+  @override String get courierReceivedByLabel => 'اسم المستلم';
+  @override String get courierPodRefLabel => 'رقم إشعار التسليم / البوليصة (POD Ref)';
+  @override String get markAssociatedDocsReceivedLabel => 'تحديث حالة مستندات الطرد إلى "تم الاستلام" تلقائياً';
+  @override String get courierReceiptRecordedSuccess => 'تم إثبات وتسجيل ميعاد استلام الكورير بنجاح';
+  @override String daysInTransitLabel(dynamic days) => '$days يوم في الطريق';
+  @override String get filterStatusInTransit => 'في الطريق';
+  @override String get filterStatusDelivered => 'تم الاستلام';
 
   // ── Screen 59: Production Sync Screen & Hub ───────────────────────────────
   @override String get prodSyncScreenTitle => 'مركز مزامنة وتحديث الإنتاج';
@@ -1549,6 +1603,18 @@ class AppLocalizationsAr extends AppLocalizations {
 
   // ── Screen 11: Nafeza ACID Operations ───────────────────────────────────
   @override String get nafezaAcidTitle => 'منظومة نافذة والتسجيل المسبق للشحنات';
+  @override String get searchAndCloneAcidBtn => 'بحث واستنساخ طلب ACID';
+  @override String get searchAndCloneAcidDialogTitle => 'بحث واستنساخ طلب ACID سابق';
+  @override String get searchAcidHint => 'ابحث برقم ACID أو ملف الشحنة أو المورد أو الفاتورة...';
+  @override String get noAcidsFound => 'لم يتم العثور على طلبات ACID مطابقة';
+  @override String get cloneAcidSuccess => 'تم استنساخ بيانات طلب ACID بنجاح وجاهزة للمراجعة';
+  @override String get acidClonedResetNotice => 'ملاحظة: تم تصفير رقم ACID وحالة الإفراج تلقائياً';
+  @override String get importFromPreviousAcidSessionBtn => 'استيراد نص من جلسة سابقة';
+  @override String get rawTextImportedSuccess => 'تم استيراد نص إشعار نافذة بنجاح من الجلسة السابقة';
+  @override String get cloneAcidRecordTooltip => 'استنساخ سجل ACID إلى مسودة جديدة';
+  @override String get copyDiscrepancyReportBtn => 'نسخ تقرير المطابقة';
+  @override String get discrepancyReportCopiedSuccess => 'تم نسخ تقرير المطابقة الجمركية إلى الحافظة بنجاح';
+  @override String get emptyComparisonHint => 'اختر ملف شحنة ثم اضغط "تشغيل المقارنة والتحقق" لفحص تطابق بيانات ACID المستخرجة مع أمر الشراء والفاتورة.';
   @override String get acidRequestTab => 'طلب إصدار الرقم المبدئي';
   @override String get smartMtsParserTab => 'الإدخال الذكي من نافذة';
   @override String get discrepancyMatrixTab => 'المقارنة والتحقق الجمركي';
@@ -1706,6 +1772,13 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get bankProcessingStatusBadge => 'قيد المعالجة البنكية';
   @override String get form4SavedSuccess => 'تم حفظ نموذج 4 البنكي بنجاح';
   @override String get form4SaveError => 'خطأ في حفظ نموذج 4';
+  @override String get searchAndCloneBankForm4Btn => 'نسخ من نموذج سابق';
+  @override String get searchAndCloneBankForm4DialogTitle => 'البحث ونسخ نموذج 4 بنكي سابق';
+  @override String get searchBankForm4Hint => 'بحث بكود المستند، البنك، كود الشحنة، أو المبلغ...';
+  @override String get noBankForm4Found => 'لم يتم العثور على نماذج بنكية مطابقة للبحث';
+  @override String get cloneBankForm4Success => 'تم نسخ بيانات نموذج 4 بنجاح مع تصفير المحددات الإلزامية';
+  @override String get bankForm4ClonedResetNotice => 'سيتم تصفير كود النموذج وإعادة ضبط تاريخ الطلب وفك الارتباط بالسجل السابق';
+  @override String get cloneBankForm4RecordTooltip => 'نسخ نموذج 4 بنكي';
 
   // ── Screen 18: Draft B/L Review ──────────────────────────────────────────
   @override String get draftBlStage0ReviewSheet => '1. ورقة المراجعة والتدقيق';
@@ -1856,6 +1929,13 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get draftBlNoLetterGeneratedYet => 'لا يوجد خطاب مولد حالياً.';
   @override String get draftBlRegistryUpdatedSuccess => 'تم تحديث قائمة السجل النهائي المعتمد بنجاح';
   @override String draftBlPreviewSessionSnack(int id, String blNo) => 'معاينة الجلسة #$id: $blNo';
+  @override String get searchAndCloneDraftBlBtn => 'البحث ونسخ مسودة سابقة';
+  @override String get searchAndCloneDraftBlDialogTitle => 'البحث ونسخ مسودة بوليصة شحن (Draft B/L)';
+  @override String get searchDraftBlHint => 'ابحث برقم البوليصة، الخط الملاحي، السفينة، أو كود المراجعة...';
+  @override String get noDraftBlFound => 'لم يتم العثور على مسودات بوالص شحن مطابقة';
+  @override String get cloneDraftBlSuccess => 'تم استنساخ بيانات مسودة البوليصة وتصفير المعرفات واعتمادات الأطراف بنجاح';
+  @override String get draftBlClonedResetNotice => 'تنبيه: تم تصفير رقم البوليصة، فك الارتباط بمعرف الجلسة السابقة، وتعيين الاعتمادات المزدوجة إلى قيد الانتظار.';
+  @override String get cloneDraftBlRecordTooltip => 'استنساخ هذه المسودة';
 
   // ── Screen 19: Draft COO / EUR.1 Review ──────────────────────────────────
   @override String get cooStage1Requirements => '1. متطلبات شهادة المنشأ و EUR.1';
@@ -1969,6 +2049,14 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String cooExcelSavedSuccess(String path) => '✅ تم حفظ ملف الإكسل بنجاح في: $path';
   @override String get cooDetailsExporterLabel => 'المصدر';
   @override String get cooDetailsImporterLabel => 'المستورد';
+  @override String get searchAndCloneCooBtn => 'بحث واستنساخ مسودة شهادة منشأ';
+  @override String get searchAndCloneCooDialogTitle => 'بحث واستنساخ مسودة شهادة المنشأ و EUR.1';
+  @override String get searchCooHint => 'ابحث برقم الشهادة، المصدر، المستورد، أو النوع...';
+  @override String get noCooReviewsFound => 'لا توجد مراجعات لشهادات المنشأ مطابقة للبحث';
+  @override String get cloneCooSuccess => 'تم استنساخ مسودة شهادة المنشأ وتوليد درافت جديد بنجاح';
+  @override String get cooClonedResetNotice => 'تم استنساخ شهادة المنشأ مع تصفير رقم الشهادة وتحديث لقطة النظام';
+  @override String get cloneCooRecordTooltip => 'استنساخ مسودة شهادة المنشأ';
+  @override String get cooRegistrySearchHint => 'بحث في سجل شهادات المنشأ...';
 
   // ── Screen 20: Customs Docs Approval (CustomsDocumentApprovalTab) ─────────
   @override String get customsApprovalSelectFileForMatrixWarning => '⚠️ برجاء اختيار ملف الشحنة أولاً لإجراء الفحص المتقاطع.';
@@ -2090,6 +2178,16 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get customsApprovalDefaultLegalOfficer => 'المراجع القانوني';
   @override String get customsApprovalDefaultComplianceOfficer => 'مسؤول المطابقة';
 
+  // Screen 20: Search & Clone Customs Document Approvals
+  @override String get searchAndCloneCustomsApprovalBtn => 'بحث واستنساخ اعتماد مستندات سابق';
+  @override String get searchAndCloneCustomsApprovalDialogTitle => 'البحث واستنساخ اعتماد مستندات وتعديلات المورد';
+  @override String get searchCustomsApprovalHint => 'ابحث بكود الملف، نوع المستند، اسم الشركة، أو حالة الاعتماد...';
+  @override String get noCustomsApprovalsFound => 'لم يتم العثور على اعتمادات مستندات مطابقة';
+  @override String get cloneCustomsApprovalSuccess => 'تم استنساخ قائمة المستندات وتصفير حالات الاعتماد بنجاح';
+  @override String get customsApprovalClonedResetNotice => 'تنبيه: تم تصفير كافة الاعتمادات التجارية والجمركية إلى قيد الانتظار وتفريغ الملاحظات السابقة.';
+  @override String get cloneApprovalRecordTooltip => 'استنساخ متطلبات هذا المستند';
+  @override String get cloneTicketRecordTooltip => 'استنساخ هذه التذكرة';
+
   // ── Screen 21: PO & Packing Reconciliation ───────────────────────────────
   @override String get poRecSampleLoadedSuccess => 'تم تحميل النموذج التجريبي بنجاح';
   @override String poRecFileSelected(String name, String sizeKb) => 'تم اختيار الملف: $name ($sizeKb ك.ب)';
@@ -2128,9 +2226,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poRecSelectFileRequired => 'يرجى اختيار ملف الشحنة';
   @override String get poRecFinalInvoiceNoLabel => 'رقم الفاتورة التجارية النهائية *';
   @override String get poRecFinalInvoiceNoHint => 'مثال: V1-2562';
-  @override String get poRecFinalPackingListNoLabel => 'رقم قائمة التعبئة النهائية *';
+  @override String get poRecFinalPackingListNoLabel => 'رقم قائمة التعبئة النهائية (اختياري)';
   @override String get poRecFinalPackingListNoHint => 'مثال: PL-2562';
   @override String get poRecRequired => 'مطلوب';
+  @override String get poRecTotalSummaryRow => 'الإجمالي الكلي';
 
   @override String get poRecKpiTotalInvoice => 'إجمالي الفاتورة النهائية';
   @override String get poRecKpiTotalPackages => 'إجمالي الطرود الفعلية';
@@ -2241,6 +2340,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poRecHistoryCopyReportButton => 'نسخ تقرير الجلسة للطباعة';
   @override String poRecHistoryDetailsModalTitle(String code) => 'تقرير جلسة المطابقة: $code';
   @override String get poRecHistoryDetailsCertifiedItemsTitle => 'بنود الفاتورة المعتمدة في الجلسة:';
+  @override String get poRecHistoryDetailsCertifiedPackingTitle => 'بنود وقياسات قائمة التعبئة المعتمدة في الجلسة:';
   @override String get poRecHistoryLoadInEditorButton => 'تحميل في شاشة التعديل';
   @override String get poRecDiff => 'الفارق';
   @override String get poRecMissingInPacking => 'غير موجود بالباكينج';
@@ -2275,6 +2375,18 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poRecReportCertifiedBy => 'تم الاعتماد بواسطة';
   @override String get poRecReportCsvHeader => 'كود الصنف,الوصف,بند التعريفة,الكمية,سعر الوحدة,إجمالي المبلغ,الطرود,الوزن القائم,الوزن الصافي,الحجم';
   @override String get poRecReportPreviewTitle => 'معاينة تقرير المطابقة النهائي';
+
+  // Screen 21: Search & Clone PO Reconciliation Sessions
+  @override String get searchAndClonePoReconBtn => 'استنساخ جلسة مطابقة سابقة';
+  @override String get searchAndClonePoReconDialogTitle => 'بحث واستنساخ جلسة مطابقة الفاتورة وقائمة التعبئة';
+  @override String get searchPoReconHint => 'ابحث برقم الجلسة، رقم الفاتورة، كود الشحنة، أو المستورد...';
+  @override String get noPoReconFound => 'لم يتم العثور على جلسات مطابقة مطابقة لمعايير البحث';
+  @override String get clonePoReconSuccess => 'تم استنساخ جلسة المطابقة بنجاح وفتحها في نافذة التعديل';
+  @override String get poReconClonedResetNotice => 'تنبيه: تم إنشاء كود مسودة جديد وتفريغ بيانات الاعتماد والتوثيق لبدء جلسة مستقلة';
+  @override String get clonePoReconRecordTooltip => 'استنساخ جلسة المطابقة هذه كمسودة جديدة';
+  @override String get copyPoReconBtn => 'نسخ جدول المطابقة (TSV)';
+  @override String get exportPoReconExcelBtn => 'تصدير جدول المطابقة إلى Excel';
+  @override String get exportPoReconPdfBtn => 'تصدير تقرير المطابقة إلى PDF';
 
   // ── Screen 23: Customs Declaration 46 ──────────────────────────────────────
   @override String get customsDeclStageTitle => 'الإقرار الجمركي المبدئي وشهادة 46 ك.م';
@@ -4841,7 +4953,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get rowHistoryCopySummarySuccess => 'تم نسخ ملخص التغيير للحافظة';
 
   // ── Screen 48: Lifecycle Kanban Board ───────────────────────────────────────
-  @override String get lifecycleBoardTitle => 'لوحة تتبع ومتابعة مراحل الشحنات التفاعلية المباشرة (6 مراحل و 21 خطوة)';
+  @override String get lifecycleBoardTitle => 'لوحة تتبع ومتابعة مراحل الشحنات التفاعلية المباشرة (6 مراحل و 25 خطوة)';
   @override String get lifecycleBoardSubtitle => 'متابعة مراحل الشحنات التفاعلية المباشرة — اختيار المرحلة لعرض وتحديث جدول الملفات';
   @override String get refreshLiveBoardTooltip => 'تحديث البيانات المباشرة';
   @override String lifecycleBoardError(dynamic error) => 'حدث خطأ أثناء تحميل بيانات اللوحة:\n$error';
@@ -4884,6 +4996,16 @@ class AppLocalizationsAr extends AppLocalizations {
         return 'تخصيص الحاويات';
       case 'STEP_08':
         return 'مراجعة المسودات';
+      case 'STEP_08_PO':
+        return 'مطابقة الفاتورة وقائمة التعبئة';
+      case 'STEP_08_BL':
+        return 'مراجعة مسودة بوليصة الشحن';
+      case 'STEP_08_MATCH':
+        return 'المطابقة الذكية للفاتورة والبوليصة';
+      case 'STEP_08_COO':
+        return 'مسودة شهادة المنشأ و EUR.1';
+      case 'STEP_08_COC':
+        return 'شهادات الفحص والمطابقة COC';
       case 'STEP_09':
         return 'الاعتماد النهائي للمستندات';
       case 'STEP_10':
@@ -7948,6 +8070,8 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get swiftColVarianceStatus => 'حالة المطابقة والفارق';
   @override
+  String get swiftChargesLabel => 'رسوم التحويل (71A)';
+  @override
   String get swiftColSwiftRef => 'رقم السويفت البنكي';
   @override
   String get swiftColActions => 'العمليات';
@@ -10089,7 +10213,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get stepConfigDemoSwitchBtn => 'التبديل لدور المدير تجريبياً';
   @override String get stepConfigRefreshTooltip => 'تحديث البيانات';
   @override String get stepConfigSearchHint => 'بحث بكود الخطوة أو الاسم أو السياسة...';
-  @override String get stepConfigPhaseAll => 'الكل (21 مرحلة)';
+  @override String get stepConfigPhaseAll => 'الكل (25 خطوة)';
   @override String stepConfigPhaseLabel(int phase) => 'المرحلة $phase';
   @override String get stepConfigEmptySearch => 'لا توجد خطوات مطابقة لمعايير البحث الحالية.';
   @override String get stepConfigColPhaseCode => 'المرحلة والكود';
@@ -10123,7 +10247,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get stepConfigPdfSubtitle => 'سجل معايير المخاطر والاعتمادات المسبقة لمنظومة الاستيراد';
   @override String get stepConfigDossierHeader => '=== ملف حوكمة سياسات تخطي مراحل الشحنة ===';
   @override String get stepConfigDossierKpiSummary => '--- المؤشرات العامة للحوكمة ---';
-  @override String get stepConfigDossierRecordsDetails => '--- تفاصيل سياسات المراحل الـ 21 ---';
+  @override String get stepConfigDossierRecordsDetails => '--- تفاصيل سياسات المراحل الـ 25 ---';
   @override String get stepConfigDossierFooter => '=== نهاية التقرير المعتمد من إدارة الاستيراد ===';
   @override String stepConfigEditDialogTitle(String code) => 'تعديل سياسة الخطوة: $code';
   @override String get stepConfigSkipPolicyLabel => 'سياسة وقابلية التخطي:';
@@ -10332,6 +10456,126 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get cloneConsultationDialogTitle => 'استنساخ دراسة استشارية جمركية';
   @override String get clonePriceListActionTooltip => 'استنساخ اللائحة بالكامل';
   @override String get cloneRowActionTooltip => 'استنساخ السطر الحالي';
+  @override String get clonePurchaseOrderDialogTitle => 'استنساخ أمر الشراء';
+  @override String get searchAndClonePoBtn => 'بحث واستنساخ أمر شراء';
+  @override String get searchAndClonePoDialogTitle => 'بحث واستنساخ أمر شراء';
+  @override String get searchAndClonePoSubtitle => 'اختر أمر الشراء المراد استنساخه مع تصفير الشحنات والتخصيصات';
+  @override String get searchByPoOrSupplierOrItemHint => 'ابحث برقم أمر الشراء، المرجع، المورد، الشركة، المشروع...';
+  @override String get noMatchingPosFound => 'لم يتم العثور على أي أوامر شراء مطابقة';
+  @override String clonePoSuccess(dynamic code) => 'تم استنساخ أمر الشراء $code بنجاح';
+  @override String clonePoError(dynamic error) => 'فشل استنساخ أمر الشراء: $error';
+  @override String get cloneRowItemTooltip => 'تكرار / استنساخ البند (Ctrl + D)';
+  @override String get clonePackingItemTooltip => 'تكرار / استنساخ طرد التعبئة';
+  @override String get lineItemClonedSuccess => 'تم تكرار البند بنجاح';
+  @override String get packingItemClonedSuccess => 'تم تكرار طرد التعبئة بنجاح';
+  @override String get cloneFieldAllocationsReset => 'تصفير تخصيصات الشحن الجزئي';
+  @override String get cloneFieldShipmentUnlinked => 'فك الارتباط بملف الاستيراد السابق';
+  @override String get searchAndCloneCbmBtn => 'بحث واستنساخ دراسة CBM';
+  @override String get cloneCbmDialogTitle => 'استنساخ دراسة حساب الحجم CBM';
+  @override String get searchAndCloneCbmDialogTitle => 'بحث واستنساخ دراسة حساب الحجم';
+  @override String get searchAndCloneCbmSubtitle => 'ابحث عن دراسة سابقة واستنسخ مواصفات الطرود كقالب جديد';
+  @override String get searchByCalcCodeOrTitleHint => 'ابحث بكود الدراسة، العنوان، ملاحظات البضاعة، أو وسيلة الشحن...';
+  @override String get noMatchingCalcsFound => 'لم يتم العثور على أي دراسات حساب حجم مطابقة';
+  @override String cloneCbmSuccess(dynamic code) => 'تم استنساخ دراسة CBM بنجاح كمسودة جديدة باسم [$code]';
+  @override String cloneCbmError(dynamic error) => 'فشل استنساخ دراسة CBM: $error';
+  @override String get cloneQuickItemTooltip => 'استنساخ هذا الطرد (Ctrl + D)';
+  @override String get cargoItemClonedSuccess => 'تم استنساخ الطرد وتحديث الحسابات آلياً';
+  @override String get cloneFieldCalcCodeGenerated => 'توليد كود دراسة جديد آلياً';
+  @override String get cloneFieldImportFileReset => 'فك الارتباط بملف الاستيراد';
+  @override String get cloneFieldPoReset => 'فك الارتباط بأمر الشراء';
+
+  // ── Screen 4 Shipping Scenarios Clone & Responsive Keys ─────────────────────
+  @override String get searchAndCloneStudyBtn => 'بحث واستنساخ دراسة شحن';
+  @override String get cloneStudyDialogTitle => 'استنساخ دراسة وسيناريوهات الشحن';
+  @override String get searchAndCloneStudyDialogTitle => 'بحث واستنساخ دراسة شحن سابقة';
+  @override String get searchAndCloneStudySubtitle => 'ابحث عن دراسة سابقة واستنسخ عروض أسعار النواقل كمسودة جديدة';
+  @override String get searchByStudyCodeOrTitleHint => 'ابحث بكود الدراسة، العنوان، الناقل، أو اسم المشروع...';
+  @override String get noMatchingStudiesFound => 'لم يتم العثور على أي دراسات شحن مطابقة';
+  @override String cloneStudySuccess(dynamic code) => 'تم استنساخ دراسة الشحن [$code] بنجاح كمسودة جديدة';
+  @override String cloneStudyError(dynamic error) => 'فشل استنساخ دراسة الشحن: $error';
+  @override String get cloneCarrierOptionTooltip => 'استنساخ خيار الناقل (Ctrl + D)';
+  @override String get carrierOptionClonedSuccess => 'تم استنساخ خيار الناقل وتحديث المقارنة آلياً';
+  @override String get cloneFieldStudyCodeGenerated => 'توليد كود دراسة جديد آلياً';
+  @override String get cloneFieldSelectionReset => 'إلغاء ترسية وتحديد الناقل للبدء من جديد';
+  @override String get carrierOptionHeader => 'خيار الناقل';
+
+  // ── Screen 6 Customs Consultation Clone & Responsive Keys ─────────────────────
+  @override String get searchAndCloneConsultationBtn => 'بحث واستنساخ استشارة';
+  @override String get searchAndCloneConsultationDialogTitle => 'بحث واستنساخ استشارة جمركية سابقة';
+  @override String get searchAndCloneConsultationSubtitle => 'اختر استشارة سابقة لاستنساخ بنود التعريفة والمستندات في مسودة جديدة';
+  @override String get searchByConsultationCodeOrTitleHint => 'ابحث برقم الاستشارة، العنوان، أو المخلص الجمركي...';
+  @override String get noMatchingConsultationsFound => 'لم يتم العثور على أي استشارة جمركية مطابقة';
+  @override String cloneConsultationSuccess(dynamic code) => 'تم استنساخ الاستشارة الجمركية [$code] بنجاح كمسودة جديدة';
+  @override String cloneConsultationError(dynamic error) => 'فشل استنساخ الاستشارة الجمركية: $error';
+  @override String get cloneChecklistItemTooltip => 'استنساخ بند المستند الإجرائي (Ctrl + D)';
+  @override String get checklistItemClonedSuccess => 'تم استنساخ بند المستند الإجرائي بنجاح';
+  @override String get cloneFieldConsultationCodeGenerated => 'توليد كود استشارة جديد آلياً';
+  @override String get cloneFieldChecklistReset => 'إعادة ضبط حالة المستندات الإجرائية إلى قيد الانتظار';
+  @override String get cloneConsultationTooltip => 'استنساخ هذه الاستشارة الجمركية كمسودة جديدة';
+  @override String get searchAndCloneConsultationTooltip => 'البحث في الاستشارات السابقة واستنساخها كدراسة جديدة';
+
+  // ── Screen 8 Financial Approval (Payment Requests) Clone & Responsive Keys ───
+  @override String get searchAndClonePaymentRequestBtn => 'بحث واستنساخ طلب سداد';
+  @override String get searchAndClonePaymentRequestDialogTitle => 'البحث واستنساخ من طلبات السداد السابقة';
+  @override String get searchAndClonePaymentRequestSubtitle => 'اختر طلب سداد معتمد أو سابق لاستنساخ بياناته البنكية والمورد';
+  @override String get searchByPaymentCodeOrSupplierHint => 'البحث برقم طلب السداد، اسم المورد، أو ملف الاستيراد...';
+  @override String get noMatchingPaymentRequestsFound => 'لا توجد طلبات سداد مطابقة للبحث';
+  @override String clonePaymentRequestSuccess(dynamic code) => 'تم استنساخ طلب السداد بنجاح [$code] كمسودة جديدة';
+  @override String clonePaymentRequestError(dynamic error) => 'فشل استنساخ طلب السداد: $error';
+  @override String get clonePaymentRequestTooltip => 'استنساخ طلب السداد المالي كمسودة جديدة';
+  @override String get searchAndClonePaymentTooltip => 'بحث واستنساخ من طلبات السداد السابقة';
+  @override String get clonePaymentRequestDialogTitle => 'استنساخ طلب السداد المالي';
+  @override String get cloneFieldPaymentCodeGenerated => 'توليد كود طلب سداد جديد تلقائياً';
+  @override String get cloneFieldBankingDetailsCopied => 'نسخ بيانات الحساب البنكي والسويفت للمورد';
+  @override String get cloneFieldPaymentStatusReset => 'إعادة الحالة تلقائياً إلى مسودة Draft';
+  @override String get cloneFieldSwiftReceiptReset => 'تصفير إيصالات السداد وبيانات التحويل المنفذ';
+  @override String get clonePoAllocationTooltip => 'استنساخ تخصيص أمر الشراء';
+  @override String get poAllocationClonedSuccess => 'تم استنساخ أمر الشراء بنجاح';
+
+  // ── Screen 9 Financial Approval (Import Budget) Clone & Responsive Keys ───
+  @override String get searchAndCloneBudgetBtn => 'بحث واستنساخ اعتماد ميزانية';
+  @override String get searchAndCloneBudgetDialogTitle => 'البحث واستنساخ من الميزانيات الاستيرادية السابقة';
+  @override String get searchAndCloneBudgetSubtitle => 'اختر ميزانية معتمدة أو سابقة لاستنساخ هيكل التكاليف ومعدلات الصرف';
+  @override String get searchByBudgetCodeOrTitleHint => 'البحث برقم الميزانية، العنوان، أو كود ملف الاستيراد...';
+  @override String get noMatchingBudgetsFound => 'لا توجد ميزانيات مطابقة للبحث';
+  @override String cloneBudgetSuccess(dynamic code) => 'تم استنساخ الميزانية الاستيرادية بنجاح ($code) كمسودة جديدة';
+  @override String cloneBudgetError(dynamic error) => 'فشل استنساخ الميزانية الاستيرادية: $error';
+  @override String get cloneBudgetTooltip => 'استنساخ الميزانية الاستيرادية';
+  @override String get searchAndCloneBudgetTooltip => 'بحث واستنساخ اعتماد ميزانية استيرادية';
+  @override String get cloneBudgetDialogTitle => 'استنساخ الميزانية الاستيرادية';
+  @override String get cloneFieldBudgetCodeGenerated => 'توليد كود ميزانية جديد تلقائياً';
+  @override String get cloneFieldBudgetStatusReset => 'إعادة الحالة تلقائياً إلى قيد المراجعة / مسودة';
+  @override String get cloneFieldCertificationsReset => 'تصفير بيانات الاعتماد والمصادقة وتاريخها';
+  @override String get cloneFieldExchangeRatesCopied => 'نسخ هيكل تقديرات التكاليف ومعدلات الصرف';
+
+  // ── Import Files Search, Clone & Dialogs Hardening ─────────────────────────
+  @override String get searchAndCloneImportFileBtn => 'بحث واستنساخ شحنة';
+  @override String get searchAndCloneImportFileDialogTitle => 'بحث واستنساخ ملف شحنة';
+  @override String get searchAndCloneImportFileSubtitle => 'اختر الشحنة المراد استنساخها مع تصفير ACID وحالة الجمارك تلقائياً';
+  @override String get searchAndCloneImportFileHint => 'ابحث برقم الملف، اسم الشركة، المورد، أو أمر الشراء...';
+  @override String resultsWithCount(dynamic count) => 'النتائج ($count)';
+  @override String get noMatchingShipmentsFound => 'لم يتم العثور على أي شحنات مطابقة';
+  @override String get cloneFieldAcidReset => 'تصفير رقم وتاريخ ACID المسبق';
+  @override String get portsOfLoadingAndDischarge => 'الموانئ (الشحن ← التفريغ)';
+  @override String get smartChecklistTooltip => 'قائمة التحقق التشغيلية الذكية للشحنة';
+  @override String get moreToolsTooltip => 'أدوات إضافية';
+  @override String confirmDeleteImportFilePrompt(dynamic code) => 'هل أنت متأكد من حذف ملف الاستيراد $code؟';
+  @override String get cloneBtn => 'استنساخ';
+  @override String get selectCompanyValidation => 'يرجى اختيار الشركة المستوردة المصرية';
+  @override String get selectSupplierValidation => 'يرجى اختيار المورد الأجنبي';
+  @override String get ownerFieldRequired => 'مسؤول المشروع مطلوب';
+  @override String get ownerFieldHint => 'اسم الشخص أو مسؤول المتابعة للمشروع';
+  @override String get containerStackableTab => '📦 1. قابل للرص';
+  @override String get containerNonStackableTab => '🚫 2. غير قابل للرص';
+  @override String get containerMixedTab => '🔀 3. مزيج يقبل ولا يقبل';
+  @override String get woodenFloorPallets => '🪵 طبالي خشبية أرضية';
+  @override String get internalDimensionsPrefix => 'الأبعاد الداخلية:';
+  @override String get containerOptionsAnalysisTitle => 'تحليل خيارات الحاويات وسيناريوهات التحميل';
+  @override String get closeDiagramBtn => 'إغلاق المخطط';
+  @override String get approvedRecommendationPrefix => 'التوصية المعتمدة:';
+  @override String get oversizedItemsWarning => 'الأصناف التالية تفوق سعة حاويات الشحن:';
+  @override String get failedToFetchRfqData => 'فشل جلب بيانات طلب الأسعار من الخادم.';
+  @override String get generatingRfqTemplatesLoading => 'جاري تجميع تفاصيل الشحنة وتوليد نماذج الأسعار...';
 
   // ── KB-GUIDE-012 Smart Shipment Experience Guide & Reference Card ───────────
   @override String get experienceGuideTitle => 'دليل خبرة المنتج والشحنة الذكي';
@@ -10508,6 +10752,54 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get darkMode => 'الوضع الداكن';
   @override String get lightMode => 'الوضع النهاري';
   @override String get systemMode => 'حسب إعدادات النظام';
+
+  // ── Desktop Command Palette ──
+  @override String get commandPaletteTitle => 'لوحة الأوامر والبحث الشامل للمشغل المحترف';
+  @override String get commandPaletteSearchHint => 'ابحث عن شاشة أو إجراء سريع أو ملف شحنة أو مورد أو بند تعريفة...';
+  @override String get commandPaletteCategoryScreens => 'الشاشات ومراحل دورة العمل';
+  @override String get commandPaletteCategoryActions => 'الإجراءات والأدوات السريعة';
+  @override String get commandPaletteCategoryRecords => 'السجلات والبيانات التشغيلية';
+  @override String get commandPaletteNoResults => 'لا توجد نتائج مطابقة لبحثك';
+  @override String get commandPaletteKeyboardNavHint => 'استخدم الأسهم للتنقل، وزر الإدخال للفتح، وزر الهروب للإغلاق';
+  @override String get commandPaletteShortcutTooltip => 'لوحة الأوامر والبحث الشامل الفوري';
+  @override String get commandPaletteOpenScreenAction => 'فتح الشاشة في مساحة العمل';
+  @override String get commandPaletteQuickAction => 'تشغيل فوري للأداة';
+
+  // ── Desktop Shortcuts & Power-User Suite ──
+  @override String get keyboardShortcutsTitle => 'دليل اختصارات لوحة المفاتيح';
+  @override String get keyboardShortcutsSubtitle => 'مرجع الاختصارات السريعة للمشغل المحترف لزيادة الإنتاجية';
+  @override String get shortcutsCategoryNavigation => 'التنقل ومساحة العمل';
+  @override String get shortcutsCategoryOperations => 'العمليات والبيانات';
+  @override String get shortcutsCategoryProductivity => 'المساعدة والإنتاجية';
+  @override String get shortcutCommandPalette => 'فتح لوحة الأوامر والبحث الشامل';
+  @override String get shortcutNextTab => 'الانتقال إلى التبويب التالي في مساحة العمل';
+  @override String get shortcutPreviousTab => 'الانتقال إلى التبويب السابق في مساحة العمل';
+  @override String get shortcutCloseTab => 'إغلاق التبويب النشط الحالي';
+  @override String get shortcutToggleFullscreen => 'تبديل وضع ملء الشاشة أو الاستعادة';
+  @override String get shortcutEscape => 'إغلاق النوافذ المنبثقة والقوائم';
+  @override String get shortcutSave => 'حفظ فوري للبيانات أو الجلسة النشطة';
+  @override String get shortcutNewRecord => 'فتح نموذج إضافة سجل جديد للشاشة الحالية';
+  @override String get shortcutCloneRow => 'استنساخ الصف أو البند المحدد وإدراجه';
+  @override String get shortcutSearchTable => 'التركيز السريع على حقل البحث في الجدول';
+  @override String get shortcutShowHelp => 'عرض دليل اختصارات لوحة المفاتيح';
+  @override String get fullscreenEnabledToast => 'تم تفعيل وضع ملء الشاشة';
+  @override String get fullscreenDisabledToast => 'تم الخروج من وضع ملء الشاشة';
+
+  // ── Unsaved Changes Guard ──
+  @override String get unsavedChangesTitle => 'تنبيه تعديلات غير محفوظة';
+  @override String get unsavedChangesMessage => 'توجد تعديلات لم يتم حفظها بعد في هذه الشاشة. هل تريد تجاهل التغييرات والمتابعة أم البقاء للحفظ؟';
+  @override String get unsavedChangesDiscardBtn => 'تجاهل التعديلات والمتابعة';
+  @override String get unsavedChangesSaveBtn => 'حفظ التعديلات أولاً';
+  @override String get unsavedChangesCancelBtn => 'البقاء في الشاشة';
+  @override String get unsavedChangesBadgeTooltip => 'توجد تعديلات غير محفوظة في هذا التبويب';
+
+  // ── Enterprise Multi-Pane Layout ──
+  @override String get multiPaneSelectPrompt => 'حدد عنصرا من القائمة الجانبية لمعاينة التفاصيل الكاملة والوثائق المرتبطة';
+  @override String get multiPaneCollapseSidebar => 'طي القائمة الجانبية';
+  @override String get multiPaneExpandSidebar => 'إظهار القائمة الجانبية';
+  @override String get multiPaneBackToList => 'العودة إلى القائمة';
+  @override String get multiPaneSidebarTitle => 'قائمة العناصر';
+  @override String get multiPaneDetailsTitle => 'لوحة التفاصيل المعمقة';
 }
 
 

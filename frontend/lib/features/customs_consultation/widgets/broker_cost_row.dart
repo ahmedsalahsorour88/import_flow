@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/customs_consultation_model.dart';
 import '../../currencies/models/currency_model.dart';
@@ -13,6 +14,7 @@ Widget buildBrokerCostRow({
   required List<CurrencyModel> currenciesList,
 }) {
   final l = context.l10n;
+  final isAr = Localizations.localeOf(context).languageCode == 'ar';
   return Container(
     margin: const EdgeInsets.symmetric(vertical: 4),
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -29,10 +31,27 @@ Widget buildBrokerCostRow({
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                item.expenseName,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
-                overflow: TextOverflow.ellipsis,
+              InkWell(
+                onTap: () => CopyHelper.copy(
+                  context,
+                  item.expenseName,
+                  customMessage: isAr ? 'تم نسخ اسم البند' : 'Expense item name copied',
+                ),
+                borderRadius: BorderRadius.circular(4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        item.expenseName,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.copy_outlined, size: 12, color: Colors.blueGrey),
+                  ],
+                ),
               ),
               Text(
                 '${item.category.split('(').first.trim()} | ${item.unitType}',

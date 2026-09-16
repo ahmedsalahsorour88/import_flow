@@ -2,6 +2,7 @@ from typing import List, Optional, Dict, Any
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from modules.users.model import User, Role, Permission, RolePermission, UserPermission
+from modules.audit_logs.service import AuditLogService
 from .schemas import UserCreate, UserUpdate, UserPermissionsUpdatePayload
 from .security import hash_password, verify_password, create_access_token
 from .permissions import get_user_permissions_breakdown, get_user_effective_permissions
@@ -67,7 +68,6 @@ class AuthService:
         self.db.commit()
         self.db.refresh(user)
 
-        from modules.audit_logs.service import AuditLogService
         AuditLogService(self.db).log_activity(
             entity_type="User",
             entity_id=user.user_id,
@@ -134,7 +134,6 @@ class AuthService:
         self.db.commit()
         self.db.refresh(user)
 
-        from modules.audit_logs.service import AuditLogService
         AuditLogService(self.db).log_activity(
             entity_type="User",
             entity_id=user.user_id,
@@ -162,7 +161,6 @@ class AuthService:
         self.db.commit()
         self.db.refresh(user)
 
-        from modules.audit_logs.service import AuditLogService
         AuditLogService(self.db).log_activity(
             entity_type="User",
             entity_id=user.user_id,
@@ -179,15 +177,24 @@ class AuthService:
             (User.username == username_or_email) | (User.email == username_or_email)
         ).first()
 
+        # S-003: guard against unknown username — avoid AttributeError and timing leak
         if not user:
             return None
-        if not verify_password(password, user.hashed_password):
-            return None
+
+        # R-001: check active status before any password work or DB writes
         if not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="حساب المستخدم معطّل. تواصل مع مدير النظام."
+                detail="حساب المستخدم معطّل. تواصل مع مدير النظام.",
             )
+
+        if not verify_password(password, user.hashed_password):
+            return None
+
+        # Automatically upgrade legacy SHA-256 hashes to PBKDF2
+        if not user.hashed_password.startswith("pbkdf2_sha256$"):
+            user.hashed_password = hash_password(password)
+            self.db.commit()
 
         return user
 
@@ -328,7 +335,6 @@ class AuthService:
         self.db.refresh(user)
 
         # Audit log
-        from modules.audit_logs.service import AuditLogService
         AuditLogService(self.db).log_activity(
             entity_type="UserPermissions",
             entity_id=user.user_id,

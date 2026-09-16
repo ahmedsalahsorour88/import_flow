@@ -307,7 +307,7 @@ class CustomsConsultationService:
 
     @staticmethod
     def create_consultation(
-        db: Session, session_in: CustomsConsultationCreate
+        db: Session, session_in: CustomsConsultationCreate, modified_by: Optional[str] = "Customs Specialist"
     ) -> CustomsConsultationResponse:
         validate_broker_exists(db, session_in.broker_id)
         validate_checklist_items(session_in.checklist_items)
@@ -330,6 +330,15 @@ class CustomsConsultationService:
                 sync_consultation_lifecycle_stage(db, db_session.import_file_id)
             except Exception as e:
                 print(f"[Warning] Could not sync lifecycle stage: {e}")
+
+            # Event-Driven Scoped Budget Variance Check
+            try:
+                from modules.financial_approval.service import evaluate_and_record_budget_variance_service
+                evaluate_and_record_budget_variance_service(
+                    db, db_session.import_file_id, modified_by=modified_by or "Customs Specialist"
+                )
+            except Exception as e:
+                print(f"[Warning] Could not evaluate budget variance: {e}")
 
         return CustomsConsultationService._compute_session_metrics(db, db_session)
 
@@ -382,7 +391,10 @@ class CustomsConsultationService:
 
     @staticmethod
     def update_consultation(
-        db: Session, consultation_id: int, update_in: CustomsConsultationUpdate
+        db: Session,
+        consultation_id: int,
+        update_in: CustomsConsultationUpdate,
+        modified_by: Optional[str] = "Customs Specialist",
     ) -> CustomsConsultationResponse:
         db_session = CustomsConsultationRepository.get_by_id(db, consultation_id)
         if not db_session:
@@ -406,6 +418,15 @@ class CustomsConsultationService:
                 sync_consultation_lifecycle_stage(db, updated_session.import_file_id)
             except Exception as e:
                 print(f"[Warning] Could not sync lifecycle stage: {e}")
+
+            # Event-Driven Scoped Budget Variance Check
+            try:
+                from modules.financial_approval.service import evaluate_and_record_budget_variance_service
+                evaluate_and_record_budget_variance_service(
+                    db, updated_session.import_file_id, modified_by=modified_by or "Customs Specialist"
+                )
+            except Exception as e:
+                print(f"[Warning] Could not evaluate budget variance: {e}")
 
         return CustomsConsultationService._compute_session_metrics(db, updated_session)
 

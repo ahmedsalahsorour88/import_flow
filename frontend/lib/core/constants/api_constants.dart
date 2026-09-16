@@ -48,6 +48,7 @@ class ApiConstants {
   // ── Finance ───────────────────────────────────────────────
   static String get financialApproval => '$baseUrl/financial-approval';
   static String get financialSettlement => '$baseUrl/financial-settlement';
+  static String get recalculation => '$baseUrl/recalculation';
 
   // ── Documentation ─────────────────────────────────────────
   static String get importDocumentation => '$baseUrl/import-documentation';

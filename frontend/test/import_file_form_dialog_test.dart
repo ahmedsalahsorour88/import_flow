@@ -160,6 +160,6 @@ void main() {
     expect(find.text('تعديل وتحديث بيانات ملف الاستيراد: 6701068100 (IMP-2026-0001)'), findsOneWidget);
 
     // Verify owner field exists for project in-charge
-    expect(find.widgetWithText(TextFormField, 'المسؤول (المسئول عن المشروع) *'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'المسؤول *'), findsOneWidget);
   });
 }

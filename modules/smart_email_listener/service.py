@@ -18,6 +18,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 
+from .crypto import decrypt_email_password
 from .schemas import (
     InboundEmailCreate,
     InboundEmailParsePreviewRequest,
@@ -615,7 +616,8 @@ def fetch_and_process_inbox_service(
         else:
             client = imaplib.IMAP4(settings.imap_host, settings.imap_port)
 
-        client.login(settings.username, settings.password)
+        plain_pwd = decrypt_email_password(settings.password)
+        client.login(settings.username, plain_pwd)
         typ, _ = client.select(folder, readonly=True)
         if typ != "OK":
             client.logout()
@@ -737,16 +739,19 @@ def send_via_local_outlook_service(
         else:
             mail.Body = req.body_text
 
+        temp_files_created = []
         if req.attachments:
-            import tempfile, os
+            import tempfile, os, uuid
             for att in req.attachments:
-                filename = att.get("filename", "attachment")
+                raw_filename = att.get("filename", "attachment")
+                safe_filename = os.path.basename(raw_filename) or "attachment"
                 content_b64 = att.get("content_base64", "")
                 if content_b64:
                     tmp_dir = tempfile.gettempdir()
-                    tmp_file = os.path.join(tmp_dir, filename)
+                    tmp_file = os.path.join(tmp_dir, f"att_{uuid.uuid4().hex[:8]}_{safe_filename}")
                     with open(tmp_file, "wb") as f:
                         f.write(base64.b64decode(content_b64))
+                    temp_files_created.append(tmp_file)
                     mail.Attachments.Add(tmp_file)
 
         mail.Send()
@@ -762,6 +767,12 @@ def send_via_local_outlook_service(
             detail=f"فشل إرسال الإيميل عبر Outlook: {str(e)}",
         )
     finally:
+        for tf in temp_files_created:
+            try:
+                if os.path.exists(tf):
+                    os.remove(tf)
+            except Exception:
+                pass
         pythoncom.CoUninitialize()
 
 
@@ -811,7 +822,8 @@ def send_outbound_email_service(
             if settings.smtp_use_tls:
                 smtp_client.starttls()
 
-        smtp_client.login(settings.username, settings.password)
+        plain_pwd = decrypt_email_password(settings.password)
+        smtp_client.login(settings.username, plain_pwd)
         smtp_client.send_message(msg)
         smtp_client.quit()
 

@@ -49,6 +49,7 @@ class AiAssistantState {
   final ActiveShipmentContext? activeContext;
   final bool isNavigatorOpen;
   final int? selectedShipmentId;
+  final bool isGreetingDismissed;
 
   const AiAssistantState({
     this.isPanelOpen = false,
@@ -61,6 +62,7 @@ class AiAssistantState {
     this.activeContext,
     this.isNavigatorOpen = false,
     this.selectedShipmentId,
+    this.isGreetingDismissed = false,
   });
 
   bool get isArabic => activeLanguage == 'ar';
@@ -81,6 +83,7 @@ class AiAssistantState {
     bool? isNavigatorOpen,
     int? selectedShipmentId,
     bool clearSelectedShipmentId = false,
+    bool? isGreetingDismissed,
   }) {
     return AiAssistantState(
       isPanelOpen: isPanelOpen ?? this.isPanelOpen,
@@ -93,6 +96,7 @@ class AiAssistantState {
       activeContext: clearActiveContext ? null : (activeContext ?? this.activeContext),
       isNavigatorOpen: isNavigatorOpen ?? this.isNavigatorOpen,
       selectedShipmentId: clearSelectedShipmentId ? null : (selectedShipmentId ?? this.selectedShipmentId),
+      isGreetingDismissed: isGreetingDismissed ?? this.isGreetingDismissed,
     );
   }
 }
@@ -546,6 +550,12 @@ ${AiGlossary.getGlossaryPrompt()}''',
 
   void closePanel() {
     state = state.copyWith(isPanelOpen: false);
+  }
+
+  void dismissGreeting() {
+    if (!state.isGreetingDismissed) {
+      state = state.copyWith(isGreetingDismissed: true);
+    }
   }
 
   void updateScreenContext(String screenName) {

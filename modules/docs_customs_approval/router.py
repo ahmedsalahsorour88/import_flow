@@ -18,6 +18,8 @@ from modules.docs_customs_approval.schemas import (
     DiscrepancyTicketUpdate,
     DiscrepancyTicketResolve,
     DiscrepancyTicketResponse,
+    DocsCustomsApprovalSessionCreate,
+    DocsCustomsApprovalSessionResponse,
 )
 import modules.docs_customs_approval.service as service
 
@@ -119,11 +121,57 @@ def resolve_ticket(ticket_id: int, payload: DiscrepancyTicketResolve, db: Sessio
     return ticket
 
 
+# --- Docs Customs Approval Sessions Endpoints (STEP-09) ---
+
+@router.post(
+    "/sessions",
+    response_model=DocsCustomsApprovalSessionResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create or update Docs Customs Approval Session (Save or Draft Save)",
+)
+def create_customs_approval_session(
+    payload: DocsCustomsApprovalSessionCreate, db: Session = Depends(get_db)
+):
+    return service.create_customs_approval_session_service(db, payload)
+
+
+@router.get(
+    "/sessions",
+    response_model=List[DocsCustomsApprovalSessionResponse],
+    summary="List all Docs Customs Approval Sessions",
+)
+def list_customs_approval_sessions(
+    import_file_id: Optional[int] = Query(None),
+    is_draft: Optional[bool] = Query(None),
+    search: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    return service.list_customs_approval_sessions_service(
+        db, import_file_id=import_file_id, is_draft=is_draft, search=search
+    )
+
+
+@router.get(
+    "/sessions/{session_id}",
+    response_model=DocsCustomsApprovalSessionResponse,
+    summary="Get single Docs Customs Approval Session by ID",
+)
+def get_customs_approval_session(session_id: int, db: Session = Depends(get_db)):
+    session = service.get_customs_approval_session_service(db, session_id)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Docs Customs Approval Session not found.",
+        )
+    return session
+
+
 @router.get(
     "/{approval_id}",
     response_model=CustomsDocumentApprovalResponse,
     summary="Get single approval record by ID",
 )
+
 def get_approval(approval_id: int, db: Session = Depends(get_db)):
     approval = service.get_approval_service(db, approval_id)
     if not approval:
@@ -177,3 +225,5 @@ def delete_approval(approval_id: int, db: Session = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document approval not found.")
     return None
+
+

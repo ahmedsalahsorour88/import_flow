@@ -174,7 +174,7 @@ class FinancialExportService {
                     pw.TableRow(
                       children: [
                         pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('أتعاب التخليص الجمركي والنقل والموانئ', style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('المستخلص الجمركي والناقل الداخلي', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(prefill?.brokerName != null && prefill!.brokerName!.isNotEmpty ? 'المستخلص: ${prefill.brokerName}' : 'المستخلص الجمركي والناقل الداخلي', style: const pw.TextStyle(fontSize: 9))),
                         pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('${clearanceEgp.toStringAsFixed(2)} EGP', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColor.fromHex('#27AE60')))),
                       ],
                     ),
@@ -290,7 +290,8 @@ class FinancialExportService {
     buffer.writeln('--- جدول بنود التكلفة بالعملة المحلية (الجنيه المصري) ---');
     buffer.writeln('البند المالي,جهة التحصيل,القيمة بالجنيه المصري');
     buffer.writeln('الضرائب والرسوم الجمركية و VAT,مصلحة الجمارك المصرية,$customsEgp');
-    buffer.writeln('أتعاب ومصاريف التخليص والنقل والموانئ,المستخلص الجمركي والناقل,$clearanceEgp');
+    final brokerLabel = prefill?.brokerName != null && prefill!.brokerName!.isNotEmpty ? "المستخلص: ${prefill.brokerName}" : "المستخلص الجمركي والناقل";
+    buffer.writeln('أتعاب ومصاريف التخليص والنقل والموانئ,$brokerLabel,$clearanceEgp');
     buffer.writeln('إجمالي العملة المحلية,-,${customsEgp + clearanceEgp}');
     buffer.writeln('');
 
@@ -695,7 +696,7 @@ Sorour Logistics ERP
 
 *🇪🇬 بنود التكلفة بالعملة المحلية:*
 • الجمارك و VAT (نافذة): ${customsEgp.toStringAsFixed(2)} EGP
-• التخليص والنقل الداخلي: ${clearanceEgp.toStringAsFixed(2)} EGP
+• التخليص والنقل الداخلي: ${clearanceEgp.toStringAsFixed(2)} EGP ${prefill?.brokerName != null && prefill!.brokerName!.isNotEmpty ? '(${prefill.brokerName})' : ''}
 
 *🏆 إجمالي الميزانية المعتمدة الشاملة:*
 ${grandTotalEgp.toStringAsFixed(2)} EGP
@@ -742,7 +743,7 @@ _تم الإنشاء عبر Sorour Logistics ERP_
 
 ثانياً: مخصصات العملة المحلية (الجنيه المصري):
 - الرسوم الجمركية والضرائب و VAT: ${customsEgp.toStringAsFixed(2)} EGP
-- أتعاب التخليص الجمركي والنقل والموانئ: ${clearanceEgp.toStringAsFixed(2)} EGP
+- أتعاب التخليص الجمركي والنقل والموانئ: ${clearanceEgp.toStringAsFixed(2)} EGP ${prefill?.brokerName != null && prefill!.brokerName!.isNotEmpty ? '(${prefill.brokerName})' : ''}
 
 الإجمالي الكلي للميزانية المعتمدة: ${grandTotalEgp.toStringAsFixed(2)} EGP
 

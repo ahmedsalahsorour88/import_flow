@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import Session
-from .model import CargoXEnvelope, CargoXEnvelopeDocument
+from .model import CargoXEnvelope, CargoXEnvelopeDocument, CargoXCustomsInvoiceTrack
 
 
 class CargoXRepository:
@@ -136,6 +136,29 @@ class CargoXRepository:
         db.refresh(envelope)
         return envelope
 
+    @staticmethod
+    def list_customs_tracks_by_file(db: Session, import_file_id: int) -> List[CargoXCustomsInvoiceTrack]:
+        return (
+            db.query(CargoXCustomsInvoiceTrack)
+            .filter(
+                CargoXCustomsInvoiceTrack.import_file_id == import_file_id,
+                CargoXCustomsInvoiceTrack.is_active.is_(True),
+            )
+            .order_by(CargoXCustomsInvoiceTrack.track_id.desc())
+            .all()
+        )
+
+    @staticmethod
+    def get_customs_track_by_id(db: Session, track_id: int) -> Optional[CargoXCustomsInvoiceTrack]:
+        return (
+            db.query(CargoXCustomsInvoiceTrack)
+            .filter(
+                CargoXCustomsInvoiceTrack.track_id == track_id,
+                CargoXCustomsInvoiceTrack.is_active.is_(True),
+            )
+            .first()
+        )
+
 
 class CargoXStandardInvoiceRepository:
 
@@ -225,4 +248,27 @@ class CargoXStandardInvoiceRepository:
         db.commit()
         db.refresh(session)
         return session
+
+    @staticmethod
+    def list_customs_tracks_by_file(db: Session, import_file_id: int) -> List[CargoXCustomsInvoiceTrack]:
+        return (
+            db.query(CargoXCustomsInvoiceTrack)
+            .filter(
+                CargoXCustomsInvoiceTrack.import_file_id == import_file_id,
+                CargoXCustomsInvoiceTrack.is_active.is_(True),
+            )
+            .order_by(CargoXCustomsInvoiceTrack.track_id.desc())
+            .all()
+        )
+
+    @staticmethod
+    def get_customs_track_by_id(db: Session, track_id: int) -> Optional[CargoXCustomsInvoiceTrack]:
+        return (
+            db.query(CargoXCustomsInvoiceTrack)
+            .filter(
+                CargoXCustomsInvoiceTrack.track_id == track_id,
+                CargoXCustomsInvoiceTrack.is_active.is_(True),
+            )
+            .first()
+        )
 

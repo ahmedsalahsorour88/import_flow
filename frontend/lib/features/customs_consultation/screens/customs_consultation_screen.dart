@@ -19,6 +19,7 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../customs_clearance_quotations/screens/customs_clearance_quotations_screen.dart';
@@ -35,6 +36,9 @@ import '../providers/customs_consultation_provider.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 import '../services/customs_export_service.dart';
 import '../services/customs_consultation_pdf_service.dart';
+import '../widgets/search_and_clone_consultation_dialog.dart';
+export '../widgets/search_and_clone_consultation_dialog.dart';
+import '../../financial_approval/providers/financial_approval_provider.dart';
 
 class CustomsConsultationScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -307,7 +311,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
             if (bPartner != null) {
               _brokerContactPerson = bPartner.contactPerson;
             }
-            _loadBrokerPriceList(file.brokerId!, preserveExisting: true);
+            _loadBrokerPriceList(file.brokerId!);
           }
           if (file.poIds != null && file.poIds!.isNotEmpty) {
             _selectedPoId = file.poIds!.first;
@@ -1111,6 +1115,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       _brokerQuoteItems.clear();
       _brokerQuoteItems.addAll(session.brokerQuoteItems.map((q) => q.copyWith()));
       _brokerPriceListId = session.brokerPriceListId;
+      final priceLists = ref.read(brokerPriceListsProvider).valueOrNull ?? [];
+      final matchedPl = priceLists.where((pl) => pl.priceListId == session.brokerPriceListId).firstOrNull;
+      _brokerPriceListTitle = matchedPl?.title;
       _visitedTabs.add(0);
       _tabController.animateTo(0);
     });
@@ -1133,6 +1140,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           _brokerPriceListTitle = activePl.title;
           _brokerQuoteItems.clear();
           for (final itm in activePl.items) {
+            final isApplicable = itm.standardPrice > 0;
             _brokerQuoteItems.add(CustomsBrokerQuoteItemModel(
               expenseTypeId: itm.expenseTypeId,
               expenseName: itm.expenseName,
@@ -1141,8 +1149,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
               unitPrice: itm.standardPrice,
               currency: itm.currency,
               qty: 1.0,
-              isApplicable: false, // Default to false until enabled
-              totalAmount: 0.0,
+              isApplicable: isApplicable,
+              totalAmount: isApplicable ? (itm.standardPrice * 1.0) : 0.0,
               notes: itm.notes,
             ));
           }
@@ -1546,6 +1554,40 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           });
         }
       }
+
+      // Upstream Notification: Check if linked import file has an existing budget that will be affected
+      if (_selectedImportFileId != null && mounted) {
+        final budgets = ref.read(importBudgetsProvider).valueOrNull ?? [];
+        final linkedBudget = budgets.where((b) => b.importFileId == _selectedImportFileId && b.isActive).firstOrNull;
+        if (linkedBudget != null && mounted) {
+          final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+          final warningMsg = isArabic
+              ? '⚠️ تنبيه ترابط التكاليف: ملف الاستيراد هذا مرتبط بميزانية تقديرية (${linkedBudget.budgetCode}). تم تحديث مصاريف التخليص الجمركي والرسوم، يُرجى مراجعة وتحديث اعتماد الميزانية لمطابقة التكاليف الحية.'
+              : '⚠️ Cost Linkage Alert: This import file is linked to budget (${linkedBudget.budgetCode}). Clearance expenses were updated, please review and update the Budget Approval screen to match live costs.';
+          Future.delayed(const Duration(milliseconds: 1200), () {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(warningMsg, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    ],
+                  ),
+                  backgroundColor: AppTheme.orange,
+                  duration: const Duration(seconds: 8),
+                  action: SnackBarAction(
+                    label: isArabic ? 'حسناً' : 'OK',
+                    textColor: Colors.white,
+                    onPressed: () {},
+                  ),
+                ),
+              );
+            }
+          });
+        }
+      }
     } catch (e) {
       if (mounted) {
         await showErrorDetailsDialog(
@@ -1565,6 +1607,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final egpLabel = isArabic ? 'ج.م' : 'EGP';
     final consultationsState = ref.watch(customsConsultationsProvider);
@@ -1749,6 +1792,22 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         value: '$blockingCount',
                         color: blockingCount > 0 ? Colors.red : Colors.green,
                         onTap: () => showBlockingIssuesDialog(context, _checklist, (val) => setState(() { _checklist.clear(); _checklist.addAll(val); })),
+                      ),
+                      // Search & Clone Consultation Button (UX-CLONE-011)
+                      Tooltip(
+                        message: l.searchAndCloneConsultationBtn,
+                        child: ElevatedButton.icon(
+                          key: const ValueKey('searchAndCloneConsultationBtn'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.wcagCobalt,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: () => _openSearchAndCloneConsultationDialog(context, consultationsList),
+                          icon: const Icon(Icons.control_point_duplicate_rounded, size: 16),
+                          label: Text(l.searchAndCloneConsultationBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
                       ),
                       // 1. Live Refresh
                       OutlinedButton.icon(
@@ -2040,20 +2099,31 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                   // Session Setup Header Card
                   Card(
                     elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 8,
                             children: [
                               Text(
                                 widget.isTaxReviewMode
                                     ? l.taxReviewWorkspaceTab
                                     : l.customsWorkspaceTab,
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                ),
                               ),
                               if (_editingConsultationCode != null)
                                 Container(
@@ -2065,93 +2135,131 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                           ),
                           const Divider(),
                           const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: TextFormField(
-                                  controller: _titleController,
-                                  decoration: InputDecoration(labelText: '${l.titleField} *', border: const OutlineInputBorder()),
-                                  validator: (v) => (v == null || v.trim().isEmpty) ? l.requiredField : null,
-                                ),
-                              ),
-                              if (!widget.isTaxReviewMode) ...[
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  flex: 2,
-                                  child: SearchableDropdownField<int?>(
-                                    value: _selectedBrokerId,
-                                    labelText: '${l.customsBrokerLabel} *',
-                                    searchHintText: '${l.search} ${l.customsBrokerLabel}...',
-                                    items: brokersList
-                                        .map((b) => SearchableDropdownItem<int?>(
-                                              value: b.providerId,
-                                              label: b.partnerName,
-                                              subtitle: b.contactPerson,
-                                            ))
-                                        .toList(),
-                                    onChanged: (val) {
-                                      if (val != null) {
-                                        final b = brokersList.firstWhere((element) => element.providerId == val);
-                                        setState(() {
-                                          _selectedBrokerId = val;
-                                          _selectedBrokerName = b.partnerName;
-                                          _brokerContactPerson = b.contactPerson;
-                                        });
-                                      }
-                                    },
-                                    validator: (v) => v == null ? l.requiredField : null,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: SearchableDropdownField<int?>(
-                                  value: _selectedImportFileId,
-                                  labelText: l.linkImportFile,
-                                  searchHintText: '${l.search} ${l.linkImportFile}...',
-                                  items: [
-                                    SearchableDropdownItem<int?>(
-                                      value: null,
-                                      label: '-- ${l.allFiles} --',
-                                    ),
-                                    ...(ref.watch(importFilesProvider).valueOrNull ?? []).map((f) => SearchableDropdownItem<int?>(
-                                          value: f.importFileId,
-                                          label: '${f.primaryNameWithCode} - ${f.companyName}',
-                                          subtitle: '${f.companyName} | ${l.customsBrokerLabel}: ${f.brokerName ?? ""} | ${f.invoicesData.length} Invoices',
-                                        )),
-                                  ],
-                                  onChanged: _onImportFileChanged,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                flex: 2,
-                                child: TextFormField(
-                                  controller: _estimatedDutiesController,
-                                  keyboardType: TextInputType.number,
-                                  decoration: InputDecoration(
-                                    labelText: '${l.totalTaxesAndDutiesCol} ($egpLabel)',
-                                    border: const OutlineInputBorder(),
-                                    prefixIcon: const Icon(Icons.calculate, color: AppTheme.cobalt),
-                                    suffixIcon: IconButton(
-                                      icon: const Icon(Icons.copy, size: 16),
-                                      tooltip: l.copyTooltip,
-                                      onPressed: () {
-                                        if (_estimatedDutiesController.text.isNotEmpty) {
-                                          CopyHelper.copy(context, _estimatedDutiesController.text);
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final isNarrow = constraints.maxWidth < 700;
+                              final titleField = TextFormField(
+                                controller: _titleController,
+                                decoration: InputDecoration(labelText: '${l.titleField} *', border: const OutlineInputBorder()),
+                                validator: (v) => (v == null || v.trim().isEmpty) ? l.requiredField : null,
+                              );
+                              final brokerField = !widget.isTaxReviewMode
+                                  ? SearchableDropdownField<int?>(
+                                      value: _selectedBrokerId,
+                                      labelText: '${l.customsBrokerLabel} *',
+                                      searchHintText: '${l.search} ${l.customsBrokerLabel}...',
+                                      items: brokersList
+                                          .map((b) => SearchableDropdownItem<int?>(
+                                                value: b.providerId,
+                                                label: b.partnerName,
+                                                subtitle: b.contactPerson,
+                                              ))
+                                          .toList(),
+                                      onChanged: (val) {
+                                        if (val != null) {
+                                          final b = brokersList.where((element) => element.providerId == val).firstOrNull;
+                                          setState(() {
+                                            _selectedBrokerId = val;
+                                            _selectedBrokerName = b?.partnerName ?? '';
+                                            _brokerContactPerson = b?.contactPerson;
+                                          });
+                                          _loadBrokerPriceList(val);
+                                        } else {
+                                          setState(() {
+                                            _selectedBrokerId = null;
+                                            _selectedBrokerName = '';
+                                            _brokerContactPerson = null;
+                                            _brokerPriceListId = null;
+                                            _brokerPriceListTitle = null;
+                                            _brokerQuoteItems.clear();
+                                          });
                                         }
                                       },
-                                    ),
+                                      validator: (v) => v == null ? l.requiredField : null,
+                                    )
+                                  : null;
+
+                              if (isNarrow) {
+                                return Column(
+                                  children: [
+                                    titleField,
+                                    if (brokerField != null) ...[
+                                      const SizedBox(height: 12),
+                                      brokerField,
+                                    ],
+                                  ],
+                                );
+                              }
+
+                              return Row(
+                                children: [
+                                  Expanded(flex: 3, child: titleField),
+                                  if (brokerField != null) ...[
+                                    const SizedBox(width: 12),
+                                    Expanded(flex: 2, child: brokerField),
+                                  ],
+                                ],
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final isNarrow = constraints.maxWidth < 700;
+                              final importFileField = SearchableDropdownField<int?>(
+                                value: _selectedImportFileId,
+                                labelText: l.linkImportFile,
+                                searchHintText: '${l.search} ${l.linkImportFile}...',
+                                items: [
+                                  SearchableDropdownItem<int?>(
+                                    value: null,
+                                    label: '-- ${l.allFiles} --',
+                                  ),
+                                  ...(ref.watch(importFilesProvider).valueOrNull ?? []).map((f) => SearchableDropdownItem<int?>(
+                                        value: f.importFileId,
+                                        label: '${f.primaryNameWithCode} - ${f.companyName}',
+                                        subtitle: '${f.companyName} | ${l.customsBrokerLabel}: ${f.brokerName ?? ""} | ${f.invoicesData.length} Invoices',
+                                      )),
+                                ],
+                                onChanged: _onImportFileChanged,
+                              );
+                              final dutiesField = TextFormField(
+                                controller: _estimatedDutiesController,
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  labelText: '${l.totalTaxesAndDutiesCol} ($egpLabel)',
+                                  border: const OutlineInputBorder(),
+                                  prefixIcon: const Icon(Icons.calculate, color: AppTheme.cobalt),
+                                  suffixIcon: IconButton(
+                                    icon: const Icon(Icons.copy, size: 16),
+                                    tooltip: l.copyTooltip,
+                                    onPressed: () {
+                                      if (_estimatedDutiesController.text.isNotEmpty) {
+                                        CopyHelper.copy(context, _estimatedDutiesController.text);
+                                      }
+                                    },
                                   ),
                                 ),
-                              ),
-                            ],
+                              );
+
+                              if (isNarrow) {
+                                return Column(
+                                  children: [
+                                    importFileField,
+                                    const SizedBox(height: 12),
+                                    dutiesField,
+                                  ],
+                                );
+                              }
+
+                              return Row(
+                                children: [
+                                  Expanded(flex: 3, child: importFileField),
+                                  const SizedBox(width: 16),
+                                  Expanded(flex: 2, child: dutiesField),
+                                ],
+                              );
+                            },
                           ),
                           if (_selectedImportFileId != null) ...[
                             Builder(builder: (context) {
@@ -2293,6 +2401,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                       onToggleExpanded: () => setState(() => _isBrokerQuoteExpanded = !_isBrokerQuoteExpanded),
                       onCategoryChanged: (cat) => setState(() => _brokerExpenseCategoryFilter = cat),
                       onAddCustomExpense: _addCustomBrokerExpenseRow,
+                      onReloadPriceList: _selectedBrokerId != null ? () => _loadBrokerPriceList(_selectedBrokerId!) : null,
                       onApplyAll: () {
                         setState(() {
                           for (int i = 0; i < _brokerQuoteItems.length; i++) {
@@ -2317,156 +2426,213 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                   // CUSTOMS CALCULATION ENGINE CARD (MD-008 Customs Engine)
                   Card(
                     elevation: 3,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.calculate, color: AppTheme.cobalt, size: 22),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final isNarrow = constraints.maxWidth < 750;
+                              final titleWidget = Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.calculate, color: AppTheme.cobalt, size: 22),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          l.customsCalculationEngine,
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                          ),
+                                        ),
+                                        Text(l.customsCalculationEngineSub, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              );
+
+                              final actionButtons = <Widget>[
+                                if (widget.isTaxReviewMode) ...[
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.emerald,
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    ),
+                                    onPressed: _isRecalculating ? null : _fetchReconciledFinalInvoiceAndRecalculate,
+                                    icon: _isRecalculating
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                          )
+                                        : const Icon(Icons.flash_on, color: Colors.white, size: 16),
+                                    label: Text(
+                                      l.fetchReconciledFinalInvoice,
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                    ),
+                                  ),
+                                ],
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
+                                  onPressed: () => _syncHsRequirementsToChecklist(silent: false),
+                                  icon: const Icon(Icons.sync_alt, color: Colors.white, size: 16),
+                                  label: Text(l.syncHsRequirementsToChecklist, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                ),
+                                IconButton(
+                                  icon: Icon(_isCustomsCalculatorExpanded ? Icons.expand_less : Icons.expand_more, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  tooltip: l.view,
+                                  onPressed: () => setState(() => _isCustomsCalculatorExpanded = !_isCustomsCalculatorExpanded),
+                                ),
+                              ];
+
+                              if (isNarrow) {
+                                return Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(l.customsCalculationEngine, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
-                                    Text(l.customsCalculationEngineSub, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                    titleWidget,
+                                    const SizedBox(height: 10),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      children: actionButtons,
+                                    ),
                                   ],
-                                ),
-                              ),
-                              if (widget.isTaxReviewMode) ...[
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.emerald,
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                  ),
-                                  onPressed: _isRecalculating ? null : _fetchReconciledFinalInvoiceAndRecalculate,
-                                  icon: _isRecalculating
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                        )
-                                      : const Icon(Icons.flash_on, color: Colors.white, size: 16),
-                                  label: Text(
-                                    l.fetchReconciledFinalInvoice,
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                              ],
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
-                                onPressed: () => _syncHsRequirementsToChecklist(silent: false),
-                                icon: const Icon(Icons.sync_alt, color: Colors.white, size: 16),
-                                label: Text(l.syncHsRequirementsToChecklist, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                              ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                icon: Icon(_isCustomsCalculatorExpanded ? Icons.expand_less : Icons.expand_more, color: AppTheme.charcoal),
-                                tooltip: l.view,
-                                onPressed: () => setState(() => _isCustomsCalculatorExpanded = !_isCustomsCalculatorExpanded),
-                              ),
-                            ],
+                                );
+                              }
+
+                              return Row(
+                                children: [
+                                  Expanded(child: titleWidget),
+                                  ...actionButtons.map((w) => Padding(padding: const EdgeInsets.symmetric(horizontal: 3), child: w)),
+                                ],
+                              );
+                            },
                           ),
                           if (_isCustomsCalculatorExpanded) ...[
                             const Divider(height: 24),
                             // Row 1: Valuation Currency, Customs Official FX Rate, Study Date
-                            Row(
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: SearchableDropdownField<String>(
-                                    value: _customsCurrency,
-                                    labelText: l.invoiceCurrencyLabel,
-                                    items: currenciesList.isNotEmpty
-                                        ? currenciesList
-                                            .map((c) => SearchableDropdownItem<String>(
-                                                  value: c.currencyCode,
-                                                  label: '${c.currencyCode} - ${c.currencyName}',
-                                                ))
-                                            .toList()
-                                        : const [
-                                            SearchableDropdownItem(value: 'USD', label: 'USD'),
-                                            SearchableDropdownItem(value: 'EUR', label: 'EUR'),
-                                            SearchableDropdownItem(value: 'GBP', label: 'GBP'),
-                                            SearchableDropdownItem(value: 'CNY', label: 'CNY'),
-                                            SearchableDropdownItem(value: 'EGP', label: 'EGP'),
-                                          ],
-                                    onChanged: (v) {
-                                      if (v != null) {
-                                        setState(() {
-                                          _customsCurrency = v;
-                                          _updateExchangeRateForCurrency(v);
-                                        });
-                                      }
-                                    },
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final isNarrow = constraints.maxWidth < 700;
+                                final currField = SearchableDropdownField<String>(
+                                  value: _customsCurrency,
+                                  labelText: l.invoiceCurrencyLabel,
+                                  items: currenciesList.isNotEmpty
+                                      ? currenciesList
+                                          .map((c) => SearchableDropdownItem<String>(
+                                                value: c.currencyCode,
+                                                label: '${c.currencyCode} - ${c.currencyName}',
+                                              ))
+                                          .toList()
+                                      : const [
+                                          SearchableDropdownItem(value: 'USD', label: 'USD'),
+                                          SearchableDropdownItem(value: 'EUR', label: 'EUR'),
+                                          SearchableDropdownItem(value: 'GBP', label: 'GBP'),
+                                          SearchableDropdownItem(value: 'CNY', label: 'CNY'),
+                                          SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                                        ],
+                                  onChanged: (v) {
+                                    if (v != null) {
+                                      setState(() {
+                                        _customsCurrency = v;
+                                        _updateExchangeRateForCurrency(v);
+                                      });
+                                    }
+                                  },
+                                );
+                                final fxField = TextFormField(
+                                  controller: _exchangeRateController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    labelText: l.customsFxRateLabel,
+                                    border: const OutlineInputBorder(),
+                                    prefixIcon: const Icon(Icons.currency_exchange, color: AppTheme.cobalt, size: 18),
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.copy, size: 16),
+                                      tooltip: l.copyTooltip,
+                                      onPressed: () {
+                                        if (_exchangeRateController.text.isNotEmpty) {
+                                          CopyHelper.copy(context, _exchangeRateController.text);
+                                        }
+                                      },
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  flex: 2,
-                                  child: TextFormField(
-                                    controller: _exchangeRateController,
-                                    keyboardType: TextInputType.number,
+                                  onChanged: (_) => setState(() {}),
+                                );
+                                final dateField = InkWell(
+                                  onTap: () async {
+                                    final picked = await showDatePicker(
+                                      context: context,
+                                      initialDate: _studyDate,
+                                      firstDate: DateTime(2020),
+                                      lastDate: DateTime(2030),
+                                    );
+                                    if (picked != null) {
+                                      setState(() => _studyDate = picked);
+                                    }
+                                  },
+                                  child: InputDecorator(
                                     decoration: InputDecoration(
-                                      labelText: l.customsFxRateLabel,
+                                      labelText: l.studyDateLabel,
                                       border: const OutlineInputBorder(),
-                                      prefixIcon: const Icon(Icons.currency_exchange, color: AppTheme.cobalt, size: 18),
-                                      suffixIcon: IconButton(
-                                        icon: const Icon(Icons.copy, size: 16),
-                                        tooltip: l.copyTooltip,
-                                        onPressed: () {
-                                          if (_exchangeRateController.text.isNotEmpty) {
-                                            CopyHelper.copy(context, _exchangeRateController.text);
-                                          }
-                                        },
-                                      ),
+                                      prefixIcon: const Icon(Icons.calendar_today, color: AppTheme.cobalt, size: 18),
                                     ),
-                                    onChanged: (_) => setState(() {}),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  flex: 2,
-                                  child: InkWell(
-                                    onTap: () async {
-                                      final picked = await showDatePicker(
-                                        context: context,
-                                        initialDate: _studyDate,
-                                        firstDate: DateTime(2020),
-                                        lastDate: DateTime(2030),
-                                      );
-                                      if (picked != null) {
-                                        setState(() => _studyDate = picked);
-                                      }
-                                    },
-                                    child: InputDecorator(
-                                      decoration: InputDecoration(
-                                        labelText: l.studyDateLabel,
-                                        border: const OutlineInputBorder(),
-                                        prefixIcon: const Icon(Icons.calendar_today, color: AppTheme.cobalt, size: 18),
-                                      ),
-                                      child: Text(
-                                        '${_studyDate.year}-${_studyDate.month.toString().padLeft(2, '0')}-${_studyDate.day.toString().padLeft(2, '0')}',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    child: Text(
+                                      '${_studyDate.year}-${_studyDate.month.toString().padLeft(2, '0')}-${_studyDate.day.toString().padLeft(2, '0')}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                );
+
+                                if (isNarrow) {
+                                  return Column(
+                                    children: [
+                                      currField,
+                                      const SizedBox(height: 10),
+                                      fxField,
+                                      const SizedBox(height: 10),
+                                      dateField,
+                                    ],
+                                  );
+                                }
+
+                                return Row(
+                                  children: [
+                                    Expanded(flex: 2, child: currField),
+                                    const SizedBox(width: 12),
+                                    Expanded(flex: 2, child: fxField),
+                                    const SizedBox(width: 12),
+                                    Expanded(flex: 2, child: dateField),
+                                  ],
+                                );
+                              },
                             ),
                             const SizedBox(height: 12),
 
-                            // Row 2: Ocean Freight Data in a dedicated separate row (بيانات النولون البحري وسعر الصرف في سطر منفصل)
+                            // Row 2: Ocean Freight Data in a dedicated separate row
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.blue.shade50.withOpacity(0.5),
+                                color: isDark ? AppTheme.cobalt.withOpacity(0.12) : Colors.blue.shade50.withOpacity(0.5),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.blue.shade200),
+                                border: Border.all(color: isDark ? AppTheme.cobalt.withOpacity(0.3) : Colors.blue.shade200),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2475,11 +2641,16 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                     children: [
                                       const Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 18),
                                       const SizedBox(width: 6),
-                                      Text(
-                                        l.freightDataHeader,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                      Expanded(
+                                        child: Text(
+                                          l.freightDataHeader,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                          ),
+                                        ),
                                       ),
-                                      const Spacer(),
                                       if (_selectedImportFileId != null)
                                         TextButton.icon(
                                           style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
@@ -2490,97 +2661,191 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                     ],
                                   ),
                                   const SizedBox(height: 8),
+                                  LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final isNarrow = constraints.maxWidth < 700;
+                                      final fAmount = TextFormField(
+                                        controller: _freightForeignController,
+                                        keyboardType: TextInputType.number,
+                                        decoration: InputDecoration(
+                                          labelText: l.foreignFreightAmountLabel,
+                                          border: const OutlineInputBorder(),
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.copy, size: 16),
+                                            tooltip: l.copyTooltip,
+                                            onPressed: () {
+                                              if (_freightForeignController.text.isNotEmpty) {
+                                                CopyHelper.copy(context, _freightForeignController.text);
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                        onChanged: (_) => setState(() => _recalculateFreightEgp()),
+                                      );
+                                      final fCurr = SearchableDropdownField<String>(
+                                        value: _freightCurrency,
+                                        labelText: l.freightCurrencyLabel,
+                                        items: currenciesList.isNotEmpty
+                                            ? currenciesList
+                                                .map((c) => SearchableDropdownItem<String>(
+                                                      value: c.currencyCode,
+                                                      label: '${c.currencyCode} - ${c.currencyName}',
+                                                    ))
+                                                .toList()
+                                            : const [
+                                                SearchableDropdownItem(value: 'USD', label: 'USD'),
+                                                SearchableDropdownItem(value: 'EUR', label: 'EUR'),
+                                                SearchableDropdownItem(value: 'GBP', label: 'GBP'),
+                                                SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                                              ],
+                                        onChanged: (v) {
+                                          if (v != null) {
+                                            setState(() {
+                                              _freightCurrency = v;
+                                              _updateFreightExchangeRateForCurrency(v);
+                                            });
+                                          }
+                                        },
+                                      );
+                                      final fFx = TextFormField(
+                                        controller: _freightExchangeRateController,
+                                        keyboardType: TextInputType.number,
+                                        decoration: InputDecoration(
+                                          labelText: l.freightFxRateLabel,
+                                          border: const OutlineInputBorder(),
+                                          prefixIcon: const Icon(Icons.currency_exchange, color: AppTheme.cobalt, size: 16),
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.copy, size: 16),
+                                            tooltip: l.copyTooltip,
+                                            onPressed: () {
+                                              if (_freightExchangeRateController.text.isNotEmpty) {
+                                                CopyHelper.copy(context, _freightExchangeRateController.text);
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                        onChanged: (_) => setState(() => _recalculateFreightEgp()),
+                                      );
+                                      final fEgp = TextFormField(
+                                        controller: _freightEgpController,
+                                        keyboardType: TextInputType.number,
+                                        decoration: InputDecoration(
+                                          labelText: '${l.freightEgpLabel} ($egpLabel)',
+                                          border: const OutlineInputBorder(),
+                                          prefixIcon: const Icon(Icons.attach_money, color: AppTheme.emerald, size: 18),
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.copy, size: 16),
+                                            tooltip: l.copyTooltip,
+                                            onPressed: () {
+                                              if (_freightEgpController.text.isNotEmpty) {
+                                                CopyHelper.copy(context, _freightEgpController.text);
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                        onChanged: (_) => setState(() {}),
+                                      );
+
+                                      if (isNarrow) {
+                                        return Column(
+                                          children: [
+                                            fAmount,
+                                            const SizedBox(height: 8),
+                                            fCurr,
+                                            const SizedBox(height: 8),
+                                            fFx,
+                                            const SizedBox(height: 8),
+                                            fEgp,
+                                          ],
+                                        );
+                                      }
+
+                                      return Row(
+                                        children: [
+                                          Expanded(flex: 2, child: fAmount),
+                                          const SizedBox(width: 10),
+                                          Expanded(flex: 2, child: fCurr),
+                                          const SizedBox(width: 10),
+                                          Expanded(flex: 2, child: fFx),
+                                          const SizedBox(width: 10),
+                                          Expanded(flex: 2, child: fEgp),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Row 3: Marine Insurance calculation (التأمين البحري التقديري 0.5% أو 1.0%)
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isDark ? AppTheme.orange.withOpacity(0.12) : Colors.orange.shade50.withOpacity(0.4),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: isDark ? AppTheme.orange.withOpacity(0.3) : Colors.orange.shade200),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                   Row(
                                     children: [
+                                      const Icon(Icons.security, color: AppTheme.orange, size: 18),
+                                      const SizedBox(width: 8),
                                       Expanded(
-                                        flex: 2,
-                                        child: TextFormField(
-                                          controller: _freightForeignController,
-                                          keyboardType: TextInputType.number,
-                                          decoration: InputDecoration(
-                                            labelText: l.foreignFreightAmountLabel,
-                                            border: const OutlineInputBorder(),
-                                            suffixIcon: IconButton(
-                                              icon: const Icon(Icons.copy, size: 16),
-                                              tooltip: l.copyTooltip,
-                                              onPressed: () {
-                                                if (_freightForeignController.text.isNotEmpty) {
-                                                  CopyHelper.copy(context, _freightForeignController.text);
-                                                }
-                                              },
-                                            ),
+                                        child: Text(
+                                          l.estimatedCustomsInsuranceRateLabel,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                                           ),
-                                          onChanged: (_) => setState(() => _recalculateFreightEgp()),
                                         ),
                                       ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        flex: 2,
-                                        child: SearchableDropdownField<String>(
-                                          value: _freightCurrency,
-                                          labelText: l.freightCurrencyLabel,
-                                          items: currenciesList.isNotEmpty
-                                              ? currenciesList
-                                                  .map((c) => SearchableDropdownItem<String>(
-                                                        value: c.currencyCode,
-                                                        label: '${c.currencyCode} - ${c.currencyName}',
-                                                      ))
-                                                  .toList()
-                                              : const [
-                                                  SearchableDropdownItem(value: 'USD', label: 'USD'),
-                                                  SearchableDropdownItem(value: 'EUR', label: 'EUR'),
-                                                  SearchableDropdownItem(value: 'GBP', label: 'GBP'),
-                                                  SearchableDropdownItem(value: 'EGP', label: 'EGP'),
-                                                ],
-                                          onChanged: (v) {
-                                            if (v != null) {
-                                              setState(() {
-                                                _freightCurrency = v;
-                                                _updateFreightExchangeRateForCurrency(v);
-                                              });
-                                            }
-                                          },
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Wrap(
+                                    spacing: 16,
+                                    runSpacing: 10,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      SegmentedButton<String>(
+                                        segments: [
+                                          ButtonSegment(value: '0.5%', label: Text(l.standardCustomsInsuranceRate)),
+                                          const ButtonSegment(value: '1.0%', label: Text('1.0%')),
+                                          ButtonSegment(value: 'Custom', label: Text(l.customInsuranceRate)),
+                                        ],
+                                        selected: {_insuranceOption},
+                                        onSelectionChanged: (set) {
+                                          setState(() {
+                                            _insuranceOption = set.first;
+                                          });
+                                        },
+                                        style: const ButtonStyle(
+                                          visualDensity: VisualDensity.compact,
+                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                         ),
                                       ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        flex: 2,
+                                      SizedBox(
+                                        width: 320,
                                         child: TextFormField(
-                                          controller: _freightExchangeRateController,
+                                          controller: _insuranceEgpController,
+                                          readOnly: _insuranceOption != 'Custom',
                                           keyboardType: TextInputType.number,
                                           decoration: InputDecoration(
-                                            labelText: l.freightFxRateLabel,
+                                            labelText: '${l.insuranceEgpLabel} ($egpLabel)',
                                             border: const OutlineInputBorder(),
-                                            prefixIcon: const Icon(Icons.currency_exchange, color: AppTheme.cobalt, size: 16),
+                                            filled: _insuranceOption != 'Custom',
+                                            fillColor: _insuranceOption != 'Custom' ? (isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade100) : null,
+                                            helperText: _insuranceOption != 'Custom' ? l.autoCalculatedCandFInsuranceHelper(_insuranceOption) : null,
                                             suffixIcon: IconButton(
                                               icon: const Icon(Icons.copy, size: 16),
                                               tooltip: l.copyTooltip,
                                               onPressed: () {
-                                                if (_freightExchangeRateController.text.isNotEmpty) {
-                                                  CopyHelper.copy(context, _freightExchangeRateController.text);
-                                                }
-                                              },
-                                            ),
-                                          ),
-                                          onChanged: (_) => setState(() => _recalculateFreightEgp()),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        flex: 2,
-                                        child: TextFormField(
-                                          controller: _freightEgpController,
-                                          keyboardType: TextInputType.number,
-                                          decoration: InputDecoration(
-                                            labelText: '${l.freightEgpLabel} ($egpLabel)',
-                                            border: const OutlineInputBorder(),
-                                            prefixIcon: const Icon(Icons.attach_money, color: AppTheme.emerald, size: 18),
-                                            suffixIcon: IconButton(
-                                              icon: const Icon(Icons.copy, size: 16),
-                                              tooltip: l.copyTooltip,
-                                              onPressed: () {
-                                                if (_freightEgpController.text.isNotEmpty) {
-                                                  CopyHelper.copy(context, _freightEgpController.text);
+                                                if (_insuranceEgpController.text.isNotEmpty) {
+                                                  CopyHelper.copy(context, _insuranceEgpController.text);
                                                 }
                                               },
                                             ),
@@ -2593,117 +2858,62 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 12),
-
-                            // Row 3: Marine Insurance calculation (التأمين البحري التقديري 0.5% أو 1.0%)
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.shade50.withOpacity(0.4),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.orange.shade200),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.security, color: AppTheme.orange, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    l.estimatedCustomsInsuranceRateLabel,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  SegmentedButton<String>(
-                                    segments: [
-                                      ButtonSegment(value: '0.5%', label: Text(l.standardCustomsInsuranceRate)),
-                                      const ButtonSegment(value: '1.0%', label: Text('1.0%')),
-                                      ButtonSegment(value: 'Custom', label: Text(l.customInsuranceRate)),
-                                    ],
-                                    selected: {_insuranceOption},
-                                    onSelectionChanged: (set) {
-                                      setState(() {
-                                        _insuranceOption = set.first;
-                                      });
-                                    },
-                                    style: const ButtonStyle(
-                                      visualDensity: VisualDensity.compact,
-                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: _insuranceEgpController,
-                                      readOnly: _insuranceOption != 'Custom',
-                                      keyboardType: TextInputType.number,
-                                      decoration: InputDecoration(
-                                        labelText: '${l.insuranceEgpLabel} ($egpLabel)',
-                                        border: const OutlineInputBorder(),
-                                        filled: _insuranceOption != 'Custom',
-                                        fillColor: _insuranceOption != 'Custom' ? Colors.grey.shade100 : null,
-                                        helperText: _insuranceOption != 'Custom' ? l.autoCalculatedCandFInsuranceHelper(_insuranceOption) : null,
-                                        suffixIcon: IconButton(
-                                          icon: const Icon(Icons.copy, size: 16),
-                                          tooltip: l.copyTooltip,
-                                          onPressed: () {
-                                            if (_insuranceEgpController.text.isNotEmpty) {
-                                              CopyHelper.copy(context, _insuranceEgpController.text);
-                                            }
-                                          },
-                                        ),
-                                      ),
-                                      onChanged: (_) => setState(() {}),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                             const SizedBox(height: 14),
 
-                            // Row 4: Highlighted Declared Customs CIF Value Box (إجمالي القيمة المقر عنها للأغراض الجمركية)
+                            // Row 4: Highlighted Declared Customs CIF Value Box
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    AppTheme.charcoal.withOpacity(0.04),
-                                    AppTheme.emerald.withOpacity(0.08),
+                                    isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.04),
+                                    AppTheme.emerald.withOpacity(isDark ? 0.15 : 0.08),
                                   ],
                                 ),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: AppTheme.emerald.withOpacity(0.4), width: 1.2),
                               ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.verified, color: AppTheme.emerald, size: 18),
-                                            const SizedBox(width: 6),
-                                            Text(
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final isNarrow = constraints.maxWidth < 600;
+                                  final infoCol = Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.verified, color: AppTheme.emerald, size: 18),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
                                               l.declaredCifBaseLabel,
-                                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                              ),
                                             ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          l.cifFormulaBreakdown(
-                                            totalFobForeign.toStringAsFixed(2),
-                                            _customsCurrency,
-                                            totalFreightEgp.toStringAsFixed(2),
-                                            totalCandFEgp.toStringAsFixed(2),
-                                            totalInsuranceEgp.toStringAsFixed(2),
                                           ),
-                                          style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        l.cifFormulaBreakdown(
+                                          totalFobForeign.toStringAsFixed(2),
+                                          _customsCurrency,
+                                          totalFreightEgp.toStringAsFixed(2),
+                                          totalCandFEgp.toStringAsFixed(2),
+                                          totalInsuranceEgp.toStringAsFixed(2),
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+
+                                  final numbersCol = Column(
+                                    crossAxisAlignment: isNarrow ? CrossAxisAlignment.start : CrossAxisAlignment.end,
                                     children: [
                                       CopyableText(
                                         '${totalCifEgp.toStringAsFixed(2)} $egpLabel',
@@ -2715,25 +2925,64 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.cobalt),
                                         ),
                                     ],
-                                  ),
-                                ],
+                                  );
+
+                                  if (isNarrow) {
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        infoCol,
+                                        const SizedBox(height: 10),
+                                        numbersCol,
+                                      ],
+                                    );
+                                  }
+
+                                  return Row(
+                                    children: [
+                                      Expanded(child: infoCol),
+                                      numbersCol,
+                                    ],
+                                  );
+                                },
                               ),
                             ),
                             const SizedBox(height: 16),
 
                             // Row 5: Table Header Controls & Toolbar
-                            Row(
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 8,
                               children: [
-                                const Icon(Icons.table_chart, color: AppTheme.cobalt, size: 18),
-                                const SizedBox(width: 8),
-                                Text(
-                                  l.tariffDetailsTableTitle(
-                                    calcLines.length,
-                                    _groupByHsCode ? l.groupedHsCodeItems : l.detailedItems,
+                                LayoutBuilder(
+                                  builder: (ctx, constraints) => ConstrainedBox(
+                                    constraints: BoxConstraints(maxWidth: constraints.maxWidth > 40 ? constraints.maxWidth : 320),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.table_chart, color: AppTheme.cobalt, size: 18),
+                                        const SizedBox(width: 8),
+                                        Flexible(
+                                          child: Text(
+                                            l.tariffDetailsTableTitle(
+                                              calcLines.length,
+                                              _groupByHsCode ? l.groupedHsCodeItems : l.detailedItems,
+                                            ),
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.bold,
+                                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                                 ),
-                                const Spacer(),
                                 FilterChip(
                                   selected: _groupByHsCode,
                                   label: Text(
@@ -2741,7 +2990,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: _groupByHsCode ? Colors.white : AppTheme.charcoal,
+                                      color: _groupByHsCode ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                     ),
                                   ),
                                   selectedColor: AppTheme.cobalt,
@@ -2787,6 +3036,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.06)),
                                   headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 12),
                                   columns: [
+                                    DataColumn(label: Text(l.actionsCol)),
                                     DataColumn(label: Text(l.customsTariffItemCol)),
                                     DataColumn(label: Text(l.itemDescriptionAndOriginCol)),
                                     DataColumn(label: Text(l.quantityAndUnitCol)),
@@ -2798,7 +3048,6 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                     DataColumn(label: Text(l.otherTaxesCol)),
                                     DataColumn(label: Text(l.totalTaxesAndDutiesCol)),
                                     DataColumn(label: Text(l.regulatoryRequirementsCol)),
-                                    DataColumn(label: Text(l.actionsCol)),
                                   ],
                                   rows: calcLines.map((line) {
                                     final rowSummary = isArabic
@@ -2806,6 +3055,13 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                         : '${line.hsCode} | ${line.description} | Qty: ${line.qty.toStringAsFixed(0)} ${line.unit} | FOB: ${line.fobEgp.toStringAsFixed(2)} $egpLabel | CIF: ${line.cifEgp.toStringAsFixed(2)} $egpLabel | Duty: ${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)} $egpLabel) | VAT: ${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)} $egpLabel) | Total: ${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel';
                                     return DataRow(
                                       cells: [
+                                        DataCell(
+                                          IconButton(
+                                            icon: const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
+                                            tooltip: l.copyTooltip,
+                                            onPressed: () => CopyHelper.copy(context, rowSummary, customMessage: l.customsTaxCopyRowSuccess),
+                                          ),
+                                        ),
                                         DataCell(
                                           CopyableTableCell(
                                             value: line.hsCode,
@@ -2972,13 +3228,6 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                             ],
                                           ),
                                         ),
-                                        DataCell(
-                                          IconButton(
-                                            icon: const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
-                                            tooltip: l.copyTooltip,
-                                            onPressed: () => CopyHelper.copy(context, rowSummary, customMessage: l.customsTaxCopyRowSuccess),
-                                          ),
-                                        ),
                                       ],
                                     );
                                   }).toList(),
@@ -3127,23 +3376,52 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                   // Checklist Table & Controls
                   Card(
                     elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Text(l.customsChecklistTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
-                              const Spacer(),
-                              ElevatedButton.icon(
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final isNarrow = constraints.maxWidth < 600;
+                              final titleWidget = Text(
+                                l.customsChecklistTitle,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                ),
+                              );
+                              final btnWidget = ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                                 onPressed: _addChecklistItem,
                                 icon: const Icon(Icons.add, color: Colors.white),
                                 label: Text(l.addNewChecklistItem, style: const TextStyle(color: Colors.white)),
-                              ),
-                            ],
+                              );
+
+                              if (isNarrow) {
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    titleWidget,
+                                    const SizedBox(height: 10),
+                                    btnWidget,
+                                  ],
+                                );
+                              }
+
+                              return Row(
+                                children: [
+                                  Expanded(child: titleWidget),
+                                  btnWidget,
+                                ],
+                              );
+                            },
                           ),
                           const Divider(),
                           const SizedBox(height: 10),
@@ -3239,6 +3517,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                     _checklist[index] = item.copyWith(isBlockingShipment: !item.isBlockingShipment);
                                                   });
                                                 },
+                                              ),
+                                              IconButton(
+                                                icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 20),
+                                                tooltip: l.cloneChecklistItemTooltip,
+                                                onPressed: () => _cloneChecklistItem(index),
                                               ),
                                               IconButton(
                                                 icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20),
@@ -3342,6 +3625,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           },
                                         ),
                                         IconButton(
+                                          icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 20),
+                                          tooltip: l.cloneChecklistItemTooltip,
+                                          onPressed: () => _cloneChecklistItem(index),
+                                        ),
+                                        IconButton(
                                           icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20),
                                           onPressed: () {
                                             setState(() {
@@ -3388,5 +3676,127 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       ),
     );
   }
-}
 
+  void _cloneChecklistItem(int index) {
+    if (index < 0 || index >= _checklist.length) return;
+    final l = context.l10n;
+    final orig = _checklist[index];
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final copySuffix = isAr ? ' (نسخة)' : ' (Copy)';
+    final cloned = orig.copyWith(
+      itemId: null,
+      remarks: orig.remarks != null && orig.remarks!.isNotEmpty
+          ? '${orig.remarks}$copySuffix'
+          : copySuffix.trim(),
+      status: 'Pending',
+    );
+    setState(() {
+      _checklist.insert(index + 1, cloned);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✨ ${l.checklistItemClonedSuccess}'),
+        backgroundColor: AppTheme.wcagCobalt,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _openCloneConsultationReviewDialog(BuildContext context, CustomsConsultationModel source) {
+    final l = context.l10n;
+    final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
+    final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
+    final copySuffix = isArabic ? ' (نسخة)' : ' (Copy)';
+    final initialTitle = '${source.title}$copySuffix';
+
+    final copiedMap = <String, String>{
+      l.customsBrokerLabel: source.brokerName.isNotEmpty ? source.brokerName : '—',
+      l.customsInspectionReadiness: '${source.checklistItems.length} ${l.itemsAndDocsCount}',
+    };
+    if (source.estimatedDutiesEgp > 0) {
+      copiedMap[l.totalTaxesAndDutiesCol] = '${source.estimatedDutiesEgp.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}';
+    }
+    if (source.brokerQuoteItems.isNotEmpty) {
+      copiedMap[l.clearanceBrokerFeeItem] = '${source.brokerQuoteItems.length}';
+    }
+
+    final mandatorilyReset = <String>[
+      l.cloneFieldConsultationCodeGenerated,
+      l.cloneFieldImportFileReset,
+      l.cloneFieldChecklistReset,
+      l.cloneFieldStatusDraftBadge,
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AppLocalizationsProvider(
+        locale: isArabic ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: textDir,
+          child: CloneEntityReviewDialog(
+            entityType: l.cloneConsultationDialogTitle,
+            sourceCode: source.consultationCode,
+            sourceTitle: initialTitle,
+            suggestedNewCode: '${source.consultationCode}-CLONE',
+            copiedFieldsSummary: copiedMap,
+            mandatorilyResetFields: mandatorilyReset,
+            allowCopyLineItems: true,
+            onConfirm: ({
+              required String newCode,
+              required String newTitle,
+              required bool copyLineItems,
+              required bool copyAttachments,
+              String? notes,
+            }) async {
+              final messenger = ScaffoldMessenger.of(context);
+              final payload = {
+                'new_consultation_code': newCode,
+                'new_title': newTitle,
+                'copy_checklist_items': copyLineItems,
+                'copy_broker_quote_items': copyLineItems,
+                'notes': notes,
+              };
+              final cloned = await ref.read(customsConsultationsProvider.notifier).cloneConsultation(
+                source.consultationId,
+                payload,
+              );
+              if (cloned != null) {
+                _loadConsultationForEdit(cloned);
+                messenger.hideCurrentSnackBar();
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('✨ ${l.cloneConsultationSuccess(cloned.consultationCode)}'),
+                    backgroundColor: AppTheme.wcagEmerald,
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openSearchAndCloneConsultationDialog(BuildContext context, List<CustomsConsultationModel> consultations) {
+    final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
+    final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: isArabic ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: textDir,
+          child: SearchAndCloneConsultationDialog(
+            consultations: consultations,
+            onSelectConsultation: (consultation) {
+              Navigator.of(dialogCtx).pop();
+              _openCloneConsultationReviewDialog(context, consultation);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+}

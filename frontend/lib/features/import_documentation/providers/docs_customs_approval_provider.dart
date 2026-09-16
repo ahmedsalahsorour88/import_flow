@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../models/docs_customs_approval_model.dart';
+import '../models/docs_customs_approval_session_model.dart';
 
 final docsCustomsApprovalProvider =
     StateNotifierProvider<DocsCustomsApprovalNotifier, AsyncValue<List<CustomsDocumentApprovalModel>>>((ref) {
@@ -211,6 +212,84 @@ class DiscrepancyTicketsNotifier extends StateNotifier<AsyncValue<List<Discrepan
       final resolved = DiscrepancyRectificationTicketModel.fromJson(response.data);
       await fetchTickets(importFileId: importFileId);
       return resolved;
+    } catch (e) {
+      rethrow;
+    }
+  }
+}
+
+final docsCustomsApprovalSessionsProvider =
+    StateNotifierProvider<DocsCustomsApprovalSessionsNotifier, AsyncValue<List<DocsCustomsApprovalSessionModel>>>((ref) {
+  return DocsCustomsApprovalSessionsNotifier(ref.read(dioProvider));
+});
+
+class DocsCustomsApprovalSessionsNotifier
+    extends StateNotifier<AsyncValue<List<DocsCustomsApprovalSessionModel>>> {
+  final Dio _dio;
+  CancelToken? _cancelToken;
+
+  DocsCustomsApprovalSessionsNotifier(this._dio) : super(const AsyncValue.loading()) {
+    fetchSessions();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel();
+    super.dispose();
+  }
+
+  Future<void> fetchSessions({
+    int? importFileId,
+    bool? isDraft,
+    String? search,
+  }) async {
+    _cancelToken?.cancel();
+    _cancelToken = CancelToken();
+    try {
+      state = const AsyncValue.loading();
+      final queryParams = <String, dynamic>{};
+      if (importFileId != null) queryParams['import_file_id'] = importFileId;
+      if (isDraft != null) queryParams['is_draft'] = isDraft;
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/docs-customs-approval/sessions',
+        queryParameters: queryParams,
+        cancelToken: _cancelToken,
+      );
+
+      final List data = response.data;
+      final list = data.map((json) => DocsCustomsApprovalSessionModel.fromJson(json)).toList();
+      state = AsyncValue.data(list);
+    } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<DocsCustomsApprovalSessionModel> createSession(Map<String, dynamic> sessionData) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/docs-customs-approval/sessions',
+        data: sessionData,
+      );
+      final created = DocsCustomsApprovalSessionModel.fromJson(response.data as Map<String, dynamic>);
+      await fetchSessions();
+      return created;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<bool> deleteSession(int sessionId) async {
+    try {
+      await _dio.delete(
+        '${ApiConstants.baseUrl}/docs-customs-approval/sessions/$sessionId',
+      );
+      await fetchSessions();
+      return true;
     } catch (e) {
       rethrow;
     }

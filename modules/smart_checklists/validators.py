@@ -14,7 +14,7 @@ ALLOWED_ROLES = {"COORDINATOR", "SUPPLIER", "CUSTOMS_BROKER", "SHIPPING_LINE"}
 def validate_status(status_str: str) -> None:
     if status_str.upper() not in ALLOWED_STATUSES:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid status '{status_str}'. Allowed values: {sorted(list(ALLOWED_STATUSES))}",
         )
 

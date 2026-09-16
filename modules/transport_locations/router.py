@@ -20,6 +20,8 @@ def get_all_locations(
     location_type: Optional[str] = Query(None, description="Filter by type (Sea Port, Airport, Dry Port, Land Border)"),
     country: Optional[str] = Query(None, description="Filter by country"),
     search: Optional[str] = Query(None, description="Search by code, name, city or country"),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: Optional[int] = Query(None, ge=1, le=5000, description="Max number of records to return"),
     db: Session = Depends(get_db),
 ):
     service = TransportLocationService(db)
@@ -28,6 +30,8 @@ def get_all_locations(
         location_type=location_type,
         country=country,
         search=search,
+        skip=skip,
+        limit=limit,
     )
 
 
@@ -50,11 +54,7 @@ def download_locations_excel_template():
         'notes': 'Primary Mediterranean Container Port',
     }
     content = MasterDataExportImportHelper.create_excel_template(cols, sample)
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=Transport_Locations_Template.xlsx"},
-    )
+    return MasterDataExportImportHelper.as_excel_response("Transport_Locations_Template.xlsx", content)
 
 
 @router.post("/import-excel")

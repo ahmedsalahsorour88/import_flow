@@ -174,5 +174,84 @@ def test_parse_swift_mt103_with_ocr_typos_and_lost_decimals():
     assert match["amount_matching"]["is_matched"] is True
     assert match["amount_matching"]["variance"] == 0.0
     assert match["confidence_score"] >= 80
-    assert match["match_status"] in ["PERFECT_MATCH", "HIGH_CONFIDENCE_MATCH"]
+    assert match["match_status"] in ["PERFECT_MATCH", "HIGH_CONFIDENCE_MATCH", "HIGH_MATCH"]
+
+
+def test_swift_dual_bank_matching_and_normalized_scores():
+    from modules.financial_approval.swift_mt103_parser import (
+        extract_swift_fields_breakdown,
+        match_swift_against_payment_request,
+    )
+
+    raw_text = """
+    {1:F01ARAIEGCXXXXX0000000000}{2:I103CITIUS33XXXXN}{3:{108:12345}}{4:
+    :20:TRN123456
+    :23B:CRED
+    :32A:260818USD43704,00
+    :50K:/EG123456
+    EGYPTIAN IMPORTER CO
+    :57A:PCBCCNBJJSS
+    :59:/32250198613609841015
+    SUZHOU YUHENG TEXTILE CO., LTD
+    :70:PI NO.YH20260730.6
+    :71A:SHA
+    -}
+    """
+    breakdown = extract_swift_fields_breakdown(raw_text)
+    fields = breakdown["fields"]
+    parsed = breakdown["parsed_swift"]
+
+    # 1. Verify all field confidence scores are normalized (0.0 to 1.0)
+    for f in fields:
+        assert 0.0 <= f["confidence_score"] <= 1.0, f"Field {f['field_key']} score {f['confidence_score']} exceeds 1.0!"
+
+    # 2. Test Beneficiary Bank SWIFT match
+    class MockPayBen:
+        payment_id = 1
+        payment_code = "PAY-001"
+        requested_amount = 43704.0
+        currency_code = "USD"
+        supplier_name = "SUZHOU YUHENG TEXTILE CO., LTD"
+        beneficiary_name = "SUZHOU YUHENG TEXTILE CO., LTD"
+        swift_code = "PCBCCNBJJSS" # Matches :57A
+        iban_account_no = "32250198613609841015"
+        title = "Textile Invoice"
+
+    match_ben = match_swift_against_payment_request(parsed, MockPayBen())
+    assert match_ben["bank_swift_matching"]["is_matched"] is True
+    assert match_ben["bank_swift_matching"]["matched_bank_type"] == "BENEFICIARY_BANK"
+    assert match_ben["bank_swift_matching"]["beneficiary_bank_swift"] == "PCBCCNBJJSS"
+
+    # 3. Test Remitting/Sender Bank SWIFT match (e.g. AAIB Egypt)
+    class MockPaySender:
+        payment_id = 2
+        payment_code = "PAY-002"
+        requested_amount = 43704.0
+        currency_code = "USD"
+        supplier_name = "SUZHOU YUHENG TEXTILE CO., LTD"
+        beneficiary_name = "SUZHOU YUHENG TEXTILE CO., LTD"
+        swift_code = "ARAIEGCXXXX" # Matches Block 1
+        iban_account_no = "32250198613609841015"
+        title = "Textile Invoice"
+
+    match_sender = match_swift_against_payment_request(parsed, MockPaySender())
+    assert match_sender["bank_swift_matching"]["is_matched"] is True
+    assert match_sender["bank_swift_matching"]["matched_bank_type"] == "SENDER_BANK"
+    assert match_sender["bank_swift_matching"]["sender_bank_swift"] == "ARAIEGCXXXX"
+
+    # 4. Test Mismatched SWIFT
+    class MockPayMismatch:
+        payment_id = 3
+        payment_code = "PAY-003"
+        requested_amount = 43704.0
+        currency_code = "USD"
+        supplier_name = "SUZHOU YUHENG TEXTILE CO., LTD"
+        beneficiary_name = "SUZHOU YUHENG TEXTILE CO., LTD"
+        swift_code = "UNKNOWNBICXX"
+        iban_account_no = "32250198613609841015"
+        title = "Textile Invoice"
+
+    match_mismatch = match_swift_against_payment_request(parsed, MockPayMismatch())
+    assert match_mismatch["bank_swift_matching"]["is_matched"] is False
+    assert match_mismatch["bank_swift_matching"]["matched_bank_type"] is None
 

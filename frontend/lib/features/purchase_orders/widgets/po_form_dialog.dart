@@ -119,6 +119,61 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
   double _palletWidthCm = 80.0;
   double _palletHeightCm = 150.0;
 
+  void _cloneLineItem(int index) {
+    if (index < 0 || index >= _dialogItems.length) return;
+    final original = _dialogItems[index];
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final copySuffix = isAr ? ' (نسخة)' : ' (Copy)';
+    final duplicated = original.copyWith(
+      itemId: null,
+      itemCode: original.itemCode != null && original.itemCode!.trim().isNotEmpty
+          ? '${original.itemCode}$copySuffix'
+          : null,
+      mainDescription: original.mainDescription != null && original.mainDescription!.trim().isNotEmpty
+          ? '${original.mainDescription}$copySuffix'
+          : null,
+      descriptionAr: '${original.descriptionAr}$copySuffix',
+      descriptionEn: original.descriptionEn != null ? '${original.descriptionEn}$copySuffix' : null,
+    );
+    setState(() {
+      _dialogItems.insert(index + 1, duplicated);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(isAr ? 'تم استنساخ سطر الفاتورة بنجاح' : 'Invoice line item cloned successfully'),
+        backgroundColor: AppTheme.emerald,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _clonePackingItem(int index) {
+    if (index < 0 || index >= _dialogPackingItems.length) return;
+    final original = _dialogPackingItems[index];
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final copySuffix = isAr ? ' (نسخة)' : ' (Copy)';
+    final duplicated = original.copyWith(
+      packingItemId: null,
+      itemCode: '${original.itemCode}$copySuffix',
+      mainDescription: original.mainDescription != null && original.mainDescription!.trim().isNotEmpty
+          ? '${original.mainDescription}$copySuffix'
+          : null,
+      description: original.description != null && original.description!.trim().isNotEmpty
+          ? '${original.description}$copySuffix'
+          : null,
+    );
+    setState(() {
+      _dialogPackingItems.insert(index + 1, duplicated);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(isAr ? 'تم استنساخ طرد الباكينج ليست بنجاح' : 'Packing list item cloned successfully'),
+        backgroundColor: AppTheme.emerald,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   Future<CustomsTariffModel?> _showHsCodeSearchPicker(BuildContext context, List<CustomsTariffModel> tariffs) async {
     return showDialog<CustomsTariffModel?>(
       context: context,
@@ -1612,7 +1667,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                               final isMismatched = itemHs.isNotEmpty && mismatchedHsCodes.contains(itemHs);
 
                               return Card(
-                                key: ValueKey('po_line_item_card_$idx'),
+                                key: ValueKey('po_line_item_card_${identityHashCode(item)}'),
                                 color: isMismatched ? Colors.red.shade50.withOpacity(0.4) : Colors.grey.shade50,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
@@ -1634,7 +1689,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           Expanded(
                                             flex: 2,
                                             child: TextFormField(
-                                              key: ValueKey('po_item_code_$idx'),
+                                              key: ValueKey('po_item_code_${identityHashCode(item)}'),
                                               initialValue: item.itemCode,
                                               decoration: const InputDecoration(labelText: 'Item Code (كود البند)', isDense: true),
                                               onChanged: (v) => _dialogItems[idx] = _dialogItems[idx].copyWith(itemCode: v.trim().isEmpty ? null : v.trim()),
@@ -1644,7 +1699,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           Expanded(
                                             flex: 3,
                                             child: TextFormField(
-                                              key: ValueKey('po_item_main_desc_$idx'),
+                                              key: ValueKey('po_item_main_desc_${identityHashCode(item)}'),
                                               initialValue: item.mainDescription,
                                               decoration: const InputDecoration(labelText: 'Main Description (الوصف الرئيسي)', isDense: true),
                                               onChanged: (v) => _dialogItems[idx] = _dialogItems[idx].copyWith(mainDescription: v.trim().isEmpty ? null : v.trim()),
@@ -1654,7 +1709,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           Expanded(
                                             flex: 3,
                                             child: TextFormField(
-                                              key: ValueKey('po_item_desc_$idx'),
+                                              key: ValueKey('po_item_desc_${identityHashCode(item)}'),
                                               initialValue: item.descriptionAr,
                                               decoration: const InputDecoration(labelText: 'Arabic Description *', isDense: true),
                                               validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
@@ -1711,6 +1766,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                               },
                                             ),
                                           ),
+                                           IconButton(
+                                             icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 20),
+                                             tooltip: Localizations.localeOf(context).languageCode == 'ar' ? 'تكرار / استنساخ البند (Ctrl + D)' : 'Clone Line Item (Ctrl + D)',
+                                             onPressed: () => _cloneLineItem(idx),
+                                           ),
                                           if (_dialogItems.length > 1)
                                             IconButton(
                                               icon: const Icon(Icons.remove_circle_outline, color: AppTheme.crimson, size: 20),
@@ -1724,7 +1784,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           Expanded(
                                             flex: 3,
                                             child: TextFormField(
-                                              key: ValueKey('po_item_qty_$idx'),
+                                               key: ValueKey('po_item_qty_${identityHashCode(item)}'),
                                               initialValue: item.quantity.toString(),
                                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                               decoration: const InputDecoration(labelText: 'Qty (الكمية/العدد)', isDense: true),
@@ -1755,7 +1815,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: TextFormField(
-                                              key: ValueKey('po_item_price_$idx'),
+                                               key: ValueKey('po_item_price_${identityHashCode(item)}'),
                                               initialValue: item.unitPrice.toString(),
                                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                               decoration: const InputDecoration(labelText: 'Unit Price (سعر الوحده)', isDense: true),
@@ -2044,8 +2104,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                             ),
                                             OutlinedButton.icon(
                                               style: OutlinedButton.styleFrom(
-                                                foregroundColor: AppTheme.emerald,
-                                                side: const BorderSide(color: AppTheme.emerald),
+                                                foregroundColor: AppTheme.cobalt,
+                                                side: const BorderSide(color: AppTheme.cobalt),
                                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                               ),
                                               icon: const Icon(Icons.add_circle_outline, size: 16),
@@ -2374,16 +2434,19 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                       },
                                     ),
                                     const SizedBox(width: 8),
-                                    ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange, foregroundColor: Colors.white),
+                                    OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppTheme.cobalt,
+                                        side: const BorderSide(color: AppTheme.cobalt),
+                                      ),
                                       icon: const Icon(Icons.view_in_ar_rounded, size: 16),
                                       label: Text(l.simulateAndPack3d, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                       onPressed: () => _showPoVisualLoadPlannerDialog(context, _dialogPackingItems),
                                     ),
                                     const SizedBox(width: 8),
                                     TextButton.icon(
-                                      icon: const Icon(Icons.playlist_add, size: 18, color: AppTheme.emerald),
-                                      label: Text(l.addPackingEntryBtn, style: const TextStyle(color: AppTheme.emerald)),
+                                      icon: const Icon(Icons.playlist_add, size: 18, color: AppTheme.cobalt),
+                                      label: Text(l.addPackingEntryBtn, style: const TextStyle(color: AppTheme.cobalt)),
                                       onPressed: () {
                                         String defaultHs = '';
                                         String? defaultMainDesc;
@@ -2456,7 +2519,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           final isMismatched = p.hsCode.isNotEmpty && mismatchedHsCodes.contains(p.hsCode);
 
                                           return Card(
-                                            key: ValueKey('po_pkg_card_$idx'),
+                                             key: ValueKey('po_pkg_card_${identityHashCode(p)}'),
                                             color: isMismatched ? Colors.red.shade50.withOpacity(0.4) : Colors.white,
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8),
@@ -2522,7 +2585,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   Expanded(
                                                     flex: 2,
                                                     child: TextFormField(
-                                                      key: ValueKey('po_pkg_code_$idx'),
+                                                       key: ValueKey('po_pkg_code_${identityHashCode(p)}'),
                                                       initialValue: p.itemCode,
                                                       decoration: InputDecoration(labelText: l.itemCodeLabel, isDense: true),
                                                       validator: (v) => v == null || v.trim().isEmpty ? context.l10n.fieldRequired : null,
@@ -2535,7 +2598,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   Expanded(
                                                     flex: 3,
                                                     child: TextFormField(
-                                                      key: const ValueKey('po_pkg_main_desc_'),
+                                                       key: ValueKey('po_pkg_main_desc_${identityHashCode(p)}'),
                                                       initialValue: p.mainDescription ?? '',
                                                       decoration: InputDecoration(
                                                         labelText: '${l.mainDescription} (الوصف الرئيسي)',
@@ -2552,7 +2615,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   Expanded(
                                                     flex: 3,
                                                     child: TextFormField(
-                                                      key: const ValueKey('po_pkg_desc_'),
+                                                       key: ValueKey('po_pkg_desc_${identityHashCode(p)}'),
                                                       initialValue: p.description ?? '',
                                                       decoration: InputDecoration(
                                                         labelText: l.itemDescriptionLabel,
@@ -2578,6 +2641,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                       }),
                                                     ),
                                                   ),
+                                                   IconButton(
+                                                     icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 20),
+                                                     tooltip: Localizations.localeOf(context).languageCode == 'ar' ? 'استنساخ الطرد' : 'Clone Package',
+                                                     onPressed: () => _clonePackingItem(idx),
+                                                   ),
                                                   IconButton(
                                                     icon: const Icon(Icons.remove_circle_outline, color: AppTheme.crimson, size: 20),
                                                     onPressed: () => setState(() => _dialogPackingItems.removeAt(idx)),
@@ -2604,7 +2672,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   ),
                                                   const SizedBox(width: 6),
                                                   Expanded(
-                                                    child: TextFormField(
+                                                     child: TextFormField(
+                                                       key: ValueKey('po_pkg_qty_pcs_${identityHashCode(p)}'),
                                                       initialValue: p.qtyPcs.toString(),
                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                                       decoration: InputDecoration(labelText: l.qtyPcsFieldLabel, isDense: true),
@@ -2616,7 +2685,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   ),
                                                   const SizedBox(width: 6),
                                                   Expanded(
-                                                    child: TextFormField(
+                                                     child: TextFormField(
+                                                       key: ValueKey('po_pkg_qty_pkg_${identityHashCode(p)}'),
                                                       initialValue: p.qtyPkg.toString(),
                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                                       decoration: InputDecoration(labelText: l.qtyPkgFieldLabel, isDense: true),
@@ -2630,7 +2700,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   ),
                                                   const SizedBox(width: 6),
                                                   Expanded(
-                                                    child: TextFormField(
+                                                     child: TextFormField(
+                                                       key: ValueKey('po_pkg_len_${identityHashCode(p)}'),
                                                       initialValue: p.lengthCm.toString(),
                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                                       decoration: InputDecoration(labelText: l.lengthFieldLabel(p.unit), isDense: true),
@@ -2644,7 +2715,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   ),
                                                   const SizedBox(width: 6),
                                                   Expanded(
-                                                    child: TextFormField(
+                                                     child: TextFormField(
+                                                       key: ValueKey('po_pkg_width_${identityHashCode(p)}'),
                                                       initialValue: p.widthCm.toString(),
                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                                       decoration: InputDecoration(labelText: l.widthFieldLabel(p.unit), isDense: true),
@@ -2658,7 +2730,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   ),
                                                   const SizedBox(width: 6),
                                                   Expanded(
-                                                    child: TextFormField(
+                                                     child: TextFormField(
+                                                       key: ValueKey('po_pkg_height_${identityHashCode(p)}'),
                                                       initialValue: p.heightCm.toString(),
                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                                       decoration: InputDecoration(labelText: l.heightFieldLabel(p.unit), isDense: true),
@@ -2694,6 +2767,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                    Expanded(
                                                      flex: 2,
                                                      child: TextFormField(
+                                                       key: ValueKey('po_pkg_net_wt_${identityHashCode(p)}'),
                                                        initialValue: _formatDecimalInput(p.netWeightUnitKg),
                                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                                        decoration: InputDecoration(labelText: l.netWeightFieldLabel(p.weightUnit), isDense: true),
@@ -2709,6 +2783,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                    Expanded(
                                                      flex: 2,
                                                      child: TextFormField(
+                                                       key: ValueKey('po_pkg_gross_wt_${identityHashCode(p)}'),
                                                        initialValue: _formatDecimalInput(p.grossWeightUnitKg),
                                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                                        decoration: InputDecoration(labelText: l.grossWeightFieldLabel(p.weightUnit), isDense: true),
@@ -2745,7 +2820,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                         borderRadius: BorderRadius.circular(6),
                                                         border: Border.all(color: Colors.blue.shade200),
                                                       ),
-                                                      child: Row(
+                                                      child: FittedBox(
+                                                        fit: BoxFit.scaleDown,
+                                                        alignment: Alignment.center,
+                                                        child: Row(
                                                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                                                         children: [
                                                           Column(
@@ -2767,6 +2845,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                             ],
                                                           ),
                                                         ],
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
@@ -3357,7 +3436,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       return;
     }
 
-    bool isTopView = true;
+    String viewProjection = 'both';
+    bool showDetailedCoordinates = false;
     bool? activeStackingMode = cargoItems.any((i) => !i.isStackable) ? null : true;
     CargoOrientationPreference activeOrientationMode = CargoOrientationPreference.smartHybrid;
 
@@ -3430,7 +3510,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                     ),
                     const SizedBox(height: 10),
 
-                    // Controls & Stacking Filter Row (Horizontally scrollable to eliminate overflow)
+                    // Controls & Stacking Filter Row (Responsive Wrap to eliminate clipping)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
@@ -3438,54 +3518,144 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.grey.shade300),
                       ),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            Text(context.l10n.stackingSimulationModeLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
-                            const SizedBox(width: 10),
-                            SegmentedButton<int>(
-                              segments: [
-                                ButtonSegment(value: 0, label: Text(context.l10n.smartHybridOption)),
-                                ButtonSegment(value: 1, label: Text(context.l10n.flatOnlyOption)),
-                                ButtonSegment(value: 2, label: Text(context.l10n.simulationModeFloorOnly)),
-                                ButtonSegment(value: 3, label: Text(context.l10n.simulationModeActualMixed)),
-                              ],
-                              selected: {
-                                activeStackingMode == false ? 2 : (activeStackingMode == null ? 3 : (activeOrientationMode == CargoOrientationPreference.smartHybrid ? 0 : 1))
-                              },
-                              onSelectionChanged: (val) {
-                                setDialogState(() {
-                                  final sel = val.first;
-                                  if (sel == 0) {
-                                    activeOrientationMode = CargoOrientationPreference.smartHybrid;
-                                    activeStackingMode = true;
-                                  } else if (sel == 1) {
-                                    activeOrientationMode = CargoOrientationPreference.flatOnly;
-                                    activeStackingMode = true;
-                                  } else if (sel == 2) {
-                                    activeStackingMode = false;
-                                  } else if (sel == 3) {
-                                    activeStackingMode = null;
+                      child: Wrap(
+                        spacing: 16,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                '🔄 ${context.l10n.stackingSimulationModeLabel}:',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                              ),
+                              ChoiceChip(
+                                label: Text('✨ ${context.l10n.smartHybridOption}'),
+                                selected: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode == true,
+                                selectedColor: AppTheme.emerald,
+                                labelStyle: TextStyle(
+                                  color: (activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode == true) ? Colors.white : AppTheme.charcoal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) {
+                                    setDialogState(() {
+                                      activeOrientationMode = CargoOrientationPreference.smartHybrid;
+                                      activeStackingMode = true;
+                                    });
                                   }
-                                });
-                              },
-                            ),
-                            const SizedBox(width: 20),
-                            Text(context.l10n.projectionLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
-                            const SizedBox(width: 8),
-                            SegmentedButton<bool>(
-                              segments: [
-                                ButtonSegment(value: true, label: Text(context.l10n.topViewProjection)),
-                                ButtonSegment(value: false, label: Text(context.l10n.sideViewProjection)),
-                              ],
-                              selected: {isTopView},
-                              onSelectionChanged: (val) {
-                                setDialogState(() => isTopView = val.first);
-                              },
-                            ),
-                          ],
-                        ),
+                                },
+                              ),
+                              ChoiceChip(
+                                label: Text('📐 ${context.l10n.flatOnlyOption}'),
+                                selected: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode == true,
+                                selectedColor: AppTheme.cobalt,
+                                labelStyle: TextStyle(
+                                  color: (activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode == true) ? Colors.white : AppTheme.charcoal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) {
+                                    setDialogState(() {
+                                      activeOrientationMode = CargoOrientationPreference.flatOnly;
+                                      activeStackingMode = true;
+                                    });
+                                  }
+                                },
+                              ),
+                              ChoiceChip(
+                                label: Text('🚫 ${context.l10n.simulationModeFloorOnly}'),
+                                selected: activeStackingMode == false,
+                                selectedColor: Colors.orange.shade800,
+                                labelStyle: TextStyle(
+                                  color: activeStackingMode == false ? Colors.white : AppTheme.charcoal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) {
+                                    setDialogState(() {
+                                      activeStackingMode = false;
+                                    });
+                                  }
+                                },
+                              ),
+                              ChoiceChip(
+                                label: Text('🔀 ${context.l10n.simulationModeActualMixed}'),
+                                selected: activeStackingMode == null,
+                                selectedColor: AppTheme.charcoal,
+                                labelStyle: TextStyle(
+                                  color: activeStackingMode == null ? Colors.white : AppTheme.charcoal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) {
+                                    setDialogState(() {
+                                      activeStackingMode = null;
+                                    });
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                '👁️ ${context.l10n.projectionLabel}:',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                              ),
+                              ChoiceChip(
+                                label: const Text('🖼️ كلاهما (Both Views)'),
+                                selected: viewProjection == 'both',
+                                selectedColor: AppTheme.cobalt,
+                                labelStyle: TextStyle(
+                                  color: viewProjection == 'both' ? Colors.white : AppTheme.charcoal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) setDialogState(() => viewProjection = 'both');
+                                },
+                              ),
+                              ChoiceChip(
+                                label: Text('📐 ${context.l10n.sideViewProjection}'),
+                                selected: viewProjection == 'side',
+                                selectedColor: AppTheme.cobalt,
+                                labelStyle: TextStyle(
+                                  color: viewProjection == 'side' ? Colors.white : AppTheme.charcoal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) setDialogState(() => viewProjection = 'side');
+                                },
+                              ),
+                              ChoiceChip(
+                                label: Text('🔝 ${context.l10n.topViewProjection}'),
+                                selected: viewProjection == 'top',
+                                selectedColor: AppTheme.cobalt,
+                                labelStyle: TextStyle(
+                                  color: viewProjection == 'top' ? Colors.white : AppTheme.charcoal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) setDialogState(() => viewProjection = 'top');
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -3600,69 +3770,176 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                     ],
                                   ),
                                   const SizedBox(height: 10),
-                                  SizedBox(
-                                    height: 380,
-                                    child: CustomPaint(
-                                      size: const Size(double.infinity, 380),
-                                      painter: ContainerLoadPlanPainter(
-                                        plan: res,
-                                        isTopView: isTopView,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
+                                   if (viewProjection == 'both') ...[
+                                     // Side View (Left Wall Removed)
+                                     Container(
+                                       height: 200,
+                                       width: double.infinity,
+                                       decoration: BoxDecoration(
+                                         color: Colors.grey.shade900,
+                                         borderRadius: BorderRadius.circular(4),
+                                       ),
+                                       child: CustomPaint(
+                                         painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
+                                       ),
+                                     ),
+                                     const SizedBox(height: 10),
+                                     // Top View (Roof Removed)
+                                     Container(
+                                       height: 155,
+                                       width: double.infinity,
+                                       decoration: BoxDecoration(
+                                         color: Colors.grey.shade900,
+                                         borderRadius: BorderRadius.circular(4),
+                                       ),
+                                       child: CustomPaint(
+                                         painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
+                                       ),
+                                     ),
+                                   ] else ...[
+                                     Container(
+                                       height: 360,
+                                       width: double.infinity,
+                                       decoration: BoxDecoration(
+                                         color: Colors.grey.shade900,
+                                         borderRadius: BorderRadius.circular(4),
+                                       ),
+                                       child: CustomPaint(
+                                         painter: ContainerLoadPlanPainter(plan: res, isTopView: viewProjection == 'top'),
+                                       ),
+                                     ),
+                                   ],
+                                   const SizedBox(height: 10),
 
-                                  // Placed Items Details Table
-                                  Theme(
-                                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                                    child: ExpansionTile(
-                                      tilePadding: EdgeInsets.zero,
-                                      title: Text(
-                                        context.l10n.placedPackagesTableTitle(res.placedItems.length),
-                                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                                      ),
-                                      children: [
-                                        Table(
-                                          border: TableBorder.all(color: Colors.grey.shade300),
-                                          columnWidths: const {
-                                            0: FlexColumnWidth(0.8),
-                                            1: FlexColumnWidth(2.2),
-                                            2: FlexColumnWidth(1.8),
-                                            3: FlexColumnWidth(1.2),
-                                            4: FlexColumnWidth(2.0),
-                                            5: FlexColumnWidth(1.2),
-                                          },
-                                          children: [
-                                            TableRow(
-                                              decoration: BoxDecoration(color: Colors.grey.shade200),
-                                              children: [
-                                                const Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.thPackageCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                                Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.thDimensions, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.thWeight, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.thCoordinates, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.thStacking, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                              ],
-                                            ),
-                                            ...res.placedItems.asMap().entries.map((entry) {
-                                              final idx = entry.key + 1;
-                                              final item = entry.value;
-                                              return TableRow(
-                                                children: [
-                                                  Padding(padding: const EdgeInsets.all(6), child: Text('$idx', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
-                                                  Padding(padding: const EdgeInsets.all(6), child: Text(item.item.description ?? item.item.itemId, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                                                  Padding(padding: const EdgeInsets.all(6), child: Text('${item.length.toStringAsFixed(0)} × ${item.width.toStringAsFixed(0)} × ${item.height.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
-                                                  Padding(padding: const EdgeInsets.all(6), child: Text(item.item.weight.toStringAsFixed(1), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
-                                                  Padding(padding: const EdgeInsets.all(6), child: Text('X: ${item.x.toStringAsFixed(0)} | Y: ${item.y.toStringAsFixed(0)} | Z: ${item.z.toStringAsFixed(0)}', style: const TextStyle(fontSize: 10.5, fontFamily: 'monospace'), textAlign: TextAlign.center)),
-                                                  Padding(padding: const EdgeInsets.all(6), child: Text(item.item.isStackable ? '📦 نعم' : '🚫 أرضي', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: item.item.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
-                                                ],
-                                              );
-                                            }),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                   // Placed Items Details Table (Aggregated by Item Rule)
+                                   Theme(
+                                     data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                                     child: ExpansionTile(
+                                       initiallyExpanded: true,
+                                       tilePadding: EdgeInsets.zero,
+                                       title: Row(
+                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                         children: [
+                                           Text(
+                                             showDetailedCoordinates
+                                                 ? '📐 تفاصيل الرص الإحداثي (${res.placedItems.length} طرد)'
+                                                 : '📊 الأصناف المرصوصة مجمعة (${res.groupedItems.length} صنف | إجمالي ${res.placedItems.length} طرد)',
+                                             style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                           ),
+                                           OutlinedButton.icon(
+                                             style: OutlinedButton.styleFrom(
+                                               visualDensity: VisualDensity.compact,
+                                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                               foregroundColor: AppTheme.cobalt,
+                                               side: const BorderSide(color: AppTheme.cobalt),
+                                             ),
+                                             icon: Icon(showDetailedCoordinates ? Icons.table_chart_outlined : Icons.format_list_numbered, size: 14),
+                                             label: Text(
+                                               showDetailedCoordinates ? 'عرض مجمع حسب الأصناف' : 'عرض تفصيلي بالإحداثيات',
+                                               style: const TextStyle(fontSize: 11),
+                                             ),
+                                             onPressed: () => setDialogState(() => showDetailedCoordinates = !showDetailedCoordinates),
+                                           ),
+                                         ],
+                                       ),
+                                       children: [
+                                         if (!showDetailedCoordinates)
+                                           Table(
+                                             border: TableBorder.all(color: Colors.grey.shade300),
+                                             columnWidths: const {
+                                               0: FlexColumnWidth(0.6),
+                                               1: FlexColumnWidth(2.5),
+                                               2: FlexColumnWidth(1.2),
+                                               3: FlexColumnWidth(1.6),
+                                               4: FlexColumnWidth(1.2),
+                                               5: FlexColumnWidth(1.8),
+                                               6: FlexColumnWidth(1.2),
+                                               7: FlexColumnWidth(1.2),
+                                             },
+                                             children: [
+                                               TableRow(
+                                                 decoration: BoxDecoration(color: Colors.grey.shade200),
+                                                 children: const [
+                                                   Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                   Padding(padding: EdgeInsets.all(6), child: Text('الصنف / البند', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                                   Padding(padding: EdgeInsets.all(6), child: Text('نوع الطرد', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                   Padding(padding: EdgeInsets.all(6), child: Text('الأبعاد (سم)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                   Padding(padding: EdgeInsets.all(6), child: Text('العدد', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                   Padding(padding: EdgeInsets.all(6), child: Text('إجمالي الوزن', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                   Padding(padding: EdgeInsets.all(6), child: Text('الحجم', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                   Padding(padding: EdgeInsets.all(6), child: Text('الرص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                 ],
+                                               ),
+                                               ...res.groupedItems.asMap().entries.map((entry) {
+                                                 final idx = entry.key + 1;
+                                                 final g = entry.value;
+                                                 return TableRow(
+                                                   children: [
+                                                     Padding(padding: const EdgeInsets.all(6), child: Text('$idx', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                                                     Padding(padding: const EdgeInsets.all(6), child: Text(g.itemCodeOrDesc, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                                     Padding(padding: const EdgeInsets.all(6), child: Text(g.packageType, style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                                                     Padding(padding: const EdgeInsets.all(6), child: Text('${g.length.toStringAsFixed(0)} × ${g.width.toStringAsFixed(0)} × ${g.height.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                                                     Padding(
+                                                       padding: const EdgeInsets.all(6),
+                                                       child: Container(
+                                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                         decoration: BoxDecoration(
+                                                           color: AppTheme.cobalt.withOpacity(0.12),
+                                                           borderRadius: BorderRadius.circular(4),
+                                                         ),
+                                                         child: Text('${g.count}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt), textAlign: TextAlign.center),
+                                                       ),
+                                                     ),
+                                                     Padding(padding: const EdgeInsets.all(6), child: Text('${g.totalWeight.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                                                     Padding(padding: const EdgeInsets.all(6), child: Text('${g.volumeM3.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                                                     Padding(padding: const EdgeInsets.all(6), child: Text(g.isStackable ? '📦 نعم' : '🚫 أرضي', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: g.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
+                                                   ],
+                                                 );
+                                               }),
+                                             ],
+                                           )
+                                         else
+                                           Table(
+                                             border: TableBorder.all(color: Colors.grey.shade300),
+                                             columnWidths: const {
+                                               0: FlexColumnWidth(0.8),
+                                               1: FlexColumnWidth(2.2),
+                                               2: FlexColumnWidth(1.8),
+                                               3: FlexColumnWidth(1.2),
+                                               4: FlexColumnWidth(2.0),
+                                               5: FlexColumnWidth(1.2),
+                                             },
+                                             children: [
+                                               TableRow(
+                                                 decoration: BoxDecoration(color: Colors.grey.shade200),
+                                                 children: [
+                                                   const Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                   Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.thPackageCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                                   Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.thDimensions, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                   Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.thWeight, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                   Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.thCoordinates, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                   Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.thStacking, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                 ],
+                                               ),
+                                               ...res.placedItems.asMap().entries.map((entry) {
+                                                 final idx = entry.key + 1;
+                                                 final item = entry.value;
+                                                 return TableRow(
+                                                   children: [
+                                                     Padding(padding: const EdgeInsets.all(6), child: Text('$idx', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                                                     Padding(padding: const EdgeInsets.all(6), child: Text(item.item.description ?? item.item.itemId, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                                     Padding(padding: const EdgeInsets.all(6), child: Text('${item.length.toStringAsFixed(0)} × ${item.width.toStringAsFixed(0)} × ${item.height.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                                                     Padding(padding: const EdgeInsets.all(6), child: Text(item.item.weight.toStringAsFixed(1), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                                                     Padding(padding: const EdgeInsets.all(6), child: Text('X: ${item.x.toStringAsFixed(0)} | Y: ${item.y.toStringAsFixed(0)} | Z: ${item.z.toStringAsFixed(0)}', style: const TextStyle(fontSize: 10.5, fontFamily: 'monospace'), textAlign: TextAlign.center)),
+                                                     Padding(padding: const EdgeInsets.all(6), child: Text(item.item.isStackable ? '📦 نعم' : '🚫 أرضي', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: item.item.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
+                                                   ],
+                                                 );
+                                               }),
+                                             ],
+                                           ),
+                                       ],
+                                     ),
+                                   ),
                                 ],
                               ),
                             ),

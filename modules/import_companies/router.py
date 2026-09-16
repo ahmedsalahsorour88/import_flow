@@ -95,11 +95,7 @@ def download_excel_template():
         'email': 'info@pharaohs.com',
     }
     content = MasterDataExportImportHelper.create_excel_template(cols, sample)
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=Import_Companies_Template.xlsx"},
-    )
+    return MasterDataExportImportHelper.as_excel_response("Import_Companies_Template.xlsx", content)
 
 
 @import_router.post("/import-excel")
@@ -122,24 +118,17 @@ async def import_excel_companies(file: UploadFile = File(...), db: Session = Dep
                 errors.append(f"Row {idx}: Missing required fields (importer_name, importer_id, vat_id, registration_number).")
                 continue
 
-            def parse_d(val):
-                if not val:
-                    return date(2027, 12, 31)
-                try:
-                    return datetime.strptime(str(val)[:10], "%Y-%m-%d").date()
-                except Exception:
-                    return date(2027, 12, 31)
-
+            default_expiry = date(2027, 12, 31)
             schema = ImportCompanyCreate(
                 importer_name=name,
                 address=r.get('address') or 'Cairo, Egypt',
                 country=r.get('country') or 'Egypt',
                 importer_id=imp_id,
-                importer_id_expiry=parse_d(r.get('importer_id_expiry')),
+                importer_id_expiry=MasterDataExportImportHelper.parse_date_safe(r.get('importer_id_expiry'), default_expiry),
                 vat_id=vat_id,
-                vat_id_expiry=parse_d(r.get('vat_id_expiry')),
+                vat_id_expiry=MasterDataExportImportHelper.parse_date_safe(r.get('vat_id_expiry'), default_expiry),
                 registration_number=reg_num,
-                registration_expiry=parse_d(r.get('registration_expiry')),
+                registration_expiry=MasterDataExportImportHelper.parse_date_safe(r.get('registration_expiry'), default_expiry),
                 phone=r.get('phone'),
                 email=r.get('email'),
             )

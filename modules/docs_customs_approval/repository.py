@@ -9,6 +9,7 @@ from sqlalchemy import or_, desc
 from modules.docs_customs_approval.model import (
     CustomsDocumentApproval,
     DiscrepancyRectificationTicket,
+    DocsCustomsApprovalSession,
 )
 
 
@@ -132,3 +133,64 @@ def update_ticket(db: Session, ticket: DiscrepancyRectificationTicket) -> Discre
     db.commit()
     db.refresh(ticket)
     return ticket
+
+
+# --- Customs Approval Session Queries (STEP-09) ---
+
+def generate_session_code(db: Session) -> str:
+    count = db.query(DocsCustomsApprovalSession).count()
+    return f"DOCAPPR-2026-{count + 1:04d}"
+
+
+def get_session_by_id(db: Session, session_id: int) -> Optional[DocsCustomsApprovalSession]:
+    return db.query(DocsCustomsApprovalSession).filter(
+        DocsCustomsApprovalSession.session_id == session_id,
+        DocsCustomsApprovalSession.is_active == True,
+    ).first()
+
+
+def get_session_by_file_id(db: Session, import_file_id: int, include_drafts: bool = True) -> Optional[DocsCustomsApprovalSession]:
+    query = db.query(DocsCustomsApprovalSession).filter(
+        DocsCustomsApprovalSession.import_file_id == import_file_id,
+        DocsCustomsApprovalSession.is_active == True,
+    )
+    if not include_drafts:
+        query = query.filter(DocsCustomsApprovalSession.is_draft == False)
+    return query.order_by(desc(DocsCustomsApprovalSession.session_id)).first()
+
+
+def list_sessions(
+    db: Session,
+    import_file_id: Optional[int] = None,
+    is_draft: Optional[bool] = None,
+    search: Optional[str] = None,
+) -> List[DocsCustomsApprovalSession]:
+    query = db.query(DocsCustomsApprovalSession).filter(DocsCustomsApprovalSession.is_active == True)
+    if import_file_id is not None:
+        query = query.filter(DocsCustomsApprovalSession.import_file_id == import_file_id)
+    if is_draft is not None:
+        query = query.filter(DocsCustomsApprovalSession.is_draft == is_draft)
+    if search:
+        s = f"%{search}%"
+        query = query.filter(
+            or_(
+                DocsCustomsApprovalSession.session_code.ilike(s),
+                DocsCustomsApprovalSession.import_file_code.ilike(s),
+                DocsCustomsApprovalSession.customs_broker_name.ilike(s),
+            )
+        )
+    return query.order_by(desc(DocsCustomsApprovalSession.session_id)).all()
+
+
+def create_session(db: Session, session_obj: DocsCustomsApprovalSession) -> DocsCustomsApprovalSession:
+    db.add(session_obj)
+    db.commit()
+    db.refresh(session_obj)
+    return session_obj
+
+
+def update_session(db: Session, session_obj: DocsCustomsApprovalSession) -> DocsCustomsApprovalSession:
+    db.commit()
+    db.refresh(session_obj)
+    return session_obj
+

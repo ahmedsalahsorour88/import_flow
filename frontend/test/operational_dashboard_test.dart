@@ -253,7 +253,11 @@ void main() {
       expect(find.text('NEW'), findsNothing);
 
       // Scroll down to bring virtualized shipment card into view
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -900));
+      await tester.scrollUntilVisible(
+        find.text('IMP-2026-0001'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
       expect(find.byType(CopyableText), findsWidgets);
       expect(find.text('IMP-2026-0001'), findsWidgets);
@@ -304,7 +308,11 @@ void main() {
       expect(find.text('جديد'), findsNothing);
 
       // Scroll down to bring virtualized shipment card into view
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -900));
+      await tester.scrollUntilVisible(
+        find.text('IMP-2026-0001'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
       expect(find.byType(CopyableText), findsWidgets);
       expect(find.text('IMP-2026-0001'), findsWidgets);

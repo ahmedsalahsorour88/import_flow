@@ -169,15 +169,119 @@ void main() {
       expect(session.documentsList.length, 2);
       expect(session.completionPercentage, 50.0);
     });
+
+    test('CourierAlertItemModel and CourierAlertsResponseModel serialization', () {
+      final json = {
+        'total_active_couriers': 2,
+        'pending_receipt_count': 2,
+        'delayed_count': 1,
+        'delivered_count': 0,
+        'alerts': [
+          {
+            'courier_no': 'DHL-88776655',
+            'courier_company': 'DHL',
+            'import_file_id': 1,
+            'import_file_code': 'IMP-2026-0001',
+            'dispatch_date': '2026-09-01',
+            'days_in_transit': 6,
+            'alert_level': 'CRITICAL',
+            'alert_message_ar': 'تأخير حرج: مضى 6 أيام',
+            'alert_message_en': 'Critical delay: 6 days',
+          }
+        ],
+      };
+
+      final response = CourierAlertsResponseModel.fromJson(json);
+      expect(response.totalActiveCouriers, 2);
+      expect(response.delayedCount, 1);
+      expect(response.alerts.length, 1);
+      expect(response.alerts.first.courierCompany, 'DHL');
+      expect(response.alerts.first.alertLevel, 'CRITICAL');
+      expect(response.alerts.first.daysInTransit, 6);
+    });
+
+    test('CourierFlatItemModel and CourierReceiptProofRequestModel serialization', () {
+      final flatJson = {
+        'courier_no': 'FDX-112233',
+        'courier_company': 'FedEx',
+        'import_file_id': 2,
+        'import_file_code': 'IMP-2026-0002',
+        'is_received': true,
+        'received_date': '2026-09-10',
+        'received_time': '14:30',
+        'received_by': 'Mohamed Ali',
+        'pod_reference': 'POD-9988',
+        'status': 'DELIVERED',
+        'days_in_transit': 3,
+        'associated_docs_count': 4,
+      };
+
+      final flat = CourierFlatItemModel.fromJson(flatJson);
+      expect(flat.courierCompany, 'FedEx');
+      expect(flat.isReceived, true);
+      expect(flat.receivedBy, 'Mohamed Ali');
+      expect(flat.status, 'DELIVERED');
+      expect(flat.associatedDocsCount, 4);
+
+      final req = CourierReceiptProofRequestModel(
+        importFileId: 2,
+        courierNo: 'FDX-112233',
+        receivedDate: '2026-09-10',
+        receivedTime: '14:30',
+        receivedBy: 'Mohamed Ali',
+        podReference: 'POD-9988',
+        markDocumentsReceived: true,
+      );
+      final reqJson = req.toJson();
+      expect(reqJson['import_file_id'], 2);
+      expect(reqJson['courier_no'], 'FDX-112233');
+      expect(reqJson['received_by'], 'Mohamed Ali');
+      expect(reqJson['mark_documents_received'], true);
+    });
   });
 
   group('OriginalDocumentsCollectionTab Widget Tests', () {
-    testWidgets('Renders Original Documents Collection Tab, header, and search bar', (WidgetTester tester) async {
+    testWidgets('Renders Original Documents Collection Tab, header, and courier alerts', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier()),
             originalDocumentsSessionsProvider.overrideWith((ref) => _MockOriginalDocsNotifier()),
+            courierAlertsProvider.overrideWith((ref) async => CourierAlertsResponseModel(
+                  totalActiveCouriers: 1,
+                  pendingReceiptCount: 1,
+                  delayedCount: 1,
+                  alerts: [
+                    CourierAlertItemModel(
+                      courierNo: 'DHL-99881122',
+                      courierCompany: 'DHL',
+                      importFileId: 1,
+                      importFileCode: 'IMP-2026-0001',
+                      dispatchDate: '2026-09-01',
+                      daysInTransit: 6,
+                      alertLevel: 'CRITICAL',
+                      alertMessageAr: 'تأخير حرج: مضى 6 أيام',
+                      alertMessageEn: 'Critical delay: 6 days',
+                    ),
+                  ],
+                )),
+            allCouriersProvider.overrideWith((ref) async => [
+                  CourierFlatItemModel(
+                    courierNo: 'DHL-99881122',
+                    courierCompany: 'DHL',
+                    importFileId: 1,
+                    importFileCode: 'IMP-2026-0001',
+                    dispatchDate: '2026-09-01',
+                    isReceived: false,
+                    daysInTransit: 6,
+                    associatedDocsCount: 3,
+                  ),
+                ]),
           ],
           child: const MaterialApp(
             home: Scaffold(
@@ -191,7 +295,16 @@ void main() {
 
       expect(find.textContaining('تحصيل أصول المستندات وتتبع طرود الكورير'), findsOneWidget);
       expect(find.textContaining('اختيار ملف الشحنة'), findsOneWidget);
-      expect(find.textContaining('سجل جلسات تحصيل أصول المستندات'), findsOneWidget);
+      expect(find.textContaining('تنبيهات ومتابعة الكورير ومواعيد الاستلام'), findsOneWidget);
+      expect(find.textContaining('سجل تتبع الكورير وإثبات ميعاد الاستلام'), findsOneWidget);
+
+      // Tap to switch to Courier Tracking Registry
+      final courierTabFinder = find.textContaining('سجل تتبع الكورير وإثبات ميعاد الاستلام');
+      await tester.ensureVisible(courierTabFinder);
+      await tester.tap(courierTabFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('رقم البوليصة (AWB)'), findsOneWidget);
     });
   });
 }

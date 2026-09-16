@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../widgets/po_form_dialog.dart';
 import '../widgets/po_reconciliation_warning_dialog.dart';
 import '../widgets/po_balance_ledger_dialog.dart';
@@ -13,16 +15,28 @@ import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
+import '../../../core/helpers/table_copy_helper.dart';
+import '../../../core/services/table_export_service.dart';
 
+import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
+import '../../../core/constants/api_constants.dart';
+import '../../../core/network/dio_client.dart';
+import '../../../core/services/file_save_helper.dart';
+import '../../../core/theme/density_provider.dart';
+import '../../../core/widgets/page_header.dart';
+import '../../../core/widgets/action_toolbar.dart';
+import '../../../core/widgets/metric_card.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
 import '../../import_files/models/import_file_model.dart' show ImportFileModel;
 import '../../import_files/providers/import_files_provider.dart';
 import '../../../core/performance/dispose_tracker.dart';
 import '../../projects/providers/projects_provider.dart';
+import '../../projects/models/project_model.dart';
+import '../../../core/localization/locale_provider.dart';
 import '../models/purchase_order_model.dart';
 import '../providers/purchase_orders_provider.dart';
 
@@ -35,6 +49,8 @@ class PurchaseOrdersScreen extends ConsumerStatefulWidget {
 
 class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> with DisposeTrackerMixin<PurchaseOrdersScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _horizontalTableScrollController = ScrollController();
+  final ScrollController _verticalTableScrollController = ScrollController();
 
   @override
   void initState() {
@@ -58,6 +74,8 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
   @override
   void dispose() {
     _searchController.dispose();
+    _horizontalTableScrollController.dispose();
+    _verticalTableScrollController.dispose();
     super.dispose();
   }
 
@@ -73,261 +91,482 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     final totalCbmSum = state.purchaseOrders.fold<double>(0.0, (sum, p) => sum + p.totalCbm);
     final totalGrossSum = state.purchaseOrders.fold<double>(0.0, (sum, p) => sum + p.totalGrossWeightKg);
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Column(
-        children: [
-          // Header Banner
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isDark
-                    ? [const Color(0xFF141A22), const Color(0xFF1E293B)]
-                    : [AppTheme.charcoal, AppTheme.cobalt],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 28),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyD, control: true): () {
+          _openSearchAndCloneDialog();
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          appBar: PageHeader(
+            icon: Icons.shopping_cart_outlined,
+            title: l.purchaseOrdersTitle,
+            subtitle: l.purchaseOrdersSubtitle,
+            actions: [
+              Builder(
+                builder: (ctx) {
+                  final isNarrow = MediaQuery.sizeOf(ctx).width < 768;
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        l.purchaseOrdersTitle,
-                        style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
-                        overflow: TextOverflow.ellipsis,
+                      if (!isNarrow)
+                        SmartUploadButton(
+                          module: SmartUploadModule.purchaseOrder,
+                          label: '🚀 ${l.smartInvoiceExtract}',
+                          onDataExtracted: (result) {
+                            final fields = result.extractedFields;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('${fields['po_number'] ?? '-'}'),
+                                backgroundColor: AppTheme.emerald,
+                                duration: const Duration(seconds: 4),
+                              ),
+                            );
+                            _showPODialog(context, null, initialExtractedFields: fields);
+                          },
+                        ),
+                      if (!isNarrow) const SizedBox(width: 8),
+                      if (!isNarrow) const BackToDashboardButton(),
+                      IconButton(
+                        icon: const Icon(Icons.refresh, color: Colors.white),
+                        onPressed: () => ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders(),
                       ),
-                      Text(
-                        l.purchaseOrdersSubtitle,
-                        style: const TextStyle(color: AppTheme.cloudWhite, fontSize: 11),
-                        overflow: TextOverflow.ellipsis,
+                      const SizedBox(width: 10),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+          body: LayoutBuilder(
+            builder: (context, screenConstraints) {
+              final isMobile = screenConstraints.maxWidth < 768;
+              if (isMobile) {
+                return SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildSummaryMetrics(context, l, totalOrders, totalFobSum, totalCbmSum, totalGrossSum),
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: _buildDesktopCompactToolbar(context, isDark, l, state, projectsList),
                       ),
+                      if (state.isLoading)
+                        const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
+                      else if (state.errorMessage != null)
+                        _buildErrorView(l, state.errorMessage!)
+                      else if (state.purchaseOrders.isEmpty)
+                        _buildEmptyView(l)
+                      else
+                        _buildMobilePOCardsList(
+                          context,
+                          state.purchaseOrders,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                        ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 10),
-                const BackToDashboardButton(),
-                const SizedBox(width: 10),
-                SmartUploadButton(
-                  module: SmartUploadModule.purchaseOrder,
-                  label: '🚀 ${l.smartInvoiceExtract}',
-                  onDataExtracted: (result) {
-                    final fields = result.extractedFields;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          '${fields['po_number'] ?? '-'}',
-                        ),
-                        backgroundColor: AppTheme.emerald,
-                        duration: const Duration(seconds: 4),
-                      ),
-                    );
-                    _showPODialog(context, null, initialExtractedFields: fields);
-                  },
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.emerald,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildSummaryMetrics(context, l, totalOrders, totalFobSum, totalCbmSum, totalGrossSum),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildDesktopCompactToolbar(context, isDark, l, state, projectsList),
                   ),
-                  icon: const Icon(Icons.add_shopping_cart, size: 18),
-                  label: Text(l.newPurchaseOrder, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  onPressed: () => _showPODialog(context, null),
-                ),
-              ],
-            ),
+                  const SizedBox(height: 6),
+                  Expanded(
+                    child: state.isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : state.errorMessage != null
+                            ? _buildErrorView(l, state.errorMessage!)
+                            : state.purchaseOrders.isEmpty
+                                ? _buildEmptyView(l)
+                                : _buildPOTable(context, state.purchaseOrders),
+                  ),
+                ],
+              );
+            },
           ),
-
-          // Summary Metrics Cards
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                _buildSummaryMetric(l.totalOrdersMetric, '$totalOrders', Icons.receipt_long, Colors.blue),
-                const SizedBox(width: 12),
-                _buildSummaryMetric(l.totalFobMetric, '\$${totalFobSum.toStringAsFixed(2)}', Icons.attach_money, Colors.green),
-                const SizedBox(width: 12),
-                _buildSummaryMetric(l.totalCargoCbmMetric, '${totalCbmSum.toStringAsFixed(2)} m³', Icons.view_in_ar, Colors.orange),
-                const SizedBox(width: 12),
-                _buildSummaryMetric(l.totalGrossWeightMetric, '${totalGrossSum.toStringAsFixed(1)} kg', Icons.scale, Colors.purple),
-              ],
-            ),
-          ),
-
-          // Data Actions Toolbar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: MasterDataToolbarWidget(
-              moduleEndpoint: 'purchase-orders',
-              title: 'Purchase_Orders',
-              onRefreshNeeded: () => ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders(),
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Filter & Search Bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Card(
-              elevation: 1,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: l.searchByPoHint,
-                          prefixIcon: const Icon(Icons.search),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    ref.read(purchaseOrdersProvider.notifier).setSearchQuery('');
-                                  },
-                                )
-                              : null,
-                          isDense: true,
-                          border: const OutlineInputBorder(),
-                        ),
-                        onChanged: (v) => ref.read(purchaseOrdersProvider.notifier).setSearchQuery(v),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: SearchableDropdownField<int?>(
-                        value: state.projectFilter,
-                        labelText: l.filterByProject,
-                        items: [
-                          SearchableDropdownItem<int?>(value: null, label: l.allProjects),
-                          ...projectsList.map((p) => SearchableDropdownItem<int?>(
-                                value: p.projectId,
-                                label: '${p.projectCode} - ${p.projectName}',
-                              )),
-                        ],
-                        onChanged: (v) => ref.read(purchaseOrdersProvider.notifier).setProjectFilter(v),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: SearchableDropdownField<String?>(
-                        value: state.statusFilter,
-                        labelText: l.filterByStatus,
-                        items: [
-                          SearchableDropdownItem<String?>(value: null, label: l.allStatuses),
-                          SearchableDropdownItem<String?>(value: 'Draft', label: l.statusDraft),
-                          SearchableDropdownItem<String?>(value: 'Approved', label: l.statusPoApproved),
-                          SearchableDropdownItem<String?>(value: 'In Transit', label: l.statusInTransit),
-                          SearchableDropdownItem<String?>(value: 'Closed', label: l.statusClosed),
-                        ],
-                        onChanged: (v) => ref.read(purchaseOrdersProvider.notifier).setStatusFilter(v),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: state.showInactive,
-                          onChanged: (v) => ref.read(purchaseOrdersProvider.notifier).toggleShowInactive(v ?? false),
-                        ),
-                        Text(l.showInactive, style: const TextStyle(fontSize: 12)),
-                      ],
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.refresh, color: AppTheme.cobalt),
-                      tooltip: l.liveReload,
-                      onPressed: () => ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders(),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Main Data Table / Loading
-          Expanded(
-            child: state.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : state.errorMessage != null
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.error_outline, size: 48, color: AppTheme.crimson),
-                            const SizedBox(height: 12),
-                            Text(state.errorMessage!, style: const TextStyle(color: AppTheme.crimson)),
-                            const SizedBox(height: 12),
-                            ElevatedButton(
-                              onPressed: () => ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders(),
-                              child: Text(l.retry),
-                            ),
-                          ],
-                        ),
-                      )
-                    : state.purchaseOrders.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.inventory_2_outlined, size: 56, color: Colors.grey),
-                                const SizedBox(height: 12),
-                                Text(l.noDataFound, style: const TextStyle(fontSize: 16, color: Colors.grey)),
-                              ],
-                            ),
-                          )
-                        : _buildPOTable(context, state.purchaseOrders),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildSummaryMetric(String title, String value, IconData icon, Color color) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Expanded(
-      child: Card(
-        color: isDark ? AppTheme.darkCardBackground : Colors.white,
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+  Widget _buildSummaryMetrics(
+    BuildContext context,
+    AppLocalizations l,
+    int totalOrders,
+    double totalFobSum,
+    double totalCbmSum,
+    double totalGrossSum,
+  ) {
+    return MetricCardStrip(
+      metrics: [
+        MetricCardData(
+          title: l.totalOrdersMetric,
+          shortTitle: 'POs',
+          value: '$totalOrders',
+          icon: Icons.receipt_long,
+          color: AppTheme.wcagCobalt,
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        MetricCardData(
+          title: l.totalFobMetric,
+          shortTitle: 'PI/PO Amt',
+          value: '\$${totalFobSum.toStringAsFixed(2)}',
+          icon: Icons.attach_money,
+          color: AppTheme.wcagEmerald,
+        ),
+        MetricCardData(
+          title: l.totalCargoCbmMetric,
+          shortTitle: 'CBM',
+          value: '${totalCbmSum.toStringAsFixed(2)} m³',
+          icon: Icons.view_in_ar,
+          color: AppTheme.wcagOrange,
+        ),
+        MetricCardData(
+          title: l.totalGrossWeightMetric,
+          shortTitle: 'Gross Wt',
+          value: '${totalGrossSum.toStringAsFixed(1)} kg',
+          icon: Icons.scale,
+          color: Colors.purple,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _downloadPOFile(String actionEndpoint, String defaultFileName, String dialogTitle) async {
+    final url = '${ApiConstants.purchaseOrders}/$actionEndpoint';
+    try {
+      final dio = ref.read(dioProvider);
+      final response = await dio.get(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      if (response.data != null && response.data is List<int>) {
+        if (!mounted) return;
+        await FileSaveHelper.saveBytes(
+          context: context,
+          bytes: response.data as List<int>,
+          defaultFileName: defaultFileName,
+          dialogTitle: dialogTitle,
+          allowedExtensions: defaultFileName.endsWith('.pdf') ? ['pdf'] : ['xlsx', 'csv'],
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${context.l10n.errorPrefix}: $e'),
+          backgroundColor: AppTheme.crimson,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleImportExcel() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx', 'xls'],
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final file = result.files.first;
+      if (file.bytes == null) return;
+      final dio = ref.read(dioProvider);
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(file.bytes!, filename: file.name),
+      });
+      final res = await dio.post(
+        '${ApiConstants.purchaseOrders}/import-excel',
+        data: formData,
+      );
+      if (!mounted) return;
+      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res.data?['message'] ?? 'تم الاستيراد بنجاح'),
+          backgroundColor: AppTheme.emerald,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${context.l10n.errorPrefix}: $e'),
+          backgroundColor: AppTheme.crimson,
+        ),
+      );
+    }
+  }
+
+  void _copyPOTableTsv(List<PurchaseOrderModel> orders) {
+    final l = context.l10n;
+    final isArabic = Directionality.of(context) == TextDirection.rtl ||
+        ref.read(localeProvider).languageCode == 'ar';
+    final List<String> headers = [
+      l.poReferenceCol,
+      l.foreignSupplier,
+      l.projectsAndCostCenters,
+      l.totalFobMetric,
+      l.totalCargoCbmMetric,
+      l.totalGrossWeightMetric,
+      l.statusCol,
+    ];
+    final rows = orders.map((po) => [
+      po.poNumber,
+      po.supplierName,
+      po.projectName ?? '-',
+      po.totalAmountFob.toStringAsFixed(2),
+      '${po.totalCbm.toStringAsFixed(2)} m³',
+      '${po.totalGrossWeightKg.toStringAsFixed(1)} kg',
+      _getStatusLabel(po.status, l),
+    ]).toList();
+
+    TableCopyHelper.copyTable(
+      context,
+      headers,
+      rows,
+      customMessage: isArabic ? 'تم نسخ بيانات أوامر الشراء بنجاح' : 'PO table copied to clipboard',
+    );
+  }
+
+  Widget _buildDesktopCompactToolbar(
+    BuildContext context,
+    bool isDark,
+    AppLocalizations l,
+    PurchaseOrdersState state,
+    List<ProjectModel> projectsList,
+  ) {
+    final density = ref.watch(displayDensityProvider);
+    final isArabic = Directionality.of(context) == TextDirection.rtl ||
+        ref.watch(localeProvider).languageCode == 'ar';
+
+    return ActionToolbar(
+      primaryActions: [
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.wcagCobalt,
+            foregroundColor: Colors.white,
+            minimumSize: Size(0, density.buttonHeight),
+            padding: density.buttonPadding,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          ),
+          icon: Icon(Icons.add_shopping_cart, size: density.buttonIconSize),
+          label: Text(
+            l.newPurchaseOrder,
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+          ),
+          onPressed: () => _showPODialog(context, null),
+        ),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
+            side: BorderSide(color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt),
+            minimumSize: Size(0, density.buttonHeight),
+            padding: density.buttonPadding,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          ),
+          icon: Icon(Icons.control_point_duplicate_rounded, size: density.buttonIconSize),
+          label: Text(
+            l.searchAndClonePoBtn,
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+          ),
+          onPressed: _openSearchAndCloneDialog,
+        ),
+      ],
+      moreActionItems: [
+        PopupMenuItem(
+          value: 'export_excel',
           child: Row(
             children: [
-              CircleAvatar(
-                backgroundColor: color.withOpacity(0.15),
-                child: Icon(icon, color: color, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600, fontSize: 11, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 2),
-                  CopyableText(
-                    value,
-                    showIcon: false,
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                  ),
-                ],
-              ),
+              const Icon(Icons.table_view_rounded, color: AppTheme.wcagEmerald, size: 16),
+              const SizedBox(width: 8),
+              Text(l.exportExcel, style: const TextStyle(fontSize: 12.5)),
             ],
           ),
+        ),
+        PopupMenuItem(
+          value: 'export_pdf',
+          child: Row(
+            children: [
+              const Icon(Icons.picture_as_pdf_outlined, color: AppTheme.crimson, size: 16),
+              const SizedBox(width: 8),
+              Text(l.exportPdf, style: const TextStyle(fontSize: 12.5)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'copy_tsv',
+          child: Row(
+            children: [
+              const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 16),
+              const SizedBox(width: 8),
+              Text(isArabic ? 'نسخ الجدول (TSV)' : 'Copy Table (TSV)', style: const TextStyle(fontSize: 12.5)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(height: 1),
+        PopupMenuItem(
+          value: 'download_template',
+          child: Row(
+            children: [
+              const Icon(Icons.file_download_outlined, color: Colors.blueGrey, size: 16),
+              const SizedBox(width: 8),
+              Text(isArabic ? 'تنزيل نموذج إكسل' : 'Download Template', style: const TextStyle(fontSize: 12.5)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'import_excel',
+          child: Row(
+            children: [
+              const Icon(Icons.upload_file, color: Colors.blueGrey, size: 16),
+              const SizedBox(width: 8),
+              Text(isArabic ? 'استيراد من إكسل' : 'Import Excel', style: const TextStyle(fontSize: 12.5)),
+            ],
+          ),
+        ),
+      ],
+      onMoreActionSelected: (val) {
+        switch (val) {
+          case 'export_excel':
+            _downloadPOFile('export-excel', 'Purchase_Orders.xlsx', 'تصدير أوامر الشراء إكسيل');
+            break;
+          case 'export_pdf':
+            _downloadPOFile('export-pdf', 'Purchase_Orders.pdf', 'تصدير أوامر الشراء PDF');
+            break;
+          case 'copy_tsv':
+            _copyPOTableTsv(state.purchaseOrders);
+            break;
+          case 'download_template':
+            _downloadPOFile('template', 'Purchase_Orders_Template.xlsx', 'تنزيل نموذج أوامر الشراء');
+            break;
+          case 'import_excel':
+            _handleImportExcel();
+            break;
+        }
+      },
+      searchController: _searchController,
+      searchHint: l.searchByPoHint,
+      onSearchChanged: (v) => ref.read(purchaseOrdersProvider.notifier).setSearchQuery(v),
+      filters: [
+        SizedBox(
+          width: 140,
+          height: density.buttonHeight,
+          child: SearchableDropdownField<int?>(
+            value: state.projectFilter,
+            labelText: '',
+            decoration: InputDecoration(
+              hintText: l.filterByProject,
+              hintStyle: TextStyle(fontSize: density.buttonFontSize - 1),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              filled: true,
+              fillColor: isDark ? AppTheme.darkInputBackground : Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+              ),
+            ),
+            items: [
+              SearchableDropdownItem<int?>(value: null, label: l.allProjects),
+              ...projectsList.map((p) => SearchableDropdownItem<int?>(
+                    value: p.projectId,
+                    label: '${p.projectCode} - ${p.projectName}',
+                  )),
+            ],
+            onChanged: (v) => ref.read(purchaseOrdersProvider.notifier).setProjectFilter(v),
+          ),
+        ),
+        SizedBox(
+          width: 120,
+          height: density.buttonHeight,
+          child: SearchableDropdownField<String?>(
+            value: state.statusFilter,
+            labelText: '',
+            decoration: InputDecoration(
+              hintText: l.filterByStatus,
+              hintStyle: TextStyle(fontSize: density.buttonFontSize - 1),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              filled: true,
+              fillColor: isDark ? AppTheme.darkInputBackground : Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+              ),
+            ),
+            items: [
+              SearchableDropdownItem<String?>(value: null, label: l.allStatuses),
+              SearchableDropdownItem<String?>(value: 'Draft', label: l.statusDraft),
+              SearchableDropdownItem<String?>(value: 'Approved', label: l.statusPoApproved),
+              SearchableDropdownItem<String?>(value: 'In Transit', label: l.statusInTransit),
+              SearchableDropdownItem<String?>(value: 'Closed', label: l.statusClosed),
+            ],
+            onChanged: (v) => ref.read(purchaseOrdersProvider.notifier).setStatusFilter(v),
+          ),
+        ),
+      ],
+      quickDataActions: [
+        IconButton(
+          icon: Icon(Icons.refresh, color: AppTheme.wcagCobalt, size: density.buttonIconSize + 2),
+          tooltip: l.liveReload,
+          padding: EdgeInsets.zero,
+          constraints: BoxConstraints(minWidth: density.buttonHeight, minHeight: density.buttonHeight),
+          onPressed: () => ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildErrorView(AppLocalizations l, String errorMessage) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: AppTheme.crimson),
+            const SizedBox(height: 12),
+            Text(errorMessage, style: const TextStyle(color: AppTheme.crimson)),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () => ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders(),
+              child: Text(l.retry),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyView(AppLocalizations l) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.inventory_2_outlined, size: 56, color: Colors.grey),
+            const SizedBox(height: 12),
+            Text(l.noDataFound, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+          ],
         ),
       ),
     );
@@ -351,6 +590,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
   Widget _buildPOTable(BuildContext context, List<PurchaseOrderModel> orders) {
     final l = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final density = ref.watch(displayDensityProvider);
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     final Map<int, ImportFileModel> filesById = {};
@@ -360,40 +600,145 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       filesByCode[f.importFileCode] = f;
     }
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 1200),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: DataTable(
-              headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.charcoal),
-              headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-              dataRowMaxHeight: 52,
-              columns: [
-                DataColumn(label: Text(l.poReferenceCol)),
-                DataColumn(label: Text(l.invoiceDateCol)),
-                DataColumn(label: Text(l.importFileCol)),
-                DataColumn(label: Text(l.piNumberCol)),
-                DataColumn(label: Text(l.projectsAndCostCenters)),
-                DataColumn(label: Text(l.importingCompany)),
-                DataColumn(label: Text(l.foreignSupplier)),
-                DataColumn(label: Text(l.totalFobMetric)),
-                DataColumn(label: Text(l.cbmAndGrossWeightCol)),
-                DataColumn(label: Text(l.lifecycleBoard)),
-                DataColumn(label: Text(l.actionsCol)),
-              ],
+    final tableScrollbarTheme = ScrollbarThemeData(
+      thumbColor: WidgetStateProperty.all(
+        isDark ? AppTheme.wcagCobalt.withOpacity(0.8) : AppTheme.charcoal.withOpacity(0.6),
+      ),
+      trackColor: WidgetStateProperty.all(
+        isDark ? AppTheme.darkBorder.withOpacity(0.4) : Colors.grey.shade300,
+      ),
+      trackBorderColor: WidgetStateProperty.all(Colors.transparent),
+      thickness: WidgetStateProperty.all(10.0),
+      radius: const Radius.circular(5),
+    );
 
-              rows: orders.map((po) {
+    // Fixed column widths for 1:1 pixel-perfect alignment between sticky header and scrolling body
+    const double colActionsWidth = 230.0;
+    const double colPoRefWidth = 170.0;
+    const double colInvoiceDateWidth = 110.0;
+    const double colImportFileWidth = 180.0;
+    const double colPiNumberWidth = 140.0;
+    const double colProjectsWidth = 180.0;
+    const double colCompanyWidth = 180.0;
+    const double colSupplierWidth = 190.0;
+    const double colTotalFobWidth = 150.0;
+    const double colCbmWeightWidth = 170.0;
+    const double colLifecycleWidth = 120.0;
+
+    const double tableTotalWidth = colActionsWidth +
+        colPoRefWidth +
+        colInvoiceDateWidth +
+        colImportFileWidth +
+        colPiNumberWidth +
+        colProjectsWidth +
+        colCompanyWidth +
+        colSupplierWidth +
+        colTotalFobWidth +
+        colCbmWeightWidth +
+        colLifecycleWidth +
+        (18.0 * 10) +
+        32.0;
+
+    final headerColumns = [
+      DataColumn(label: SizedBox(width: colActionsWidth, child: Text(l.actionsCol, style: const TextStyle(fontWeight: FontWeight.bold)))),
+      DataColumn(label: SizedBox(width: colPoRefWidth, child: Text(l.poReferenceCol, style: const TextStyle(fontWeight: FontWeight.bold)))),
+      DataColumn(label: SizedBox(width: colInvoiceDateWidth, child: Text(l.invoiceDateCol, style: const TextStyle(fontWeight: FontWeight.bold)))),
+      DataColumn(label: SizedBox(width: colImportFileWidth, child: Text(l.importFileCol, style: const TextStyle(fontWeight: FontWeight.bold)))),
+      DataColumn(label: SizedBox(width: colPiNumberWidth, child: Text(l.piNumberCol, style: const TextStyle(fontWeight: FontWeight.bold)))),
+      DataColumn(label: SizedBox(width: colProjectsWidth, child: Text(l.projectsAndCostCenters, style: const TextStyle(fontWeight: FontWeight.bold)))),
+      DataColumn(label: SizedBox(width: colCompanyWidth, child: Text(l.importingCompany, style: const TextStyle(fontWeight: FontWeight.bold)))),
+      DataColumn(label: SizedBox(width: colSupplierWidth, child: Text(l.foreignSupplier, style: const TextStyle(fontWeight: FontWeight.bold)))),
+      DataColumn(label: SizedBox(width: colTotalFobWidth, child: Text(l.totalFobMetric, style: const TextStyle(fontWeight: FontWeight.bold)))),
+      DataColumn(label: SizedBox(width: colCbmWeightWidth, child: Text(l.cbmAndGrossWeightCol, style: const TextStyle(fontWeight: FontWeight.bold)))),
+      DataColumn(label: SizedBox(width: colLifecycleWidth, child: Text(l.lifecycleBoard, style: const TextStyle(fontWeight: FontWeight.bold)))),
+    ];
+
+    final dummyBodyColumns = [
+      const DataColumn(label: SizedBox(width: colActionsWidth)),
+      const DataColumn(label: SizedBox(width: colPoRefWidth)),
+      const DataColumn(label: SizedBox(width: colInvoiceDateWidth)),
+      const DataColumn(label: SizedBox(width: colImportFileWidth)),
+      const DataColumn(label: SizedBox(width: colPiNumberWidth)),
+      const DataColumn(label: SizedBox(width: colProjectsWidth)),
+      const DataColumn(label: SizedBox(width: colCompanyWidth)),
+      const DataColumn(label: SizedBox(width: colSupplierWidth)),
+      const DataColumn(label: SizedBox(width: colTotalFobWidth)),
+      const DataColumn(label: SizedBox(width: colCbmWeightWidth)),
+      const DataColumn(label: SizedBox(width: colLifecycleWidth)),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, tableConstraints) {
+        return ScrollbarTheme(
+          data: tableScrollbarTheme,
+          child: Scrollbar(
+            controller: _horizontalTableScrollController,
+            thumbVisibility: true,
+            trackVisibility: true,
+            child: SingleChildScrollView(
+              controller: _horizontalTableScrollController,
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: tableTotalWidth + 72, // 72px clearance buffer for floating widgets
+                height: tableConstraints.maxHeight,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── 1. Sticky Header Row (Pinned at Top) ──────────────
+                    Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkSurface : AppTheme.charcoal,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(isDark ? 0.35 : 0.08),
+                            offset: const Offset(0, 2),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                      child: DataTable(
+                        columnSpacing: 18,
+                        horizontalMargin: 16,
+                        headingRowHeight: density.headerHeight,
+                        dataRowMinHeight: 0,
+                        dataRowMaxHeight: 0,
+                        headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.charcoal),
+                        headingTextStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: density.tableHeaderFontSize),
+                        columns: headerColumns,
+                        rows: const [],
+                      ),
+                    ),
+
+                    // ── 2. Dedicated Scrollable Table Body ──────────────
+                    Expanded(
+                      child: ScrollbarTheme(
+                        data: tableScrollbarTheme,
+                        child: Scrollbar(
+                          controller: _verticalTableScrollController,
+                          thumbVisibility: true,
+                          trackVisibility: true,
+                          child: SingleChildScrollView(
+                            controller: _verticalTableScrollController,
+                            scrollDirection: Axis.vertical,
+                            child: DataTable(
+                              columnSpacing: 18,
+                              horizontalMargin: 16,
+                              headingRowHeight: 0,
+                              dataRowMinHeight: density.rowHeight,
+                              dataRowMaxHeight: density.rowHeight + 4,
+                              dataTextStyle: TextStyle(
+                                fontSize: density.tableCellPrimaryFontSize,
+                                color: isDark ? AppTheme.darkTextPrimary : Colors.black87,
+                              ),
+                              columns: dummyBodyColumns,
+                              rows: orders.map((po) {
                 final statusColor = po.status == 'Approved'
-                    ? AppTheme.emerald
+                    ? AppTheme.wcagEmerald
                     : po.status == 'In Transit'
-                        ? AppTheme.cobalt
+                        ? AppTheme.wcagCobalt
                         : po.status == 'Closed'
-                            ? Colors.grey
-                            : AppTheme.orange;
+                            ? (isDark ? const Color(0xFF64748B) : Colors.grey.shade600)
+                            : AppTheme.wcagOrange;
 
                 final invoiceDateStr = po.orderDate != null
                     ? '${po.orderDate!.year}-${po.orderDate!.month.toString().padLeft(2, '0')}-${po.orderDate!.day.toString().padLeft(2, '0')}'
@@ -426,37 +771,155 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                   onSelectChanged: (_) => _showPODetailsDialog(context, po),
                   cells: [
                     DataCell(
-                      CopyableTableCell(
-                        value: po.displayName,
-                        rowSummary: rowSummary,
-                        child: InkWell(
-                          onTap: () => _showPODetailsDialog(context, po),
+                      SizedBox(
+                        width: colActionsWidth,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (po.poId != null)
+                              IconButton(
+                                icon: const Icon(Icons.account_balance_wallet_outlined, color: AppTheme.cobalt, size: 20),
+                                tooltip: l.poBalanceLedgerTooltip,
+                                onPressed: () => showPOBalanceLedgerDialog(
+                                  context,
+                                  ref,
+                                  poId: po.poId!,
+                                  poCode: po.poNumber,
+                                ),
+                              ),
+                            RowActionsPill(
+                              onView: () => _showPODetailsDialog(context, po),
+                              onEdit: () => _showPODialog(context, po),
+                              onClone: () => _showCloneDialog(po),
+                              cloneTooltip: l.cloneRowTooltip,
+                              onPrint: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(l.printPoAndPackingList(po.displayName, po.poNumber)),
+                                    backgroundColor: AppTheme.charcoal,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              },
+                              onDelete: () async {
+                                final isActive = po.isActive;
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: Text(l.confirmActionTitle),
+                                    content: Text(isActive
+                                        ? l.confirmDeactivatePo(po.displayName)
+                                        : l.confirmRestorePo(po.displayName)),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.cancel)),
+                                      ElevatedButton(
+                                        onPressed: () => Navigator.pop(ctx, true),
+                                        style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.cobalt),
+                                        child: Text(isActive ? l.deactivateBtn : l.restore, style: const TextStyle(color: Colors.white)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm == true) {
+                                  if (po.isActive) {
+                                    await ref.read(purchaseOrdersProvider.notifier).deletePurchaseOrder(po.poId!);
+                                  } else {
+                                    await ref.read(purchaseOrdersProvider.notifier).restorePurchaseOrder(po.poId!);
+                                  }
+                                }
+                              },
+                              deleteTooltip: po.isActive ? l.deactivatePoTooltip : l.restorePoTooltip,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      SizedBox(
+                        width: colPoRefWidth,
+                        child: CopyableTableCell(
+                          value: po.displayName,
+                          rowSummary: rowSummary,
+                          child: InkWell(
+                            onTap: () => _showPODetailsDialog(context, po),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        po.displayName,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.cobalt,
+                                          fontSize: density.tableCellPrimaryFontSize,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Icon(Icons.open_in_new, size: 14, color: AppTheme.cobalt),
+                                  ],
+                                ),
+                                if (po.poReference != null && po.poReference!.isNotEmpty && po.poReference != po.poNumber)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      po.poNumber,
+                                      style: TextStyle(fontSize: density.tableCellSecondaryFontSize, color: Colors.blueGrey.shade700, fontWeight: FontWeight.w500),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      SizedBox(
+                        width: colInvoiceDateWidth,
+                        child: CopyableTableCell(
+                          value: invoiceDateStr,
+                          rowSummary: rowSummary,
+                          child: Text(invoiceDateStr, style: TextStyle(fontWeight: FontWeight.w600, fontSize: density.tableCellPrimaryFontSize)),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      SizedBox(
+                        width: colImportFileWidth,
+                        child: CopyableTableCell(
+                          value: fileName,
+                          rowSummary: rowSummary,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    po.displayName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.cobalt,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.open_in_new, size: 14, color: AppTheme.cobalt),
-                                ],
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.cobalt.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                ),
+                                child: Text(
+                                  fileName,
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: density.tableCellPrimaryFontSize),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              if (po.poReference != null && po.poReference!.isNotEmpty && po.poReference != po.poNumber)
+                              if (fileCode.isNotEmpty && fileCode != fileName)
                                 Padding(
-                                  padding: const EdgeInsets.only(top: 2),
+                                  padding: const EdgeInsets.only(top: 2, right: 4, left: 4),
                                   child: Text(
-                                    po.poNumber,
-                                    style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade700, fontWeight: FontWeight.w500),
-                                    maxLines: 1,
+                                    fileCode,
+                                    style: TextStyle(fontSize: density.tableCellSecondaryFontSize, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -466,193 +929,127 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                       ),
                     ),
                     DataCell(
-                      CopyableTableCell(
-                        value: invoiceDateStr,
-                        rowSummary: rowSummary,
-                        child: Text(invoiceDateStr, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                      ),
-                    ),
-                    DataCell(
-                      CopyableTableCell(
-                        value: fileName,
-                        rowSummary: rowSummary,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: AppTheme.cobalt.withOpacity(0.08),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                              ),
-                              child: Text(
-                                fileName,
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12),
-                              ),
-                            ),
-                            if (fileCode.isNotEmpty && fileCode != fileName)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2, right: 4, left: 4),
-                                child: Text(
-                                  fileCode,
-                                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
-                                ),
-                              ),
-                          ],
+                      SizedBox(
+                        width: colPiNumberWidth,
+                        child: CopyableTableCell(
+                          value: po.proformaInvoiceNumber ?? '-',
+                          rowSummary: rowSummary,
+                          child: Text(po.proformaInvoiceNumber ?? '-', overflow: TextOverflow.ellipsis),
                         ),
                       ),
                     ),
                     DataCell(
-                      CopyableTableCell(
-                        value: po.proformaInvoiceNumber ?? '-',
-                        rowSummary: rowSummary,
-                        child: Text(po.proformaInvoiceNumber ?? '-'),
-                      ),
-                    ),
-                    DataCell(
-                      CopyableTableCell(
-                        value: po.projectName ?? 'PRJ-#${po.projectId}',
-                        rowSummary: rowSummary,
-                        child: Text(po.projectName ?? 'PRJ-#${po.projectId}'),
-                      ),
-                    ),
-                    DataCell(
-                      CopyableTableCell(
-                        value: po.companyName ?? 'COMP-#${po.companyId}',
-                        rowSummary: rowSummary,
-                        child: Text(po.companyName ?? 'COMP-#${po.companyId}'),
-                      ),
-                    ),
-                    DataCell(
-                      CopyableTableCell(
-                        value: po.supplierName ?? 'SUP-#${po.supplierId}',
-                        rowSummary: rowSummary,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(po.supplierName ?? 'SUP-#${po.supplierId}'),
-                            if (po.countryOfOrigin != null && po.countryOfOrigin!.isNotEmpty)
-                              Container(
-                                margin: const EdgeInsets.only(top: 2),
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade50,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: Colors.blue.shade200),
-                                ),
-                                child: Text(
-                                  po.countryOfOrigin!,
-                                  style: TextStyle(fontSize: 10, color: Colors.blue.shade800, fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                          ],
+                      SizedBox(
+                        width: colProjectsWidth,
+                        child: CopyableTableCell(
+                          value: po.projectName ?? 'PRJ-#${po.projectId}',
+                          rowSummary: rowSummary,
+                          child: Text(po.projectName ?? 'PRJ-#${po.projectId}', overflow: TextOverflow.ellipsis),
                         ),
                       ),
                     ),
                     DataCell(
-                      CopyableTableCell(
-                        value: amountStr,
-                        rowSummary: rowSummary,
-                        child: Text(
-                          amountStr,
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                      SizedBox(
+                        width: colCompanyWidth,
+                        child: CopyableTableCell(
+                          value: po.companyName ?? 'COMP-#${po.companyId}',
+                          rowSummary: rowSummary,
+                          child: Text(po.companyName ?? 'COMP-#${po.companyId}', overflow: TextOverflow.ellipsis),
                         ),
                       ),
                     ),
                     DataCell(
-                      CopyableTableCell(
-                        value: cbmWeightStr,
-                        rowSummary: rowSummary,
-                        child: Text(cbmWeightStr),
-                      ),
-                    ),
-                    DataCell(
-                      CopyableTableCell(
-                        value: localizedStatus,
-                        rowSummary: rowSummary,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: statusColor),
+                      SizedBox(
+                        width: colSupplierWidth,
+                        child: CopyableTableCell(
+                          value: po.supplierName ?? 'SUP-#${po.supplierId}',
+                          rowSummary: rowSummary,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(po.supplierName ?? 'SUP-#${po.supplierId}', overflow: TextOverflow.ellipsis),
+                              if (po.countryOfOrigin != null && po.countryOfOrigin!.isNotEmpty)
+                                Container(
+                                  margin: const EdgeInsets.only(top: 2),
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: Colors.blue.shade200),
+                                  ),
+                                  child: Text(
+                                    po.countryOfOrigin!,
+                                    style: TextStyle(fontSize: density.tableCellSecondaryFontSize, color: Colors.blue.shade800, fontWeight: FontWeight.w600),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                            ],
                           ),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      SizedBox(
+                        width: colTotalFobWidth,
+                        child: CopyableTableCell(
+                          value: amountStr,
+                          rowSummary: rowSummary,
                           child: Text(
-                            localizedStatus,
-                            style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11),
+                            amountStr,
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.tableCellPrimaryFontSize, color: isDark ? AppTheme.wcagEmerald : Colors.green.shade800),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),
                     ),
                     DataCell(
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (po.poId != null)
-                            IconButton(
-                              icon: const Icon(Icons.account_balance_wallet_outlined, color: AppTheme.cobalt, size: 20),
-                              tooltip: l.poBalanceLedgerTooltip,
-                              onPressed: () => showPOBalanceLedgerDialog(
-                                context,
-                                ref,
-                                poId: po.poId!,
-                                poCode: po.poNumber,
-                              ),
+                      SizedBox(
+                        width: colCbmWeightWidth,
+                        child: CopyableTableCell(
+                          value: cbmWeightStr,
+                          rowSummary: rowSummary,
+                          child: Text(cbmWeightStr, overflow: TextOverflow.ellipsis),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      SizedBox(
+                        width: colLifecycleWidth,
+                        child: CopyableTableCell(
+                          value: localizedStatus,
+                          rowSummary: rowSummary,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: statusColor.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: statusColor),
                             ),
-                          RowActionsPill(
-                            onView: () => _showPODetailsDialog(context, po),
-                            onEdit: () => _showPODialog(context, po),
-                            onPrint: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(l.printPoAndPackingList(po.displayName, po.poNumber)),
-                                  backgroundColor: AppTheme.charcoal,
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                            },
-                            onDelete: () async {
-                              final isActive = po.isActive;
-                              final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: Text(l.confirmActionTitle),
-                                  content: Text(isActive
-                                      ? l.confirmDeactivatePo(po.displayName)
-                                      : l.confirmRestorePo(po.displayName)),
-                                  actions: [
-                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.cancel)),
-                                    ElevatedButton(
-                                      onPressed: () => Navigator.pop(ctx, true),
-                                      style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                      child: Text(isActive ? l.deactivateBtn : l.restore, style: const TextStyle(color: Colors.white)),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (confirm == true) {
-                                if (po.isActive) {
-                                  await ref.read(purchaseOrdersProvider.notifier).deletePurchaseOrder(po.poId!);
-                                } else {
-                                  await ref.read(purchaseOrdersProvider.notifier).restorePurchaseOrder(po.poId!);
-                                }
-                              }
-                            },
-                            deleteTooltip: po.isActive ? l.deactivatePoTooltip : l.restorePoTooltip,
+                            child: Text(
+                              localizedStatus,
+                              style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: density.tableCellSecondaryFontSize),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ],
                 );
               }).toList(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -716,7 +1113,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
         final isDark = Theme.of(dialogCtx).brightness == Brightness.dark;
         return SelectionArea(
           child: DefaultTabController(
-            length: 2,
+            length: 3,
             child: AlertDialog(
             backgroundColor: isDark ? AppTheme.darkSurface : null,
             title: Row(
@@ -724,14 +1121,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                 const Icon(Icons.inventory_2, color: AppTheme.cobalt),
                 const SizedBox(width: 8),
                 Text(
-                  '${l.purchaseOrdersTitle}: ${po.displayName} (${po.poNumber})',
+                  '${l.purchaseOrdersTitle}: ${po.displayName}',
                   style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ],
             ),
             content: SizedBox(
-              width: 850,
-              height: 550,
+              width: math.min(1180.0, MediaQuery.of(dialogCtx).size.width - 32),
+              height: math.min(780.0, MediaQuery.of(dialogCtx).size.height - 48),
               child: Column(
                 children: [
                   Container(
@@ -743,6 +1140,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                       tabs: [
                         Tab(icon: const Icon(Icons.receipt_long, size: 18), text: l.poLineItemsTab),
                         Tab(icon: const Icon(Icons.fact_check, size: 18), text: l.reviewPackingListTab),
+                        Tab(icon: const Icon(Icons.view_in_ar_rounded, size: 18), text: l.containerLoadPlan3dTitle),
                       ],
                     ),
                   ),
@@ -827,122 +1225,166 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 const SizedBox(height: 16),
                                 Text(l.poLineItemsBreakdown, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                                 const SizedBox(height: 6),
-                                Table(
-                                  border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                                  columnWidths: const {
-                                    0: FlexColumnWidth(1.0),
-                                    1: FlexColumnWidth(1.8),
-                                    2: FlexColumnWidth(2.6),
-                                    3: FlexColumnWidth(1.1),
-                                    4: FlexColumnWidth(1.1),
-                                    5: FlexColumnWidth(1.1),
-                                    6: FlexColumnWidth(1.3),
-                                  },
-                                  children: [
-                                    TableRow(
-                                      decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
-                                      children: [
-                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.itemCode, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.mainDescription, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.descriptionAndHsCode, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyUom, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.unitPrice, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.lineTotal, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.volumeCbmPackingList, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                      ],
-                                    ),
-                                    ...po.items.map(
-                                      (item) {
-                                        double itemCbm = item.totalCbm;
-                                        if (po.packingListItems.isNotEmpty) {
-                                          final matchingPl = po.packingListItems.firstWhere(
-                                            (pl) => (item.itemCode != null && pl.itemCode == item.itemCode) || (item.hsCode != null && pl.hsCode == item.hsCode),
-                                            orElse: () => PackingListItemModel(hsCode: '', itemCode: ''),
-                                          );
-                                          if (matchingPl.itemCode.isNotEmpty) {
-                                            itemCbm = matchingPl.totalCbm > 0 ? matchingPl.totalCbm : matchingPl.calculatedCbm;
-                                          } else if (po.totalAmountFob > 0) {
-                                            itemCbm = (item.totalPrice / po.totalAmountFob) * effectivePackingListCbm;
+                                SelectionArea(
+                                  child: Table(
+                                    border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                    columnWidths: const {
+                                      0: FlexColumnWidth(1.0),
+                                      1: FlexColumnWidth(1.8),
+                                      2: FlexColumnWidth(2.6),
+                                      3: FlexColumnWidth(1.1),
+                                      4: FlexColumnWidth(1.1),
+                                      5: FlexColumnWidth(1.1),
+                                      6: FlexColumnWidth(1.3),
+                                      7: FixedColumnWidth(44),
+                                    },
+                                    children: [
+                                      TableRow(
+                                        decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
+                                        children: [
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(l.itemCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(l.mainDescription, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(l.descriptionAndHsCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyUom, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(l.unitPrice, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(l.lineTotal, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(l.volumeCbmPackingList, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                          const Padding(
+                                            padding: EdgeInsets.all(6),
+                                            child: Center(
+                                              child: Icon(Icons.copy_rounded, size: 14, color: AppTheme.cobalt),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      ...po.items.map(
+                                        (item) {
+                                          double itemCbm = item.totalCbm;
+                                          if (po.packingListItems.isNotEmpty) {
+                                            final matchingPl = po.packingListItems.firstWhere(
+                                              (pl) => (item.itemCode != null && pl.itemCode == item.itemCode) || (item.hsCode != null && pl.hsCode == item.hsCode),
+                                              orElse: () => PackingListItemModel(hsCode: '', itemCode: ''),
+                                            );
+                                            if (matchingPl.itemCode.isNotEmpty) {
+                                              itemCbm = matchingPl.totalCbm > 0 ? matchingPl.totalCbm : matchingPl.calculatedCbm;
+                                            } else if (po.totalAmountFob > 0) {
+                                              itemCbm = (item.totalPrice / po.totalAmountFob) * effectivePackingListCbm;
+                                            }
                                           }
-                                        }
 
-                                        final itemHs = item.hsCode ?? (item.tariffId != null && tariffs.any((t) => t.tariffId == item.tariffId) ? tariffs.firstWhere((t) => t.tariffId == item.tariffId).hsCode : null);
-                                        final isMismatched = itemHs != null && itemHs.isNotEmpty && mismatchedHsCodes.contains(itemHs);
+                                          final itemHs = item.hsCode ?? (item.tariffId != null && tariffs.any((t) => t.tariffId == item.tariffId) ? tariffs.firstWhere((t) => t.tariffId == item.tariffId).hsCode : null);
+                                          final isMismatched = itemHs != null && itemHs.isNotEmpty && mismatchedHsCodes.contains(itemHs);
 
-                                        return TableRow(
-                                          decoration: isMismatched ? BoxDecoration(color: Colors.red.shade50.withOpacity(0.3)) : null,
-                                          children: [
-                                            Padding(padding: const EdgeInsets.all(6), child: Text(item.itemCode ?? '-')),
-                                            Padding(
-                                              padding: const EdgeInsets.all(6),
-                                              child: Text(
-                                                item.mainDescription?.isNotEmpty == true ? item.mainDescription! : '-',
-                                                style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                          return TableRow(
+                                            decoration: isMismatched ? BoxDecoration(color: Colors.red.shade50.withOpacity(0.3)) : null,
+                                            children: [
+                                              Padding(padding: const EdgeInsets.all(6), child: Text(item.itemCode ?? '-')),
+                                              Padding(
+                                                padding: const EdgeInsets.all(6),
+                                                child: Text(
+                                                  item.mainDescription?.isNotEmpty == true ? item.mainDescription! : '-',
+                                                  style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                                ),
                                               ),
-                                            ),
-                                            Padding(
-                                              padding: const EdgeInsets.all(6),
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(item.descriptionAr, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                                  if (item.countryOfOrigin != null && item.countryOfOrigin!.isNotEmpty)
-                                                    Padding(
-                                                      padding: const EdgeInsets.only(top: 2),
-                                                      child: Text(l.itemOriginLabel(item.countryOfOrigin!), style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
-                                                    ),
-                                                  if (itemHs != null && itemHs.isNotEmpty)
-                                                    Padding(
-                                                      padding: const EdgeInsets.only(top: 4),
-                                                      child: isMismatched
-                                                          ? Container(
-                                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                              decoration: BoxDecoration(
-                                                                color: Colors.red.shade50,
-                                                                borderRadius: BorderRadius.circular(4),
-                                                                border: Border.all(color: Colors.red.shade400, width: 1.2),
+                                              Padding(
+                                                padding: const EdgeInsets.all(6),
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(item.descriptionAr, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                                    if (item.countryOfOrigin != null && item.countryOfOrigin!.isNotEmpty)
+                                                      Padding(
+                                                        padding: const EdgeInsets.only(top: 2),
+                                                        child: Text(l.itemOriginLabel(item.countryOfOrigin!), style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                                                      ),
+                                                    if (itemHs != null && itemHs.isNotEmpty)
+                                                      Padding(
+                                                        padding: const EdgeInsets.only(top: 4),
+                                                        child: isMismatched
+                                                            ? Container(
+                                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                                decoration: BoxDecoration(
+                                                                  color: Colors.red.shade50,
+                                                                  borderRadius: BorderRadius.circular(4),
+                                                                  border: Border.all(color: Colors.red.shade400, width: 1.2),
+                                                                ),
+                                                                child: Wrap(
+                                                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                                                  spacing: 4,
+                                                                  children: [
+                                                                    const Icon(Icons.warning_amber_rounded, size: 12, color: Colors.red),
+                                                                    Text(
+                                                                      l.hsMismatchWarning('${item.dutyRate ?? 0}%', '${item.vatRate ?? 0}%'),
+                                                                      style: TextStyle(color: Colors.red.shade900, fontSize: 11, fontWeight: FontWeight.bold),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              )
+                                                            : Text(
+                                                                'HS: $itemHs (${l.fieldImportDuty}: ${item.dutyRate ?? 0}% / ${l.fieldVatAmount}: ${item.vatRate ?? 0}%)',
+                                                                style: const TextStyle(color: AppTheme.cobalt, fontSize: 11),
                                                               ),
-                                                              child: Wrap(
-                                                                crossAxisAlignment: WrapCrossAlignment.center,
-                                                                spacing: 4,
-                                                                children: [
-                                                                  const Icon(Icons.warning_amber_rounded, size: 12, color: Colors.red),
-                                                                  Text(
-                                                                    l.hsMismatchWarning('${item.dutyRate ?? 0}%', '${item.vatRate ?? 0}%'),
-                                                                    style: TextStyle(color: Colors.red.shade900, fontSize: 10, fontWeight: FontWeight.bold),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            )
-                                                          : Text(
-                                                              'HS: $itemHs (${l.fieldImportDuty}: ${item.dutyRate ?? 0}% / ${l.fieldVatAmount}: ${item.vatRate ?? 0}%)',
-                                                              style: const TextStyle(color: AppTheme.cobalt, fontSize: 11),
-                                                            ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
+                                              Padding(padding: const EdgeInsets.all(6), child: Text('${item.quantity} ${item.unitOfMeasure}')),
+                                              Padding(padding: const EdgeInsets.all(6), child: Text('${po.currencyCode ?? "USD"} ${item.unitPrice.toStringAsFixed(2)}')),
+                                              Padding(
+                                                padding: const EdgeInsets.all(6),
+                                                child: Text(
+                                                  '${po.currencyCode ?? "USD"} ${item.totalPrice.toStringAsFixed(2)}',
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                                                ),
+                                              ),
+                                              Padding(
+                                                padding: const EdgeInsets.all(6),
+                                                child: Text(
+                                                  '${itemCbm.toStringAsFixed(3)} m³',
+                                                  style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                                                ),
+                                              ),
+                                              Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                                                child: Center(
+                                                  child: IconButton(
+                                                    icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 16),
+                                                    tooltip: isArabic ? 'نسخ السطر لإكسيل (TSV)' : 'Copy row for Excel (TSV)',
+                                                    visualDensity: VisualDensity.compact,
+                                                    onPressed: () => TableCopyHelper.copyRow(
+                                                      dialogCtx,
+                                                      [
+                                                        item.itemCode ?? '-',
+                                                        item.mainDescription ?? '-',
+                                                        item.descriptionAr,
+                                                        itemHs ?? '-',
+                                                        item.quantity,
+                                                        item.unitOfMeasure,
+                                                        item.unitPrice,
+                                                        item.totalPrice,
+                                                        itemCbm,
+                                                      ],
+                                                      headers: [
+                                                        'Item Code',
+                                                        'Main Description',
+                                                        'Description',
+                                                        'HS Code',
+                                                        'Quantity',
+                                                        'Unit',
+                                                        'Unit Price',
+                                                        'Total Price',
+                                                        'Volume CBM',
+                                                      ],
                                                     ),
-                                                ],
+                                                  ),
+                                                ),
                                               ),
-                                            ),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text('${item.quantity} ${item.unitOfMeasure}')),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text('${po.currencyCode ?? "USD"} ${item.unitPrice.toStringAsFixed(2)}')),
-                                            Padding(
-                                              padding: const EdgeInsets.all(6),
-                                              child: Text(
-                                                '${po.currencyCode ?? "USD"} ${item.totalPrice.toStringAsFixed(2)}',
-                                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
-                                              ),
-                                            ),
-                                            Padding(
-                                              padding: const EdgeInsets.all(6),
-                                              child: Text(
-                                                '${itemCbm.toStringAsFixed(3)} m³',
-                                                style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
-                                              ),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    ),
-                                  ],
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             );
@@ -1080,6 +1522,46 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 ),
                               ),
 
+                            if (po.packingListItems.isNotEmpty && po.palletPlanItems.isEmpty) ...[
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.view_in_ar_rounded, color: Colors.orange, size: 20),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        isArabic
+                                            ? 'محاكاة ورص الحاويات 3D متاحة لـ ${po.packingListItems.length} صنف (${po.packingListItems.fold<int>(0, (s, p) => s + (p.qtyPkg > 0 ? p.qtyPkg.toInt() : 1))} طرد)'
+                                            : '3D Container Load Simulation available for ${po.packingListItems.length} items (${po.packingListItems.fold<int>(0, (s, p) => s + (p.qtyPkg > 0 ? p.qtyPkg.toInt() : 1))} pkgs)',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                      ),
+                                    ),
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.orange.shade700,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      ),
+                                      icon: const Icon(Icons.view_in_ar_rounded, size: 15),
+                                      label: Text(
+                                        l.containerLoadPlan3dTitle,
+                                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                      ),
+                                      onPressed: () => _showVisualLoadPlannerDialog(context, po),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+
                             if (po.palletPlanItems.isNotEmpty) ...[
                               Container(
                                 padding: const EdgeInsets.all(12),
@@ -1173,7 +1655,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                 padding: const EdgeInsets.all(6),
                                                 child: Text(
                                                   pal.isStackable ? l.stackableOption : l.nonStackableOption,
-                                                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: pal.isStackable ? (isDark ? Colors.greenAccent : Colors.green.shade800) : Colors.orange.shade700),
+                                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: pal.isStackable ? (isDark ? Colors.greenAccent : Colors.green.shade800) : Colors.orange.shade700),
                                                 ),
                                               ),
                                             ],
@@ -1195,136 +1677,187 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 child: Text(l.noPackingEntriesYetDesc, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
                               )
                             else
-                              Table(
+                              SelectionArea(
+                                child: Table(
+                                  border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                  columnWidths: const {
+                                    0: FlexColumnWidth(1.6),
+                                    1: FlexColumnWidth(1.1),
+                                    2: FlexColumnWidth(1.6),
+                                    3: FlexColumnWidth(0.9),
+                                    4: FlexColumnWidth(0.9),
+                                    5: FlexColumnWidth(0.9),
+                                    6: FlexColumnWidth(1.3),
+                                    7: FlexColumnWidth(1.0),
+                                    8: FlexColumnWidth(1.0),
+                                    9: FlexColumnWidth(1.0),
+                                    10: FixedColumnWidth(44),
+                                  },
+                                  children: [
+                                    TableRow(
+                                      decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
+                                      children: [
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.hsCode, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.itemCode, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.mainDescription, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPcsCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPkgCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.packageTypeCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.dimensionsCmCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.netWeightCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.grossWeightCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmVolumeMetric, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                        Padding(
+                                          padding: const EdgeInsets.all(4),
+                                          child: Center(
+                                            child: Icon(Icons.copy_rounded, size: 14, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    ...po.packingListItems.map(
+                                      (p) {
+                                        final isMismatched = reconciliation.items.any((r) => r.hsCode == p.hsCode && !r.isMatched);
+                                        return TableRow(
+                                          decoration: isMismatched ? BoxDecoration(color: isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50.withOpacity(0.35)) : null,
+                                          children: [
+                                            Padding(
+                                              padding: const EdgeInsets.all(6),
+                                              child: isMismatched
+                                                  ? Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: isDark ? const Color(0xFF3B151E) : Colors.red.shade50,
+                                                        borderRadius: BorderRadius.circular(4),
+                                                        border: Border.all(color: Colors.red.shade400, width: 1.1),
+                                                      ),
+                                                      child: Wrap(
+                                                        crossAxisAlignment: WrapCrossAlignment.center,
+                                                        spacing: 2,
+                                                        children: [
+                                                          const Icon(Icons.warning_amber_rounded, size: 11, color: Colors.red),
+                                                          Text(
+                                                            p.hsCode.isNotEmpty ? p.hsCode : 'None',
+                                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.redAccent : Colors.red.shade900),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    )
+                                                  : Text(p.hsCode, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                            ),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(p.itemCode, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(p.mainDescription ?? p.description ?? '-', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPcs}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPkg}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(p.packageType, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(p.lengthCm > 0 ? '${p.lengthCm}x${p.widthCm}x${p.heightCm}' : 'N/A', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(((p.netWeightUnitKg > 0 && p.qtyPkg > 0) ? (p.qtyPkg * p.netWeightUnitKg) : p.totalNetWeightKg).toStringAsFixed(1), style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(((p.grossWeightUnitKg > 0 && p.qtyPkg > 0) ? (p.qtyPkg * p.grossWeightUnitKg) : p.totalGrossWeightKg).toStringAsFixed(1), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text('${(p.calculatedCbm > 0 ? p.calculatedCbm : p.totalCbm).toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
+                                            Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                                              child: Center(
+                                                child: IconButton(
+                                                  icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 16),
+                                                  tooltip: isArabic ? 'نسخ السطر لإكسيل (TSV)' : 'Copy row for Excel (TSV)',
+                                                  visualDensity: VisualDensity.compact,
+                                                  onPressed: () => TableCopyHelper.copyRow(
+                                                    dialogCtx,
+                                                    [
+                                                      p.hsCode,
+                                                      p.itemCode,
+                                                      p.mainDescription ?? p.description ?? '-',
+                                                      p.qtyPcs,
+                                                      p.qtyPkg,
+                                                      p.packageType,
+                                                      p.lengthCm > 0 ? '${p.lengthCm}x${p.widthCm}x${p.heightCm}' : 'N/A',
+                                                      ((p.netWeightUnitKg > 0 && p.qtyPkg > 0) ? (p.qtyPkg * p.netWeightUnitKg) : p.totalNetWeightKg),
+                                                      ((p.grossWeightUnitKg > 0 && p.qtyPkg > 0) ? (p.qtyPkg * p.grossWeightUnitKg) : p.totalGrossWeightKg),
+                                                      (p.calculatedCbm > 0 ? p.calculatedCbm : p.totalCbm),
+                                                    ],
+                                                    headers: [
+                                                      'HS Code',
+                                                      'Item Code',
+                                                      'Description',
+                                                      'Qty (Pcs)',
+                                                      'Qty (Pkg)',
+                                                      'Package Type',
+                                                      'Dimensions (cm)',
+                                                      'Net Weight (kg)',
+                                                      'Gross Weight (kg)',
+                                                      'CBM (m³)',
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                            const SizedBox(height: 20),
+                            Text('📊 ${l.summaryByHsCodeReport}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                            const SizedBox(height: 6),
+                            SelectionArea(
+                              child: Table(
                                 border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                                columnWidths: const {
-                                  0: FlexColumnWidth(1.6),
-                                  1: FlexColumnWidth(1.1),
-                                  2: FlexColumnWidth(1.6),
-                                  3: FlexColumnWidth(0.9),
-                                  4: FlexColumnWidth(0.9),
-                                  5: FlexColumnWidth(0.9),
-                                  6: FlexColumnWidth(1.3),
-                                  7: FlexColumnWidth(1.0),
-                                  8: FlexColumnWidth(1.0),
-                                  9: FlexColumnWidth(1.0),
-                                },
                                 children: [
                                   TableRow(
                                     decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
                                     children: [
                                       Padding(padding: const EdgeInsets.all(6), child: Text(l.hsCode, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.itemCode, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.mainDescription, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                                       Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPcsCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                                       Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPkgCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.packageTypeCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.dimensionsCmCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.netWeightCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.grossWeightCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmVolumeMetric, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.totalNetWeightCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.totalGrossWeightCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.totalCargoCbmMetric, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                                     ],
                                   ),
-                                  ...po.packingListItems.map(
-                                    (p) {
-                                      final isMismatched = reconciliation.items.any((r) => r.hsCode == p.hsCode && !r.isMatched);
+                                  ...hsSummaryMap.values.map(
+                                    (summary) {
+                                      final summaryHs = '${summary['hs_code']}';
+                                      final isMismatched = reconciliation.items.any((r) => r.hsCode == summaryHs && !r.isMatched);
                                       return TableRow(
                                         decoration: isMismatched ? BoxDecoration(color: isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50.withOpacity(0.35)) : null,
                                         children: [
                                           Padding(
                                             padding: const EdgeInsets.all(6),
                                             child: isMismatched
-                                                ? Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                    decoration: BoxDecoration(
-                                                      color: isDark ? const Color(0xFF3B151E) : Colors.red.shade50,
-                                                      borderRadius: BorderRadius.circular(4),
-                                                      border: Border.all(color: Colors.red.shade400, width: 1.1),
-                                                    ),
-                                                    child: Wrap(
-                                                      crossAxisAlignment: WrapCrossAlignment.center,
-                                                      spacing: 2,
-                                                      children: [
-                                                        const Icon(Icons.warning_amber_rounded, size: 11, color: Colors.red),
-                                                        Text(
-                                                          p.hsCode.isNotEmpty ? p.hsCode : 'None',
-                                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? Colors.redAccent : Colors.red.shade900),
-                                                        ),
-                                                      ],
-                                                    ),
+                                                ? Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(Icons.warning_amber_rounded, size: 12, color: Colors.red),
+                                                      const SizedBox(width: 3),
+                                                      Text(
+                                                        summaryHs,
+                                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.redAccent : Colors.red.shade900),
+                                                      ),
+                                                    ],
                                                   )
-                                                : Text(p.hsCode, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                                : Text(summaryHs, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                           ),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(p.itemCode, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(p.mainDescription ?? p.description ?? '-', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPcs}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPkg}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(p.packageType, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(p.lengthCm > 0 ? '${p.lengthCm}x${p.widthCm}x${p.heightCm}' : 'N/A', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(((p.netWeightUnitKg > 0 && p.qtyPkg > 0) ? (p.qtyPkg * p.netWeightUnitKg) : p.totalNetWeightKg).toStringAsFixed(1), style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(((p.grossWeightUnitKg > 0 && p.qtyPkg > 0) ? (p.qtyPkg * p.grossWeightUnitKg) : p.totalGrossWeightKg).toStringAsFixed(1), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text('${(p.calculatedCbm > 0 ? p.calculatedCbm : p.totalCbm).toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${summary['qty_pcs']}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${summary['qty_pkg']}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_net'] as double).toStringAsFixed(1)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_gross'] as double).toStringAsFixed(1)} kg', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_cbm'] as double).toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
                                         ],
                                       );
                                     },
                                   ),
                                 ],
                               ),
-
-                            const SizedBox(height: 20),
-                            Text('📊 ${l.summaryByHsCodeReport}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
-                            const SizedBox(height: 6),
-                            Table(
-                              border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                              children: [
-                                TableRow(
-                                  decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
-                                  children: [
-                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.hsCode, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPcsCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPkgCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.totalNetWeightCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.totalGrossWeightCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.totalCargoCbmMetric, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                  ],
-                                ),
-                                ...hsSummaryMap.values.map(
-                                  (summary) {
-                                    final summaryHs = '${summary['hs_code']}';
-                                    final isMismatched = reconciliation.items.any((r) => r.hsCode == summaryHs && !r.isMatched);
-                                    return TableRow(
-                                      decoration: isMismatched ? BoxDecoration(color: isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50.withOpacity(0.35)) : null,
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.all(6),
-                                          child: isMismatched
-                                              ? Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    const Icon(Icons.warning_amber_rounded, size: 12, color: Colors.red),
-                                                    const SizedBox(width: 3),
-                                                    Text(
-                                                      summaryHs,
-                                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.redAccent : Colors.red.shade900),
-                                                    ),
-                                                  ],
-                                                )
-                                              : Text(summaryHs, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                                        ),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text('${summary['qty_pcs']}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text('${summary['qty_pkg']}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_net'] as double).toStringAsFixed(1)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_gross'] as double).toStringAsFixed(1)} kg', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_cbm'] as double).toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
-                                      ],
-                                    );
-                                  },
-                                ),
-                              ],
                             ),
                           ],
                         ),
                       ),
+
+                      // Tab 3: 3D Container Load Planner & Simulation
+                      _buildPo3dLoadPlannerTab(dialogCtx, po, isDark, isArabic, l),
                     ],
                   ),
                 ),
@@ -1332,6 +1865,46 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
             ),
           ),
           actions: [
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange.shade800,
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.view_in_ar_rounded, size: 16),
+              label: Text(
+                l.containerLoadPlan3dTitle,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onPressed: () => _showVisualLoadPlannerDialog(context, po),
+            ),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.emerald,
+                side: const BorderSide(color: AppTheme.emerald),
+              ),
+              icon: const Icon(Icons.table_chart, size: 16),
+              label: Text(
+                isArabic ? 'تصدير إكسيل' : 'Export Excel',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onPressed: () {
+                _exportPoToExcel(dialogCtx, po, isArabic);
+              },
+            ),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.crimson,
+                side: const BorderSide(color: AppTheme.crimson),
+              ),
+              icon: const Icon(Icons.picture_as_pdf, size: 16),
+              label: Text(
+                isArabic ? 'تصدير PDF' : 'Export PDF',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onPressed: () {
+                _exportPoToPdf(dialogCtx, po, isArabic);
+              },
+            ),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.cobalt,
@@ -1373,7 +1946,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
   void _copyPoDetailsToClipboard(BuildContext context, PurchaseOrderModel po, bool isArabic) {
     final buffer = StringBuffer();
     buffer.writeln(isArabic ? '=== بيانات أمر الشراء / الفاتورة المبدئية ===' : '=== Purchase Order / Proforma Invoice Details ===');
-    buffer.writeln('${isArabic ? "رقم أمر الشراء" : "PO Number"}: ${po.poNumber}');
+    buffer.writeln('${isArabic ? "اسم / مرجع أمر الشراء" : "PO Reference / Name"}: ${po.displayName}');
+    if (po.displayName != po.poNumber) {
+      buffer.writeln('${isArabic ? "الرقم الداخلي للنظام" : "Internal PO Code"}: ${po.poNumber}');
+    }
     if (po.proformaInvoiceNumber != null && po.proformaInvoiceNumber!.isNotEmpty) {
       buffer.writeln('${isArabic ? "رقم الفاتورة المبدئية" : "Proforma Invoice"}: ${po.proformaInvoiceNumber}');
     }
@@ -1399,6 +1975,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     buffer.writeln('${isArabic ? "إجمالي القيمة" : "Total Amount"}: ${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}');
     buffer.writeln('${isArabic ? "إجمالي الحجم CBM" : "Total CBM"}: ${po.totalCbm.toStringAsFixed(3)} m³');
     buffer.writeln('${isArabic ? "الوزن القائم / الصافي" : "Gross / Net Weight"}: ${po.totalGrossWeightKg.toStringAsFixed(1)} kg / ${po.totalNetWeightKg.toStringAsFixed(1)} kg');
+    buffer.writeln('${isArabic ? "عدد الطرود" : "Total Packages"}: ${po.totalPackagesCount} ${po.packingListItems.isNotEmpty ? po.packingListItems.first.packageType : "Carton"}');
+    buffer.writeln('${isArabic ? "الحالة" : "Status"}: ${po.status}');
+    if (po.notes != null && po.notes!.isNotEmpty) {
+      buffer.writeln('${isArabic ? "ملاحظات" : "Notes"}: ${po.notes}');
+    }
     buffer.writeln();
 
     buffer.writeln(isArabic ? '--- بنود أمر الشراء والأكواد الجمركية ---' : '--- PO Line Items & HS Codes ---');
@@ -1425,21 +2006,102 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     }
 
     Clipboard.setData(ClipboardData(text: buffer.toString()));
-    final l = context.l10n;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 8),
-            Text(
-              l.copyAllPoDataSuccess,
-            ),
-          ],
-        ),
-        backgroundColor: Colors.green.shade700,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
+        content: Text(isArabic ? 'تم نسخ كافة بيانات أمر الشراء للحافظة بنجاح ✅' : 'PO details copied to clipboard ✅'),
+        backgroundColor: AppTheme.emerald,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _exportPoToExcel(BuildContext context, PurchaseOrderModel po, bool isArabic) async {
+    final headers = [
+      isArabic ? 'كود الصنف' : 'Item Code',
+      isArabic ? 'الوصف' : 'Description',
+      isArabic ? 'بند التعريفة' : 'HS Code',
+      isArabic ? 'الكمية' : 'Qty',
+      isArabic ? 'الوحدة' : 'Unit',
+      isArabic ? 'سعر الوحدة' : 'Unit Price',
+      isArabic ? 'الإجمالي' : 'Total',
+      isArabic ? 'CBM' : 'CBM',
+    ];
+
+    final rows = po.items.map((item) {
+      final itemCbm = item.totalCbm > 0 ? item.totalCbm : (item.cbmPerUnit * item.quantity);
+      return [
+        item.itemCode ?? '-',
+        item.mainDescription ?? item.descriptionAr,
+        item.hsCode ?? '-',
+        '${item.quantity}',
+        item.unitOfMeasure,
+        '${po.currencyCode ?? "USD"} ${item.unitPrice.toStringAsFixed(2)}',
+        '${po.currencyCode ?? "USD"} ${item.totalPrice.toStringAsFixed(2)}',
+        itemCbm.toStringAsFixed(3),
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToExcel(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isArabic ? 'أمر شراء' : 'Purchase Order',
+      importFileNameOrCode: po.displayName,
+    );
+  }
+
+  Future<void> _exportPoToPdf(BuildContext context, PurchaseOrderModel po, bool isArabic) async {
+    final headers = [
+      isArabic ? 'كود الصنف' : 'Item Code',
+      isArabic ? 'الوصف' : 'Description',
+      isArabic ? 'بند التعريفة' : 'HS Code',
+      isArabic ? 'الكمية' : 'Qty',
+      isArabic ? 'الوحدة' : 'Unit',
+      isArabic ? 'سعر الوحدة' : 'Unit Price',
+      isArabic ? 'الإجمالي' : 'Total',
+      isArabic ? 'CBM' : 'CBM',
+    ];
+
+    final rows = po.items.map((item) {
+      final itemCbm = item.totalCbm > 0 ? item.totalCbm : (item.cbmPerUnit * item.quantity);
+      return [
+        item.itemCode ?? '-',
+        item.mainDescription ?? item.descriptionAr,
+        item.hsCode ?? '-',
+        '${item.quantity}',
+        item.unitOfMeasure,
+        '${po.currencyCode ?? "USD"} ${item.unitPrice.toStringAsFixed(2)}',
+        '${po.currencyCode ?? "USD"} ${item.totalPrice.toStringAsFixed(2)}',
+        itemCbm.toStringAsFixed(3),
+      ];
+    }).toList();
+
+    final metadata = <String, String>{
+      isArabic ? 'اسم / مرجع أمر الشراء' : 'PO Reference / Name': po.displayName,
+      if (po.displayName != po.poNumber)
+        isArabic ? 'الرقم الداخلي' : 'Internal PO Code': po.poNumber,
+      if (po.proformaInvoiceNumber != null && po.proformaInvoiceNumber!.isNotEmpty)
+        isArabic ? 'الفاتورة المبدئية' : 'Proforma Invoice': po.proformaInvoiceNumber!,
+      if (po.companyName != null && po.companyName!.isNotEmpty)
+        isArabic ? 'الشركة المستوردة' : 'Importing Company': po.companyName!,
+      if (po.supplierName != null && po.supplierName!.isNotEmpty)
+        isArabic ? 'المورد الأجنبي' : 'Supplier': po.supplierName!,
+      if (po.incotermCode != null && po.incotermCode!.isNotEmpty)
+        isArabic ? 'الشرط التجاري' : 'Incoterms': po.incotermCode!,
+      isArabic ? 'إجمالي القيمة' : 'Total Amount': '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}',
+      isArabic ? 'إجمالي CBM' : 'Total CBM': '${po.totalCbm.toStringAsFixed(3)} m³',
+    };
+
+    await TableExportService.exportTableToPdf(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isArabic ? 'أمر شراء' : 'Purchase Order',
+      importFileNameOrCode: po.displayName,
+      headerContext: TableExportHeaderContext(
+        title: isArabic ? 'بيان بنود أمر الشراء' : 'Purchase Order Items Specification',
+        subtitle: 'Sorour Logistics ERP — ${po.displayName}',
+        metadata: metadata,
       ),
     );
   }
@@ -1459,7 +2121,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     );
   }
 
-  void _showVisualLoadPlannerDialog(BuildContext context, PurchaseOrderModel po) {
+  List<CargoItem> _extractCargoItemsFromPo(PurchaseOrderModel po) {
     final hasPalletPlan = po.palletPlanItems.isNotEmpty && po.palletPlanItems.any((p) => p.palletCount > 0);
     final hasSinglePallet = po.palletCount > 0 && po.palletLengthCm > 0 && po.palletWidthCm > 0 && po.palletHeightCm > 0;
     List<CargoItem> cargoItems = [];
@@ -1536,6 +2198,566 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
         }
       }
     }
+    return cargoItems;
+  }
+
+  Widget _buildPo3dLoadPlannerTab(
+    BuildContext context,
+    PurchaseOrderModel po,
+    bool isDark,
+    bool isArabic,
+    AppLocalizations l,
+  ) {
+    final cargoItems = _extractCargoItemsFromPo(po);
+
+    if (cargoItems.isEmpty) {
+      return Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.view_in_ar_rounded, size: 48, color: Colors.orange),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                isArabic ? 'لا توجد بيانات تعبئة أو بالتات متاحة للمحاكاة' : 'No packing list or pallet data available for simulation',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isArabic
+                    ? 'يرجى استكمال بنود بيان التعبئة أو البالتات في أمر الشراء لتشغيل مخطط ومحاكاة رص الحاويات 3D'
+                    : 'Please add packing list or pallet items in the purchase order to run 3D container packing simulation.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.cobalt,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                ),
+                icon: const Icon(Icons.edit, size: 16),
+                label: Text(
+                  isArabic ? 'تعديل أمر الشراء وإضافة بيان التعبئة' : 'Edit PO & Add Packing List',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showPODialog(context, po);
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    String viewProjection = 'both';
+    bool showDetailedCoordinates = false;
+    bool? activeStackingMode = cargoItems.any((i) => !i.isStackable) ? null : true;
+    CargoOrientationPreference activeOrientationMode = CargoOrientationPreference.smartHybrid;
+
+    return StatefulBuilder(
+      builder: (ctx, setTabState) {
+        final plan = ContainerRequirementEngine.planShipment(
+          cargoItems,
+          forceStackable: activeStackingMode,
+          forceOrientation: activeOrientationMode,
+        );
+
+        final totalPkgs = cargoItems.length;
+        final stackableInActive = activeStackingMode == true
+            ? totalPkgs
+            : (activeStackingMode == false ? 0 : cargoItems.where((c) => c.isStackable).length);
+        final nonStackableInActive = totalPkgs - stackableInActive;
+
+        final totalPlanWeight = plan.fold(0.0, (s, p) => s + p.totalWeight);
+        final totalPlanVolume = plan.fold(0.0, (s, p) => s + p.totalVolume);
+
+        final Map<String, int> containerCounts = {};
+        for (final p in plan) {
+          if (p.containerCode != 'FAILED') {
+            containerCounts[p.containerCode] = (containerCounts[p.containerCode] ?? 0) + 1;
+          }
+        }
+        final fleetSummary = containerCounts.isEmpty
+            ? (isArabic ? 'لا توجد حاويات مناسبة' : 'No suitable containers')
+            : containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Controls & Stacking Filter Row (Responsive Wrap)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                ),
+                child: Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          '🔄 ${l.stackingSimulationModeLabel}:',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                        ),
+                        ChoiceChip(
+                          label: Text('✨ ${l.smartHybridOption}'),
+                          selected: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode == true,
+                          selectedColor: AppTheme.emerald,
+                          labelStyle: TextStyle(
+                            color: (activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode == true) ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                          onSelected: (val) {
+                            if (val) {
+                              setTabState(() {
+                                activeOrientationMode = CargoOrientationPreference.smartHybrid;
+                                activeStackingMode = true;
+                              });
+                            }
+                          },
+                        ),
+                        ChoiceChip(
+                          label: Text('📐 ${l.flatOnlyOption}'),
+                          selected: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode == true,
+                          selectedColor: AppTheme.cobalt,
+                          labelStyle: TextStyle(
+                            color: (activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode == true) ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                          onSelected: (val) {
+                            if (val) {
+                              setTabState(() {
+                                activeOrientationMode = CargoOrientationPreference.flatOnly;
+                                activeStackingMode = true;
+                              });
+                            }
+                          },
+                        ),
+                        ChoiceChip(
+                          label: Text('🚫 ${l.simulationModeFloorOnly}'),
+                          selected: activeStackingMode == false,
+                          selectedColor: Colors.orange.shade800,
+                          labelStyle: TextStyle(
+                            color: activeStackingMode == false ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                          onSelected: (val) {
+                            if (val) {
+                              setTabState(() {
+                                activeStackingMode = false;
+                              });
+                            }
+                          },
+                        ),
+                        ChoiceChip(
+                          label: Text('🔀 ${l.simulationModeActualMixed}'),
+                          selected: activeStackingMode == null,
+                          selectedColor: AppTheme.charcoal,
+                          labelStyle: TextStyle(
+                            color: activeStackingMode == null ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                          onSelected: (val) {
+                            if (val) {
+                              setTabState(() {
+                                activeStackingMode = null;
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          '👁️ ${l.projectionLabel}:',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                        ),
+                        ChoiceChip(
+                          label: const Text('🖼️ كلاهما (Both Views)'),
+                          selected: viewProjection == 'both',
+                          selectedColor: AppTheme.cobalt,
+                          labelStyle: TextStyle(
+                            color: viewProjection == 'both' ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                          onSelected: (val) {
+                            if (val) setTabState(() => viewProjection = 'both');
+                          },
+                        ),
+                        ChoiceChip(
+                          label: Text('📐 ${l.sideViewProjection}'),
+                          selected: viewProjection == 'side',
+                          selectedColor: AppTheme.cobalt,
+                          labelStyle: TextStyle(
+                            color: viewProjection == 'side' ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                          onSelected: (val) {
+                            if (val) setTabState(() => viewProjection = 'side');
+                          },
+                        ),
+                        ChoiceChip(
+                          label: Text('🔝 ${l.topViewProjection}'),
+                          selected: viewProjection == 'top',
+                          selectedColor: AppTheme.cobalt,
+                          labelStyle: TextStyle(
+                            color: viewProjection == 'top' ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                          onSelected: (val) {
+                            if (val) setTabState(() => viewProjection = 'top');
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Fleet KPI Summary Banner
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.charcoal.withOpacity(0.12)),
+                ),
+                child: Wrap(
+                  spacing: 24,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.spaceAround,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.directions_boat_rounded, color: AppTheme.cobalt, size: 20),
+                        const SizedBox(width: 6),
+                        Text(l.requiredContainersSummary(fleetSummary), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.inventory_2_outlined, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal, size: 18),
+                        const SizedBox(width: 6),
+                        Text(l.totalPackagesSummary(totalPkgs, stackableInActive, nonStackableInActive), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : null)),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.scale_outlined, color: AppTheme.emerald, size: 18),
+                        const SizedBox(width: 6),
+                        Text(l.totalWeightSummary(totalPlanWeight.toStringAsFixed(1)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.view_in_ar, color: AppTheme.orange, size: 18),
+                        const SizedBox(width: 6),
+                        Text(l.totalVolumeSummary(totalPlanVolume.toStringAsFixed(3)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.orange)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Plan Containers List
+              ...plan.asMap().entries.map((pEntry) {
+                final pIdx = pEntry.key;
+                final res = pEntry.value;
+                if (res.containerCode == 'FAILED') {
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF381414) : Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: isDark ? Colors.red.shade700 : Colors.red.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline_rounded, color: AppTheme.crimson, size: 28),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            res.failureReason ?? l.packingFailureTitle,
+                            style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final spacePct = (res.totalVolume / res.spec.internalVolumeCbm * 100);
+                final weightPct = (res.totalWeight / res.spec.maxPayloadKg * 100);
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  elevation: 2,
+                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                l.containerCardHeader(pIdx + 1, res.spec.code, res.placedItems.length, spacePct.toStringAsFixed(1), weightPct.toStringAsFixed(1)),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cobalt.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                l.internalDimensionsLabel(res.spec.internalLength.toStringAsFixed(0), res.spec.internalWidth.toStringAsFixed(0), res.spec.internalHeight.toStringAsFixed(0)),
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        if (viewProjection == 'both') ...[
+                          // Side View (Left Wall Removed)
+                          Container(
+                            height: 190,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade900,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: CustomPaint(
+                              painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          // Top View (Roof Removed)
+                          Container(
+                            height: 150,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade900,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: CustomPaint(
+                              painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
+                            ),
+                          ),
+                        ] else ...[
+                          Container(
+                            height: 320,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade900,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: CustomPaint(
+                              painter: ContainerLoadPlanPainter(plan: res, isTopView: viewProjection == 'top'),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 10),
+
+                        // Placed Items Details Table (Aggregated by Item Rule)
+                        Theme(
+                          data: Theme.of(ctx).copyWith(dividerColor: Colors.transparent),
+                          child: ExpansionTile(
+                            initiallyExpanded: true,
+                            tilePadding: EdgeInsets.zero,
+                            title: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  showDetailedCoordinates
+                                      ? (isArabic ? '📐 تفاصيل الرص الإحداثي (${res.placedItems.length} طرد)' : '📐 Detailed Placement Coordinates (${res.placedItems.length} pkgs)')
+                                      : (isArabic ? '📊 الأصناف المرصوصة مجمعة (${res.groupedItems.length} صنف | إجمالي ${res.placedItems.length} طرد)' : '📊 Grouped Items (${res.groupedItems.length} items | Total ${res.placedItems.length} pkgs)'),
+                                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                ),
+                                OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    foregroundColor: AppTheme.cobalt,
+                                    side: const BorderSide(color: AppTheme.cobalt),
+                                  ),
+                                  icon: Icon(showDetailedCoordinates ? Icons.table_chart_outlined : Icons.format_list_numbered, size: 14),
+                                  label: Text(
+                                    showDetailedCoordinates ? (isArabic ? 'عرض مجمع حسب الأصناف' : 'Group by Items') : (isArabic ? 'عرض تفصيلي بالإحداثيات' : 'Detailed Coordinates'),
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                  onPressed: () => setTabState(() => showDetailedCoordinates = !showDetailedCoordinates),
+                                ),
+                              ],
+                            ),
+                            children: [
+                              if (!showDetailedCoordinates)
+                                Table(
+                                  border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                  columnWidths: const {
+                                    0: FlexColumnWidth(0.6),
+                                    1: FlexColumnWidth(2.5),
+                                    2: FlexColumnWidth(1.2),
+                                    3: FlexColumnWidth(1.6),
+                                    4: FlexColumnWidth(1.2),
+                                    5: FlexColumnWidth(1.8),
+                                    6: FlexColumnWidth(1.2),
+                                    7: FlexColumnWidth(1.2),
+                                  },
+                                  children: [
+                                    TableRow(
+                                      decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.grey.shade200),
+                                      children: [
+                                        const Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الصنف / البند' : 'Item / Code', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'نوع الطرد' : 'Pkg Type', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الأبعاد (سم)' : 'Dims (cm)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'العدد' : 'Qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'إجمالي الوزن' : 'Gross Wt', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الحجم' : 'CBM', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الرص' : 'Stack', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                      ],
+                                    ),
+                                    ...res.groupedItems.asMap().entries.map((entry) {
+                                      final idx = entry.key + 1;
+                                      final g = entry.value;
+                                      return TableRow(
+                                        children: [
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('$idx', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(g.itemCodeOrDesc, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(g.packageType, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${g.length.toStringAsFixed(0)} × ${g.width.toStringAsFixed(0)} × ${g.height.toStringAsFixed(0)}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
+                                          Padding(
+                                            padding: const EdgeInsets.all(6),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.cobalt.withOpacity(0.12),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text('${g.count}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt), textAlign: TextAlign.center),
+                                            ),
+                                          ),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${g.totalWeight.toStringAsFixed(1)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${g.volumeM3.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(g.isStackable ? (isArabic ? '📦 نعم' : 'Yes') : (isArabic ? '🚫 أرضي' : 'Floor'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: g.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
+                                        ],
+                                      );
+                                    }),
+                                  ],
+                                )
+                              else
+                                Table(
+                                  border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                  columnWidths: const {
+                                    0: FlexColumnWidth(0.8),
+                                    1: FlexColumnWidth(2.2),
+                                    2: FlexColumnWidth(1.8),
+                                    3: FlexColumnWidth(1.2),
+                                    4: FlexColumnWidth(2.0),
+                                    5: FlexColumnWidth(1.2),
+                                  },
+                                  children: [
+                                    TableRow(
+                                      decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.grey.shade200),
+                                      children: [
+                                        const Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.thPackageCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.thDimensions, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.thWeight, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.thCoordinates, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.thStacking, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                      ],
+                                    ),
+                                    ...res.placedItems.asMap().entries.map((entry) {
+                                      final idx = entry.key + 1;
+                                      final item = entry.value;
+                                      return TableRow(
+                                        children: [
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('$idx', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(item.item.description ?? item.item.itemId, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${item.length.toStringAsFixed(0)} × ${item.width.toStringAsFixed(0)} × ${item.height.toStringAsFixed(0)}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(item.item.weight.toStringAsFixed(1), style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('X: ${item.x.toStringAsFixed(0)} | Y: ${item.y.toStringAsFixed(0)} | Z: ${item.z.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, fontFamily: 'monospace'), textAlign: TextAlign.center)),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(item.item.isStackable ? (isArabic ? '📦 نعم' : 'Yes') : (isArabic ? '🚫 أرضي' : 'Floor'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: item.item.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
+                                        ],
+                                      );
+                                    }),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showVisualLoadPlannerDialog(BuildContext context, PurchaseOrderModel po) {
+    final cargoItems = _extractCargoItemsFromPo(po);
 
     if (cargoItems.isEmpty) {
       final l = context.l10n;
@@ -1545,20 +2767,30 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       return;
     }
 
+    String viewProjection = 'both';
+    bool showDetailedCoordinates = false;
     bool? activeStackingMode = cargoItems.any((i) => !i.isStackable) ? null : true;
-    bool isTopView = true;
+    CargoOrientationPreference activeOrientationMode = CargoOrientationPreference.smartHybrid;
 
     showDialog(
       context: context,
       builder: (dialogCtx) {
         final l = dialogCtx.l10n;
+        final isArabic = Localizations.localeOf(dialogCtx).languageCode == 'ar';
         final isDark = Theme.of(dialogCtx).brightness == Brightness.dark;
         return StatefulBuilder(
           builder: (context, setDialogState) {
             final plan = ContainerRequirementEngine.planShipment(
               cargoItems,
               forceStackable: activeStackingMode,
+              forceOrientation: activeOrientationMode,
             );
+
+            final totalPkgs = cargoItems.length;
+            final stackableInActive = activeStackingMode == true
+                ? totalPkgs
+                : (activeStackingMode == false ? 0 : cargoItems.where((c) => c.isStackable).length);
+            final nonStackableInActive = totalPkgs - stackableInActive;
 
             final totalPlanWeight = plan.fold(0.0, (s, p) => s + p.totalWeight);
             final totalPlanVolume = plan.fold(0.0, (s, p) => s + p.totalVolume);
@@ -1577,12 +2809,13 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
               backgroundColor: isDark ? AppTheme.darkSurface : null,
               insetPadding: const EdgeInsets.all(16),
               child: Container(
-                width: 1180,
-                height: 780,
+                width: math.min(1180.0, MediaQuery.of(dialogCtx).size.width - 32),
+                height: math.min(780.0, MediaQuery.of(dialogCtx).size.height - 48),
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Header Bar
                     Row(
                       children: [
                         Container(
@@ -1591,7 +2824,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                             color: AppTheme.cobalt.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.view_in_ar_rounded, color: AppTheme.cobalt, size: 22),
+                          child: const Icon(Icons.view_in_ar_rounded, color: AppTheme.cobalt, size: 24),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -1609,15 +2842,6 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                             ],
                           ),
                         ),
-                        SegmentedButton<bool>(
-                          segments: [
-                            ButtonSegment<bool>(value: true, label: Text(l.topView)),
-                            ButtonSegment<bool>(value: false, label: Text(l.sideView)),
-                          ],
-                          selected: {isTopView},
-                          onSelectionChanged: (set) => setDialogState(() => isTopView = set.first),
-                        ),
-                        const SizedBox(width: 8),
                         IconButton(
                           icon: const Icon(Icons.close),
                           onPressed: () => Navigator.pop(dialogCtx),
@@ -1625,56 +2849,464 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                       ],
                     ),
                     const SizedBox(height: 10),
-                    Expanded(
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: plan.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 16),
-                        itemBuilder: (context, idx) {
-                          final cResult = plan[idx];
-                          return Container(
-                            width: 540,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(l.containerIndexTitle(idx + 1, cResult.spec.name), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
-                                    const Spacer(),
-                                    Text(l.packagesOrPalletsCount(cResult.placedItems.length), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null)),
-                                  ],
+
+                    // Controls & Stacking Filter Row (Responsive Wrap)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                      ),
+                      child: Wrap(
+                        spacing: 16,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                '🔄 ${l.stackingSimulationModeLabel}:',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                              ),
+                              ChoiceChip(
+                                label: Text('✨ ${l.smartHybridOption}'),
+                                selected: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode == true,
+                                selectedColor: AppTheme.emerald,
+                                labelStyle: TextStyle(
+                                  color: (activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode == true) ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
                                 ),
-                                const SizedBox(height: 6),
-                                Expanded(
-                                   child: CustomPaint(
-                                     size: Size.infinite,
-                                     painter: ContainerLoadPlanPainter(
-                                       plan: cResult,
-                                       isTopView: isTopView,
-                                     ),
-                                   ),
-                                 ),
-                               ],
-                             ),
-                           );
-                         },
-                       ),
-                     ),
-                   ],
-                 ),
-               ),
-             );
-           },
-         );
-       },
-     );
-   }
+                                onSelected: (val) {
+                                  if (val) {
+                                    setDialogState(() {
+                                      activeOrientationMode = CargoOrientationPreference.smartHybrid;
+                                      activeStackingMode = true;
+                                    });
+                                  }
+                                },
+                              ),
+                              ChoiceChip(
+                                label: Text('📐 ${l.flatOnlyOption}'),
+                                selected: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode == true,
+                                selectedColor: AppTheme.cobalt,
+                                labelStyle: TextStyle(
+                                  color: (activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode == true) ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) {
+                                    setDialogState(() {
+                                      activeOrientationMode = CargoOrientationPreference.flatOnly;
+                                      activeStackingMode = true;
+                                    });
+                                  }
+                                },
+                              ),
+                              ChoiceChip(
+                                label: Text('🚫 ${l.simulationModeFloorOnly}'),
+                                selected: activeStackingMode == false,
+                                selectedColor: Colors.orange.shade800,
+                                labelStyle: TextStyle(
+                                  color: activeStackingMode == false ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) {
+                                    setDialogState(() {
+                                      activeStackingMode = false;
+                                    });
+                                  }
+                                },
+                              ),
+                              ChoiceChip(
+                                label: Text('🔀 ${l.simulationModeActualMixed}'),
+                                selected: activeStackingMode == null,
+                                selectedColor: AppTheme.charcoal,
+                                labelStyle: TextStyle(
+                                  color: activeStackingMode == null ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) {
+                                    setDialogState(() {
+                                      activeStackingMode = null;
+                                    });
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                '👁️ ${l.projectionLabel}:',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                              ),
+                              ChoiceChip(
+                                label: const Text('🖼️ كلاهما (Both Views)'),
+                                selected: viewProjection == 'both',
+                                selectedColor: AppTheme.cobalt,
+                                labelStyle: TextStyle(
+                                  color: viewProjection == 'both' ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) setDialogState(() => viewProjection = 'both');
+                                },
+                              ),
+                              ChoiceChip(
+                                label: Text('📐 ${l.sideViewProjection}'),
+                                selected: viewProjection == 'side',
+                                selectedColor: AppTheme.cobalt,
+                                labelStyle: TextStyle(
+                                  color: viewProjection == 'side' ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) setDialogState(() => viewProjection = 'side');
+                                },
+                              ),
+                              ChoiceChip(
+                                label: Text('🔝 ${l.topViewProjection}'),
+                                selected: viewProjection == 'top',
+                                selectedColor: AppTheme.cobalt,
+                                labelStyle: TextStyle(
+                                  color: viewProjection == 'top' ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) setDialogState(() => viewProjection = 'top');
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Fleet KPI Summary Banner
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.charcoal.withOpacity(0.12)),
+                      ),
+                      child: Wrap(
+                        spacing: 24,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.spaceAround,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.directions_boat_rounded, color: AppTheme.cobalt, size: 20),
+                              const SizedBox(width: 6),
+                              Text(l.requiredContainersSummary(fleetSummary), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
+                            ],
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.inventory_2_outlined, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal, size: 18),
+                              const SizedBox(width: 6),
+                              Text(l.totalPackagesSummary(totalPkgs, stackableInActive, nonStackableInActive), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : null)),
+                            ],
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.scale_outlined, color: AppTheme.emerald, size: 18),
+                              const SizedBox(width: 6),
+                              Text(l.totalWeightSummary(totalPlanWeight.toStringAsFixed(1)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                            ],
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.view_in_ar, color: AppTheme.orange, size: 18),
+                              const SizedBox(width: 6),
+                              Text(l.totalVolumeSummary(totalPlanVolume.toStringAsFixed(3)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.orange)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Plan Containers List
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: plan.length,
+                        itemBuilder: (ctx, pIdx) {
+                          final res = plan[pIdx];
+                          if (res.containerCode == 'FAILED') {
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF381414) : Colors.red.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: isDark ? Colors.red.shade700 : Colors.red.shade300),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.error_outline_rounded, color: AppTheme.crimson, size: 28),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      res.failureReason ?? l.packingFailureTitle,
+                                      style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          final spacePct = (res.totalVolume / res.spec.internalVolumeCbm * 100);
+                          final weightPct = (res.totalWeight / res.spec.maxPayloadKg * 100);
+
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            elevation: 2,
+                            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          l.containerCardHeader(pIdx + 1, res.spec.code, res.placedItems.length, spacePct.toStringAsFixed(1), weightPct.toStringAsFixed(1)),
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.cobalt.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          l.internalDimensionsLabel(res.spec.internalLength.toStringAsFixed(0), res.spec.internalWidth.toStringAsFixed(0), res.spec.internalHeight.toStringAsFixed(0)),
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  if (viewProjection == 'both') ...[
+                                    // Side View (Left Wall Removed)
+                                    Container(
+                                      height: 190,
+                                      width: double.infinity,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade900,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: CustomPaint(
+                                        painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    // Top View (Roof Removed)
+                                    Container(
+                                      height: 150,
+                                      width: double.infinity,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade900,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: CustomPaint(
+                                        painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
+                                      ),
+                                    ),
+                                  ] else ...[
+                                    Container(
+                                      height: 320,
+                                      width: double.infinity,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade900,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: CustomPaint(
+                                        painter: ContainerLoadPlanPainter(plan: res, isTopView: viewProjection == 'top'),
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 10),
+
+                                  // Placed Items Details Table (Aggregated by Item Rule)
+                                  Theme(
+                                    data: Theme.of(dialogCtx).copyWith(dividerColor: Colors.transparent),
+                                    child: ExpansionTile(
+                                      initiallyExpanded: true,
+                                      tilePadding: EdgeInsets.zero,
+                                      title: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            showDetailedCoordinates
+                                                ? (isArabic ? '📐 تفاصيل الرص الإحداثي (${res.placedItems.length} طرد)' : '📐 Detailed Placement Coordinates (${res.placedItems.length} pkgs)')
+                                                : (isArabic ? '📊 الأصناف المرصوصة مجمعة (${res.groupedItems.length} صنف | إجمالي ${res.placedItems.length} طرد)' : '📊 Grouped Items (${res.groupedItems.length} items | Total ${res.placedItems.length} pkgs)'),
+                                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                          ),
+                                          OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              visualDensity: VisualDensity.compact,
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                              foregroundColor: AppTheme.cobalt,
+                                              side: const BorderSide(color: AppTheme.cobalt),
+                                            ),
+                                            icon: Icon(showDetailedCoordinates ? Icons.table_chart_outlined : Icons.format_list_numbered, size: 14),
+                                            label: Text(
+                                              showDetailedCoordinates ? (isArabic ? 'عرض مجمع حسب الأصناف' : 'Group by Items') : (isArabic ? 'عرض تفصيلي بالإحداثيات' : 'Detailed Coordinates'),
+                                              style: const TextStyle(fontSize: 11),
+                                            ),
+                                            onPressed: () => setDialogState(() => showDetailedCoordinates = !showDetailedCoordinates),
+                                          ),
+                                        ],
+                                      ),
+                                      children: [
+                                        if (!showDetailedCoordinates)
+                                          Table(
+                                            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                            columnWidths: const {
+                                              0: FlexColumnWidth(0.6),
+                                              1: FlexColumnWidth(2.5),
+                                              2: FlexColumnWidth(1.2),
+                                              3: FlexColumnWidth(1.6),
+                                              4: FlexColumnWidth(1.2),
+                                              5: FlexColumnWidth(1.8),
+                                              6: FlexColumnWidth(1.2),
+                                              7: FlexColumnWidth(1.2),
+                                            },
+                                            children: [
+                                              TableRow(
+                                                decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.grey.shade200),
+                                                children: [
+                                                  const Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الصنف / البند' : 'Item / Code', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'نوع الطرد' : 'Pkg Type', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الأبعاد (سم)' : 'Dims (cm)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'العدد' : 'Qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'إجمالي الوزن' : 'Gross Wt', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الحجم' : 'CBM', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(isArabic ? 'الرص' : 'Stack', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                ],
+                                              ),
+                                              ...res.groupedItems.asMap().entries.map((entry) {
+                                                final idx = entry.key + 1;
+                                                final g = entry.value;
+                                                return TableRow(
+                                                  children: [
+                                                    Padding(padding: const EdgeInsets.all(6), child: Text('$idx', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
+                                                    Padding(padding: const EdgeInsets.all(6), child: Text(g.itemCodeOrDesc, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                                    Padding(padding: const EdgeInsets.all(6), child: Text(g.packageType, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
+                                                    Padding(padding: const EdgeInsets.all(6), child: Text('${g.length.toStringAsFixed(0)} × ${g.width.toStringAsFixed(0)} × ${g.height.toStringAsFixed(0)}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
+                                                    Padding(
+                                                      padding: const EdgeInsets.all(6),
+                                                      child: Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                        decoration: BoxDecoration(
+                                                          color: AppTheme.cobalt.withOpacity(0.12),
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Text('${g.count}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt), textAlign: TextAlign.center),
+                                                      ),
+                                                    ),
+                                                    Padding(padding: const EdgeInsets.all(6), child: Text('${g.totalWeight.toStringAsFixed(1)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
+                                                    Padding(padding: const EdgeInsets.all(6), child: Text('${g.volumeM3.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                                                    Padding(padding: const EdgeInsets.all(6), child: Text(g.isStackable ? (isArabic ? '📦 نعم' : 'Yes') : (isArabic ? '🚫 أرضي' : 'Floor'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: g.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
+                                                  ],
+                                                );
+                                              }),
+                                            ],
+                                          )
+                                        else
+                                          Table(
+                                            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                            columnWidths: const {
+                                              0: FlexColumnWidth(0.8),
+                                              1: FlexColumnWidth(2.2),
+                                              2: FlexColumnWidth(1.8),
+                                              3: FlexColumnWidth(1.2),
+                                              4: FlexColumnWidth(2.0),
+                                              5: FlexColumnWidth(1.2),
+                                            },
+                                            children: [
+                                              TableRow(
+                                                decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.grey.shade200),
+                                                children: [
+                                                  const Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(l.thPackageCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(l.thDimensions, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(l.thWeight, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(l.thCoordinates, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(l.thStacking, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                ],
+                                              ),
+                                              ...res.placedItems.asMap().entries.map((entry) {
+                                                final idx = entry.key + 1;
+                                                final item = entry.value;
+                                                return TableRow(
+                                                  children: [
+                                                    Padding(padding: const EdgeInsets.all(6), child: Text('$idx', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
+                                                    Padding(padding: const EdgeInsets.all(6), child: Text(item.item.description ?? item.item.itemId, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                                    Padding(padding: const EdgeInsets.all(6), child: Text('${item.length.toStringAsFixed(0)} × ${item.width.toStringAsFixed(0)} × ${item.height.toStringAsFixed(0)}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
+                                                    Padding(padding: const EdgeInsets.all(6), child: Text(item.item.weight.toStringAsFixed(1), style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null), textAlign: TextAlign.center)),
+                                                    Padding(padding: const EdgeInsets.all(6), child: Text('X: ${item.x.toStringAsFixed(0)} | Y: ${item.y.toStringAsFixed(0)} | Z: ${item.z.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, fontFamily: 'monospace'), textAlign: TextAlign.center)),
+                                                    Padding(padding: const EdgeInsets.all(6), child: Text(item.item.isStackable ? (isArabic ? '📦 نعم' : 'Yes') : (isArabic ? '🚫 أرضي' : 'Floor'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: item.item.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
+                                                  ],
+                                                );
+                                              }),
+                                            ],
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   void _showPODialog(BuildContext context, PurchaseOrderModel? po, {Map<String, dynamic>? initialExtractedFields}) {
     showDialog(
@@ -1682,8 +3314,537 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       builder: (dialogCtx) => POFormDialog(po: po, initialExtractedFields: initialExtractedFields),
     );
   }
+
+  void _openSearchAndCloneDialog() {
+    final state = ref.read(purchaseOrdersProvider);
+    final locale = ref.read(localeProvider);
+    final textDir = locale.languageCode == 'ar' ? TextDirection.rtl : TextDirection.ltr;
+    showDialog(
+      context: context,
+      builder: (ctx) => AppLocalizationsProvider(
+        locale: locale,
+        child: Directionality(
+          textDirection: textDir,
+          child: _SearchAndClonePODialog(
+            orders: state.purchaseOrders,
+            onSelectPO: (po) {
+              Navigator.of(ctx).pop();
+              _showCloneDialog(po);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCloneDialog(PurchaseOrderModel po) {
+    final l = context.l10n;
+    final isAr = Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar';
+    CloneEntityReviewDialog.show(
+      context,
+      entityType: isAr ? 'أمر شراء' : 'Purchase Order',
+      sourceCode: po.poNumber,
+      suggestedNewCode: '${po.poNumber}-CLONE',
+      sourceTitle: po.displayName,
+      copiedFieldsSummary: {
+        isAr ? 'الشركة المستوردة' : 'Importer': po.companyName ?? '-',
+        isAr ? 'المورد الأجنبي' : 'Supplier': po.supplierName ?? '-',
+        isAr ? 'المشروع' : 'Project': po.projectName ?? '-',
+        isAr ? 'العملة والشرط' : 'Currency / Incoterm': '${po.currencyCode ?? "USD"} (${po.incotermCode ?? "-"})',
+      },
+      mandatorilyResetFields: [
+        l.cloneFieldStatusDraftBadge,
+        l.cloneFieldShipmentUnlinked,
+        l.cloneFieldAllocationsReset,
+        isAr ? 'تصفير تواريخ الشحن والاستلام' : 'Reset delivery and order dates',
+      ],
+      allowCopyLineItems: true,
+      allowCopyAttachments: true,
+      initialCopyLineItems: true,
+      initialCopyAttachments: true,
+      onConfirm: ({
+        required String newCode,
+        required String newTitle,
+        required bool copyLineItems,
+        required bool copyAttachments,
+        String? notes,
+      }) async {
+        try {
+          await ref.read(purchaseOrdersProvider.notifier).clonePurchaseOrder(
+            po.poId!,
+            {
+              'new_po_number': newCode,
+              'new_po_reference': newTitle.isNotEmpty ? newTitle : null,
+              'copy_items': copyLineItems,
+              'copy_packing_list': copyLineItems,
+              'copy_pallet_plan': copyAttachments,
+              if (notes != null) 'notes': notes,
+            },
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(l.clonePoSuccess(newCode)),
+                backgroundColor: AppTheme.emerald,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+            ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(l.clonePoError(e.toString())),
+                backgroundColor: AppTheme.crimson,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        }
+      },
+    );
+  }
+
+  Widget _buildMobilePOCardsList(
+    BuildContext context,
+    List<PurchaseOrderModel> orders, {
+    bool shrinkWrap = false,
+    ScrollPhysics? physics,
+  }) {
+    final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ListView.separated(
+      shrinkWrap: shrinkWrap,
+      physics: physics,
+      padding: const EdgeInsets.all(8),
+      itemCount: orders.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final po = orders[index];
+        final statusColor = po.status == 'Approved'
+            ? AppTheme.wcagEmerald
+            : po.status == 'In Transit'
+                ? AppTheme.wcagCobalt
+                : po.status == 'Closed'
+                    ? (isDark ? const Color(0xFF64748B) : Colors.grey.shade600)
+                    : AppTheme.wcagOrange;
+
+        final invoiceDateStr = po.orderDate != null
+            ? '${po.orderDate!.year}-${po.orderDate!.month.toString().padLeft(2, '0')}-${po.orderDate!.day.toString().padLeft(2, '0')}'
+            : '-';
+        final amountStr = '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}';
+        final cbmWeightStr = '${po.totalCbm.toStringAsFixed(2)} m³ / ${po.totalGrossWeightKg.toStringAsFixed(0)} kg';
+        final localizedStatus = _getStatusLabel(po.status, l);
+
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header: PO Number / Title & Status
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _showPODetailsDialog(context, po),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            po.displayName,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                          if (po.displayName != po.poNumber) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              po.poNumber,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF475569),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: statusColor),
+                    ),
+                    child: Text(
+                      localizedStatus,
+                      style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Details grid
+              Text(
+                '${l.importingCompany}: ${po.companyName ?? "COMP-#${po.companyId}"}',
+                style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${l.foreignSupplier}: ${po.supplierName ?? "SUP-#${po.supplierId}"}${po.countryOfOrigin != null ? " (${po.countryOfOrigin})" : ""}',
+                style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800),
+              ),
+              const SizedBox(height: 2),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${l.totalFobMetric}: $amountStr',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppTheme.wcagEmerald : Colors.green.shade800,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    cbmWeightStr,
+                    style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                  ),
+                ],
+              ),
+              const Divider(height: 16),
+
+              // Bottom Actions Row (Responsive)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${l.invoiceDateCol}: $invoiceDateStr',
+                      style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (po.poId != null)
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: const Icon(Icons.account_balance_wallet_outlined, color: AppTheme.cobalt, size: 18),
+                      tooltip: l.poBalanceLedgerTooltip,
+                      onPressed: () => showPOBalanceLedgerDialog(
+                        context,
+                        ref,
+                        poId: po.poId!,
+                        poCode: po.poNumber,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: RowActionsPill(
+                  onView: () => _showPODetailsDialog(context, po),
+                  onEdit: () => _showPODialog(context, po),
+                  onClone: () => _showCloneDialog(po),
+                  cloneTooltip: l.cloneRowTooltip,
+                  onPrint: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(l.printPoAndPackingList(po.displayName, po.poNumber)),
+                        backgroundColor: AppTheme.charcoal,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  onDelete: () async {
+                    final isActive = po.isActive;
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text(l.confirmActionTitle),
+                        content: Text(isActive
+                            ? l.confirmDeactivatePo(po.displayName)
+                            : l.confirmRestorePo(po.displayName)),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.cancel)),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.cobalt),
+                            child: Text(isActive ? l.deactivateBtn : l.restore, style: const TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      if (po.isActive) {
+                        await ref.read(purchaseOrdersProvider.notifier).deletePurchaseOrder(po.poId!);
+                      } else {
+                        await ref.read(purchaseOrdersProvider.notifier).restorePurchaseOrder(po.poId!);
+                      }
+                    }
+                  },
+                  deleteTooltip: po.isActive ? l.deactivatePoTooltip : l.restorePoTooltip,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 // ==================================================
 // PO & Packing List Reconciliation Helper & Dialog
 // ==================================================
+
+
+// ==================================================
+// Dedicated Search & Clone Dialog for Purchase Orders (UX-CLONE-011)
+// ==================================================
+class _SearchAndClonePODialog extends StatefulWidget {
+  final List<PurchaseOrderModel> orders;
+  final ValueChanged<PurchaseOrderModel> onSelectPO;
+
+  const _SearchAndClonePODialog({
+    required this.orders,
+    required this.onSelectPO,
+  });
+
+  @override
+  State<_SearchAndClonePODialog> createState() => _SearchAndClonePODialogState();
+}
+
+class _SearchAndClonePODialogState extends State<_SearchAndClonePODialog> {
+  final TextEditingController _queryController = TextEditingController();
+  late List<PurchaseOrderModel> _filteredOrders;
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredOrders = widget.orders;
+    _queryController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _queryController.removeListener(_onSearchChanged);
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final query = _queryController.text.trim().toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredOrders = widget.orders;
+      } else {
+        _filteredOrders = widget.orders.where((po) {
+          final num = po.poNumber.toLowerCase();
+          final ref = (po.poReference ?? '').toLowerCase();
+          final pi = (po.proformaInvoiceNumber ?? '').toLowerCase();
+          final comp = (po.companyName ?? '').toLowerCase();
+          final supp = (po.supplierName ?? '').toLowerCase();
+          final prj = (po.projectName ?? '').toLowerCase();
+          return num.contains(query) ||
+              ref.contains(query) ||
+              pi.contains(query) ||
+              comp.contains(query) ||
+              supp.contains(query) ||
+              prj.contains(query);
+        }).toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isAr = Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar';
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+      child: Container(
+        width: math.min(720.0, screenWidth - 32),
+        height: math.min(600.0, screenHeight - 64),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.wcagCobalt.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.control_point_duplicate_rounded, color: AppTheme.wcagCobalt, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l.searchAndClonePoDialogTitle,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        l.searchAndClonePoSubtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Search Bar
+            TextField(
+              controller: _queryController,
+              decoration: InputDecoration(
+                hintText: l.searchByPoOrSupplierOrItemHint,
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _queryController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () => _queryController.clear(),
+                      )
+                    : null,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // List of matching POs
+            Expanded(
+              child: _filteredOrders.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.search_off_rounded, size: 48, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
+                          const SizedBox(height: 8),
+                          Text(
+                            l.noMatchingPosFound,
+                            style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: _filteredOrders.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, idx) {
+                        final po = _filteredOrders[idx];
+                        final amountStr = '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}';
+
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          po.displayName,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
+                                          ),
+                                        ),
+                                        if (po.displayName != po.poNumber) ...[
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            po.poNumber,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${po.companyName ?? "-"} │ ${po.supplierName ?? "-"} │ $amountStr',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.wcagCobalt,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                ),
+                                icon: const Icon(Icons.control_point_duplicate_rounded, size: 16, color: Colors.white),
+                                label: Text(
+                                  isAr ? 'استنساخ' : 'Clone',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                                onPressed: () => widget.onSelectPO(po),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

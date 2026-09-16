@@ -6,7 +6,11 @@ class CourierEntryModel {
   String? dispatchDate;
   bool isReceived;
   String? receivedDate;
+  String? receivedTime;
   String? receivedBy;
+  String? trackingUrl;
+  String? podReference;
+  String status;
   String? notes;
 
   CourierEntryModel({
@@ -15,7 +19,11 @@ class CourierEntryModel {
     this.dispatchDate,
     this.isReceived = false,
     this.receivedDate,
+    this.receivedTime,
     this.receivedBy,
+    this.trackingUrl,
+    this.podReference,
+    this.status = 'DISPATCHED',
     this.notes,
   });
 
@@ -26,7 +34,11 @@ class CourierEntryModel {
       dispatchDate: json['dispatch_date']?.toString(),
       isReceived: json['is_received'] == true,
       receivedDate: json['received_date']?.toString(),
+      receivedTime: json['received_time']?.toString(),
       receivedBy: json['received_by']?.toString(),
+      trackingUrl: json['tracking_url']?.toString(),
+      podReference: json['pod_reference']?.toString(),
+      status: json['status']?.toString() ?? (json['is_received'] == true ? 'DELIVERED' : 'IN_TRANSIT'),
       notes: json['notes']?.toString(),
     );
   }
@@ -38,7 +50,11 @@ class CourierEntryModel {
       'dispatch_date': dispatchDate,
       'is_received': isReceived,
       'received_date': receivedDate,
+      'received_time': receivedTime,
       'received_by': receivedBy,
+      'tracking_url': trackingUrl,
+      'pod_reference': podReference,
+      'status': status,
       'notes': notes,
     };
   }
@@ -49,7 +65,11 @@ class CourierEntryModel {
     String? dispatchDate,
     bool? isReceived,
     String? receivedDate,
+    String? receivedTime,
     String? receivedBy,
+    String? trackingUrl,
+    String? podReference,
+    String? status,
     String? notes,
   }) {
     return CourierEntryModel(
@@ -58,7 +78,11 @@ class CourierEntryModel {
       dispatchDate: dispatchDate ?? this.dispatchDate,
       isReceived: isReceived ?? this.isReceived,
       receivedDate: receivedDate ?? this.receivedDate,
+      receivedTime: receivedTime ?? this.receivedTime,
       receivedBy: receivedBy ?? this.receivedBy,
+      trackingUrl: trackingUrl ?? this.trackingUrl,
+      podReference: podReference ?? this.podReference,
+      status: status ?? this.status,
       notes: notes ?? this.notes,
     );
   }
@@ -306,3 +330,176 @@ class OriginalDocumentsAutoPopulateModel {
     );
   }
 }
+
+class CourierReceiptProofRequestModel {
+  final int importFileId;
+  final String courierNo;
+  final String receivedDate;
+  final String? receivedTime;
+  final String receivedBy;
+  final String? podReference;
+  final String? notes;
+  final bool markDocumentsReceived;
+
+  CourierReceiptProofRequestModel({
+    required this.importFileId,
+    required this.courierNo,
+    required this.receivedDate,
+    this.receivedTime,
+    required this.receivedBy,
+    this.podReference,
+    this.notes,
+    this.markDocumentsReceived = true,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'import_file_id': importFileId,
+      'courier_no': courierNo,
+      'received_date': receivedDate,
+      'received_time': receivedTime,
+      'received_by': receivedBy,
+      'pod_reference': podReference,
+      'notes': notes,
+      'mark_documents_received': markDocumentsReceived,
+    };
+  }
+}
+
+class CourierAlertItemModel {
+  final String courierNo;
+  final String courierCompany;
+  final int importFileId;
+  final String importFileCode;
+  final String? acidNumber;
+  final String? importerName;
+  final String? supplierName;
+  final String? dispatchDate;
+  final int daysInTransit;
+  final String alertLevel; // 'INFO', 'WARNING', 'CRITICAL'
+  final String alertMessageAr;
+  final String alertMessageEn;
+
+  CourierAlertItemModel({
+    required this.courierNo,
+    required this.courierCompany,
+    required this.importFileId,
+    required this.importFileCode,
+    this.acidNumber,
+    this.importerName,
+    this.supplierName,
+    this.dispatchDate,
+    this.daysInTransit = 0,
+    this.alertLevel = 'INFO',
+    required this.alertMessageAr,
+    required this.alertMessageEn,
+  });
+
+  factory CourierAlertItemModel.fromJson(Map<String, dynamic> json) {
+    return CourierAlertItemModel(
+      courierNo: json['courier_no']?.toString() ?? '',
+      courierCompany: json['courier_company']?.toString() ?? 'DHL',
+      importFileId: json['import_file_id'] ?? 0,
+      importFileCode: json['import_file_code']?.toString() ?? '',
+      acidNumber: json['acid_number']?.toString(),
+      importerName: json['importer_name']?.toString(),
+      supplierName: json['supplier_name']?.toString(),
+      dispatchDate: json['dispatch_date']?.toString(),
+      daysInTransit: json['days_in_transit'] ?? 0,
+      alertLevel: json['alert_level']?.toString() ?? 'INFO',
+      alertMessageAr: json['alert_message_ar']?.toString() ?? '',
+      alertMessageEn: json['alert_message_en']?.toString() ?? '',
+    );
+  }
+}
+
+class CourierAlertsResponseModel {
+  final int totalActiveCouriers;
+  final int pendingReceiptCount;
+  final int delayedCount;
+  final int deliveredCount;
+  final List<CourierAlertItemModel> alerts;
+
+  CourierAlertsResponseModel({
+    this.totalActiveCouriers = 0,
+    this.pendingReceiptCount = 0,
+    this.delayedCount = 0,
+    this.deliveredCount = 0,
+    this.alerts = const [],
+  });
+
+  factory CourierAlertsResponseModel.fromJson(Map<String, dynamic> json) {
+    return CourierAlertsResponseModel(
+      totalActiveCouriers: json['total_active_couriers'] ?? 0,
+      pendingReceiptCount: json['pending_receipt_count'] ?? 0,
+      delayedCount: json['delayed_count'] ?? 0,
+      deliveredCount: json['delivered_count'] ?? 0,
+      alerts: (json['alerts'] as List<dynamic>? ?? [])
+          .map((a) => CourierAlertItemModel.fromJson(a as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class CourierFlatItemModel {
+  final String courierNo;
+  final String courierCompany;
+  final int importFileId;
+  final String importFileCode;
+  final String? importerName;
+  final String? supplierName;
+  final String? dispatchDate;
+  final bool isReceived;
+  final String? receivedDate;
+  final String? receivedTime;
+  final String? receivedBy;
+  final String? trackingUrl;
+  final String? podReference;
+  final String status;
+  final int daysInTransit;
+  final int associatedDocsCount;
+  final String? notes;
+
+  CourierFlatItemModel({
+    required this.courierNo,
+    required this.courierCompany,
+    required this.importFileId,
+    required this.importFileCode,
+    this.importerName,
+    this.supplierName,
+    this.dispatchDate,
+    this.isReceived = false,
+    this.receivedDate,
+    this.receivedTime,
+    this.receivedBy,
+    this.trackingUrl,
+    this.podReference,
+    this.status = 'IN_TRANSIT',
+    this.daysInTransit = 0,
+    this.associatedDocsCount = 0,
+    this.notes,
+  });
+
+  factory CourierFlatItemModel.fromJson(Map<String, dynamic> json) {
+    return CourierFlatItemModel(
+      courierNo: json['courier_no']?.toString() ?? '',
+      courierCompany: json['courier_company']?.toString() ?? 'DHL',
+      importFileId: json['import_file_id'] ?? 0,
+      importFileCode: json['import_file_code']?.toString() ?? '',
+      importerName: json['importer_name']?.toString(),
+      supplierName: json['supplier_name']?.toString(),
+      dispatchDate: json['dispatch_date']?.toString(),
+      isReceived: json['is_received'] == true,
+      receivedDate: json['received_date']?.toString(),
+      receivedTime: json['received_time']?.toString(),
+      receivedBy: json['received_by']?.toString(),
+      trackingUrl: json['tracking_url']?.toString(),
+      podReference: json['pod_reference']?.toString(),
+      status: json['status']?.toString() ?? 'IN_TRANSIT',
+      daysInTransit: json['days_in_transit'] ?? 0,
+      associatedDocsCount: json['associated_docs_count'] ?? 0,
+      notes: json['notes']?.toString(),
+    );
+  }
+}
+

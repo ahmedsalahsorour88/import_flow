@@ -2,10 +2,33 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   // ── Responsive Breakpoints (Logical Pixels) ──────────────────────────────
+  static const double desktopBreakpoint = 1200.0; // Desktop threshold (>= 1200px)
+  static const double tabletBreakpoint = 768.0;   // Tablet threshold (768px - 1199px)
+  static const double mobileBreakpoint = 0.0;     // Mobile threshold (< 768px)
+
   static const double breakpointSm = 600.0;   // Mobile / compact
   static const double breakpointMd = 900.0;   // Tablet / compact desktop
   static const double breakpointLg = 1200.0;  // Standard desktop
   static const double breakpointXl = 1600.0;  // Wide / ultrawide desktop
+
+  /// Check whether the current context viewport is Desktop (>= 1200px).
+  static bool isDesktop(BuildContext context) =>
+      MediaQuery.sizeOf(context).width >= desktopBreakpoint;
+
+  /// Check whether the current context viewport is Tablet (768px - 1199px).
+  static bool isTablet(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    return w >= tabletBreakpoint && w < desktopBreakpoint;
+  }
+
+  /// Check whether the current context viewport is Mobile (< 768px).
+  static bool isMobile(BuildContext context) =>
+      MediaQuery.sizeOf(context).width < tabletBreakpoint;
+
+  /// Width-based viewport helpers for LayoutBuilder constraints.
+  static bool isDesktopWidth(double width) => width >= desktopBreakpoint;
+  static bool isTabletWidth(double width) => width >= tabletBreakpoint && width < desktopBreakpoint;
+  static bool isMobileWidth(double width) => width < tabletBreakpoint;
 
   /// Width threshold below which horizontal tabs convert to vertical sidebar.
   static const double tabBarSidebarThreshold = 800.0;

@@ -560,6 +560,7 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                               fontSize: 12,
                             ),
                             columns: [
+                              DataColumn(label: Text(l.insuranceColActions)),
                               const DataColumn(label: Text('#')),
                               DataColumn(label: Text(l.insuranceColCertCode)),
                               DataColumn(label: Text(l.insuranceColIssueDate)),
@@ -571,7 +572,6 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                               DataColumn(label: Text(l.insuranceColCoverageClause)),
                               DataColumn(label: Text(l.insuranceColGrossPremium)),
                               DataColumn(label: Text(l.insuranceColStatus)),
-                              DataColumn(label: Text(l.insuranceColActions)),
                             ],
                             rows: filteredCertificates.asMap().entries.map((entry) {
                               final idx = entry.key + 1;
@@ -596,6 +596,39 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
 
                               return DataRow(
                                 cells: [
+                                  // 12. Actions
+                                  DataCell(
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.blueGrey),
+                                          tooltip: l.insuranceCopyRowSummaryBtn,
+                                          onPressed: () {
+                                            CopyHelper.copy(context, rowSummary, customMessage: l.insuranceCopyRowSummarySuccess);
+                                          },
+                                        ),
+                                        RowActionsPill(
+                                          onView: () => _showViewCertificateDialog(cert),
+                                          onEdit: isIssued ? null : () => _showAddEditCertificateDialog(cert),
+                                          onPrint: () => _showViewCertificateDialog(cert),
+                                          onDelete: () => _confirmDeleteCertificate(cert),
+                                          viewTooltip: l.insuranceViewTooltip,
+                                          editTooltip: l.insuranceEditTooltip,
+                                          printTooltip: l.insurancePrintTooltip,
+                                          deleteTooltip: l.insuranceDeleteTooltip,
+                                        ),
+                                        if (!isIssued && !isCancelled) ...[
+                                          const SizedBox(width: 4),
+                                          IconButton(
+                                            icon: const Icon(Icons.verified_rounded, color: AppTheme.emerald, size: 18),
+                                            tooltip: l.insuranceIssueCertificateTooltip,
+                                            onPressed: () => _confirmIssueCertificate(cert),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
                                   // 1. Index
                                   DataCell(
                                     CopyableTableCell(
@@ -876,39 +909,6 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                                     ),
                                   ),
 
-                                  // 12. Actions
-                                  DataCell(
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.blueGrey),
-                                          tooltip: l.insuranceCopyRowSummaryBtn,
-                                          onPressed: () {
-                                            CopyHelper.copy(context, rowSummary, customMessage: l.insuranceCopyRowSummarySuccess);
-                                          },
-                                        ),
-                                        RowActionsPill(
-                                          onView: () => _showViewCertificateDialog(cert),
-                                          onEdit: isIssued ? null : () => _showAddEditCertificateDialog(cert),
-                                          onPrint: () => _showViewCertificateDialog(cert),
-                                          onDelete: () => _confirmDeleteCertificate(cert),
-                                          viewTooltip: l.insuranceViewTooltip,
-                                          editTooltip: l.insuranceEditTooltip,
-                                          printTooltip: l.insurancePrintTooltip,
-                                          deleteTooltip: l.insuranceDeleteTooltip,
-                                        ),
-                                        if (!isIssued && !isCancelled) ...[
-                                          const SizedBox(width: 4),
-                                          IconButton(
-                                            icon: const Icon(Icons.verified_rounded, color: AppTheme.emerald, size: 18),
-                                            tooltip: l.insuranceIssueCertificateTooltip,
-                                            onPressed: () => _confirmIssueCertificate(cert),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
                                 ],
                               );
                             }).toList(),

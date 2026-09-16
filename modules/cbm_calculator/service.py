@@ -3,7 +3,7 @@ from typing import List, Optional, Tuple
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from modules.cbm_calculator.model import CBMCalculation
+from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
 from modules.cbm_calculator.repository import CBMRepository
 from modules.cbm_calculator.schemas import (
     CBMCalculationCreate,
@@ -12,7 +12,9 @@ from modules.cbm_calculator.schemas import (
     CBMItemCreate,
     CBMQuickCalcRequest,
     CBMQuickCalcResponse,
+    CloneCBMCalculationRequest,
 )
+
 from modules.cbm_calculator.validators import CBMValidator
 from modules.projects.model import Project
 from modules.purchase_orders.model import PurchaseOrder
@@ -323,7 +325,106 @@ class CBMService:
         return CBMService._to_response(db, restored)
 
     @staticmethod
+    def clone_cbm_calculation(
+        db: Session,
+        calc_id: int,
+        payload: CloneCBMCalculationRequest,
+    ) -> CBMCalculationResponse:
+        calc = CBMRepository.get_by_id(db, calc_id)
+        if not calc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"CBM Calculation record #{calc_id} not found.",
+            )
+
+        new_code = (
+            payload.new_code.strip()
+            if payload.new_code and payload.new_code.strip()
+            else CBMRepository.generate_calc_code(db)
+        )
+        existing = db.query(CBMCalculation).filter(CBMCalculation.calc_code == new_code).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"CBM Calculation code '{new_code}' already exists.",
+            )
+
+        new_title = payload.new_title or f"Copy of {calc.title or calc.calc_code}"
+
+        cloned_items = []
+        if payload.copy_items and calc.items:
+            for item in calc.items:
+                cloned_items.append({
+                    "package_type": item.package_type,
+                    "quantity": item.quantity,
+                    "length": item.length_cm,
+                    "width": item.width_cm,
+                    "height": item.height_cm,
+                    "unit": "cm",
+                    "gross_weight_per_unit_kg": item.gross_weight_per_unit_kg,
+                    "is_stackable": item.is_stackable,
+                })
+
+        computed_items = []
+        summary = {
+            "total_qty": 0,
+            "total_cbm": 0.0,
+            "total_gross_weight_kg": 0.0,
+            "total_volumetric_weight_kg": 0.0,
+            "air_chargeable_weight_kg": 0.0,
+            "recommended_shipping_method": calc.recommended_shipping_method,
+            "recommended_container_type": calc.recommended_container_type,
+            "recommended_container_count": calc.recommended_container_count,
+        }
+
+        if cloned_items:
+            item_objs = [CBMItemCreate(**ci) for ci in cloned_items]
+            computed_items, summary = CBMService.compute_items_and_totals(item_objs)
+
+        new_calc = CBMCalculation(
+            calc_code=new_code,
+            title=new_title,
+            import_file_id=None,  # Reset linkage for new standalone draft
+            project_id=calc.project_id,
+            po_id=None,  # Reset PO linkage
+            total_qty=summary.get("total_qty", 0),
+            total_cbm=summary.get("total_cbm", 0.0),
+            total_gross_weight_kg=summary.get("total_gross_weight_kg", 0.0),
+            total_volumetric_weight_kg=summary.get("total_volumetric_weight_kg", 0.0),
+            air_chargeable_weight_kg=summary.get("air_chargeable_weight_kg", 0.0),
+            recommended_shipping_method=summary.get("recommended_shipping_method"),
+            recommended_container_type=summary.get("recommended_container_type"),
+            recommended_container_count=summary.get("recommended_container_count", 0),
+            notes=payload.notes if payload.notes is not None else calc.notes,
+            is_stackable=calc.is_stackable,
+            is_active=True,
+        )
+        db.add(new_calc)
+        db.flush()
+
+        for item_dict in computed_items:
+            it = CBMCalculationItem(
+                calc_id=new_calc.calc_id,
+                package_type=item_dict.get("package_type", "Carton"),
+                quantity=item_dict.get("quantity", 1),
+                length_cm=item_dict.get("length_cm", 0.0),
+                width_cm=item_dict.get("width_cm", 0.0),
+                height_cm=item_dict.get("height_cm", 0.0),
+                gross_weight_per_unit_kg=item_dict.get("gross_weight_per_unit_kg", 0.0),
+                total_cbm=item_dict.get("total_cbm", 0.0),
+                volumetric_weight_kg=item_dict.get("volumetric_weight_kg", 0.0),
+                total_gross_weight_kg=item_dict.get("total_gross_weight_kg", 0.0),
+                is_stackable=item_dict.get("is_stackable", True),
+            )
+            db.add(it)
+
+        db.commit()
+        db.refresh(new_calc)
+        return CBMService._to_response(db, new_calc)
+
+    @staticmethod
     def _to_response(
+
         db: Session,
         calc: CBMCalculation,
         project_name: Optional[str] = None,

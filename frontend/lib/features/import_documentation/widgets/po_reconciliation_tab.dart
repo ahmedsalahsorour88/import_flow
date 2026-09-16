@@ -18,16 +18,20 @@ import '../models/po_reconciliation_session_model.dart';
 import '../providers/import_documentation_provider.dart';
 import '../../warehouse_receiving/models/goods_in_transit_model.dart';
 import '../../warehouse_receiving/providers/goods_in_transit_provider.dart';
+import '../../../core/helpers/table_copy_helper.dart';
+import '../../../core/services/table_export_service.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
+import 'search_and_clone_po_reconciliation_dialog.dart';
 
 class POReconciliationTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
   const POReconciliationTab({super.key, this.initialImportFileId});
 
   @override
-  ConsumerState<POReconciliationTab> createState() => _POReconciliationTabState();
+  ConsumerState<POReconciliationTab> createState() => POReconciliationTabState();
 }
 
-class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
+class POReconciliationTabState extends ConsumerState<POReconciliationTab> {
   String _getLocalizedCheckField(BuildContext context, String fieldName) {
     final l = context.l10n;
     switch (fieldName) {
@@ -447,7 +451,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       }
 
       final endpoint = hasBinaryFiles
-          ? '${ApiConstants.baseUrl}/import-documentation/po-reconciliation/extract-files'
+          ? '${ApiConstants.baseUrl}/import-documentation/po-reconciliation/extract-files-and-compare'
           : '${ApiConstants.baseUrl}/import-documentation/po-reconciliation/extract-and-compare';
 
       final response = await dio.post(
@@ -1153,8 +1157,520 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     );
   }
 
+  void openSearchAndCloneDialog() {
+    final sessions = ref.read(poReconciliationSessionsProvider).valueOrNull ?? [];
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => SearchAndClonePoReconciliationDialog(
+        sessions: sessions,
+        onSelectSession: (sourceSession) {
+          _cloneSession(sourceSession);
+        },
+      ),
+    );
+  }
+
+  void _cloneSession(POReconciliationSessionModel sourceSession) {
+    final l = context.l10n;
+    final suggestedCode = 'REC-2026-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => CloneEntityReviewDialog(
+        entityType: l.searchAndClonePoReconDialogTitle,
+        sourceCode: sourceSession.sessionCode,
+        sourceTitle: '${sourceSession.finalInvoiceNumber ?? "INV"} / ${sourceSession.finalPackingListNumber ?? "PL"}',
+        suggestedNewCode: suggestedCode,
+        copiedFieldsSummary: {
+          'رقم الفاتورة': sourceSession.finalInvoiceNumber ?? '—',
+          'رقم قائمة التعبئة': sourceSession.finalPackingListNumber ?? '—',
+          'إجمالي القيمة': '${sourceSession.totalInvoiceAmount.toStringAsFixed(2)} ${sourceSession.currency}',
+          'إجمالي الطرود': '${sourceSession.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}',
+          'إجمالي الوزن': '${sourceSession.totalGrossWeightKg.toStringAsFixed(1)} ${l.poRecKgUnit}',
+          'الحجم الكلي': '${sourceSession.totalCbm.toStringAsFixed(2)} ${l.poRecCbmUnit}',
+        },
+        mandatorilyResetFields: [
+          l.poReconClonedResetNotice,
+          'معرّف الجلسة: تعيين إلى مسودة جديدة غير محفوظة (null)',
+          'حالة التوثيق والاعتماد: إعادة تعيين إلى غير معتمد (Draft/Pending)',
+          'تفريغ توقيع ومعتمد الجلسة وتاريخ الاعتماد لبدء جلسة مستقلة',
+        ],
+        allowCopyLineItems: true,
+        allowCopyAttachments: false,
+        onConfirm: ({
+          required String newCode,
+          required String newTitle,
+          required bool copyLineItems,
+          required bool copyAttachments,
+          String? notes,
+        }) async {
+          _loadClonedSessionIntoEditor(sourceSession, newCode: newCode, copyLineItems: copyLineItems);
+        },
+      ),
+    );
+  }
+
+  void _loadClonedSessionIntoEditor(
+    POReconciliationSessionModel session, {
+    required String newCode,
+    bool copyLineItems = true,
+  }) {
+    final l = context.l10n;
+    setState(() {
+      _activeSessionId = null; // Strict invariant: new session!
+      _activeSessionCode = newCode;
+      _selectedImportFileId = session.importFileId;
+      _finalInvNumberCtrl.text = session.finalInvoiceNumber != null ? '${session.finalInvoiceNumber}-COPY' : '';
+      _finalPLNumberCtrl.text = session.finalPackingListNumber != null ? '${session.finalPackingListNumber}-COPY' : '';
+
+      if (copyLineItems) {
+        if (session.reconciledInvoiceItems != null && session.reconciledInvoiceItems!.isNotEmpty) {
+          _invoiceItems = session.reconciledInvoiceItems!
+              .map((j) => POReconciliationItemModel.fromJson(j as Map<String, dynamic>))
+              .toList();
+        }
+        if (session.reconciledPackingItems != null && session.reconciledPackingItems!.isNotEmpty) {
+          _packingItems = session.reconciledPackingItems!
+              .map((j) => POReconciliationItemModel.fromJson(j as Map<String, dynamic>))
+              .toList();
+        }
+      }
+
+      _extractedReconciliationData = {
+        'overall_status': 'DRAFT',
+        'is_safe_for_certification': false,
+        'critical_discrepancies_count': session.criticalDiscrepanciesCount,
+        'warning_discrepancies_count': session.warningDiscrepanciesCount,
+        'header_discrepancies': session.headerDiscrepancies,
+        'reconciled_invoice_items': session.reconciledInvoiceItems,
+        'reconciled_packing_items': session.reconciledPackingItems,
+        'extracted_invoice_data': session.extractedInvoiceData,
+        'extracted_packing_data': session.extractedPackingData,
+      };
+    });
+
+    if (_mainScrollController.hasClients) {
+      _mainScrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l.clonePoReconSuccess),
+        backgroundColor: AppTheme.emerald,
+      ),
+    );
+  }
+
+  void _cloneInvoiceItem(POReconciliationItemModel item) {
+    final index = _invoiceItems.indexOf(item);
+    final cloned = item.copyWith(
+      itemCode: '${item.itemCode}-COPY',
+      description: '${item.description} (نسخة)',
+    );
+    setState(() {
+      if (index >= 0) {
+        _invoiceItems.insert(index + 1, cloned);
+      } else {
+        _invoiceItems.add(cloned);
+      }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('تم استنساخ البند ${item.itemCode} بنجاح'),
+        backgroundColor: AppTheme.emerald,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _clonePackingItem(POReconciliationItemModel item) {
+    final index = _packingItems.indexOf(item);
+    final cloned = item.copyWith(
+      itemCode: '${item.itemCode}-COPY',
+      description: '${item.description} (نسخة)',
+    );
+    setState(() {
+      if (index >= 0) {
+        _packingItems.insert(index + 1, cloned);
+      } else {
+        _packingItems.add(cloned);
+      }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('تم استنساخ طرد ${item.itemCode} بنجاح'),
+        backgroundColor: AppTheme.emerald,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // --- Task J: Copy & Export Helpers ---
+  void _copySessionsTable(List<POReconciliationSessionModel> sessions) {
+    final l = context.l10n;
+    final headers = [
+      '#',
+      l.poRecHistoryColSessionCode,
+      l.poRecHistoryColImportFileImporter,
+      l.poRecHistoryColInvoicePacking,
+      l.poRecHistoryColTotalValue,
+      l.poRecHistoryColPackagesWeight,
+      l.poRecHistoryColCbm,
+      l.poRecHistoryColStatus,
+      l.poRecHistoryColSavedDate,
+    ];
+    final rows = sessions.asMap().entries.map((entry) {
+      final idx = entry.key + 1;
+      final sess = entry.value;
+      final dateStr = (sess.createdAt != null && sess.createdAt!.length >= 10) ? sess.createdAt!.substring(0, 10) : '—';
+      return [
+        '$idx',
+        sess.sessionCode,
+        '${sess.importFileCode ?? ""} - ${sess.importerName ?? ""}',
+        '${sess.finalInvoiceNumber ?? ""} | ${sess.finalPackingListNumber ?? ""}',
+        '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}',
+        '${sess.totalPackages.toStringAsFixed(0)} | ${sess.totalGrossWeightKg.toStringAsFixed(0)} kg',
+        '${sess.totalCbm.toStringAsFixed(3)} m³',
+        _getLocalizedSessionStatus(context, sess.overallStatus),
+        dateStr,
+      ];
+    }).toList();
+    TableCopyHelper.copyTable(context, headers, rows);
+  }
+
+  Future<void> _exportSessionsToExcel(List<POReconciliationSessionModel> sessions) async {
+    final l = context.l10n;
+    final isAr = l.isArabic;
+    final headers = [
+      '#',
+      isAr ? 'كود الجلسة' : 'Session Code',
+      isAr ? 'ملف الشحنة / المستورد' : 'Import File / Importer',
+      isAr ? 'رقم الفاتورة / قائمة التعبئة' : 'Invoice / Packing List',
+      isAr ? 'القيمة الإجمالية' : 'Total Value',
+      isAr ? 'الطرود والوزن' : 'Packages & Weight',
+      isAr ? 'الحجم (CBM)' : 'Volume (CBM)',
+      isAr ? 'الحالة' : 'Status',
+      isAr ? 'تاريخ الحفظ' : 'Saved Date',
+    ];
+    final rows = sessions.asMap().entries.map((entry) {
+      final idx = entry.key + 1;
+      final sess = entry.value;
+      final dateStr = (sess.createdAt != null && sess.createdAt!.length >= 10) ? sess.createdAt!.substring(0, 10) : '—';
+      return [
+        '$idx',
+        sess.sessionCode,
+        '${sess.importFileCode ?? ""} - ${sess.importerName ?? ""}',
+        '${sess.finalInvoiceNumber ?? ""} | ${sess.finalPackingListNumber ?? ""}',
+        '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}',
+        '${sess.totalPackages.toStringAsFixed(0)} | ${sess.totalGrossWeightKg.toStringAsFixed(0)} kg',
+        '${sess.totalCbm.toStringAsFixed(3)} m³',
+        _getLocalizedSessionStatus(context, sess.overallStatus),
+        dateStr,
+      ];
+    }).toList();
+    await TableExportService.exportTableToExcel(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isAr ? 'سجل جلسات مطابقة الفاتورة وقائمة التعبئة' : 'PO Reconciliation Sessions',
+      importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'PO_Reconciliations',
+    );
+  }
+
+  Future<void> _exportSessionsToPdf(List<POReconciliationSessionModel> sessions) async {
+    final l = context.l10n;
+    final isAr = l.isArabic;
+    final headers = [
+      '#',
+      isAr ? 'كود الجلسة' : 'Code',
+      isAr ? 'الشحنة' : 'File',
+      isAr ? 'الفاتورة' : 'Invoice',
+      isAr ? 'القيمة' : 'Value',
+      isAr ? 'الطرود' : 'Packages',
+      isAr ? 'الحالة' : 'Status',
+    ];
+    final rows = sessions.asMap().entries.map((entry) {
+      final idx = entry.key + 1;
+      final sess = entry.value;
+      return [
+        '$idx',
+        sess.sessionCode,
+        sess.importFileCode ?? '-',
+        sess.finalInvoiceNumber ?? '-',
+        '${sess.totalInvoiceAmount.toStringAsFixed(0)} ${sess.currency}',
+        sess.totalPackages.toStringAsFixed(0),
+        _getLocalizedSessionStatus(context, sess.overallStatus),
+      ];
+    }).toList();
+    await TableExportService.exportTableToPdf(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isAr ? 'جلسات مطابقة الفاتورة وقائمة التعبئة' : 'PO Reconciliation Sessions',
+      importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'PO_Reconciliations',
+    );
+  }
+
+  void _copyInvoiceItemsTable() {
+    final l = context.l10n;
+    final headers = [
+      l.poRecColItemCode,
+      l.poRecColDescription,
+      l.poRecColPoQty,
+      l.poRecColFinalQty,
+      l.poRecColQtyVariance,
+      l.poRecColPoUnitPrice,
+      l.poRecColFinalUnitPrice,
+      l.poRecColPriceVariance,
+      l.poRecColFinalTotal,
+      l.poRecColHsCode,
+    ];
+    final rows = _invoiceItems.map((itm) {
+      final qtyVariance = itm.finalQuantity - itm.initialQuantity;
+      final priceVariance = itm.finalUnitPrice - itm.initialUnitPrice;
+      final totalRow = itm.finalQuantity * (itm.finalUnitPrice > 0 ? itm.finalUnitPrice : itm.unitPrice);
+      return [
+        itm.itemCode,
+        itm.description,
+        '${itm.initialQuantity}',
+        '${itm.finalQuantity}',
+        '$qtyVariance',
+        '${itm.initialUnitPrice}',
+        '${itm.finalUnitPrice}',
+        '$priceVariance',
+        totalRow.toStringAsFixed(2),
+        itm.hsCode ?? '',
+      ];
+    }).toList();
+    TableCopyHelper.copyTable(context, headers, rows);
+  }
+
+  Future<void> _exportInvoiceItemsToExcel() async {
+    final l = context.l10n;
+    final isAr = l.isArabic;
+    final headers = [
+      isAr ? 'كود الصنف' : 'Item Code',
+      isAr ? 'الوصف' : 'Description',
+      isAr ? 'كمية أمر الشراء' : 'PO Qty',
+      isAr ? 'الكمية النهائية' : 'Final Qty',
+      isAr ? 'فارق الكمية' : 'Qty Variance',
+      isAr ? 'سعر أمر الشراء' : 'PO Unit Price',
+      isAr ? 'السعر النهائي' : 'Final Unit Price',
+      isAr ? 'فارق السعر' : 'Price Variance',
+      isAr ? 'الإجمالي النهائي' : 'Final Total',
+      isAr ? 'بند التعريفة' : 'HS Code',
+    ];
+    final rows = _invoiceItems.map((itm) {
+      final qtyVariance = itm.finalQuantity - itm.initialQuantity;
+      final priceVariance = itm.finalUnitPrice - itm.initialUnitPrice;
+      final totalRow = itm.finalQuantity * (itm.finalUnitPrice > 0 ? itm.finalUnitPrice : itm.unitPrice);
+      return [
+        itm.itemCode,
+        itm.description,
+        '${itm.initialQuantity}',
+        '${itm.finalQuantity}',
+        '$qtyVariance',
+        '${itm.initialUnitPrice}',
+        '${itm.finalUnitPrice}',
+        '$priceVariance',
+        totalRow.toStringAsFixed(2),
+        itm.hsCode ?? '',
+      ];
+    }).toList();
+    if (_invoiceItems.isNotEmpty) {
+      final totalPoQty = _invoiceItems.fold(0.0, (s, i) => s + i.initialQuantity);
+      final totalFinQty = _invoiceItems.fold(0.0, (s, i) => s + i.finalQuantity);
+      final totalPoAmt = _invoiceItems.fold(0.0, (s, i) => s + (i.initialQuantity * i.initialUnitPrice));
+      final totalFinAmt = _invoiceItems.fold(0.0, (s, i) => s + (i.finalQuantity * (i.finalUnitPrice > 0 ? i.finalUnitPrice : i.unitPrice)));
+      rows.add([
+        isAr ? 'الإجمالي الكلي' : 'Total',
+        '${_invoiceItems.length} items',
+        '$totalPoQty',
+        '$totalFinQty',
+        '${totalFinQty - totalPoQty}',
+        totalPoAmt.toStringAsFixed(2),
+        '—',
+        '${totalFinAmt - totalPoAmt}',
+        totalFinAmt.toStringAsFixed(2),
+        '',
+      ]);
+    }
+    await TableExportService.exportTableToExcel(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isAr ? 'بنود الفاتورة التجارية المعتمدة' : 'Invoice Items Reconciliation',
+      importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'Invoice_Items',
+    );
+  }
+
+  Future<void> _exportInvoiceItemsToPdf() async {
+    final l = context.l10n;
+    final isAr = l.isArabic;
+    final headers = [
+      isAr ? 'الكود' : 'Code',
+      isAr ? 'الوصف' : 'Description',
+      isAr ? 'كمية PO' : 'PO Qty',
+      isAr ? 'الكمية' : 'Final Qty',
+      isAr ? 'السعر' : 'Unit Price',
+      isAr ? 'الإجمالي' : 'Total',
+    ];
+    final rows = _invoiceItems.map((itm) {
+      final totalRow = itm.finalQuantity * (itm.finalUnitPrice > 0 ? itm.finalUnitPrice : itm.unitPrice);
+      return [
+        itm.itemCode,
+        itm.description,
+        '${itm.initialQuantity}',
+        '${itm.finalQuantity}',
+        '${itm.finalUnitPrice > 0 ? itm.finalUnitPrice : itm.unitPrice}',
+        totalRow.toStringAsFixed(2),
+      ];
+    }).toList();
+    if (_invoiceItems.isNotEmpty) {
+      final totalPoQty = _invoiceItems.fold(0.0, (s, i) => s + i.initialQuantity);
+      final totalFinQty = _invoiceItems.fold(0.0, (s, i) => s + i.finalQuantity);
+      final totalFinAmt = _invoiceItems.fold(0.0, (s, i) => s + (i.finalQuantity * (i.finalUnitPrice > 0 ? i.finalUnitPrice : i.unitPrice)));
+      rows.add([
+        isAr ? 'الإجمالي' : 'Total',
+        '${_invoiceItems.length} items',
+        '$totalPoQty',
+        '$totalFinQty',
+        '—',
+        totalFinAmt.toStringAsFixed(2),
+      ]);
+    }
+    await TableExportService.exportTableToPdf(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isAr ? 'بنود الفاتورة التجارية' : 'Invoice Items',
+      importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'Invoice_Items',
+    );
+  }
+
+  void _copyPackingItemsTable() {
+    final l = context.l10n;
+    final headers = [
+      l.poRecColItemCode,
+      l.poRecColDescription,
+      l.poRecColPackageType,
+      l.poRecColFinalPackagesCount,
+      l.poRecColGrossWeight,
+      l.poRecColNetWeight,
+      l.poRecColCbm,
+    ];
+    final rows = _packingItems.map((itm) {
+      return [
+        itm.itemCode,
+        itm.description,
+        itm.packageType,
+        '${itm.finalPackagesCount}',
+        '${itm.finalGrossWeightKg}',
+        '${itm.finalNetWeightKg}',
+        '${itm.finalCbm}',
+      ];
+    }).toList();
+    TableCopyHelper.copyTable(context, headers, rows);
+  }
+
+  Future<void> _exportPackingItemsToExcel() async {
+    final l = context.l10n;
+    final isAr = l.isArabic;
+    final headers = [
+      isAr ? 'كود الصنف' : 'Item Code',
+      isAr ? 'الوصف' : 'Description',
+      isAr ? 'نوع الطرد' : 'Package Type',
+      isAr ? 'عدد الطرود' : 'Packages Count',
+      isAr ? 'الوزن القائم (كجم)' : 'Gross Weight (kg)',
+      isAr ? 'الوزن الصافي (كجم)' : 'Net Weight (kg)',
+      isAr ? 'الحجم (م³)' : 'CBM',
+    ];
+    final rows = _packingItems.map((itm) {
+      return [
+        itm.itemCode,
+        itm.description,
+        itm.packageType,
+        '${itm.finalPackagesCount}',
+        '${itm.finalGrossWeightKg}',
+        '${itm.finalNetWeightKg}',
+        '${itm.finalCbm}',
+      ];
+    }).toList();
+    if (_packingItems.isNotEmpty) {
+      final totalPkgs = _packingItems.fold(0.0, (s, i) => s + i.finalPackagesCount);
+      final totalGross = _packingItems.fold(0.0, (s, i) => s + i.finalGrossWeightKg);
+      final totalNet = _packingItems.fold(0.0, (s, i) => s + i.finalNetWeightKg);
+      final totalCbm = _packingItems.fold(0.0, (s, i) => s + i.finalCbm);
+      rows.add([
+        isAr ? 'الإجمالي الكلي' : 'Total',
+        '${_packingItems.length} items',
+        '—',
+        '$totalPkgs',
+        totalGross.toStringAsFixed(2),
+        totalNet.toStringAsFixed(2),
+        totalCbm.toStringAsFixed(3),
+      ]);
+    }
+    await TableExportService.exportTableToExcel(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isAr ? 'بنود قائمة التعبئة والأوزان' : 'Packing List Reconciliation',
+      importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'Packing_Items',
+    );
+  }
+
+  Future<void> _exportPackingItemsToPdf() async {
+    final l = context.l10n;
+    final isAr = l.isArabic;
+    final headers = [
+      isAr ? 'الكود' : 'Code',
+      isAr ? 'الوصف' : 'Description',
+      isAr ? 'الطرود' : 'Pkgs',
+      isAr ? 'الوزن القائم' : 'Gross Wt',
+      isAr ? 'الصافي' : 'Net Wt',
+      isAr ? 'الحجم' : 'CBM',
+    ];
+    final rows = _packingItems.map((itm) {
+      return [
+        itm.itemCode,
+        itm.description,
+        '${itm.finalPackagesCount}',
+        '${itm.finalGrossWeightKg} kg',
+        '${itm.finalNetWeightKg} kg',
+        '${itm.finalCbm} m³',
+      ];
+    }).toList();
+    if (_packingItems.isNotEmpty) {
+      final totalPkgs = _packingItems.fold(0.0, (s, i) => s + i.finalPackagesCount);
+      final totalGross = _packingItems.fold(0.0, (s, i) => s + i.finalGrossWeightKg);
+      final totalNet = _packingItems.fold(0.0, (s, i) => s + i.finalNetWeightKg);
+      final totalCbm = _packingItems.fold(0.0, (s, i) => s + i.finalCbm);
+      rows.add([
+        isAr ? 'الإجمالي' : 'Total',
+        '${_packingItems.length} items',
+        '$totalPkgs',
+        '${totalGross.toStringAsFixed(2)} kg',
+        '${totalNet.toStringAsFixed(2)} kg',
+        '${totalCbm.toStringAsFixed(3)} m³',
+      ]);
+    }
+    await TableExportService.exportTableToPdf(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isAr ? 'بنود قائمة التعبئة' : 'Packing List Items',
+      importFileNameOrCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : 'Packing_Items',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final sessionsState = ref.watch(poReconciliationSessionsProvider);
     final sessionsList = sessionsState.valueOrNull ?? [];
@@ -1165,32 +1681,41 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     double totalNetWeight = _packingItems.fold(0.0, (s, itm) => s + itm.finalNetWeightKg);
     double totalCbm = _packingItems.fold(0.0, (s, itm) => s + itm.finalCbm);
 
-    return SingleChildScrollView(
-      controller: _mainScrollController,
-      padding: const EdgeInsets.all(24),
-      child: SelectionArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ==========================================
-            // PART 1: ACTIVE RECONCILIATION & AUDIT EDITOR
-            // ==========================================
-            _buildReconciliationEditorTab(
-              importFiles,
-              totalAmount,
-              totalPackages,
-              totalGrossWeight,
-              totalNetWeight,
-              totalCbm,
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyD, control: true): () => openSearchAndCloneDialog(),
+      },
+      child: Focus(
+        autofocus: true,
+        child: SingleChildScrollView(
+          controller: _mainScrollController,
+          padding: const EdgeInsets.all(24),
+          child: SelectionArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ==========================================
+                // PART 1: ACTIVE RECONCILIATION & AUDIT EDITOR
+                // ==========================================
+                _buildReconciliationEditorTab(
+                  importFiles,
+                  totalAmount,
+                  totalPackages,
+                  totalGrossWeight,
+                  totalNetWeight,
+                  totalCbm,
+                  isDark,
+                ),
+
+                const SizedBox(height: 36),
+
+                // ==========================================
+                // PART 2: SAVED SESSIONS HISTORY REGISTRY
+                // ==========================================
+                _buildSavedSessionsHistorySection(sessionsList, importFiles, isDark),
+              ],
             ),
-
-            const SizedBox(height: 36),
-
-            // ==========================================
-            // PART 2: SAVED SESSIONS HISTORY REGISTRY
-            // ==========================================
-            _buildSavedSessionsHistorySection(sessionsList, importFiles),
-          ],
+          ),
         ),
       ),
     );
@@ -1207,8 +1732,12 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     double totalGrossWeight,
     double totalNetWeight,
     double totalCbm,
+    bool isDark,
   ) {
     final l = context.l10n;
+    final selectedFile = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
+    final rawCurr = _extractedReconciliationData?['extracted_invoice_data']?['currency']?.toString() ?? selectedFile?.estimatedCostCurrency ?? 'EUR';
+    final currencyStr = rawCurr == 'USD' ? r'$' : (rawCurr == 'EUR' ? 'EUR' : rawCurr);
     return Form(
       key: _formKey,
       child: Column(
@@ -1217,109 +1746,171 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           // Top Header Card
           Card(
             elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            const Icon(Icons.fact_check, color: AppTheme.cobalt, size: 28),
-                            const SizedBox(width: 10),
-                            Expanded(
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isCompact = constraints.maxWidth < 650;
+                      final titleRow = Row(
+                        children: [
+                          const Icon(Icons.fact_check, color: AppTheme.cobalt, size: 28),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _activeSessionCode != null
+                                  ? l.poRecEditSessionTitle(_activeSessionCode!)
+                                  : l.poRecNewSessionTitle,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      );
+
+                      final actionsRow = Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (_activeSessionCode != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cobalt.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: AppTheme.cobalt),
+                              ),
                               child: Text(
-                                _activeSessionCode != null
-                                    ? l.poRecEditSessionTitle(_activeSessionCode!)
-                                    : l.poRecNewSessionTitle,
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis,
+                                _activeSessionCode!,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.cobalt,
+                                ),
                               ),
                             ),
+                          OutlinedButton.icon(
+                            key: const Key('editorSearchAndCloneBtn'),
+                            onPressed: openSearchAndCloneDialog,
+                            icon: const Icon(Icons.copy_all, size: 18),
+                            label: Text(l.searchAndClonePoReconBtn),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.cobalt,
+                              side: const BorderSide(color: AppTheme.cobalt),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                          ),
+                        ],
+                      );
+
+                      if (isCompact) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            titleRow,
+                            const SizedBox(height: 10),
+                            actionsRow,
                           ],
-                        ),
-                      ),
-                      if (_activeSessionCode != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.cobalt.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: AppTheme.cobalt),
-                          ),
-                          child: Text(
-                            l.poRecOpenSessionBadge(_activeSessionCode!),
-                            style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 12),
-                          ),
-                        ),
-                    ],
+                        );
+                      }
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(child: titleRow),
+                          const SizedBox(width: 12),
+                          actionsRow,
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 6),
                   Text(
                     l.poRecHeaderDescription,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12.5),
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                      fontSize: 12.5,
+                    ),
                   ),
                   const Divider(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: SearchableDropdownField<int?>(
-                          value: _selectedImportFileId,
-                          hintText: l.poRecSearchFileHint,
-                          labelText: l.poRecImportFileLabel,
-                          items: importFiles
-                              .map((f) => SearchableDropdownItem<int?>(
-                                    value: f.importFileId,
-                                    label: '${f.primaryNameWithCode} - ${f.companyName}',
-                                  ))
-                              .toList(),
-                          onChanged: (val) {
-                            setState(() {
-                              _selectedImportFileId = val;
-                              _activeSessionId = null;
-                              _activeSessionCode = null;
-                            });
-                            if (val != null) {
-                              _loadPOItems(val);
-                            }
-                          },
-                          validator: (v) => v == null ? l.poRecSelectFileRequired : null,
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isCompact = constraints.maxWidth < 750;
+                      final fileDropdown = SearchableDropdownField<int?>(
+                        value: _selectedImportFileId,
+                        hintText: l.poRecSearchFileHint,
+                        labelText: l.poRecImportFileLabel,
+                        items: importFiles
+                            .map((f) => SearchableDropdownItem<int?>(
+                                  value: f.importFileId,
+                                  label: '${f.primaryNameWithCode} - ${f.companyName}',
+                                ))
+                            .toList(),
+                        onChanged: (val) {
+                          setState(() {
+                            _selectedImportFileId = val;
+                            _activeSessionId = null;
+                            _activeSessionCode = null;
+                          });
+                          if (val != null) {
+                            _loadPOItems(val);
+                          }
+                        },
+                        validator: (v) => v == null ? l.poRecSelectFileRequired : null,
+                      );
+                      final invField = TextFormField(
+                        controller: _finalInvNumberCtrl,
+                        decoration: InputDecoration(
+                          labelText: l.poRecFinalInvoiceNoLabel,
+                          hintText: l.poRecFinalInvoiceNoHint,
+                          prefixIcon: const Icon(Icons.receipt_long),
+                          border: const OutlineInputBorder(),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        flex: 2,
-                        child: TextFormField(
-                          controller: _finalInvNumberCtrl,
-                          decoration: InputDecoration(
-                            labelText: l.poRecFinalInvoiceNoLabel,
-                            hintText: l.poRecFinalInvoiceNoHint,
-                            prefixIcon: const Icon(Icons.receipt_long),
-                            border: const OutlineInputBorder(),
-                          ),
-                          validator: (v) => (v == null || v.trim().isEmpty) ? l.poRecRequired : null,
+                        validator: (v) => (v == null || v.trim().isEmpty) ? l.poRecRequired : null,
+                      );
+                      final plField = TextFormField(
+                        controller: _finalPLNumberCtrl,
+                        decoration: InputDecoration(
+                          labelText: l.poRecFinalPackingListNoLabel,
+                          hintText: l.poRecFinalPackingListNoHint,
+                          prefixIcon: const Icon(Icons.inventory_2),
+                          border: const OutlineInputBorder(),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        flex: 2,
-                        child: TextFormField(
-                          controller: _finalPLNumberCtrl,
-                          decoration: InputDecoration(
-                            labelText: l.poRecFinalPackingListNoLabel,
-                            hintText: l.poRecFinalPackingListNoHint,
-                            prefixIcon: const Icon(Icons.inventory_2),
-                            border: const OutlineInputBorder(),
-                          ),
-                          validator: (v) => (v == null || v.trim().isEmpty) ? l.poRecRequired : null,
-                        ),
-                      ),
-                    ],
+                        validator: null,
+                      );
+
+                      if (isCompact) {
+                        return Column(
+                          children: [
+                            fileDropdown,
+                            const SizedBox(height: 12),
+                            invField,
+                            const SizedBox(height: 12),
+                            plField,
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(flex: 3, child: fileDropdown),
+                          const SizedBox(width: 16),
+                          Expanded(flex: 2, child: invField),
+                          const SizedBox(width: 16),
+                          Expanded(flex: 2, child: plField),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
@@ -1328,60 +1919,112 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           const SizedBox(height: 20),
 
           // SMART EXTRACTION & 3-WAY RECONCILIATION TOOL CARD
-          _buildSmartExtractionCard(),
+          _buildSmartExtractionCard(isDark),
           const SizedBox(height: 20),
 
           // Summary Metrics Cards
-          Row(
-            children: [
-              _buildSummaryCard(l.poRecKpiTotalInvoice, '${totalAmount.toStringAsFixed(2)} \$', Icons.monetization_on, AppTheme.cobalt),
-              const SizedBox(width: 12),
-              _buildSummaryCard(l.poRecKpiTotalPackages, '${totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', Icons.all_inbox, AppTheme.charcoal),
-              const SizedBox(width: 12),
-              _buildSummaryCard(l.poRecKpiTotalGrossWeight, '${totalGrossWeight.toStringAsFixed(2)} ${l.poRecKgUnit}', Icons.scale, AppTheme.orange),
-              const SizedBox(width: 12),
-              _buildSummaryCard(l.poRecKpiTotalNetWeight, '${totalNetWeight.toStringAsFixed(2)} ${l.poRecKgUnit}', Icons.fitness_center, AppTheme.emerald),
-              const SizedBox(width: 12),
-              _buildSummaryCard(l.poRecKpiTotalCbm, '${totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}', Icons.view_in_ar, AppTheme.cobalt),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isDesktop = constraints.maxWidth >= 950;
+              final kpiCards = [
+                _buildSummaryCard(l.poRecKpiTotalInvoice, '${totalAmount.toStringAsFixed(2)} \$', Icons.monetization_on, AppTheme.cobalt, isDark),
+                _buildSummaryCard(l.poRecKpiTotalPackages, '${totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', Icons.all_inbox, AppTheme.charcoal, isDark),
+                _buildSummaryCard(l.poRecKpiTotalGrossWeight, '${totalGrossWeight.toStringAsFixed(2)} ${l.poRecKgUnit}', Icons.scale, AppTheme.orange, isDark),
+                _buildSummaryCard(l.poRecKpiTotalNetWeight, '${totalNetWeight.toStringAsFixed(2)} ${l.poRecKgUnit}', Icons.fitness_center, AppTheme.emerald, isDark),
+                _buildSummaryCard(l.poRecKpiTotalCbm, '${totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}', Icons.view_in_ar, AppTheme.cobalt, isDark),
+              ];
+              if (isDesktop) {
+                return Row(
+                  children: kpiCards.map((c) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: c))).toList(),
+                );
+              }
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: kpiCards.map((c) => SizedBox(
+                  width: constraints.maxWidth > 550 ? (constraints.maxWidth - 24) / 2 : constraints.maxWidth,
+                  child: c,
+                )).toList(),
+              );
+            },
           ),
           const SizedBox(height: 20),
 
           // SECTION 1: INVOICE & PRICE RECONCILIATION TABLE
           Card(
             elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            const Icon(Icons.receipt, color: AppTheme.cobalt),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                l.poRecInvoiceSectionTitle,
-                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis,
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final titleWidget = Row(
+                        children: [
+                          const Icon(Icons.receipt, color: AppTheme.cobalt),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l.poRecInvoiceSectionTitle,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Row(
+                          ),
+                        ],
+                      );
+
+                      final actionsWidget = Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           OutlinedButton.icon(
+                            key: const Key('copyInvoiceItemsBtn'),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.charcoal,
-                              side: const BorderSide(color: AppTheme.charcoal),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              foregroundColor: AppTheme.cobalt,
+                              side: const BorderSide(color: AppTheme.cobalt),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            ),
+                            icon: const Icon(Icons.copy, size: 16),
+                            label: Text(l.copyPoReconBtn),
+                            onPressed: _invoiceItems.isEmpty ? null : _copyInvoiceItemsTable,
+                          ),
+                          OutlinedButton.icon(
+                            key: const Key('exportInvoiceItemsExcelBtn'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.emerald,
+                              side: const BorderSide(color: AppTheme.emerald),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            ),
+                            icon: const Icon(Icons.table_view_outlined, size: 16),
+                            label: Text(l.exportPoReconExcelBtn),
+                            onPressed: _invoiceItems.isEmpty ? null : _exportInvoiceItemsToExcel,
+                          ),
+                          OutlinedButton.icon(
+                            key: const Key('exportInvoiceItemsPdfBtn'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.crimson,
+                              side: const BorderSide(color: AppTheme.crimson),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            ),
+                            icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                            label: Text(l.exportPoReconPdfBtn),
+                            onPressed: _invoiceItems.isEmpty ? null : _exportInvoiceItemsToPdf,
+                          ),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
+                              side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.charcoal),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                             ),
                             icon: const Icon(Icons.restart_alt, size: 16),
                             label: Text(l.poRecResetToOriginalValuesButton, style: const TextStyle(fontSize: 12.5)),
@@ -1391,13 +2034,12 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                               }
                             },
                           ),
-                          const SizedBox(width: 10),
                           // SAVE SESSION BUTTON
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF16A085),
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             ),
                             icon: _isSavingSession
                                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
@@ -1408,12 +2050,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                             ),
                             onPressed: _isSavingSession ? null : _saveReconciliationSession,
                           ),
-                          const SizedBox(width: 10),
                           // CERTIFY BUTTON
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.cobalt,
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                             ),
                             icon: _isSubmitting
                                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
@@ -1422,15 +2063,24 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                             onPressed: _isSubmitting ? null : _submitCertification,
                           ),
                         ],
-                      ),
-                    ],
+                      );
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          titleWidget,
+                          const SizedBox(height: 12),
+                          actionsWidget,
+                        ],
+                      );
+                    },
                   ),
                   const Divider(height: 20),
                   if (_invoiceItems.isEmpty)
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.all(30),
-                        child: Text(l.poRecSelectFileToViewPoItems, style: const TextStyle(color: Colors.grey)),
+                        child: Text(l.poRecSelectFileToViewPoItems, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
                       ),
                     )
                   else
@@ -1439,6 +2089,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                       child: DataTable(
                         columnSpacing: 16,
                         columns: [
+                          DataColumn(label: Text(l.actions, style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(l.poRecColItemCode)),
                           DataColumn(label: Text(l.poRecColDescription)),
                           DataColumn(label: Text(l.poRecColPoQty)),
@@ -1450,84 +2101,144 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                           DataColumn(label: Text(l.poRecColFinalTotal)),
                           DataColumn(label: Text(l.poRecColHsCode)),
                         ],
-                        rows: _invoiceItems.asMap().entries.map((entry) {
-                          int idx = entry.key;
-                          var itm = entry.value;
-                          double qtyVariance = itm.finalQuantity - itm.initialQuantity;
-                          double priceVariance = itm.finalUnitPrice - itm.initialUnitPrice;
-                          double totalRow = itm.finalQuantity * (itm.finalUnitPrice > 0 ? itm.finalUnitPrice : itm.unitPrice);
-                          const currencyStr = r'$';
-                          final rowSummary = [
-                            itm.itemCode,
-                            itm.description,
-                            '${itm.initialQuantity}',
-                            '${itm.finalQuantity}',
-                            '$qtyVariance',
-                            '${itm.initialUnitPrice}',
-                            '${itm.finalUnitPrice}',
-                            '$priceVariance',
-                            '${totalRow.toStringAsFixed(2)} $currencyStr',
-                            itm.hsCode ?? '',
-                          ].join('\t');
+                        rows: [
+                          ..._invoiceItems.asMap().entries.map((entry) {
+                            int idx = entry.key;
+                            var itm = entry.value;
+                            double initQty = itm.initialQuantity;
+                            double finQty = itm.finalQuantity;
+                            double initPrice = itm.initialUnitPrice;
+                            double finPrice = itm.finalUnitPrice > 0 ? itm.finalUnitPrice : itm.unitPrice;
+                            double qtyVariancePct = initQty > 0 ? ((finQty - initQty) / initQty) * 100.0 : 0.0;
+                            double priceVariancePct = initPrice > 0 ? ((finPrice - initPrice) / initPrice) * 100.0 : 0.0;
+                            double totalRow = finQty * finPrice;
+                            final rowSummary = [
+                              itm.itemCode,
+                              itm.description,
+                              '$initQty',
+                              '$finQty',
+                              '${qtyVariancePct.toStringAsFixed(1)}%',
+                              '$initPrice',
+                              '$finPrice',
+                              '${priceVariancePct.toStringAsFixed(1)}%',
+                              '${totalRow.toStringAsFixed(2)} $currencyStr',
+                              itm.hsCode ?? '',
+                            ].join('\t');
 
-                          return DataRow(cells: [
-                            DataCell(CopyableTableCell(value: itm.itemCode, rowSummary: rowSummary, child: Text(itm.itemCode, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                            DataCell(CopyableTableCell(value: itm.description, rowSummary: rowSummary, child: SizedBox(width: 160, child: Text(itm.description, overflow: TextOverflow.ellipsis)))),
-                            DataCell(CopyableTableCell(value: '${itm.initialQuantity}', rowSummary: rowSummary, child: Text('${itm.initialQuantity}'))),
-                            DataCell(
-                              SizedBox(
-                                width: 85,
-                                child: TextFormField(
-                                  initialValue: '${itm.finalQuantity}',
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6)),
-                                  onChanged: (val) {
-                                    double? parsed = double.tryParse(val);
-                                    if (parsed != null) {
+                            return DataRow(cells: [
+                              DataCell(
+                                IconButton(
+                                  key: Key('cloneInvoiceItemRowBtn_${itm.itemCode}'),
+                                  icon: const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
+                                  tooltip: l.clonePoReconRecordTooltip,
+                                  onPressed: () => _cloneInvoiceItem(itm),
+                                ),
+                              ),
+                              DataCell(CopyableTableCell(value: itm.itemCode, rowSummary: rowSummary, child: Text(itm.itemCode, style: const TextStyle(fontWeight: FontWeight.bold)))),
+                              DataCell(CopyableTableCell(value: itm.description, rowSummary: rowSummary, child: SizedBox(width: 160, child: Text(itm.description, overflow: TextOverflow.ellipsis)))),
+                              DataCell(CopyableTableCell(value: '$initQty', rowSummary: rowSummary, child: Text('$initQty'))),
+                              DataCell(
+                                SizedBox(
+                                  width: 85,
+                                  child: TextFormField(
+                                    key: ValueKey('inv_qty_${idx}_${itm.itemCode}'),
+                                    initialValue: '$finQty',
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6)),
+                                    onChanged: (val) {
+                                      double? parsed = double.tryParse(val);
+                                      if (parsed != null) {
+                                        final cur = _invoiceItems[idx];
+                                        final qPct = cur.initialQuantity > 0 ? ((parsed - cur.initialQuantity) / cur.initialQuantity) * 100.0 : 0.0;
+                                        final curP = cur.finalUnitPrice > 0 ? cur.finalUnitPrice : cur.unitPrice;
+                                        final pPct = cur.initialUnitPrice > 0 ? ((curP - cur.initialUnitPrice) / cur.initialUnitPrice) * 100.0 : 0.0;
+                                        setState(() {
+                                          _invoiceItems[idx] = cur.copyWith(
+                                            finalQuantity: parsed,
+                                            variancePercentage: qPct,
+                                            priceVariancePercentage: pPct,
+                                          );
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ),
+                              DataCell(CopyableTableCell(value: '${qtyVariancePct.toStringAsFixed(1)}%', rowSummary: rowSummary, child: _buildVarianceBadge(qtyVariancePct))),
+                              DataCell(CopyableTableCell(value: '$initPrice', rowSummary: rowSummary, child: Text('$initPrice'))),
+                              DataCell(
+                                SizedBox(
+                                  width: 85,
+                                  child: TextFormField(
+                                    key: ValueKey('inv_price_${idx}_${itm.itemCode}'),
+                                    initialValue: '$finPrice',
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6)),
+                                    onChanged: (val) {
+                                      double? parsed = double.tryParse(val);
+                                      if (parsed != null) {
+                                        final cur = _invoiceItems[idx];
+                                        final qPct = cur.initialQuantity > 0 ? ((cur.finalQuantity - cur.initialQuantity) / cur.initialQuantity) * 100.0 : 0.0;
+                                        final pPct = cur.initialUnitPrice > 0 ? ((parsed - cur.initialUnitPrice) / cur.initialUnitPrice) * 100.0 : 0.0;
+                                        setState(() {
+                                          _invoiceItems[idx] = cur.copyWith(
+                                            finalUnitPrice: parsed,
+                                            unitPrice: parsed,
+                                            variancePercentage: qPct,
+                                            priceVariancePercentage: pPct,
+                                          );
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ),
+                              DataCell(CopyableTableCell(value: '${priceVariancePct.toStringAsFixed(1)}%', rowSummary: rowSummary, child: _buildVarianceBadge(priceVariancePct))),
+                              DataCell(CopyableTableCell(value: '${totalRow.toStringAsFixed(2)} $currencyStr', rowSummary: rowSummary, child: Text('${totalRow.toStringAsFixed(2)} $currencyStr', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
+                              DataCell(
+                                SizedBox(
+                                  width: 100,
+                                  child: TextFormField(
+                                    key: ValueKey('inv_hs_${idx}_${itm.itemCode}'),
+                                    initialValue: itm.hsCode ?? '',
+                                    decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6)),
+                                    onChanged: (val) {
+                                      final cur = _invoiceItems[idx];
                                       setState(() {
-                                        _invoiceItems[idx] = itm.copyWith(finalQuantity: parsed);
+                                        _invoiceItems[idx] = cur.copyWith(hsCode: val);
                                       });
-                                    }
-                                  },
+                                    },
+                                  ),
                                 ),
                               ),
-                            ),
-                            DataCell(CopyableTableCell(value: '$qtyVariance', rowSummary: rowSummary, child: _buildVarianceBadge(qtyVariance))),
-                            DataCell(CopyableTableCell(value: '${itm.initialUnitPrice}', rowSummary: rowSummary, child: Text('${itm.initialUnitPrice}'))),
-                            DataCell(
-                              SizedBox(
-                                width: 85,
-                                child: TextFormField(
-                                  initialValue: '${itm.finalUnitPrice}',
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6)),
-                                  onChanged: (val) {
-                                    double? parsed = double.tryParse(val);
-                                    if (parsed != null) {
-                                      setState(() {
-                                        _invoiceItems[idx] = itm.copyWith(finalUnitPrice: parsed);
-                                      });
-                                    }
-                                  },
-                                ),
-                              ),
-                            ),
-                            DataCell(CopyableTableCell(value: '$priceVariance', rowSummary: rowSummary, child: _buildVarianceBadge(priceVariance))),
-                            DataCell(CopyableTableCell(value: '${totalRow.toStringAsFixed(2)} $currencyStr', rowSummary: rowSummary, child: Text('${totalRow.toStringAsFixed(2)} $currencyStr', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
-                            DataCell(
-                              SizedBox(
-                                width: 100,
-                                child: TextFormField(
-                                  initialValue: itm.hsCode ?? '',
-                                  decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6)),
-                                  onChanged: (val) {
-                                    _invoiceItems[idx] = itm.copyWith(hsCode: val);
-                                  },
-                                ),
-                              ),
-                            ),
-                          ]);
-                        }).toList(),
+                            ]);
+                          }),
+                          if (_invoiceItems.isNotEmpty) ...[
+                            () {
+                              final totalPoQty = _invoiceItems.fold(0.0, (s, i) => s + i.initialQuantity);
+                              final totalFinQty = _invoiceItems.fold(0.0, (s, i) => s + i.finalQuantity);
+                              final totalPoAmt = _invoiceItems.fold(0.0, (s, i) => s + (i.initialQuantity * i.initialUnitPrice));
+                              final overallQtyVarPct = totalPoQty > 0 ? ((totalFinQty - totalPoQty) / totalPoQty) * 100.0 : 0.0;
+                              final overallPriceVarPct = totalPoAmt > 0 ? ((totalAmount - totalPoAmt) / totalPoAmt) * 100.0 : 0.0;
+                              return DataRow(
+                                color: WidgetStateProperty.all(isDark ? Colors.blueGrey.withOpacity(0.2) : const Color(0xFFEBF5FB)),
+                                cells: [
+                                  const DataCell(SizedBox()),
+                                  DataCell(Text(l.poRecTotalSummaryRow, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13))),
+                                  DataCell(Text('${_invoiceItems.length} ${l.poRecPackagesUnit}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                  DataCell(Text(totalPoQty.toStringAsFixed(0), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                  DataCell(Text(totalFinQty.toStringAsFixed(0), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13))),
+                                  DataCell(_buildVarianceBadge(overallQtyVarPct)),
+                                  DataCell(Text('${totalPoAmt.toStringAsFixed(2)} $currencyStr', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                  const DataCell(Text('—', style: TextStyle(fontWeight: FontWeight.bold))),
+                                  DataCell(_buildVarianceBadge(overallPriceVarPct)),
+                                  DataCell(Text('${totalAmount.toStringAsFixed(2)} $currencyStr', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt))),
+                                  const DataCell(Text('—')),
+                                ],
+                              );
+                            }(),
+                          ],
+                        ],
                       ),
                     ),
                 ],
@@ -1539,24 +2250,85 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           // SECTION 2: PACKING LIST & WEIGHTS RECONCILIATION TABLE
           Card(
             elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.inventory, color: AppTheme.orange),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          l.poRecPackingSectionTitle,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final titleWidget = Row(
+                        children: [
+                          const Icon(Icons.inventory, color: AppTheme.orange),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l.poRecPackingSectionTitle,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+
+                      final actionsWidget = Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          OutlinedButton.icon(
+                            key: const Key('copyPackingItemsBtn'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.orange,
+                              side: const BorderSide(color: AppTheme.orange),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            ),
+                            icon: const Icon(Icons.copy, size: 16),
+                            label: Text(l.copyPoReconBtn),
+                            onPressed: _packingItems.isEmpty ? null : _copyPackingItemsTable,
+                          ),
+                          OutlinedButton.icon(
+                            key: const Key('exportPackingItemsExcelBtn'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.emerald,
+                              side: const BorderSide(color: AppTheme.emerald),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            ),
+                            icon: const Icon(Icons.table_view_outlined, size: 16),
+                            label: Text(l.exportPoReconExcelBtn),
+                            onPressed: _packingItems.isEmpty ? null : _exportPackingItemsToExcel,
+                          ),
+                          OutlinedButton.icon(
+                            key: const Key('exportPackingItemsPdfBtn'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.crimson,
+                              side: const BorderSide(color: AppTheme.crimson),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            ),
+                            icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                            label: Text(l.exportPoReconPdfBtn),
+                            onPressed: _packingItems.isEmpty ? null : _exportPackingItemsToPdf,
+                          ),
+                        ],
+                      );
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          titleWidget,
+                          const SizedBox(height: 10),
+                          actionsWidget,
+                        ],
+                      );
+                    },
                   ),
 
                   const Divider(height: 20),
@@ -1564,7 +2336,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.all(30),
-                        child: Text(l.poRecSelectFileToViewPackingItems, style: const TextStyle(color: Colors.grey)),
+                        child: Text(l.poRecSelectFileToViewPackingItems, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
                       ),
                     )
                   else
@@ -1573,6 +2345,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                       child: DataTable(
                         columnSpacing: 16,
                         columns: [
+                          DataColumn(label: Text(l.actions, style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(l.poRecColItemCode)),
                           DataColumn(label: Text(l.poRecColPackageType)),
                           DataColumn(label: Text(l.poRecColFinalPackagesCount)),
@@ -1580,107 +2353,148 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                           DataColumn(label: Text(l.poRecColNetWeight)),
                           DataColumn(label: Text(l.poRecColCbm)),
                         ],
-                        rows: _packingItems.asMap().entries.map((entry) {
-                          int idx = entry.key;
-                          var itm = entry.value;
-                          final rowSummary = [
-                            itm.itemCode,
-                            itm.packageType,
-                            '${itm.finalPackagesCount}',
-                            '${itm.finalGrossWeightKg}',
-                            '${itm.finalNetWeightKg}',
-                            '${itm.finalCbm}',
-                          ].join('\t');
+                        rows: [
+                          ..._packingItems.asMap().entries.map((entry) {
+                            int idx = entry.key;
+                            var itm = entry.value;
+                            final rowSummary = [
+                              itm.itemCode,
+                              itm.packageType,
+                              '${itm.finalPackagesCount}',
+                              '${itm.finalGrossWeightKg}',
+                              '${itm.finalNetWeightKg}',
+                              '${itm.finalCbm}',
+                            ].join('\t');
 
-                          return DataRow(cells: [
-                            DataCell(CopyableTableCell(value: itm.itemCode, rowSummary: rowSummary, child: Text(itm.itemCode, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                            DataCell(
-                              SizedBox(
-                                width: 100,
-                                child: TextFormField(
-                                  initialValue: itm.packageType,
-                                  decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6)),
-                                  onChanged: (val) {
-                                    _packingItems[idx] = itm.copyWith(packageType: val);
-                                  },
+                            return DataRow(cells: [
+                              DataCell(
+                                IconButton(
+                                  key: Key('clonePackingItemRowBtn_${itm.itemCode}'),
+                                  icon: const Icon(Icons.copy, size: 16, color: AppTheme.orange),
+                                  tooltip: l.clonePoReconRecordTooltip,
+                                  onPressed: () => _clonePackingItem(itm),
                                 ),
-
                               ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                width: 85,
-                                child: TextFormField(
-                                  initialValue: '${itm.finalPackagesCount}',
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6)),
-                                  onChanged: (val) {
-                                    double? parsed = double.tryParse(val);
-                                    if (parsed != null) {
+                              DataCell(CopyableTableCell(value: itm.itemCode, rowSummary: rowSummary, child: Text(itm.itemCode, style: const TextStyle(fontWeight: FontWeight.bold)))),
+                              DataCell(
+                                SizedBox(
+                                  width: 100,
+                                  child: TextFormField(
+                                    key: ValueKey('pl_pkg_type_${idx}_${itm.itemCode}'),
+                                    initialValue: itm.packageType,
+                                    decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6)),
+                                    onChanged: (val) {
+                                      final cur = _packingItems[idx];
                                       setState(() {
-                                        _packingItems[idx] = itm.copyWith(finalPackagesCount: parsed);
+                                        _packingItems[idx] = cur.copyWith(packageType: val);
                                       });
-                                    }
-                                  },
+                                    },
+                                  ),
                                 ),
                               ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                width: 100,
-                                child: TextFormField(
-                                  initialValue: '${itm.finalGrossWeightKg}',
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6)),
-                                  onChanged: (val) {
-                                    double? parsed = double.tryParse(val);
-                                    if (parsed != null) {
-                                      setState(() {
-                                        _packingItems[idx] = itm.copyWith(finalGrossWeightKg: parsed);
-                                      });
-                                    }
-                                  },
+                              DataCell(
+                                SizedBox(
+                                  width: 85,
+                                  child: TextFormField(
+                                    key: ValueKey('pl_pkg_count_${idx}_${itm.itemCode}'),
+                                    initialValue: '${itm.finalPackagesCount}',
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6)),
+                                    onChanged: (val) {
+                                      double? parsed = double.tryParse(val);
+                                      if (parsed != null) {
+                                        final cur = _packingItems[idx];
+                                        setState(() {
+                                          _packingItems[idx] = cur.copyWith(finalPackagesCount: parsed);
+                                        });
+                                      }
+                                    },
+                                  ),
                                 ),
                               ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                width: 100,
-                                child: TextFormField(
-                                  initialValue: '${itm.finalNetWeightKg}',
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6)),
-                                  onChanged: (val) {
-                                    double? parsed = double.tryParse(val);
-                                    if (parsed != null) {
-                                      setState(() {
-                                        _packingItems[idx] = itm.copyWith(finalNetWeightKg: parsed);
-                                      });
-                                    }
-                                  },
+                              DataCell(
+                                SizedBox(
+                                  width: 100,
+                                  child: TextFormField(
+                                    key: ValueKey('pl_gross_wt_${idx}_${itm.itemCode}'),
+                                    initialValue: '${itm.finalGrossWeightKg}',
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6)),
+                                    onChanged: (val) {
+                                      double? parsed = double.tryParse(val);
+                                      if (parsed != null) {
+                                        final cur = _packingItems[idx];
+                                        setState(() {
+                                          _packingItems[idx] = cur.copyWith(finalGrossWeightKg: parsed);
+                                        });
+                                      }
+                                    },
+                                  ),
                                 ),
                               ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                width: 85,
-                                child: TextFormField(
-                                  initialValue: '${itm.finalCbm}',
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6)),
-                                  onChanged: (val) {
-                                    double? parsed = double.tryParse(val);
-                                    if (parsed != null) {
-                                      setState(() {
-                                        _packingItems[idx] = itm.copyWith(finalCbm: parsed);
-                                      });
-                                    }
-                                  },
+                              DataCell(
+                                SizedBox(
+                                  width: 100,
+                                  child: TextFormField(
+                                    key: ValueKey('pl_net_wt_${idx}_${itm.itemCode}'),
+                                    initialValue: '${itm.finalNetWeightKg}',
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6)),
+                                    onChanged: (val) {
+                                      double? parsed = double.tryParse(val);
+                                      if (parsed != null) {
+                                        final cur = _packingItems[idx];
+                                        setState(() {
+                                          _packingItems[idx] = cur.copyWith(finalNetWeightKg: parsed);
+                                        });
+                                      }
+                                    },
+                                  ),
                                 ),
                               ),
-                            ),
-                          ]);
-                        }).toList(),
+                              DataCell(
+                                SizedBox(
+                                  width: 85,
+                                  child: TextFormField(
+                                    key: ValueKey('pl_cbm_${idx}_${itm.itemCode}'),
+                                    initialValue: '${itm.finalCbm}',
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6)),
+                                    onChanged: (val) {
+                                      double? parsed = double.tryParse(val);
+                                      if (parsed != null) {
+                                        final cur = _packingItems[idx];
+                                        setState(() {
+                                          _packingItems[idx] = cur.copyWith(finalCbm: parsed);
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ]);
+                          }),
+                          if (_packingItems.isNotEmpty) ...[
+                            () {
+                              final totalPkgs = _packingItems.fold(0.0, (s, i) => s + i.finalPackagesCount);
+                              final totalGross = _packingItems.fold(0.0, (s, i) => s + i.finalGrossWeightKg);
+                              final totalNet = _packingItems.fold(0.0, (s, i) => s + i.finalNetWeightKg);
+                              final totalCbmVal = _packingItems.fold(0.0, (s, i) => s + i.finalCbm);
+                              return DataRow(
+                                color: WidgetStateProperty.all(isDark ? Colors.blueGrey.withOpacity(0.2) : const Color(0xFFEBF5FB)),
+                                cells: [
+                                  const DataCell(SizedBox()),
+                                  DataCell(Text(l.poRecTotalSummaryRow, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13))),
+                                  DataCell(Text('${_packingItems.length} items', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                  DataCell(Text('${totalPkgs.toStringAsFixed(0)} ${l.poRecPackagesUnit}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13))),
+                                  DataCell(Text('${totalGross.toStringAsFixed(2)} ${l.poRecKgUnit}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 13))),
+                                  DataCell(Text('${totalNet.toStringAsFixed(2)} ${l.poRecKgUnit}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13))),
+                                  DataCell(Text('${totalCbmVal.toStringAsFixed(3)} ${l.poRecCbmUnit}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange, fontSize: 13))),
+                                ],
+                              );
+                            }(),
+                          ],
+                        ],
                       ),
                     ),
                 ],
@@ -1698,6 +2512,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   Widget _buildSavedSessionsHistorySection(
     List<POReconciliationSessionModel> allSessions,
     List<ImportFileModel> importFiles,
+    bool isDark,
   ) {
     final l = context.l10n;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
@@ -1734,9 +2549,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.grey.shade300),
+            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
           ),
-          color: AppTheme.cloudWhite,
+          color: isDark ? AppTheme.darkCardBackground : AppTheme.cloudWhite,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
@@ -1750,25 +2565,27 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   child: const Icon(Icons.folder_shared_rounded, color: Colors.white, size: 22),
                 ),
                 const SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l.poRecHistorySectionTitle,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.charcoal,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l.poRecHistorySectionTitle,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l.poRecHistorySectionSubtitle,
-                      style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        l.poRecHistorySectionSubtitle,
+                        style: TextStyle(fontSize: 12.5, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                      ),
+                    ],
+                  ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -1854,58 +2671,91 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         const SizedBox(height: 16),
 
         // 3. SEARCH & FILTER TOOLBAR
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: TextField(
-                  controller: _searchHistoryCtrl,
-                  decoration: InputDecoration(
-                    hintText: l.poRecHistorySearchHint,
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    suffixIcon: _searchHistoryCtrl.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
-                            onPressed: () {
-                              setState(() => _searchHistoryCtrl.clear());
-                            },
-                          )
-                        : null,
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onChanged: (_) => setState(() {}),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isCompact = constraints.maxWidth < 950;
+            final searchField = TextField(
+              controller: _searchHistoryCtrl,
+              decoration: InputDecoration(
+                hintText: l.poRecHistorySearchHint,
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _searchHistoryCtrl.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          setState(() => _searchHistoryCtrl.clear());
+                        },
+                      )
+                    : null,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onChanged: (_) => setState(() {}),
+            );
+
+            final chipsAndActions = Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _buildStatusFilterChip('All', l.poRecHistoryFilterAll(allSessions.length)),
+                _buildStatusFilterChip('FULLY_MATCHED', l.poRecHistoryFilterMatched),
+                _buildStatusFilterChip('ACCEPTED_WITH_WARNINGS', l.poRecHistoryFilterWarnings),
+                _buildStatusFilterChip('CRITICAL_DISCREPANCY', l.poRecHistoryFilterCritical),
+                IconButton(
+                  key: const Key('copySessionsBtn'),
+                  icon: const Icon(Icons.copy_all, color: AppTheme.cobalt),
+                  tooltip: l.copyPoReconBtn,
+                  onPressed: filtered.isEmpty ? null : () => _copySessionsTable(filtered),
                 ),
+                IconButton(
+                  key: const Key('exportSessionsExcelBtn'),
+                  icon: const Icon(Icons.table_view_outlined, color: AppTheme.emerald),
+                  tooltip: l.exportPoReconExcelBtn,
+                  onPressed: filtered.isEmpty ? null : () => _exportSessionsToExcel(filtered),
+                ),
+                IconButton(
+                  key: const Key('exportSessionsPdfBtn'),
+                  icon: const Icon(Icons.picture_as_pdf_outlined, color: AppTheme.crimson),
+                  tooltip: l.exportPoReconPdfBtn,
+                  onPressed: filtered.isEmpty ? null : () => _exportSessionsToPdf(filtered),
+                ),
+                IconButton(
+                  icon: Icon(Icons.refresh_rounded, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                  tooltip: l.poRecHistoryRefreshTooltip,
+                  onPressed: () {
+                    ref.read(poReconciliationSessionsProvider.notifier).fetchSessions();
+                  },
+                ),
+              ],
+            );
+
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
               ),
-              const SizedBox(width: 16),
-              // Status Filter Chips
-              Wrap(
-                spacing: 8,
-                children: [
-                  _buildStatusFilterChip('All', l.poRecHistoryFilterAll(allSessions.length)),
-                  _buildStatusFilterChip('FULLY_MATCHED', l.poRecHistoryFilterMatched),
-                  _buildStatusFilterChip('ACCEPTED_WITH_WARNINGS', l.poRecHistoryFilterWarnings),
-                  _buildStatusFilterChip('CRITICAL_DISCREPANCY', l.poRecHistoryFilterCritical),
-                ],
-              ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.refresh_rounded, color: AppTheme.charcoal),
-                tooltip: l.poRecHistoryRefreshTooltip,
-                onPressed: () {
-                  ref.read(poReconciliationSessionsProvider.notifier).fetchSessions();
-                },
-              ),
-            ],
-          ),
+              child: isCompact
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        searchField,
+                        const SizedBox(height: 10),
+                        chipsAndActions,
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(flex: 3, child: searchField),
+                        const SizedBox(width: 16),
+                        Expanded(flex: 5, child: chipsAndActions),
+                      ],
+                    ),
+            );
+          },
         ),
         const SizedBox(height: 16),
 
@@ -1945,15 +2795,20 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               )
             : Card(
                 elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
                       columnSpacing: 18,
-                      headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.04)),
+                      headingRowColor: WidgetStateProperty.all(isDark ? Colors.white.withOpacity(0.06) : AppTheme.charcoal.withOpacity(0.04)),
                       columns: [
+                        DataColumn(label: Text(l.poRecHistoryColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(label: Text(l.poRecHistoryColIndex, style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(label: Text(l.poRecHistoryColSessionCode, style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(label: Text(l.poRecHistoryColImportFileImporter, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -1963,7 +2818,6 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                         DataColumn(label: Text(l.poRecHistoryColCbm, style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(label: Text(l.poRecHistoryColStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(label: Text(l.poRecHistoryColSavedDate, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(l.poRecHistoryColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                       ],
                       rows: filtered.asMap().entries.map((entry) {
                         final idx = entry.key + 1;
@@ -1997,6 +2851,45 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
                         return DataRow(
                           cells: [
+                                // 10. Actions
+                                DataCell(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // View Details Modal
+                                      IconButton(
+                                        icon: const Icon(Icons.visibility_rounded, size: 18, color: AppTheme.cobalt),
+                                        tooltip: l.poRecHistoryViewDetailsTooltip,
+                                        onPressed: () => _showSessionDetailsModal(context, sess),
+                                      ),
+                                      // Load into Editor
+                                      IconButton(
+                                        icon: const Icon(Icons.edit_note_rounded, size: 20, color: AppTheme.emerald),
+                                        tooltip: l.poRecHistoryLoadIntoEditorTooltip,
+                                        onPressed: () => _loadSessionIntoEditor(sess),
+                                      ),
+                                      // Clone Session
+                                      IconButton(
+                                        key: Key('cloneSessionRowBtn_${sess.sessionId}'),
+                                        icon: const Icon(Icons.copy_all_rounded, size: 18, color: AppTheme.cobalt),
+                                        tooltip: l.clonePoReconRecordTooltip,
+                                        onPressed: () => _cloneSession(sess),
+                                      ),
+                                      // Copy / Print Report
+                                      IconButton(
+                                        icon: Icon(Icons.print_rounded, size: 18, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
+                                        tooltip: l.poRecHistoryPrintTooltip,
+                                        onPressed: () => _showPrintReportDialog(context, sess),
+                                      ),
+                                      // Delete Session
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                                        tooltip: l.poRecHistoryDeleteTooltip,
+                                        onPressed: () => _confirmDeleteSession(context, sess),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                             // 1. Index
                             DataCell(CopyableTableCell(value: '$idx', rowSummary: rowSummary, child: Text('$idx', style: const TextStyle(fontWeight: FontWeight.bold)))),
 
@@ -2142,38 +3035,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                 )),
                             ),
 
-                                // 10. Actions
-                                DataCell(
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      // View Details Modal
-                                      IconButton(
-                                        icon: const Icon(Icons.visibility_rounded, size: 18, color: AppTheme.cobalt),
-                                        tooltip: l.poRecHistoryViewDetailsTooltip,
-                                        onPressed: () => _showSessionDetailsModal(context, sess),
-                                      ),
-                                      // Load into Editor
-                                      IconButton(
-                                        icon: const Icon(Icons.edit_note_rounded, size: 20, color: AppTheme.emerald),
-                                        tooltip: l.poRecHistoryLoadIntoEditorTooltip,
-                                        onPressed: () => _loadSessionIntoEditor(sess),
-                                      ),
-                                      // Copy / Print Report
-                                      IconButton(
-                                        icon: const Icon(Icons.print_rounded, size: 18, color: AppTheme.charcoal),
-                                        tooltip: l.poRecHistoryPrintTooltip,
-                                        onPressed: () => _showPrintReportDialog(context, sess),
-                                      ),
-                                      // Delete Session
-                                      IconButton(
-                                        icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
-                                        tooltip: l.poRecHistoryDeleteTooltip,
-                                        onPressed: () => _confirmDeleteSession(context, sess),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+
                               ],
                             );
                           }).toList(),
@@ -2370,6 +3232,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   void _showSessionDetailsModal(BuildContext context, POReconciliationSessionModel sess) {
+    final isDark = AppTheme.isDark(context);
     final l = context.l10n;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
@@ -2384,7 +3247,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+        ),
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -2392,7 +3259,14 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               children: [
                 const Icon(Icons.assignment_rounded, color: AppTheme.cobalt, size: 26),
                 const SizedBox(width: 10),
-                Text(l.poRecHistoryDetailsModalTitle(sess.sessionCode), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(
+                  l.poRecHistoryDetailsModalTitle(sess.sessionCode),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                  ),
+                ),
               ],
             ),
             _buildSessionStatusBadge(sess.overallStatus),
@@ -2409,35 +3283,59 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
+                      color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
+                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                     ),
-                    child: Row(
-                      children: [
-                        _buildExtractedPill(l.poRecImportFileLabel, fileDisplay, Icons.folder_rounded),
-                        const SizedBox(width: 8),
-                        _buildExtractedPill(l.poRecFinalInvoiceNoLabel, sess.finalInvoiceNumber ?? '—', Icons.receipt_long),
-                        const SizedBox(width: 8),
-                        _buildExtractedPill(l.poRecFinalPackingListNoLabel, sess.finalPackingListNumber ?? '—', Icons.inventory_2),
-                        const SizedBox(width: 8),
-                        _buildExtractedPill(l.poRecExtractedAcid, sess.acidNumber ?? '—', Icons.tag),
-                      ],
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final pills = [
+                          _buildExtractedPill(l.poRecImportFileLabel, fileDisplay, Icons.folder_rounded, isDark),
+                          _buildExtractedPill(l.poRecFinalInvoiceNoLabel, sess.finalInvoiceNumber ?? '—', Icons.receipt_long, isDark),
+                          _buildExtractedPill(l.poRecFinalPackingListNoLabel, sess.finalPackingListNumber ?? '—', Icons.inventory_2, isDark),
+                          _buildExtractedPill(l.poRecExtractedAcid, sess.acidNumber ?? '—', Icons.tag, isDark),
+                        ];
+                        if (constraints.maxWidth >= 750) {
+                          return Row(
+                            children: pills.map((p) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: p))).toList(),
+                          );
+                        }
+                        return Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: pills.map((p) => SizedBox(
+                            width: constraints.maxWidth > 400 ? (constraints.maxWidth - 8) / 2 : constraints.maxWidth,
+                            child: p,
+                          )).toList(),
+                        );
+                      },
                     ),
                   ),
                   const SizedBox(height: 14),
 
                   // Metrics Row
-                  Row(
-                    children: [
-                      _buildSummaryCard(l.poRecKpiTotalInvoice, '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}', Icons.monetization_on, AppTheme.cobalt),
-                      const SizedBox(width: 8),
-                      _buildSummaryCard(l.poRecKpiTotalPackages, '${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', Icons.all_inbox, AppTheme.charcoal),
-                      const SizedBox(width: 8),
-                      _buildSummaryCard(l.poRecKpiTotalGrossWeight, '${sess.totalGrossWeightKg.toStringAsFixed(1)} ${l.poRecKgUnit}', Icons.scale, AppTheme.orange),
-                      const SizedBox(width: 8),
-                      _buildSummaryCard(l.poRecKpiTotalCbm, '${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}', Icons.view_in_ar, AppTheme.emerald),
-                    ],
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final mCards = [
+                        _buildSummaryCard(l.poRecKpiTotalInvoice, '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}', Icons.monetization_on, AppTheme.cobalt, isDark),
+                        _buildSummaryCard(l.poRecKpiTotalPackages, '${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', Icons.all_inbox, AppTheme.charcoal, isDark),
+                        _buildSummaryCard(l.poRecKpiTotalGrossWeight, '${sess.totalGrossWeightKg.toStringAsFixed(1)} ${l.poRecKgUnit}', Icons.scale, AppTheme.orange, isDark),
+                        _buildSummaryCard(l.poRecKpiTotalCbm, '${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}', Icons.view_in_ar, AppTheme.emerald, isDark),
+                      ];
+                      if (constraints.maxWidth >= 750) {
+                        return Row(
+                          children: mCards.map((c) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: c))).toList(),
+                        );
+                      }
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: mCards.map((c) => SizedBox(
+                          width: constraints.maxWidth > 400 ? (constraints.maxWidth - 8) / 2 : constraints.maxWidth,
+                          child: c,
+                        )).toList(),
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -2473,6 +3371,70 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                             ],
                           );
                         }),
+                        TableRow(
+                          decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.08)),
+                          children: [
+                            Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecTotalSummaryRow, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.cobalt))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text('${sess.reconciledInvoiceItems!.length} items', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text(
+                              sess.reconciledInvoiceItems!.fold(0.0, (s, i) => s + (((i as Map<String, dynamic>)['final_quantity'] as num?)?.toDouble() ?? 0.0)).toStringAsFixed(0),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt),
+                            )),
+                            const Padding(padding: EdgeInsets.all(6), child: Text('—', style: TextStyle(fontWeight: FontWeight.bold))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text('${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.cobalt))),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+
+                  // Certified Packing List & Physical Measurements in Session
+                  if (sess.reconciledPackingItems != null && sess.reconciledPackingItems!.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(l.poRecHistoryDetailsCertifiedPackingTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 8),
+                    Table(
+                      border: TableBorder.all(color: Colors.grey.shade300),
+                      children: [
+                        TableRow(
+                          decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                          children: [
+                            Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColItemCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColPackageType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColFinalPackagesCount, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColGrossWeight, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColNetWeight, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColCbm, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                          ],
+                        ),
+                        ...sess.reconciledPackingItems!.map((itm) {
+                          final map = itm as Map<String, dynamic>;
+                          final pkgs = (map['final_packages_count'] as num?)?.toDouble() ?? 0.0;
+                          final gross = (map['final_gross_weight_kg'] as num?)?.toDouble() ?? 0.0;
+                          final net = (map['final_net_weight_kg'] as num?)?.toDouble() ?? 0.0;
+                          final cbm = (map['final_cbm'] as num?)?.toDouble() ?? 0.0;
+                          return TableRow(
+                            children: [
+                              Padding(padding: const EdgeInsets.all(6), child: CopyableText(map['item_code']?.toString() ?? '—', isSelectable: false, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: CopyableText(map['package_type']?.toString() ?? '—', isSelectable: false, style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: CopyableText('${pkgs.toStringAsFixed(0)} ${l.poRecPackagesUnit}', isSelectable: false, style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: CopyableText('${gross.toStringAsFixed(2)} ${l.poRecKgUnit}', isSelectable: false, style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: CopyableText('${net.toStringAsFixed(2)} ${l.poRecKgUnit}', isSelectable: false, style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: CopyableText('${cbm.toStringAsFixed(3)} ${l.poRecCbmUnit}', isSelectable: false, style: const TextStyle(fontSize: 11))),
+                            ],
+                          );
+                        }),
+                        TableRow(
+                          decoration: BoxDecoration(color: AppTheme.emerald.withOpacity(0.08)),
+                          children: [
+                            Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecTotalSummaryRow, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.emerald))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text('${sess.reconciledPackingItems!.length} items', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text('${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text('${sess.totalGrossWeightKg.toStringAsFixed(2)} ${l.poRecKgUnit}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.emerald))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text('${sess.totalNetWeightKg.toStringAsFixed(2)} ${l.poRecKgUnit}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text('${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.orange))),
+                          ],
+                        ),
                       ],
                     ),
                   ],
@@ -2528,6 +3490,18 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         final map = itm as Map<String, dynamic>;
         buffer.writeln('"${map['item_code']}","${map['description']}","${map['hs_code'] ?? ''}",${map['final_quantity']},${map['final_unit_price']},${map['total_amount'] ?? 0.0},${map['final_packages_count'] ?? 1.0},${map['final_gross_weight_kg'] ?? 0.0},${map['final_net_weight_kg'] ?? 0.0},${map['final_cbm'] ?? 0.0}');
       }
+    }
+
+    if (sess.reconciledPackingItems != null && sess.reconciledPackingItems!.isNotEmpty) {
+      buffer.writeln('\n================================================================');
+      buffer.writeln(l.poRecHistoryDetailsCertifiedPackingTitle);
+      buffer.writeln('"Item Code","Package Type","Packages","Gross Wt (kg)","Net Wt (kg)","CBM (m³)"');
+      for (var itm in sess.reconciledPackingItems!) {
+        final map = itm as Map<String, dynamic>;
+        buffer.writeln('"${map['item_code']}","${map['package_type'] ?? ''}",${map['final_packages_count'] ?? 0},${map['final_gross_weight_kg'] ?? 0},${map['final_net_weight_kg'] ?? 0},${map['final_cbm'] ?? 0}');
+      }
+      buffer.writeln('----------------------------------------------------------------');
+      buffer.writeln('TOTAL PACKAGES: ${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit} | TOTAL GROSS WT: ${sess.totalGrossWeightKg.toStringAsFixed(2)} ${l.poRecKgUnit} | TOTAL NET WT: ${sess.totalNetWeightKg.toStringAsFixed(2)} ${l.poRecKgUnit} | TOTAL CBM: ${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}');
     }
 
     final reportText = buffer.toString();
@@ -2625,46 +3599,46 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
 
   // --- SMART EXTRACTION WIDGETS ---
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.3)),
-          boxShadow: [
-            BoxShadow(color: color.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2)),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.10),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: color, size: 20),
+  Widget _buildSummaryCard(String title, String value, IconData icon, Color color, [bool isDark = false]) {
+    final cardBg = isDark ? AppTheme.darkCardBackground : Colors.white;
+    final labelColor = isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(color: color.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: TextStyle(fontSize: 11, color: Colors.grey.shade600, height: 1.2)),
-                  const SizedBox(height: 3),
-                  CopyableText(
-                    value,
-                    isSelectable: false,
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color),
-                  ),
-                ],
-              ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(fontSize: 11, color: labelColor, height: 1.2)),
+                const SizedBox(height: 3),
+                CopyableText(
+                  value,
+                  isSelectable: false,
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -2689,10 +3663,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     );
   }
 
-  Widget _buildSmartExtractionCard() {
+  Widget _buildSmartExtractionCard([bool isDark = false]) {
     final l = context.l10n;
     return Card(
       elevation: 3,
+      color: isDark ? AppTheme.darkCardBackground : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: AppTheme.cobalt.withOpacity(0.35), width: 1.5),
@@ -2702,44 +3677,49 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.cobalt.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 24),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isCompact = constraints.maxWidth < 750;
+                final titleBlock = Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cobalt.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              l.poRecExtractorTitle,
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                              overflow: TextOverflow.ellipsis,
+                      child: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l.poRecExtractorTitle,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              l.poRecExtractorSubtitle,
-                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            l.poRecExtractorSubtitle,
+                            style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Row(
+                    ),
+                  ],
+                );
+
+                final actionButtons = Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
@@ -2751,11 +3731,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                       label: Text(l.poRecLoadSampleDemoButton, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       onPressed: _loadSampleData,
                     ),
-                    const SizedBox(width: 8),
                     IconButton(
                       icon: Icon(
                         _showSmartExtractionTool ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                        color: AppTheme.charcoal,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                       ),
                       tooltip: _showSmartExtractionTool ? l.poRecHideTool : l.poRecShowTool,
                       onPressed: () {
@@ -2763,162 +3742,203 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                       },
                     ),
                   ],
-                ),
-              ],
+                );
+
+                if (isCompact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      titleBlock,
+                      const SizedBox(height: 10),
+                      actionButtons,
+                    ],
+                  );
+                }
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(child: titleBlock),
+                    const SizedBox(width: 12),
+                    actionButtons,
+                  ],
+                );
+              },
             ),
 
             if (_showSmartExtractionTool) ...[
               const Divider(height: 24),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 18),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        l.poRecExtractorTabInvoice,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  visualDensity: VisualDensity.compact,
-                                ),
-                                icon: const Icon(Icons.upload_file, size: 15),
-                                label: Text(_selectedInvoiceFileName != null ? l.poRecChangeFile : l.poRecUploadFile, style: const TextStyle(fontSize: 11)),
-                                onPressed: () => _pickFile(true),
-                              ),
-                            ],
-                          ),
-                          if (_selectedInvoiceFileName != null) ...[
-                            const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isCompact = constraints.maxWidth < 750;
+                  final invoiceSide = Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
                               child: Row(
                                 children: [
-                                  const Icon(Icons.attach_file, size: 14, color: AppTheme.cobalt),
-                                  const SizedBox(width: 4),
-                                  Expanded(child: Text(_selectedInvoiceFileName!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: AppTheme.cobalt, fontWeight: FontWeight.bold))),
+                                  const Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 18),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      l.poRecExtractorTabInvoice,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              icon: const Icon(Icons.upload_file, size: 15),
+                              label: Text(_selectedInvoiceFileName != null ? l.poRecChangeFile : l.poRecUploadFile, style: const TextStyle(fontSize: 11)),
+                              onPressed: () => _pickFile(true),
+                            ),
                           ],
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _invoiceTextCtrl,
-                            maxLines: 8,
-                            style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-                            decoration: InputDecoration(
-                              hintText: l.poRecPasteInvoiceHint,
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300)),
-                              contentPadding: const EdgeInsets.all(10),
+                        ),
+                        if (_selectedInvoiceFileName != null) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.attach_file, size: 14, color: AppTheme.cobalt),
+                                const SizedBox(width: 4),
+                                Expanded(child: Text(_selectedInvoiceFileName!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: AppTheme.cobalt, fontWeight: FontWeight.bold))),
+                              ],
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.inventory_2, color: AppTheme.orange, size: 18),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        l.poRecExtractorTabPacking,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  visualDensity: VisualDensity.compact,
-                                ),
-                                icon: const Icon(Icons.upload_file, size: 15),
-                                label: Text(_selectedPackingFileName != null ? l.poRecChangeFile : l.poRecUploadFile, style: const TextStyle(fontSize: 11)),
-                                onPressed: () => _pickFile(false),
-                              ),
-                            ],
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _invoiceTextCtrl,
+                          maxLines: 8,
+                          style: TextStyle(fontSize: 12, fontFamily: 'monospace', color: isDark ? AppTheme.darkTextPrimary : null),
+                          decoration: InputDecoration(
+                            hintText: l.poRecPasteInvoiceHint,
+                            filled: true,
+                            fillColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                            contentPadding: const EdgeInsets.all(10),
                           ),
+                        ),
+                      ],
+                    ),
+                  );
 
-                          if (_selectedPackingFileName != null) ...[
-                            const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(4)),
+                  final packingSide = Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
                               child: Row(
                                 children: [
-                                  const Icon(Icons.attach_file, size: 14, color: AppTheme.orange),
-                                  const SizedBox(width: 4),
-                                  Expanded(child: Text(_selectedPackingFileName!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: AppTheme.orange, fontWeight: FontWeight.bold))),
+                                  const Icon(Icons.inventory_2, color: AppTheme.orange, size: 18),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      l.poRecExtractorTabPacking,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              icon: const Icon(Icons.upload_file, size: 15),
+                              label: Text(_selectedPackingFileName != null ? l.poRecChangeFile : l.poRecUploadFile, style: const TextStyle(fontSize: 11)),
+                              onPressed: () => _pickFile(false),
+                            ),
                           ],
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _packingTextCtrl,
-                            maxLines: 8,
-                            style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-                            decoration: InputDecoration(
-                              hintText: l.poRecPastePackingHint,
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300)),
-                              contentPadding: const EdgeInsets.all(10),
+                        ),
+
+                        if (_selectedPackingFileName != null) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(4)),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.attach_file, size: 14, color: AppTheme.orange),
+                                const SizedBox(width: 4),
+                                Expanded(child: Text(_selectedPackingFileName!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: AppTheme.orange, fontWeight: FontWeight.bold))),
+                              ],
                             ),
                           ),
                         ],
-                      ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _packingTextCtrl,
+                          maxLines: 8,
+                          style: TextStyle(fontSize: 12, fontFamily: 'monospace', color: isDark ? AppTheme.darkTextPrimary : null),
+                          decoration: InputDecoration(
+                            hintText: l.poRecPastePackingHint,
+                            filled: true,
+                            fillColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                            contentPadding: const EdgeInsets.all(10),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                  );
+
+                  if (isCompact) {
+                    return Column(
+                      children: [
+                        invoiceSide,
+                        const SizedBox(height: 16),
+                        packingSide,
+                      ],
+                    );
+                  }
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: invoiceSide),
+                      const SizedBox(width: 16),
+                      Expanded(child: packingSide),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 16),
               Center(
@@ -2943,7 +3963,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
               if (_extractedReconciliationData != null) ...[
                 const SizedBox(height: 20),
-                _buildDiscrepanciesResultSection(),
+                _buildDiscrepanciesResultSection(isDark),
               ],
             ],
           ],
@@ -2952,7 +3972,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     );
   }
 
-  Widget _buildDiscrepanciesResultSection() {
+  Widget _buildDiscrepanciesResultSection([bool isDark = false]) {
     final l = context.l10n;
     final data = _extractedReconciliationData!;
     final overallStatus = data['overall_status'] as String? ?? 'FULLY_MATCHED';
@@ -2990,17 +4010,21 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final statusTitleRow = Row(
                 children: [
                   Icon(statusIcon, color: statusColor, size: 22),
                   const SizedBox(width: 8),
-                  Text(statusTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: statusColor)),
+                  Expanded(
+                    child: Text(
+                      statusTitle,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: statusColor),
+                    ),
+                  ),
                 ],
-              ),
-              ElevatedButton.icon(
+              );
+              final applyButton = ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF27AE60),
                   foregroundColor: Colors.white,
@@ -3010,11 +4034,20 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 icon: const Icon(Icons.playlist_add_check, size: 18),
                 label: Text(l.poRecApplyExtractedToTablesButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 onPressed: _applyExtractedDataToTables,
-              ),
-            ],
+              );
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  statusTitleRow,
+                  const SizedBox(height: 10),
+                  applyButton,
+                ],
+              );
+            },
           ),
           const Divider(height: 20),
-          Text(l.poRecHeaderComplianceChecksTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(l.poRecHeaderComplianceChecksTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
           const SizedBox(height: 8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -3043,7 +4076,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
                 return DataRow(cells: [
                   DataCell(CopyableTableCell(value: localizedFieldName, rowSummary: rowSummary, child: Text(localizedFieldName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)))),
-                  DataCell(CopyableTableCell(value: systemVal, rowSummary: rowSummary, child: Text(systemVal, style: TextStyle(color: Colors.grey.shade800, fontSize: 12)))),
+                  DataCell(CopyableTableCell(value: systemVal, rowSummary: rowSummary, child: Text(systemVal, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800, fontSize: 12)))),
                   DataCell(CopyableTableCell(value: extractedVal, rowSummary: rowSummary, child: Text(extractedVal, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)))),
                   DataCell(CopyableTableCell(value: localizedStatus, rowSummary: rowSummary, child: _buildMatchStatusBadge(status))),
                   DataCell(CopyableTableCell(value: localizedMsg, rowSummary: rowSummary, child: Text(localizedMsg, style: TextStyle(fontSize: 12, color: status == 'MATCH' ? Colors.green.shade800 : Colors.red.shade800)))),
@@ -3052,18 +4085,30 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             ),
           ),
           const SizedBox(height: 16),
-          Text(l.poRecExtractedDocMetadataTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(l.poRecExtractedDocMetadataTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              _buildExtractedPill(l.poRecExtractedInvNo, invData['invoice_number']?.toString() ?? '—', Icons.receipt_long),
-              const SizedBox(width: 8),
-              _buildExtractedPill(l.poRecExtractedInvAmount, '${invData['total_amount'] ?? "—"} ${invData['currency'] ?? ""}', Icons.monetization_on),
-              const SizedBox(width: 8),
-              _buildExtractedPill(l.poRecExtractedAcid, plData['acid_number']?.toString() ?? invData['acid_number']?.toString() ?? '—', Icons.tag),
-              const SizedBox(width: 8),
-              _buildExtractedPill(l.poRecExtractedPackagesWeight, '${plData['total_packages'] ?? "—"} ${l.poRecPackagesUnit} - ${plData['total_gross_weight_kg'] ?? "—"} ${l.poRecKgUnit}', Icons.inventory_2),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final pills = [
+                _buildExtractedPill(l.poRecExtractedInvNo, invData['invoice_number']?.toString() ?? '—', Icons.receipt_long, isDark),
+                _buildExtractedPill(l.poRecExtractedInvAmount, '${invData['total_amount'] ?? "—"} ${invData['currency'] ?? ""}', Icons.monetization_on, isDark),
+                _buildExtractedPill(l.poRecExtractedAcid, plData['acid_number']?.toString() ?? invData['acid_number']?.toString() ?? '—', Icons.tag, isDark),
+                _buildExtractedPill(l.poRecExtractedPackagesWeight, '${plData['total_packages'] ?? "—"} ${l.poRecPackagesUnit} - ${plData['total_gross_weight_kg'] ?? "—"} ${l.poRecKgUnit}', Icons.inventory_2, isDark),
+              ];
+              if (constraints.maxWidth >= 750) {
+                return Row(
+                  children: pills.map((p) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: p))).toList(),
+                );
+              }
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: pills.map((p) => SizedBox(
+                  width: constraints.maxWidth > 400 ? (constraints.maxWidth - 8) / 2 : constraints.maxWidth,
+                  child: p,
+                )).toList(),
+              );
+            },
           ),
         ],
       ),
@@ -3109,30 +4154,40 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     );
   }
 
-  Widget _buildExtractedPill(String label, String value, IconData icon) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: AppTheme.cobalt),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
-                  Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                ],
-              ),
+  Widget _buildExtractedPill(String label, String value, IconData icon, [bool isDark = false]) {
+    final pillBg = isDark ? AppTheme.darkCardBackground : Colors.white;
+    final pillBorder = isDark ? AppTheme.darkBorder : Colors.grey.shade300;
+    final labelColor = isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: pillBg,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: pillBorder),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: AppTheme.cobalt),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(fontSize: 10, color: labelColor)),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

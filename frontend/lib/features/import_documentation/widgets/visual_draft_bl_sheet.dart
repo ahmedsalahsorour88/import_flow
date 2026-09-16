@@ -50,8 +50,15 @@ class VisualDraftBLSheet extends StatelessWidget {
     final countryCode = (draftData['shipper_country_code'] ?? systemData['shipper_country_code'] ?? '').toString();
 
     final goodsDesc = (draftData['goods_description'] ?? systemData['goods_description'] ?? 'GENERAL MERCHANDISE & IMPORT GOODS').toString();
-    final grossWeight = (draftData['total_gross_weight_kg'] ?? systemData['total_gross_weight_kg'] ?? '0.00').toString();
-    final netWeight = (draftData['total_net_weight_kg'] ?? systemData['total_net_weight_kg'] ?? '0.00').toString();
+    String formatWeight(dynamic val) {
+      if (val == null) return '0.00';
+      final d = val is num ? val.toDouble() : double.tryParse(val.toString());
+      if (d == null) return val.toString();
+      return (d % 1 == 0) ? d.toStringAsFixed(0) : d.toStringAsFixed(2);
+    }
+
+    final grossWeight = formatWeight(draftData['total_gross_weight_kg'] ?? systemData['total_gross_weight_kg']);
+    final netWeight = formatWeight(draftData['total_net_weight_kg'] ?? systemData['total_net_weight_kg']);
     final cbm = (draftData['cbm'] ?? systemData['cbm'] ?? '0.00').toString();
     final pkgCount = (draftData['qty_pkg'] ?? systemData['packages_count'] ?? '0').toString();
     final containerSummary = (draftData['container_summary'] ?? systemData['container_summary'] ?? 'N/A').toString();

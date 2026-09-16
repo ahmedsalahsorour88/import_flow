@@ -8,6 +8,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -17,6 +18,8 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/cbm_calculator_model.dart';
 import '../providers/cbm_calculator_provider.dart';
+import '../../../core/helpers/table_copy_helper.dart';
+import '../../../core/services/table_export_service.dart';
 
 class SavedCbmRegistryTab extends ConsumerStatefulWidget {
   final void Function(CBMCalculationModel session) onLoadSession;
@@ -72,36 +75,43 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
         Container(
           color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.spaceBetween,
             children: [
-              _histStatCard(
-                icon: Icons.folder_copy_rounded,
-                label: l.totalCalculationsMetric,
-                value: '$totalCalcs',
-                color: AppTheme.cobalt,
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _histStatCard(
+                    icon: Icons.folder_copy_rounded,
+                    label: l.totalCalculationsMetric,
+                    value: '$totalCalcs',
+                    color: AppTheme.cobalt,
+                  ),
+                  _histStatCard(
+                    icon: Icons.check_circle_rounded,
+                    label: l.activeSessionsMetric,
+                    value: '$activeCalcs',
+                    color: AppTheme.emerald,
+                  ),
+                  _histStatCard(
+                    icon: Icons.view_in_ar_rounded,
+                    label: l.totalCbmVolumeMetric,
+                    value: '${totalCbmAll.toStringAsFixed(2)} m³',
+                    color: AppTheme.wcagOrange,
+                  ),
+                  _histStatCard(
+                    icon: Icons.scale_rounded,
+                    label: l.totalGrossWeightRegistryMetric,
+                    value: '${totalWeightAll.toStringAsFixed(0)} kg',
+                    color: AppTheme.cobalt,
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              _histStatCard(
-                icon: Icons.check_circle_rounded,
-                label: l.activeSessionsMetric,
-                value: '$activeCalcs',
-                color: AppTheme.emerald,
-              ),
-              const SizedBox(width: 10),
-              _histStatCard(
-                icon: Icons.view_in_ar_rounded,
-                label: l.totalCbmVolumeMetric,
-                value: '${totalCbmAll.toStringAsFixed(2)} m³',
-                color: Colors.orange.shade300,
-              ),
-              const SizedBox(width: 10),
-              _histStatCard(
-                icon: Icons.scale_rounded,
-                label: l.totalGrossWeightRegistryMetric,
-                value: '${totalWeightAll.toStringAsFixed(0)} kg',
-                color: Colors.purple.shade300,
-              ),
-              const Spacer(),
               // Live Refresh button
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
@@ -124,76 +134,159 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
             boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2))],
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: l.searchCalculationsHint,
-                    prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.cobalt),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
-                            onPressed: () {
-                              _searchController.clear();
-                              ref.read(cbmCalculatorProvider.notifier).setSearchQuery('');
-                            },
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5)),
-                    isDense: true,
-                  ),
-                  onChanged: (v) => setState(() {
-                    ref.read(cbmCalculatorProvider.notifier).setSearchQuery(v.trim());
-                  }),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 750;
+              final searchField = TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: l.searchCalculationsHint,
+                  prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.cobalt),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _searchController.clear();
+                            ref.read(cbmCalculatorProvider.notifier).setSearchQuery('');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5)),
+                  isDense: true,
                 ),
-              ),
-              const SizedBox(width: 16),
-              Row(
+                onChanged: (v) => setState(() {
+                  ref.read(cbmCalculatorProvider.notifier).setSearchQuery(v.trim());
+                }),
+              );
+
+              final actionWidgets = <Widget>[
+                FilterChip(
+                  avatar: Icon(
+                    state.showInactive ? Icons.visibility_off : Icons.visibility,
+                    size: 16,
+                    color: state.showInactive ? AppTheme.crimson : Colors.grey,
+                  ),
+                  label: Text(
+                    state.showInactive ? l.showDeleted : l.hideDeleted,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: state.showInactive ? AppTheme.crimson : (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                      fontWeight: state.showInactive ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  selected: state.showInactive,
+                  selectedColor: AppTheme.crimson.withOpacity(0.12),
+                  checkmarkColor: AppTheme.crimson,
+                  onSelected: (val) => ref.read(cbmCalculatorProvider.notifier).toggleShowInactive(val),
+                ),
+                // Search & Clone Study button (Task D)
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.cobalt,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.control_point_duplicate_rounded, size: 16),
+                  label: Text(l.searchAndCloneCbmBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () => _openSearchAndCloneCBMDialog(context, state.calculations),
+                ),
+                // Task J Export & Copy Buttons
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.emerald,
+                    side: const BorderSide(color: AppTheme.emerald),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.table_chart, size: 16),
+                  label: Text(
+                    Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
+                        ? 'تصدير إكسيل'
+                        : 'Export Excel',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: () => _exportCbmListToExcel(context, state.calculations),
+                ),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.crimson,
+                    side: const BorderSide(color: AppTheme.crimson),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.picture_as_pdf, size: 16),
+                  label: Text(
+                    Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
+                        ? 'تصدير PDF'
+                        : 'Export PDF',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: () => _exportCbmListToPdf(context, state.calculations),
+                ),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.cobalt,
+                    side: const BorderSide(color: AppTheme.cobalt),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.content_copy, size: 16),
+                  label: Text(
+                    Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
+                        ? 'نسخ الجدول'
+                        : 'Copy Table',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: () => _copyCbmTableAsTsv(context, state.calculations),
+                ),
+                // Results count chip
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cobalt.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${state.calculations.length}',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                  ),
+                ),
+              ];
+
+              if (isCompact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    searchField,
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: actionWidgets,
+                    ),
+                  ],
+                );
+              }
+
+              return Row(
                 children: [
-                  const Icon(Icons.filter_alt_outlined, size: 18, color: Colors.grey),
-                  const SizedBox(width: 6),
-                  FilterChip(
-                    avatar: Icon(
-                      state.showInactive ? Icons.visibility_off : Icons.visibility,
-                      size: 16,
-                      color: state.showInactive ? AppTheme.crimson : Colors.grey,
-                    ),
-                    label: Text(
-                      state.showInactive ? l.showDeleted : l.hideDeleted,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: state.showInactive ? AppTheme.crimson : (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
-                        fontWeight: state.showInactive ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                    selected: state.showInactive,
-                    selectedColor: AppTheme.crimson.withOpacity(0.12),
-                    checkmarkColor: AppTheme.crimson,
-                    onSelected: (val) => ref.read(cbmCalculatorProvider.notifier).toggleShowInactive(val),
+                  Expanded(child: searchField),
+                  const SizedBox(width: 16),
+                  Wrap(
+                    spacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: actionWidgets,
                   ),
                 ],
-              ),
-              const SizedBox(width: 8),
-              // Results count chip
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${state.calculations.length}',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                ),
-              ),
-            ],
+              );
+            },
           ),
         ),
 
@@ -224,118 +317,90 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                         ],
                       ),
                     )
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                      child: Card(
-                        elevation: 2,
-                        color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: DataTable(
-                            headingRowHeight: 48,
-                            dataRowMinHeight: 52,
-                            dataRowMaxHeight: 60,
-                            horizontalMargin: 16,
-                            columnSpacing: 18,
-                            dividerThickness: 0.5,
-                            headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal),
-                            headingTextStyle: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                              letterSpacing: 0.3,
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxWidth < 768) {
+                          return _buildMobileCBMCardList(context, state.calculations);
+                        }
+                        return SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                          child: Card(
+                            elevation: 2,
+                            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
                             ),
-                            columns: [
-                              DataColumn(label: SizedBox(
-                                width: 168,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.bolt_rounded, size: 14, color: Colors.amber),
-                                    const SizedBox(width: 4),
-                                    Text(l.actionsCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                                  ],
+                            clipBehavior: Clip.antiAlias,
+                            child: SelectionArea(
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: DataTable(
+                                headingRowHeight: 48,
+                                dataRowMinHeight: 52,
+                                dataRowMaxHeight: 60,
+                                horizontalMargin: 16,
+                                columnSpacing: 18,
+                                dividerThickness: 0.5,
+                                headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal),
+                                headingTextStyle: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  letterSpacing: 0.3,
                                 ),
-                              )),
-                              DataColumn(label: Text(l.calcCodeCol)),
-                              DataColumn(label: Text(l.importFileIdLabel)),
-                              DataColumn(label: Text(l.calculationSessionTitle)),
-                              DataColumn(label: Text(l.totalCbmVolumeMetric)),
-                              DataColumn(label: Text(l.volumetricWeight)),
-                              DataColumn(label: Text(l.grossWeightMetric)),
-                              DataColumn(label: Text(l.stackingCol)),
-                              DataColumn(label: Text(l.shippingStrategyCol)),
-                              DataColumn(label: Text(l.recommendedContainerCol)),
-                              DataColumn(label: Text(l.linkPoProjectCol)),
-                            ],
-                            rows: state.calculations.asMap().entries.map((entry) {
-                              final idx = entry.key;
-                              final calc = entry.value;
-                              final isEven = idx.isEven;
-                              final rowColor = !calc.isActive
-                                  ? (isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50)
-                                  : isEven
-                                      ? (isDark ? AppTheme.darkCardBackground : Colors.white)
-                                      : (isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade50);
-
-                              return DataRow(
-                                color: WidgetStateProperty.all(rowColor),
-                                onSelectChanged: (_) => _showDetailDialog(context, calc),
-                                cells: [
-                                  // ⚡ 1. ACTIONS — أول عمود دائماً مرئي بواسطة RowActionsPill
-                                  DataCell(
-                                    RowActionsPill(
-                                      onView: () => _showDetailDialog(context, calc),
-                                      onEdit: () => widget.onLoadSession(calc),
-                                      onPrint: () => _showPrintReportDialog(context, calc),
-                                      onDelete: () async {
-                                        if (calc.isActive) {
-                                          final confirm = await showDialog<bool>(
-                                            context: context,
-                                            builder: (ctx) => AlertDialog(
-                                              title: Row(
-                                                children: [
-                                                  const Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
-                                                  const SizedBox(width: 8),
-                                                  Text(l.confirmSoftDelete, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                                ],
-                                              ),
-                                              content: Text(
-                                                '${l.confirmDeleteCalcMessage} "${calc.calcCode} - ${calc.title}"?',
-                                                style: const TextStyle(fontSize: 13),
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () => Navigator.pop(ctx, false),
-                                                  child: Text(l.cancel),
-                                                ),
-                                                ElevatedButton.icon(
-                                                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
-                                                  icon: const Icon(Icons.delete_rounded, size: 16),
-                                                  label: Text(l.delete),
-                                                  onPressed: () => Navigator.pop(ctx, true),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                          if (confirm == true) {
-                                            await ref.read(cbmCalculatorProvider.notifier).deleteCalculation(calc.calcId!);
-                                          }
-                                        } else {
-                                          await ref.read(cbmCalculatorProvider.notifier).restoreCalculation(calc.calcId!);
-                                        }
-                                      },
-                                      viewTooltip: l.viewDetails,
-                                      editTooltip: l.edit,
-                                      printTooltip: l.exportPdf,
-                                      deleteTooltip: calc.isActive ? l.delete : l.restore,
+                                columns: [
+                                  DataColumn(label: SizedBox(
+                                    width: 168,
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.bolt_rounded, size: 14, color: Colors.amber),
+                                        const SizedBox(width: 4),
+                                        Text(l.actionsCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                      ],
                                     ),
-                                  ),
+                                  )),
+                                  DataColumn(label: Text(l.calcCodeCol)),
+                                  DataColumn(label: Text(l.importFileIdLabel)),
+                                  DataColumn(label: Text(l.calculationSessionTitle)),
+                                  DataColumn(label: Text(l.totalCbmVolumeMetric)),
+                                  DataColumn(label: Text(l.volumetricWeight)),
+                                  DataColumn(label: Text(l.grossWeightMetric)),
+                                  DataColumn(label: Text(l.stackingCol)),
+                                  DataColumn(label: Text(l.shippingStrategyCol)),
+                                  DataColumn(label: Text(l.recommendedContainerCol)),
+                                  DataColumn(label: Text(l.linkPoProjectCol)),
+                                ],
+                                rows: state.calculations.asMap().entries.map((entry) {
+                                  final idx = entry.key;
+                                  final calc = entry.value;
+                                  final isEven = idx.isEven;
+                                  final rowColor = !calc.isActive
+                                      ? (isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50)
+                                      : isEven
+                                          ? (isDark ? AppTheme.darkCardBackground : Colors.white)
+                                          : (isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade50);
+
+                                  return DataRow(
+                                    color: WidgetStateProperty.all(rowColor),
+                                    onSelectChanged: (_) => _showDetailDialog(context, calc),
+                                    cells: [
+                                      // ⚡ 1. ACTIONS — أول عمود دائماً مرئي بواسطة RowActionsPill
+                                      DataCell(
+                                        RowActionsPill(
+                                          onView: () => _showDetailDialog(context, calc),
+                                          onEdit: () => widget.onLoadSession(calc),
+                                          onClone: () => _showCloneReviewDialog(context, calc),
+                                          cloneTooltip: l.cloneRowTooltip,
+                                          onPrint: () => _showPrintReportDialog(context, calc),
+                                          onDelete: () => _handleDeleteOrRestore(context, calc),
+                                          viewTooltip: l.viewDetails,
+                                          editTooltip: l.edit,
+                                          printTooltip: l.exportPdf,
+                                          deleteTooltip: calc.isActive ? l.delete : l.restore,
+                                        ),
+                                      ),
 
 
                                   // 2. Calc Code
@@ -581,10 +646,262 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                             }).toList(),
                           ),
                         ),
+                       ),
                       ),
-                    ),
+                    );
+                  },
+                ),
         ),
       ],
+    );
+  }
+
+  Future<void> _handleDeleteOrRestore(BuildContext context, CBMCalculationModel calc) async {
+    final l = context.l10n;
+    if (calc.isActive) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
+              const SizedBox(width: 8),
+              Text(l.confirmSoftDelete, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Text(
+            '${l.confirmDeleteCalcMessage} "${calc.calcCode} - ${calc.title}"?',
+            style: const TextStyle(fontSize: 13),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l.cancel),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
+              icon: const Icon(Icons.delete_rounded, size: 16),
+              label: Text(l.delete),
+              onPressed: () => Navigator.pop(ctx, true),
+            ),
+          ],
+        ),
+      );
+      if (confirm == true) {
+        await ref.read(cbmCalculatorProvider.notifier).deleteCalculation(calc.calcId!);
+      }
+    } else {
+      await ref.read(cbmCalculatorProvider.notifier).restoreCalculation(calc.calcId!);
+    }
+  }
+
+  void _showCloneReviewDialog(BuildContext context, CBMCalculationModel calc) {
+    final l = context.l10n;
+    CloneEntityReviewDialog.show(
+      context,
+      entityType: l.cloneCbmDialogTitle,
+      sourceCode: calc.calcCode,
+      suggestedNewCode: '${calc.calcCode}-CLONE',
+      sourceTitle: calc.title ?? calc.calcCode,
+      copiedFieldsSummary: {
+        l.calculationSessionTitle: calc.title ?? '-',
+        l.totalCbmVolumeMetric: '${calc.totalCbm.toStringAsFixed(2)} m³',
+        l.grossWeightMetric: '${calc.totalGrossWeightKg.toStringAsFixed(0)} kg',
+        l.stackingCol: calc.isStackable ? l.stackable : l.nonStackable,
+        l.shippingStrategyCol: (calc.recommendedShippingMethod ?? 'SEA').toUpperCase(),
+      },
+      mandatorilyResetFields: [
+        l.cloneFieldCalcCodeGenerated,
+        l.cloneFieldImportFileReset,
+        l.cloneFieldPoReset,
+      ],
+      allowCopyLineItems: true,
+      allowCopyAttachments: false,
+      initialCopyLineItems: true,
+      initialCopyAttachments: false,
+      onConfirm: ({
+        required newCode,
+        required newTitle,
+        required copyLineItems,
+        required copyAttachments,
+        notes,
+      }) async {
+        final cloned = await ref.read(cbmCalculatorProvider.notifier).cloneCalculation(
+          calc.calcId!,
+          newCode: newCode,
+          newTitle: newTitle,
+          copyItems: copyLineItems,
+          notes: notes,
+        );
+        if (cloned != null && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l.cloneCbmSuccess(cloned.calcCode)),
+              backgroundColor: AppTheme.emerald,
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  void _openSearchAndCloneCBMDialog(BuildContext context, List<CBMCalculationModel> calculations) {
+    final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
+    final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
+    final locale = isArabic ? const Locale('ar') : const Locale('en');
+    showDialog(
+      context: context,
+      builder: (ctx) => AppLocalizationsProvider(
+        locale: locale,
+        child: Directionality(
+          textDirection: textDir,
+          child: _SearchAndCloneCBMDialog(
+            calculations: calculations,
+            onSelectCalculation: (calc) {
+              Navigator.of(ctx).pop();
+              _showCloneReviewDialog(context, calc);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileCBMCardList(
+    BuildContext context,
+    List<CBMCalculationModel> calcs,
+  ) {
+    final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      itemCount: calcs.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final calc = calcs[index];
+        final isAir = (calc.recommendedShippingMethod ?? '').toLowerCase() == 'air';
+
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: !calc.isActive
+                ? (isDark ? Colors.red.shade900.withOpacity(0.2) : Colors.red.shade50)
+                : (isDark ? AppTheme.darkCardBackground : Colors.white),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header: Code, Title, Mode chip
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _showDetailDialog(context, calc),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            calc.calcCode,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            calc.title ?? calc.calcCode,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isAir
+                          ? Colors.purple.withOpacity(0.15)
+                          : AppTheme.cobalt.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isAir ? Colors.purple : AppTheme.cobalt,
+                      ),
+                    ),
+                    child: Text(
+                      (calc.recommendedShippingMethod ?? 'SEA').toUpperCase(),
+                      style: TextStyle(
+                        color: isAir ? Colors.purple : AppTheme.cobalt,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Metrics row
+              Wrap(
+                spacing: 12,
+                runSpacing: 4,
+                children: [
+                  Text(
+                    '${l.totalCbmVolumeMetric}: ${calc.totalCbm.toStringAsFixed(2)} m³',
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.wcagOrange),
+                  ),
+                  Text(
+                    '${l.grossWeightMetric}: ${calc.totalGrossWeightKg.toStringAsFixed(0)} kg',
+                    style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                  ),
+                  if (calc.totalVolumetricWeightKg > 0)
+                    Text(
+                      '${l.volumetricWeight}: ${calc.totalVolumetricWeightKg.toStringAsFixed(0)} kg',
+                      style: const TextStyle(fontSize: 11.5, color: Colors.purple),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+
+              // Stacking / packages count
+              Text(
+                '${l.stackingCol}: ${calc.isStackable ? l.stackable : l.nonStackable} | ${calc.items.length} ${l.itemsAndPackagesCol}',
+                style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+              ),
+
+              const Divider(height: 16),
+
+              // Actions pill at bottom start
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: RowActionsPill(
+                  onView: () => _showDetailDialog(context, calc),
+                  onEdit: () => widget.onLoadSession(calc),
+                  onClone: () => _showCloneReviewDialog(context, calc),
+                  cloneTooltip: l.cloneRowTooltip,
+                  onPrint: () => _showPrintReportDialog(context, calc),
+                  onDelete: () => _handleDeleteOrRestore(context, calc),
+                  viewTooltip: l.viewDetails,
+                  editTooltip: l.edit,
+                  printTooltip: l.exportPdf,
+                  deleteTooltip: calc.isActive ? l.delete : l.restore,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -2000,8 +2317,387 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
       ),
     );
   }
+
+  Future<void> _exportCbmListToExcel(BuildContext context, List<CBMCalculationModel> calcs) async {
+    final isArabic = Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar';
+    if (calcs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(isArabic ? 'لا توجد دراسات حجم للتصدير' : 'No calculations to export'), backgroundColor: AppTheme.crimson),
+      );
+      return;
+    }
+
+    final headers = [
+      isArabic ? 'كود الدراسة' : 'Calc Code',
+      isArabic ? 'ملف الشحنة' : 'Import File',
+      isArabic ? 'عنوان الدراسة' : 'Study Title',
+      isArabic ? 'إجمالي CBM' : 'Total CBM',
+      isArabic ? 'الوزن الحجمي (كجم)' : 'Volumetric Wt (kg)',
+      isArabic ? 'الوزن القائم (كجم)' : 'Gross Wt (kg)',
+      isArabic ? 'قابل للتراص' : 'Stackable',
+      isArabic ? 'طريقة الشحن' : 'Shipping Strategy',
+      isArabic ? 'الحاوية المقترحة' : 'Recommended Container',
+    ];
+
+    final rows = calcs.map((c) {
+      return [
+        c.calcCode,
+        c.importFileCode ?? '-',
+        c.title ?? '-',
+        c.totalCbm.toStringAsFixed(3),
+        c.totalVolumetricWeightKg.toStringAsFixed(1),
+        c.totalGrossWeightKg.toStringAsFixed(1),
+        c.isStackable ? (isArabic ? 'نعم' : 'Yes') : (isArabic ? 'لا' : 'No'),
+        c.recommendedShippingMethod ?? '-',
+        '${c.recommendedContainerCount}x ${c.recommendedContainerType ?? "-"}',
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToExcel(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isArabic ? 'سجل دراسات الحجم CBM' : 'CBM Registry',
+      importFileNameOrCode: 'CBM_Calculations_Registry',
+    );
+  }
+
+  Future<void> _exportCbmListToPdf(BuildContext context, List<CBMCalculationModel> calcs) async {
+    final isArabic = Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar';
+    if (calcs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(isArabic ? 'لا توجد دراسات حجم للتصدير' : 'No calculations to export'), backgroundColor: AppTheme.crimson),
+      );
+      return;
+    }
+
+    final headers = [
+      isArabic ? 'كود الدراسة' : 'Code',
+      isArabic ? 'الملف' : 'File',
+      isArabic ? 'العنوان' : 'Title',
+      isArabic ? 'CBM' : 'CBM',
+      isArabic ? 'حجمي (كجم)' : 'Vol Wt',
+      isArabic ? 'قائم (كجم)' : 'Gross Wt',
+      isArabic ? 'الشحن' : 'Mode',
+      isArabic ? 'الحاوية' : 'Container',
+    ];
+
+    final rows = calcs.map((c) {
+      return [
+        c.calcCode,
+        c.importFileCode ?? '-',
+        c.title ?? '-',
+        c.totalCbm.toStringAsFixed(3),
+        c.totalVolumetricWeightKg.toStringAsFixed(1),
+        c.totalGrossWeightKg.toStringAsFixed(1),
+        c.recommendedShippingMethod ?? '-',
+        '${c.recommendedContainerCount}x ${c.recommendedContainerType ?? "-"}',
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToPdf(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isArabic ? 'سجل دراسات الحجم CBM' : 'CBM Registry',
+      importFileNameOrCode: 'CBM_Calculations_Registry',
+      headerContext: TableExportHeaderContext(
+        title: isArabic ? 'سجل دراسات الحجم والأوزان CBM' : 'CBM & Volumetric Weight Registry',
+        subtitle: 'Sorour Logistics ERP',
+        metadata: {
+          isArabic ? 'إجمالي الدراسات' : 'Total Studies': '${calcs.length}',
+          isArabic ? 'التاريخ' : 'Date': DateTime.now().toString().substring(0, 10),
+        },
+      ),
+    );
+  }
+
+  void _copyCbmTableAsTsv(BuildContext context, List<CBMCalculationModel> calcs) {
+    final isArabic = Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar';
+    if (calcs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(isArabic ? 'لا توجد دراسات حجم للنسخ' : 'No calculations to copy'), backgroundColor: AppTheme.crimson),
+      );
+      return;
+    }
+
+    final headers = [
+      isArabic ? 'كود الدراسة' : 'Calc Code',
+      isArabic ? 'ملف الشحنة' : 'Import File',
+      isArabic ? 'عنوان الدراسة' : 'Study Title',
+      isArabic ? 'إجمالي CBM' : 'Total CBM',
+      isArabic ? 'الوزن الحجمي (كجم)' : 'Volumetric Wt (kg)',
+      isArabic ? 'الوزن القائم (كجم)' : 'Gross Wt (kg)',
+      isArabic ? 'قابل للتراص' : 'Stackable',
+      isArabic ? 'طريقة الشحن' : 'Shipping Strategy',
+      isArabic ? 'الحاوية المقترحة' : 'Recommended Container',
+    ];
+
+    final rows = calcs.map((c) {
+      return [
+        c.calcCode,
+        c.importFileCode ?? '-',
+        c.title ?? '-',
+        c.totalCbm.toStringAsFixed(3),
+        c.totalVolumetricWeightKg.toStringAsFixed(1),
+        c.totalGrossWeightKg.toStringAsFixed(1),
+        c.isStackable ? (isArabic ? 'نعم' : 'Yes') : (isArabic ? 'لا' : 'No'),
+        c.recommendedShippingMethod ?? '-',
+        '${c.recommendedContainerCount}x ${c.recommendedContainerType ?? "-"}',
+      ];
+    }).toList();
+
+    TableCopyHelper.copyTable(
+      context,
+      headers,
+      rows,
+      customMessage: isArabic ? 'تم نسخ بيانات دراسات الحجم كجدول بنجاح' : 'CBM calculations table copied to clipboard',
+    );
+  }
 }
 
+// ==================================================
+// Dedicated Search & Clone Dialog for CBM Calculations (UX-CLONE-011)
+// ==================================================
+class _SearchAndCloneCBMDialog extends StatefulWidget {
+  final List<CBMCalculationModel> calculations;
+  final ValueChanged<CBMCalculationModel> onSelectCalculation;
 
+  const _SearchAndCloneCBMDialog({
+    required this.calculations,
+    required this.onSelectCalculation,
+  });
 
+  @override
+  State<_SearchAndCloneCBMDialog> createState() => _SearchAndCloneCBMDialogState();
+}
 
+class _SearchAndCloneCBMDialogState extends State<_SearchAndCloneCBMDialog> {
+  final TextEditingController _queryController = TextEditingController();
+  late List<CBMCalculationModel> _filteredCalcs;
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredCalcs = widget.calculations;
+    _queryController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _queryController.removeListener(_onSearchChanged);
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final query = _queryController.text.trim().toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredCalcs = widget.calculations;
+      } else {
+        _filteredCalcs = widget.calculations.where((calc) {
+          final code = calc.calcCode.toLowerCase();
+          final title = (calc.title ?? '').toLowerCase();
+          final notes = (calc.notes ?? '').toLowerCase();
+          final mode = (calc.recommendedShippingMethod ?? '').toLowerCase();
+          return code.contains(query) ||
+              title.contains(query) ||
+              notes.contains(query) ||
+              mode.contains(query);
+        }).toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
+      child: Container(
+        width: math.min(720.0, screenWidth - 32),
+        height: math.min(600.0, screenHeight - 64),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cobalt.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.control_point_duplicate_rounded, color: AppTheme.cobalt, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l.searchAndCloneCbmDialogTitle,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        l.searchAndCloneCbmSubtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Search Bar
+            TextField(
+              controller: _queryController,
+              decoration: InputDecoration(
+                hintText: l.searchByCalcCodeOrTitleHint,
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _queryController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () => _queryController.clear(),
+                      )
+                    : null,
+                filled: true,
+                fillColor: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade50,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5)),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Results List
+            Expanded(
+              child: _filteredCalcs.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.search_off_rounded, size: 48, color: Colors.grey.shade400),
+                          const SizedBox(height: 12),
+                          Text(
+                            l.noMatchingCalcsFound,
+                            style: TextStyle(fontSize: 14, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: _filteredCalcs.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, idx) {
+                        final calc = _filteredCalcs[idx];
+                        final isAir = (calc.recommendedShippingMethod ?? '').toLowerCase() == 'air';
+
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          calc.calcCode,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: (isAir ? Colors.purple : AppTheme.cobalt).withOpacity(0.12),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            (calc.recommendedShippingMethod ?? 'SEA').toUpperCase(),
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: isAir ? Colors.purple : AppTheme.cobalt,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      calc.title ?? calc.calcCode,
+                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Wrap(
+                                      spacing: 10,
+                                      children: [
+                                        Text(
+                                          '${calc.totalCbm.toStringAsFixed(2)} m³',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.wcagOrange),
+                                        ),
+                                        Text(
+                                          '${calc.totalGrossWeightKg.toStringAsFixed(0)} kg',
+                                          style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                                        ),
+                                        Text(
+                                          '${calc.items.length} ${calc.items.length == 1 ? "item" : "items"}',
+                                          style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.cobalt,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                ),
+                                icon: const Icon(Icons.copy_rounded, size: 14),
+                                label: Text(l.cloneRowTooltip),
+                                onPressed: () => widget.onSelectCalculation(calc),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

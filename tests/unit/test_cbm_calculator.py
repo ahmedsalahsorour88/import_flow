@@ -9,6 +9,7 @@ from modules.cbm_calculator.schemas import (
     CBMCalculationUpdate,
     CBMItemCreate,
     CBMQuickCalcRequest,
+    CloneCBMCalculationRequest,
     LinkToPORequest,
 )
 from modules.cbm_calculator.service import CBMService
@@ -245,3 +246,64 @@ class TestCBMCalculatorBackend:
         assert updated.title == "Updated Stacking Session"
         assert len(updated.items) == 1
         assert updated.items[0].is_stackable is False
+
+    def test_clone_cbm_calculation(self, db: Session):
+        # 1. Create original calculation session with cargo items
+        item1 = CBMItemCreate(
+            package_type="Carton",
+            quantity=20,
+            length_cm=60.0,
+            width_cm=40.0,
+            height_cm=40.0,
+            gross_weight_per_unit_kg=12.0,
+            is_stackable=True,
+        )
+        item2 = CBMItemCreate(
+            package_type="Pallet",
+            quantity=2,
+            length_cm=120.0,
+            width_cm=100.0,
+            height_cm=150.0,
+            gross_weight_per_unit_kg=150.0,
+            is_stackable=False,
+        )
+        orig = CBMService.create_calculation_service(
+            db,
+            CBMCalculationCreate(
+                title="دراسة شحنة الأجهزة الكهربائية الأصلية",
+                notes="دراسة مخصصة للشحن البحري",
+                is_stackable=False,
+                items=[item1, item2],
+            ),
+        )
+
+        assert orig.calc_id is not None
+        assert orig.total_qty == 22
+        orig_code = orig.calc_code
+
+        # 2. Clone the calculation with copy_items=True
+        clone_req = CloneCBMCalculationRequest(
+            new_title="نسخة شحنة الأجهزة الكهربائية (قالب مكرر)",
+            copy_items=True,
+            notes="مستنسخة لدراسة بديلة",
+        )
+        cloned = CBMService.clone_cbm_calculation(db, orig.calc_id, clone_req)
+
+        # 3. Verify cloned integrity and mandatory reset rules
+        assert cloned.calc_id != orig.calc_id
+        assert cloned.calc_code != orig_code
+        assert cloned.calc_code.startswith("CALC-")
+        assert cloned.title == "نسخة شحنة الأجهزة الكهربائية (قالب مكرر)"
+        assert cloned.import_file_id is None  # Linkage mandatorily reset
+        assert cloned.po_id is None  # PO linkage mandatorily reset
+        assert cloned.project_id is None  # Standalone calculation
+        assert cloned.notes == "مستنسخة لدراسة بديلة"
+        assert cloned.total_qty == orig.total_qty
+        assert cloned.total_cbm == orig.total_cbm
+        assert cloned.total_gross_weight_kg == orig.total_gross_weight_kg
+        assert len(cloned.items) == 2
+        assert cloned.items[0].package_type == "Carton"
+        assert cloned.items[1].package_type == "Pallet"
+        assert cloned.items[0].is_stackable is True
+        assert cloned.items[1].is_stackable is False
+

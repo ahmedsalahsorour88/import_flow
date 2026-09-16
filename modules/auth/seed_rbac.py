@@ -63,6 +63,7 @@ PERMISSIONS_CATALOG = [
     # 10. Financial Approval
     {"code": "financial_approval.view", "module": "financial_approval", "action": "view", "en": "View Payment Requests", "ar": "عرض طلبات الصرف وموازنات الاستيراد", "desc": "Can review budget requests, customs duty vouchers, and payments"},
     {"code": "financial_approval.approve", "module": "financial_approval", "action": "approve", "en": "Approve Payments", "ar": "اعتماد طلبات الصرف المالي", "desc": "Can grant financial approval for customs duties, freight, and invoices"},
+    {"code": "budget.sync_variance", "module": "financial_approval", "action": "sync_variance", "en": "Sync Budget Variance", "ar": "مزامنة فوارق الميزانية بالتكاليف الحية", "desc": "Can synchronize live upstream variances, override hard blocks with justification, and manage budget revisions"},
 
     # 11. Financial Settlement & Landed Cost
     {"code": "financial_settlement.view", "module": "financial_settlement", "action": "view", "en": "View Landed Cost", "ar": "عرض تسويات التكلفة الكلية", "desc": "Can view landed cost calculations and cost breakdowns"},
@@ -122,7 +123,7 @@ ROLES_CONFIG = [
             "customs_tariff.view",
             "cargox_nafeza.view",
             "import_documentation.view",
-            "financial_approval.view", "financial_approval.approve",
+            "financial_approval.view", "financial_approval.approve", "budget.sync_variance",
             "financial_settlement.view", "financial_settlement.calculate",
             "warehouse_receiving.view",
             "demurrage_detention.view",
@@ -181,7 +182,7 @@ ROLES_CONFIG = [
             "import_files.view",
             "lifecycle_board.view",
             "purchase_orders.view",
-            "financial_approval.view", "financial_approval.approve",
+            "financial_approval.view", "financial_approval.approve", "budget.sync_variance",
             "financial_settlement.view", "financial_settlement.calculate",
             "quotations.view",
             "master_data.view",

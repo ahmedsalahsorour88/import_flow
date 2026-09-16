@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/app_localizations_ar.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/import_doc_stepper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -10,20 +12,32 @@ import '../../../core/widgets/smart_upload_button.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
+import '../providers/docs_customs_approval_provider.dart';
 import '../services/coo_export_service.dart';
+import 'search_and_clone_coo_dialog.dart';
 import 'visual_draft_coo_sheet.dart';
+import '../../../core/helpers/table_copy_helper.dart';
+import '../../../core/services/table_export_service.dart';
 
 class COOReviewTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
   const COOReviewTab({super.key, this.initialImportFileId});
 
   @override
-  ConsumerState<COOReviewTab> createState() => _COOReviewTabState();
+  ConsumerState<COOReviewTab> createState() => COOReviewTabState();
 }
 
-class _COOReviewTabState extends ConsumerState<COOReviewTab> {
+class COOReviewTabState extends ConsumerState<COOReviewTab> {
+  void openSearchAndCloneDialog([List<CertificateOfOriginReviewModel>? reviews]) {
+    _openSearchAndCloneCooDialog(reviews);
+  }
   int _activeStep = 0; // 0: Requirements, 1: Smart Input, 2: Discrepancy Matrix, 3: Registry
   int? _selectedImportFileId;
+
+  String _selectedStatusFilter = 'ALL';
+  int? _filterImportFileId;
+  bool _isSavingDraft = false;
+  bool _isCertifying = false;
 
   String _certType = 'EUR.1';
   final TextEditingController _certNumberCtrl = TextEditingController(text: 'DRAFT-EUR1-001');
@@ -35,6 +49,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
   final TextEditingController _invoiceNoCtrl = TextEditingController();
   final TextEditingController _rawTextCtrl = TextEditingController();
   final TextEditingController _overrideReasonCtrl = TextEditingController();
+  final TextEditingController _registrySearchCtrl = TextEditingController();
 
   bool _isLoading = false;
   Map<String, dynamic>? _comparisonResult;
@@ -93,7 +108,108 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     _invoiceNoCtrl.dispose();
     _rawTextCtrl.dispose();
     _overrideReasonCtrl.dispose();
+    _registrySearchCtrl.dispose();
     super.dispose();
+  }
+
+  void _openSearchAndCloneCooDialog([List<CertificateOfOriginReviewModel>? reviews]) {
+    final list = reviews ?? ref.read(cooReviewsProvider).valueOrNull ?? [];
+    showDialog(
+      context: context,
+      builder: (ctx) => SearchAndCloneCooDialog(
+        reviews: list,
+        onSelectReview: (r) => _cloneCOOReview(r),
+      ),
+    );
+  }
+
+  void _cloneCOOReview(CertificateOfOriginReviewModel session) {
+    final expName = session.draftInputData?['exporter_name'] ??
+        session.draftInputData?['box_1_exporter'] ??
+        session.systemSnapshotData?['supplier_name'] ??
+        '—';
+    final impName = session.draftInputData?['importer_name'] ??
+        session.draftInputData?['box_2_consignee'] ??
+        session.systemSnapshotData?['company_name'] ??
+        '—';
+    final originCountry = session.draftInputData?['country_of_origin'] ??
+        session.draftInputData?['box_3_country_of_origin'] ??
+        '—';
+    final destCountry = session.draftInputData?['destination_country'] ??
+        session.draftInputData?['box_4_country_of_destination'] ??
+        '—';
+    final invNo = session.draftInputData?['invoice_number'] ??
+        session.draftInputData?['box_10_invoice_number_and_date'] ??
+        '—';
+    final rawTxt = session.rawText ?? session.draftInputData?['raw_text'] ?? '';
+
+    final suggestedCode = session.certificateType.contains('EUR')
+        ? 'DRAFT-EUR1-2026-'
+        : 'DRAFT-COO-2026-';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: Localizations.localeOf(context),
+        child: Directionality(
+          textDirection: Directionality.of(context),
+          child: CloneEntityReviewDialog(
+            entityType: 'مسودة شهادة المنشأ و EUR.1 (Draft COO Review)',
+            sourceCode: session.cooReviewCode,
+            sourceTitle: '${session.certificateType} - ${session.certificateNumber}',
+            suggestedNewCode: suggestedCode,
+            copiedFieldsSummary: {
+              'نوع الشهادة': session.certificateType,
+              'المصدر': expName,
+              'المستورد': impName,
+              'بلد المنشأ': originCountry,
+              'بلد المقصد': destCountry,
+              'رقم الفاتورة': invNo,
+            },
+            mandatorilyResetFields: const [
+              'رقم شهادة المنشأ: يتم تصفيره إلى كود مسودة مؤقت جديد (DRAFT-COO-2026-)',
+              'معرف جلسة المراجعة السابقة: تم فك الارتباط وبدء جلسة جديدة فارغة الاعتمادات',
+              'اعتمادات وملاحظات الفحص الجمركي: تعاد إلى حالة المسودة (Draft) لتجنب تكرار الاعتماد القديم',
+              'لقطة بيانات النظام: يتم تحديثها ومطابقتها مع ملف الشحنة المختار',
+            ],
+            allowCopyLineItems: false,
+            allowCopyAttachments: false,
+            onConfirm: ({
+              required String newCode,
+              required String newTitle,
+              required bool copyLineItems,
+              required bool copyAttachments,
+              String? notes,
+            }) async {
+              setState(() {
+                _activeDraftTemplate = null;
+                _comparisonResult = null;
+                _selectedImportFileId = session.importFileId ?? _selectedImportFileId;
+                _certType = session.certificateType;
+                _certNumberCtrl.text = newCode.isNotEmpty ? newCode : suggestedCode;
+                _exporterCtrl.text = expName != '—' ? expName : '';
+                _importerCtrl.text = impName != '—' ? impName : '';
+                _originCountryCtrl.text = originCountry != '—' ? originCountry : 'Germany';
+                _destCountryCtrl.text = destCountry != '—' ? destCountry : 'Egypt';
+                _invoiceNoCtrl.text = invNo != '—' ? invNo : '';
+                _rawTextCtrl.text = rawTxt;
+                _overrideReasonCtrl.clear();
+                _activeStep = 1; // Jump to Step 1 (Smart Input) for immediate review & comparison
+              });
+              if (_selectedImportFileId != null) {
+                _loadSnapshot(_selectedImportFileId!);
+              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(context.l10n.cloneCooSuccess),
+                  backgroundColor: AppTheme.emerald,
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
   }
 
   String _getFieldLabel(String fieldKey, String? labelAr, AppLocalizations l10n) {
@@ -374,14 +490,22 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     }
   }
 
-  Future<void> _saveReview() async {
-    if (_comparisonResult == null || _selectedImportFileId == null) return;
+  Future<void> _saveReview({bool isDraft = false}) async {
+    if (_comparisonResult == null || _selectedImportFileId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.cooSelectFileFirstForComparison),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
 
     final hasDisc = _comparisonResult!['has_discrepancies'] as bool? ?? false;
     final hasCritical = _comparisonResult!['has_critical_mismatch'] as bool? ?? false;
     final reason = _overrideReasonCtrl.text.trim();
 
-    if ((hasDisc || hasCritical) && reason.isEmpty) {
+    if (!isDraft && (hasDisc || hasCritical) && reason.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.l10n.cooMustProvideJustificationSnackbar),
@@ -392,7 +516,15 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      if (isDraft) {
+        _isSavingDraft = true;
+      } else {
+        _isCertifying = true;
+      }
+    });
+
     try {
       final snap = _comparisonResult!['system_snapshot_data'] as Map<String, dynamic>? ?? {};
       final draft = _comparisonResult!['draft_input_data'] as Map<String, dynamic>? ?? {};
@@ -409,6 +541,10 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
       final destCountry = _destCountryCtrl.text.trim().isNotEmpty
           ? _destCountryCtrl.text.trim()
           : 'Egypt';
+
+      final statusValue = isDraft
+          ? 'Draft Generated'
+          : (hasDisc ? (hasCritical ? 'Correction Requested' : 'Discrepancy_Accepted') : 'Approved');
 
       final payload = {
         'import_file_id': _selectedImportFileId,
@@ -427,13 +563,24 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
         'has_discrepancies': hasDisc,
         'has_critical_mismatch': hasCritical,
         'override_reason': reason,
-        'status': hasDisc ? (hasCritical ? 'Correction Requested' : 'Discrepancy_Accepted') : 'Verified',
+        'is_draft': isDraft,
+        'status': statusValue,
       };
 
       await ref.read(cooReviewsProvider.notifier).saveCOOReview(payload);
+      ref.invalidate(importFilesProvider);
+      ref.invalidate(docsCustomsApprovalProvider);
+      await ref.read(cooReviewsProvider.notifier).fetchCOOReviews();
+
       if (mounted) {
+        final msg = isDraft
+            ? 'تم حفظ مسودة جلسة مراجعة شهادة المنشأ بنجاح 💾'
+            : 'تم اعتماد جلسة مراجعة شهادة المنشأ وتحديث الموافقة الجمركية بنجاح ✅';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.cooSessionSavedSuccess), backgroundColor: Colors.green),
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: isDraft ? AppTheme.cobalt : Colors.green,
+          ),
         );
         setState(() => _activeStep = 3);
       }
@@ -444,7 +591,13 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isSavingDraft = false;
+          _isCertifying = false;
+        });
+      }
     }
   }
 
@@ -471,24 +624,35 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
       ImportDocStep(label: context.l10n.cooStage4Registry, icon: Icons.history_edu),
     ];
 
-    return Column(
-      children: [
-        // Unified Stepper Navigation
-        ImportDocStepper(
-          steps: steps,
-          currentStep: _activeStep,
-          onStepTapped: (i) => setState(() => _activeStep = i),
-        ),
-        const Divider(height: 1),
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyD, control: true): () {
+          final reviews = ref.read(cooReviewsProvider).valueOrNull ?? [];
+          _openSearchAndCloneCooDialog(reviews);
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: Column(
+          children: [
+            // Unified Stepper Navigation
+            ImportDocStepper(
+              steps: steps,
+              currentStep: _activeStep,
+              onStepTapped: (i) => setState(() => _activeStep = i),
+            ),
+            const Divider(height: 1),
 
-        // Body Content
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: _buildCurrentStep(importFiles),
-          ),
+            // Body Content
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: _buildCurrentStep(importFiles),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -532,35 +696,44 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                spacing: 12,
+                runSpacing: 10,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.cobalt.withOpacity(0.25),
-                          borderRadius: BorderRadius.circular(8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 500),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.cobalt.withOpacity(0.25),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.auto_awesome, color: Colors.cyanAccent, size: 22),
                         ),
-                        child: const Icon(Icons.auto_awesome, color: Colors.cyanAccent, size: 22),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            context.l10n.cooDecisionEngineTitle,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                        const SizedBox(width: 12),
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.l10n.cooDecisionEngineTitle,
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                context.l10n.cooDecisionEngineSub,
+                                style: const TextStyle(fontSize: 11.5, color: Colors.white70),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            context.l10n.cooDecisionEngineSub,
-                            style: const TextStyle(fontSize: 11.5, color: Colors.white70),
-                          ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
                   if (_selectedImportFileId != null)
                     ElevatedButton.icon(
@@ -611,6 +784,28 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                         ),
                       ),
                     ),
+                    if (_activeExemptionNotes != null && _activeExemptionNotes!.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.cyan.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.cyanAccent.withOpacity(0.5)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.savings_outlined, color: Colors.cyanAccent, size: 14),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                _activeExemptionNotes!,
+                                style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, fontSize: 11),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ],
@@ -618,6 +813,44 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
           ),
         ),
 
+        // Recommendation & Status Card
+        if (_recommendationAlert != null && _recommendationAlert!.isNotEmpty) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: _isManualChoiceRequired ? Colors.amber.shade50 : Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _isManualChoiceRequired ? Colors.amber.shade400 : Colors.blue.shade300,
+                width: 1.2,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  _isManualChoiceRequired ? Icons.warning_amber_rounded : Icons.info_outline,
+                  color: _isManualChoiceRequired ? Colors.amber.shade800 : AppTheme.cobalt,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _recommendationAlert!,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12.5,
+                      color: _isManualChoiceRequired ? Colors.amber.shade900 : AppTheme.charcoal,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        // Certificate Type Selector Card
         Card(
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -635,14 +868,26 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.blue.shade300, width: 1.2),
                     ),
-                    child: Row(
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        const Icon(Icons.info_outline, color: AppTheme.cobalt, size: 20),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            context.l10n.cooExistingReviewBanner(existingReview.cooReviewCode, existingReview.status),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 500),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.info_outline, color: AppTheme.cobalt, size: 20),
+                              const SizedBox(width: 10),
+                              Flexible(
+                                child: Text(
+                                  context.l10n.cooExistingReviewBanner(existingReview.cooReviewCode, existingReview.status),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         ElevatedButton.icon(
@@ -665,68 +910,97 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                   ],
                 ),
                 const Divider(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: SearchableDropdownField<int>(
-                        value: _selectedImportFileId,
-                        labelText: context.l10n.cooSelectImportFileLabel,
-                        searchHintText: context.l10n.cooSearchFileHint,
-                        items: importFiles
-                            .map((f) => SearchableDropdownItem<int>(
-                                  value: f.importFileId,
-                                  label: '${f.primaryNameWithCode} - ${f.companyName}',
-                                ))
-                            .toList(),
-                        onChanged: (v) {
-                          if (v != null) {
-                            setState(() => _selectedImportFileId = v);
-                            _loadSnapshot(v);
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isMobile = constraints.maxWidth < 768;
+                    final dropdownFile = SearchableDropdownField<int>(
+                      value: _selectedImportFileId,
+                      labelText: context.l10n.cooSelectImportFileLabel,
+                      searchHintText: context.l10n.cooSearchFileHint,
+                      items: importFiles
+                          .map((f) => SearchableDropdownItem<int>(
+                                value: f.importFileId,
+                                label: '${f.primaryNameWithCode} - ${f.companyName}',
+                              ))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) {
+                          setState(() => _selectedImportFileId = v);
+                          _loadSnapshot(v);
+                        }
+                      },
+                    );
+
+                    final dropdownType = SearchableDropdownField<String>(
+                      value: _certType,
+                      labelText: context.l10n.cooCertTypeLabel,
+                      searchHintText: context.l10n.cooSelectCertTypeHint,
+                      items: [
+                        SearchableDropdownItem(value: 'EUR.1', label: context.l10n.cooCertTypeEur1),
+                        SearchableDropdownItem(value: 'China Certificate of Origin (CCPIT)', label: context.l10n.cooCertTypeChina),
+                        SearchableDropdownItem(value: 'Standard COO', label: context.l10n.cooCertTypeStandard),
+                        SearchableDropdownItem(value: 'Form A / GSP', label: context.l10n.cooCertTypeFormA),
+                        SearchableDropdownItem(value: 'Agadir Agreement', label: context.l10n.cooCertTypeAgadir),
+                        SearchableDropdownItem(value: 'GAFTA', label: context.l10n.cooCertTypeGafta),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) {
+                          setState(() => _certType = v);
+                          if (_selectedImportFileId != null) {
+                            _fetchAndApplyDraft(_selectedImportFileId!, overrideCertType: v);
                           }
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      flex: 3,
-                      child: SearchableDropdownField<String>(
-                        value: _certType,
-                        labelText: context.l10n.cooCertTypeLabel,
-                        searchHintText: context.l10n.cooSelectCertTypeHint,
-                        items: [
-                          SearchableDropdownItem(value: 'EUR.1', label: context.l10n.cooCertTypeEur1),
-                          SearchableDropdownItem(value: 'China Certificate of Origin (CCPIT)', label: context.l10n.cooCertTypeChina),
-                          SearchableDropdownItem(value: 'Standard COO', label: context.l10n.cooCertTypeStandard),
-                          SearchableDropdownItem(value: 'Form A / GSP', label: context.l10n.cooCertTypeFormA),
-                          SearchableDropdownItem(value: 'Agadir Agreement', label: context.l10n.cooCertTypeAgadir),
-                          SearchableDropdownItem(value: 'GAFTA', label: context.l10n.cooCertTypeGafta),
+                        }
+                      },
+                    );
+
+                    final actionButtons = Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.emerald,
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                          ),
+                          icon: const Icon(Icons.bolt, color: Colors.white),
+                          label: Text(context.l10n.cooOpenVisualPreviewButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          onPressed: _generateOfficialDraft,
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.cobalt,
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                          ),
+                          icon: const Icon(Icons.arrow_forward, color: Colors.white),
+                          label: Text(context.l10n.cooNextDraftInputButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          onPressed: () => setState(() => _activeStep = 1),
+                        ),
+                      ],
+                    );
+
+                    if (isMobile) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          dropdownFile,
+                          const SizedBox(height: 14),
+                          dropdownType,
+                          const SizedBox(height: 16),
+                          actionButtons,
                         ],
-                        onChanged: (v) {
-                          if (v != null) {
-                            setState(() => _certType = v);
-                            if (_selectedImportFileId != null) {
-                              _fetchAndApplyDraft(_selectedImportFileId!, overrideCertType: v);
-                            }
-                          }
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
-                      icon: const Icon(Icons.bolt, color: Colors.white),
-                      label: Text(context.l10n.cooOpenVisualPreviewButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      onPressed: _generateOfficialDraft,
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
-                      icon: const Icon(Icons.arrow_forward, color: Colors.white),
-                      label: Text(context.l10n.cooNextDraftInputButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      onPressed: () => setState(() => _activeStep = 1),
-                    ),
-                  ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        Expanded(flex: 3, child: dropdownFile),
+                        const SizedBox(width: 16),
+                        Expanded(flex: 3, child: dropdownType),
+                        const SizedBox(width: 16),
+                        actionButtons,
+                      ],
+                    );
+                  },
                 ),
                 if (_recommendationAlert != null && _recommendationAlert!.isNotEmpty) ...[
                   const SizedBox(height: 16),
@@ -829,67 +1103,112 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(context.l10n.cooDraftInputTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-                  icon: _isLoading
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.compare_arrows, color: Colors.white),
-                  label: Text(context.l10n.cooRunComparisonButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  onPressed: (_isLoading || _selectedImportFileId == null) ? null : _runComparison,
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      key: const Key('cooSaveDraftInputBtn'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.cobalt,
+                        side: const BorderSide(color: AppTheme.cobalt),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                      icon: _isSavingDraft
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.bookmark_added_outlined, size: 16),
+                      label: const Text('حفظ مسودة مؤقتة للجلسة', style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: (_isLoading || _selectedImportFileId == null)
+                          ? null
+                          : () async {
+                              if (_comparisonResult == null) {
+                                await _runComparison();
+                              }
+                              if (_comparisonResult != null) {
+                                await _saveReview(isDraft: true);
+                              }
+                            },
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
+                      icon: _isLoading
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.compare_arrows, color: Colors.white),
+                      label: Text(context.l10n.cooRunComparisonButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      onPressed: (_isLoading || _selectedImportFileId == null) ? null : _runComparison,
+                    ),
+                  ],
                 ),
               ],
             ),
             const Divider(height: 24),
-            // Mandatory Import File Selector Row
-            Row(
-              children: [
-                Expanded(
-                  flex: 4,
-                  child: SearchableDropdownField<int>(
-                    value: _selectedImportFileId,
-                    labelText: context.l10n.cooLinkedImportFileLabel,
-                    searchHintText: context.l10n.cooSearchFileHint,
-                    items: importFiles
-                        .map((f) => SearchableDropdownItem<int>(
-                              value: f.importFileId,
-                              label: '${f.primaryNameWithCode} - ${f.companyName}',
-                            ))
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) {
-                        setState(() => _selectedImportFileId = v);
-                        _loadSnapshot(v);
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 3,
-                  child: SearchableDropdownField<String>(
-                    value: _certType,
-                    labelText: context.l10n.cooCertTypeLabel,
-                    searchHintText: context.l10n.cooSelectCertTypeHint,
-                    items: [
-                      SearchableDropdownItem(value: 'EUR.1', label: context.l10n.cooCertTypeEur1),
-                      SearchableDropdownItem(value: 'China Certificate of Origin (CCPIT)', label: context.l10n.cooCertTypeChina),
-                      SearchableDropdownItem(value: 'Standard COO', label: context.l10n.cooCertTypeStandard),
-                      SearchableDropdownItem(value: 'Form A / GSP', label: context.l10n.cooCertTypeFormA),
-                      SearchableDropdownItem(value: 'Agadir Agreement', label: context.l10n.cooCertTypeAgadir),
-                      SearchableDropdownItem(value: 'GAFTA', label: context.l10n.cooCertTypeGafta),
+            // Mandatory Import File Selector
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = constraints.maxWidth < 768;
+                final fileField = SearchableDropdownField<int>(
+                  value: _selectedImportFileId,
+                  labelText: context.l10n.cooLinkedImportFileLabel,
+                  searchHintText: context.l10n.cooSearchFileHint,
+                  items: importFiles
+                      .map((f) => SearchableDropdownItem<int>(
+                            value: f.importFileId,
+                            label: '${f.primaryNameWithCode} - ${f.companyName}',
+                          ))
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() => _selectedImportFileId = v);
+                      _loadSnapshot(v);
+                    }
+                  },
+                );
+
+                final certTypeField = SearchableDropdownField<String>(
+                  value: _certType,
+                  labelText: context.l10n.cooCertTypeLabel,
+                  searchHintText: context.l10n.cooSelectCertTypeHint,
+                  items: [
+                    SearchableDropdownItem(value: 'EUR.1', label: context.l10n.cooCertTypeEur1),
+                    SearchableDropdownItem(value: 'China Certificate of Origin (CCPIT)', label: context.l10n.cooCertTypeChina),
+                    SearchableDropdownItem(value: 'Standard COO', label: context.l10n.cooCertTypeStandard),
+                    SearchableDropdownItem(value: 'Form A / GSP', label: context.l10n.cooCertTypeFormA),
+                    SearchableDropdownItem(value: 'Agadir Agreement', label: context.l10n.cooCertTypeAgadir),
+                    SearchableDropdownItem(value: 'GAFTA', label: context.l10n.cooCertTypeGafta),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() => _certType = v);
+                    }
+                  },
+                );
+
+                if (isMobile) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      fileField,
+                      const SizedBox(height: 12),
+                      certTypeField,
                     ],
-                    onChanged: (v) {
-                      if (v != null) {
-                        setState(() => _certType = v);
-                      }
-                    },
-                  ),
-                ),
-              ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(flex: 4, child: fileField),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 3, child: certTypeField),
+                  ],
+                );
+              },
             ),
             if (_selectedImportFileId == null) ...[
               const SizedBox(height: 12),
@@ -915,73 +1234,103 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
               ),
             ],
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _certNumberCtrl,
-                    decoration: InputDecoration(labelText: context.l10n.cooDraftCertNumberLabel, border: const OutlineInputBorder()),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _originCountryCtrl,
-                    decoration: InputDecoration(labelText: context.l10n.cooOriginCountryLabel, border: const OutlineInputBorder()),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _destCountryCtrl,
-                    decoration: InputDecoration(labelText: context.l10n.cooDestinationCountryLabel, border: const OutlineInputBorder()),
-                  ),
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = constraints.maxWidth < 768;
+                final certNum = TextFormField(
+                  controller: _certNumberCtrl,
+                  decoration: InputDecoration(labelText: context.l10n.cooDraftCertNumberLabel, border: const OutlineInputBorder()),
+                );
+                final originCountry = TextFormField(
+                  controller: _originCountryCtrl,
+                  decoration: InputDecoration(labelText: context.l10n.cooOriginCountryLabel, border: const OutlineInputBorder()),
+                );
+                final destCountry = TextFormField(
+                  controller: _destCountryCtrl,
+                  decoration: InputDecoration(labelText: context.l10n.cooDestinationCountryLabel, border: const OutlineInputBorder()),
+                );
+
+                if (isMobile) {
+                  return Column(
+                    children: [
+                      certNum,
+                      const SizedBox(height: 12),
+                      originCountry,
+                      const SizedBox(height: 12),
+                      destCountry,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: certNum),
+                    const SizedBox(width: 12),
+                    Expanded(child: originCountry),
+                    const SizedBox(width: 12),
+                    Expanded(child: destCountry),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: TextFormField(
-                    controller: _exporterCtrl,
-                    decoration: InputDecoration(labelText: context.l10n.cooExporterNameLabel, border: const OutlineInputBorder()),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = constraints.maxWidth < 768;
+                final expField = TextFormField(
+                  controller: _exporterCtrl,
+                  decoration: InputDecoration(labelText: context.l10n.cooExporterNameLabel, border: const OutlineInputBorder()),
+                );
+                final regIdField = TextFormField(
+                  controller: _exporterRegIdCtrl,
+                  decoration: InputDecoration(
+                    labelText: context.l10n.cooExporterRegIdLabel,
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.badge_outlined, size: 20),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: TextFormField(
-                    controller: _exporterRegIdCtrl,
-                    decoration: InputDecoration(
-                      labelText: context.l10n.cooExporterRegIdLabel,
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.badge_outlined, size: 20),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 3,
-                  child: TextFormField(
-                    controller: _importerCtrl,
-                    decoration: InputDecoration(labelText: context.l10n.cooImporterNameLabel, border: const OutlineInputBorder()),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: TextFormField(
-                    controller: _invoiceNoCtrl,
-                    decoration: InputDecoration(labelText: context.l10n.cooInvoiceNumberLabel, border: const OutlineInputBorder()),
-                  ),
-                ),
-              ],
+                );
+                final impField = TextFormField(
+                  controller: _importerCtrl,
+                  decoration: InputDecoration(labelText: context.l10n.cooImporterNameLabel, border: const OutlineInputBorder()),
+                );
+                final invField = TextFormField(
+                  controller: _invoiceNoCtrl,
+                  decoration: InputDecoration(labelText: context.l10n.cooInvoiceNumberLabel, border: const OutlineInputBorder()),
+                );
+
+                if (isMobile) {
+                  return Column(
+                    children: [
+                      expField,
+                      const SizedBox(height: 12),
+                      regIdField,
+                      const SizedBox(height: 12),
+                      impField,
+                      const SizedBox(height: 12),
+                      invField,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(flex: 3, child: expField),
+                    const SizedBox(width: 12),
+                    Expanded(flex: 2, child: regIdField),
+                    const SizedBox(width: 12),
+                    Expanded(flex: 3, child: impField),
+                    const SizedBox(width: 12),
+                    Expanded(flex: 2, child: invField),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 16),
             // File Picker & Smart Upload Row
-            Row(
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 SmartUploadButton(
                   module: SmartUploadModule.cooCertificate,
@@ -1014,24 +1363,27 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                     });
                   },
                 ),
-                if (_pickedFileName != null) ...
-                  [
-                    const SizedBox(width: 12),
-                    const Icon(Icons.check_circle, color: AppTheme.emerald, size: 16),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
+                if (_pickedFileName != null)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.check_circle, color: AppTheme.emerald, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
                         _pickedFileName!,
                         style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
               ],
             ),
             const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(context.l10n.cooRawTextSectionTitle, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 TextButton.icon(
@@ -1115,10 +1467,14 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              spacing: 12,
+              runSpacing: 10,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(hasCritical ? Icons.error : (hasDisc ? Icons.warning : Icons.check_circle), color: hasCritical ? Colors.red : (hasDisc ? Colors.orange : Colors.green), size: 24),
                     const SizedBox(width: 10),
@@ -1128,8 +1484,9 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                     ),
                   ],
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
@@ -1175,11 +1532,31 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                       },
                     ),
                     const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      key: const Key('cooSaveDraftBtn'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.cobalt,
+                        side: const BorderSide(color: AppTheme.cobalt),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                      icon: _isSavingDraft
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.bookmark_added_outlined, size: 16),
+                      label: const Text('حفظ مسودة مؤقتة', style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: _isLoading ? null : () => _saveReview(isDraft: true),
+                    ),
+                    const SizedBox(width: 8),
                     ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                      icon: const Icon(Icons.save, color: Colors.white),
-                      label: Text(context.l10n.cooSaveToRegistryButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      onPressed: _saveReview,
+                      key: const Key('cooCertifyBtn'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.emerald,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      ),
+                      icon: _isCertifying
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.verified_rounded, color: Colors.white, size: 16),
+                      label: const Text('اعتماد نهائي وتحديث الموافقة الجمركية', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      onPressed: _isLoading ? null : () => _saveReview(isDraft: false),
                     ),
                   ],
                 ),
@@ -1281,18 +1658,35 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                       onChanged: (_) => setState(() {}),
                     ),
                     const SizedBox(height: 12),
-                    Row(
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
                       children: [
                         ElevatedButton.icon(
+                          key: const Key('cooSaveWithJustificationBtn'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _overrideReasonCtrl.text.trim().isNotEmpty ? AppTheme.emerald : Colors.grey,
                             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                           ),
-                          icon: const Icon(Icons.check_circle, color: Colors.white, size: 16),
+                          icon: _isCertifying
+                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Icon(Icons.check_circle, color: Colors.white, size: 16),
                           label: Text(context.l10n.cooSaveWithJustificationButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          onPressed: _saveReview,
+                          onPressed: (_isLoading || _overrideReasonCtrl.text.trim().isEmpty) ? null : () => _saveReview(isDraft: false),
                         ),
-                        const SizedBox(width: 12),
+                        OutlinedButton.icon(
+                          key: const Key('cooSaveDraftJustificationBtn'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.cobalt,
+                            side: const BorderSide(color: AppTheme.cobalt),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                          icon: _isSavingDraft
+                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.bookmark_added_outlined, size: 16),
+                          label: const Text('حفظ كمسودة مؤقتة', style: TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: _isLoading ? null : () => _saveReview(isDraft: true),
+                        ),
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.crimson,
@@ -1322,169 +1716,557 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Text('Error: $e'),
       data: (reviews) {
-        return Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(context.l10n.cooRegistryTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                      icon: const Icon(Icons.add, color: Colors.white, size: 16),
-                      label: Text(context.l10n.cooReviewNewDraftButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      onPressed: () => setState(() => _activeStep = 0),
-                    ),
-                  ],
+        final totalSessions = reviews.length;
+        final certifiedSessions = reviews.where((r) => !r.isDraft).length;
+        final draftSessions = reviews.where((r) => r.isDraft).length;
+
+        final query = _registrySearchCtrl.text.trim().toLowerCase();
+        final filteredReviews = reviews.where((r) {
+          if (_selectedStatusFilter == 'CERTIFIED' && r.isDraft) return false;
+          if (_selectedStatusFilter == 'DRAFT' && !r.isDraft) return false;
+          if (_filterImportFileId != null && r.importFileId != _filterImportFileId) return false;
+          if (query.isNotEmpty) {
+            final certNum = r.certificateNumber.toLowerCase();
+            final code = r.cooReviewCode.toLowerCase();
+            final type = r.certificateType.toLowerCase();
+            final status = r.status.toLowerCase();
+            final expName = (r.draftInputData?['exporter_name'] ??
+                    r.draftInputData?['box_1_exporter'] ??
+                    r.systemSnapshotData?['supplier_name'] ??
+                    '')
+                .toString()
+                .toLowerCase();
+            final impName = (r.draftInputData?['importer_name'] ??
+                    r.draftInputData?['box_2_consignee'] ??
+                    r.systemSnapshotData?['company_name'] ??
+                    '')
+                .toString()
+                .toLowerCase();
+            return certNum.contains(query) ||
+                code.contains(query) ||
+                type.contains(query) ||
+                status.contains(query) ||
+                expName.contains(query) ||
+                impName.contains(query);
+          }
+          return true;
+        }).toList();
+
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // KPI & Metrics Header Banner
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppTheme.charcoal, AppTheme.charcoal.withOpacity(0.92)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                const Divider(height: 20),
-                if (reviews.isEmpty)
-                  Center(child: Padding(padding: const EdgeInsets.all(30), child: Text(context.l10n.cooNoReviewsYet)))
-                else
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      columns: [
-                        DataColumn(label: Text(context.l10n.cooRegistryColCode)),
-                        DataColumn(label: Text(context.l10n.cooRegistryColType)),
-                        DataColumn(label: Text(context.l10n.cooRegistryColNumber)),
-                        DataColumn(label: Text(context.l10n.cooRegistryColExporter)),
-                        DataColumn(label: Text(context.l10n.cooRegistryColStatus)),
-                        DataColumn(label: Text(context.l10n.cooRegistryColDate)),
-                        DataColumn(label: Text(context.l10n.cooRegistryColActions)),
-                      ],
-                      rows: reviews.map((r) {
-                        final expName = r.draftInputData?['exporter_name'] ?? r.draftInputData?['box_1_exporter'] ?? '—';
-                        final impName = r.draftInputData?['importer_name'] ?? r.draftInputData?['box_2_consignee'] ?? '—';
-                        final originCountry = r.draftInputData?['country_of_origin'] ?? '—';
-                        final destCountry = r.draftInputData?['destination_country'] ?? r.draftInputData?['box_4_country_of_destination'] ?? '—';
-                        final invNo = r.draftInputData?['invoice_number'] ?? r.draftInputData?['box_10_invoice_number_and_date'] ?? '—';
-                        final rawTxt = r.rawText ?? r.draftInputData?['raw_text'] ?? '';
-                        final overrideReason = r.notes ?? r.draftInputData?['override_reason'] ?? '';
-
-                        final dateStr = r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt;
-                        final rowSummary = '${r.cooReviewCode}\t${r.certificateType}\t${r.certificateNumber}\t$expName\t${r.status}\t$dateStr';
-
-                        return DataRow(cells: [
-                          DataCell(CopyableTableCell(
-                            value: r.cooReviewCode,
-                            rowSummary: rowSummary,
-                            child: Text(r.cooReviewCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                          )),
-                          DataCell(CopyableTableCell(
-                            value: r.certificateType,
-                            rowSummary: rowSummary,
-                            child: Text(r.certificateType),
-                          )),
-                          DataCell(CopyableTableCell(
-                            value: r.certificateNumber,
-                            rowSummary: rowSummary,
-                            child: Text(r.certificateNumber),
-                          )),
-                          DataCell(CopyableTableCell(
-                            value: expName,
-                            rowSummary: rowSummary,
-                            child: Text(expName),
-                          )),
-                          DataCell(CopyableTableCell(
-                            value: r.status,
-                            rowSummary: rowSummary,
-                            child: Chip(
-                              label: Text(r.status, style: const TextStyle(color: Colors.white, fontSize: 11)),
-                              backgroundColor: r.status == 'Verified' ? Colors.green : Colors.orange,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 3)),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 10,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppTheme.cobalt.withOpacity(0.25),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                          )),
-                          DataCell(CopyableTableCell(
-                            value: dateStr,
-                            rowSummary: rowSummary,
-                            child: Text(dateStr),
-                          )),
-                          DataCell(
+                            child: const Icon(Icons.history_edu, color: Colors.cyanAccent, size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.l10n.cooRegistryTitle,
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                'سجل جلسات فحص ومطابقة شهادات المنشأ و EUR.1 وحالات الاعتماد الجمركي',
+                                style: TextStyle(fontSize: 11.5, color: Colors.white70),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 8,
+                        children: [
+                          _sessionKpiCard(
+                            icon: Icons.list_alt,
+                            label: 'إجمالي الجلسات',
+                            value: '$totalSessions',
+                            color: Colors.white,
+                          ),
+                          _sessionKpiCard(
+                            icon: Icons.verified,
+                            label: 'جلسات معتمدة',
+                            value: '$certifiedSessions',
+                            color: Colors.greenAccent,
+                          ),
+                          _sessionKpiCard(
+                            icon: Icons.bookmark_added,
+                            label: 'مسودات قيد المراجعة',
+                            value: '$draftSessions',
+                            color: Colors.orangeAccent,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Text('تصفية الحالة:', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ChoiceChip(
+                        label: Text('الكل ($totalSessions)', style: TextStyle(fontSize: 11, color: _selectedStatusFilter == 'ALL' ? Colors.white : Colors.black87)),
+                        selected: _selectedStatusFilter == 'ALL',
+                        selectedColor: AppTheme.cobalt,
+                        onSelected: (v) => setState(() => _selectedStatusFilter = 'ALL'),
+                      ),
+                      ChoiceChip(
+                        label: Text('معتمدة فقط ($certifiedSessions)', style: TextStyle(fontSize: 11, color: _selectedStatusFilter == 'CERTIFIED' ? Colors.white : Colors.black87)),
+                        selected: _selectedStatusFilter == 'CERTIFIED',
+                        selectedColor: AppTheme.emerald,
+                        onSelected: (v) => setState(() => _selectedStatusFilter = 'CERTIFIED'),
+                      ),
+                      ChoiceChip(
+                        label: Text('مسودات فقط ($draftSessions)', style: TextStyle(fontSize: 11, color: _selectedStatusFilter == 'DRAFT' ? Colors.white : Colors.black87)),
+                        selected: _selectedStatusFilter == 'DRAFT',
+                        selectedColor: AppTheme.orange,
+                        onSelected: (v) => setState(() => _selectedStatusFilter = 'DRAFT'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isMobile = constraints.maxWidth < 768;
+                        final searchBar = TextField(
+                          key: const Key('cooRegistrySearchField'),
+                          controller: _registrySearchCtrl,
+                          decoration: InputDecoration(
+                            hintText: context.l10n.cooRegistrySearchHint,
+                            prefixIcon: const Icon(Icons.search, size: 18),
+                            suffixIcon: _registrySearchCtrl.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 18),
+                                    onPressed: () => setState(() => _registrySearchCtrl.clear()),
+                                  )
+                                : null,
+                            isDense: true,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        );
+
+                        final fileFilter = SizedBox(
+                          width: isMobile ? double.infinity : 280,
+                          child: SearchableDropdownField<int?>(
+                            value: _filterImportFileId,
+                            labelText: 'تصفية حسب ملف الشحنة',
+                            searchHintText: 'بحث عن ملف شحنة...',
+                            items: [
+                              const SearchableDropdownItem<int?>(value: null, label: 'جميع الملفات الشحنية'),
+                              ...importFiles.map((f) => SearchableDropdownItem<int?>(
+                                    value: f.importFileId,
+                                    label: '${f.primaryNameWithCode} - ${f.companyName}',
+                                  )),
+                            ],
+                            onChanged: (val) => setState(() => _filterImportFileId = val),
+                          ),
+                        );
+
+                        final actionButtons = [
+                          OutlinedButton.icon(
+                            key: const Key('searchAndCloneCooBtn'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.wcagCobalt,
+                              side: const BorderSide(color: AppTheme.wcagCobalt),
+                            ),
+                            icon: const Icon(Icons.copy_all, size: 16),
+                            label: Text(context.l10n.searchAndCloneCooBtn),
+                            onPressed: () => _openSearchAndCloneCooDialog(reviews),
+                          ),
+                          OutlinedButton.icon(
+                            key: const Key('cooRegistryCopyBtn'),
+                            icon: const Icon(Icons.copy, size: 16),
+                            label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ الجدول' : 'Copy Table'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.wcagCobalt,
+                              side: const BorderSide(color: AppTheme.wcagCobalt),
+                            ),
+                            onPressed: () => _copyCooRegistryAsTsv(filteredReviews),
+                          ),
+                          OutlinedButton.icon(
+                            key: const Key('cooRegistryExcelBtn'),
+                            icon: const Icon(Icons.table_chart, size: 16, color: Colors.green),
+                            label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير Excel' : 'Export Excel'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.green.shade700,
+                              side: const BorderSide(color: Colors.green),
+                            ),
+                            onPressed: () => _exportCooRegistryToExcel(filteredReviews),
+                          ),
+                          OutlinedButton.icon(
+                            key: const Key('cooRegistryPdfBtn'),
+                            icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.red),
+                            label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red.shade700,
+                              side: const BorderSide(color: Colors.red),
+                            ),
+                            onPressed: () => _exportCooRegistryToPdf(filteredReviews),
+                          ),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                            icon: const Icon(Icons.add, color: Colors.white, size: 16),
+                            label: Text(context.l10n.cooReviewNewDraftButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            onPressed: () => setState(() => _activeStep = 0),
+                          ),
+                        ];
+
+                        if (isMobile) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              searchBar,
+                              const SizedBox(height: 10),
+                              fileFilter,
+                              const SizedBox(height: 10),
+                              Wrap(spacing: 8, runSpacing: 8, children: actionButtons),
+                            ],
+                          );
+                        }
+
+                        return Column(
+                          children: [
                             Row(
-                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                // 1. Edit (تعديل)
-                                IconButton(
-                                  icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 18),
-                                  tooltip: context.l10n.cooEditSessionTooltip,
-                                  onPressed: () {
-                                    setState(() {
-                                      _selectedImportFileId = r.importFileId;
-                                      _certType = r.certificateType;
-                                      _certNumberCtrl.text = r.certificateNumber;
-                                      _exporterCtrl.text = expName != '—' ? expName : '';
-                                      _importerCtrl.text = impName != '—' ? impName : '';
-                                      _originCountryCtrl.text = originCountry != '—' ? originCountry : 'Germany';
-                                      _destCountryCtrl.text = destCountry != '—' ? destCountry : 'Egypt';
-                                      _invoiceNoCtrl.text = invNo != '—' ? invNo : '';
-                                      _rawTextCtrl.text = rawTxt;
-                                      _overrideReasonCtrl.text = overrideReason;
-                                      if (r.comparisonMatrix.isNotEmpty) {
-                                        _comparisonResult = {
-                                          'comparison_matrix': r.comparisonMatrix,
-                                          'has_discrepancies': r.hasDiscrepancies,
-                                          'has_critical_mismatch': r.hasCriticalMismatch,
-                                          'system_snapshot_data': r.systemSnapshotData,
-                                          'draft_input_data': r.draftInputData,
-                                        };
-                                      }
-                                      _activeStep = 1;
-                                    });
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(context.l10n.cooLoadedSessionForEditSnackbar(r.cooReviewCode))),
-                                    );
-                                  },
-                                ),
-                                // 2. View (مشاهدة)
-                                IconButton(
-                                  icon: const Icon(Icons.visibility, color: AppTheme.charcoal, size: 18),
-                                  tooltip: context.l10n.cooViewDetailsTooltip,
-                                  onPressed: () => _showCOOReviewDetailsDialog(r),
-                                ),
-                                // 3. Download PDF (تنزيل PDF)
-                                IconButton(
-                                  icon: const Icon(Icons.picture_as_pdf, color: AppTheme.crimson, size: 18),
-                                  tooltip: context.l10n.cooDownloadPdfTooltip,
-                                  onPressed: () async {
-                                    final tData = {
-                                      'certificate_number': r.certificateNumber,
-                                      'box_1_exporter': expName,
-                                      'box_2_consignee': impName,
-                                      'country_of_origin': originCountry,
-                                      'box_4_country_of_destination': destCountry,
-                                      'box_10_invoice_number_and_date': invNo,
-                                    };
-                                    await CooExportService.printOrSavePdf(
-                                      templateData: tData,
-                                      certificateType: r.certificateType,
-                                      acidNumber: '7595528271020210010',
-                                    );
-                                  },
-                                ),
-                                // 4. Delete (حذف)
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                                  tooltip: context.l10n.cooDeleteSessionTooltip,
-                                  onPressed: () => _confirmDeleteCOOReview(r),
-                                ),
+                                Expanded(child: searchBar),
+                                const SizedBox(width: 12),
+                                fileFilter,
                               ],
                             ),
-                          ),
-                        ]);
-                      }).toList(),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Wrap(spacing: 8, runSpacing: 8, children: actionButtons),
+                              ],
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                  ),
-              ],
+                    const Divider(height: 20),
+                    if (filteredReviews.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(30),
+                          child: Text(
+                            reviews.isEmpty ? context.l10n.cooNoReviewsYet : context.l10n.noCooReviewsFound,
+                          ),
+                        ),
+                      )
+                    else
+                      SelectionArea(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : Colors.grey.shade100),
+                            columns: [
+                              DataColumn(label: Text(context.l10n.cooRegistryColActions)),
+                              const DataColumn(label: Text('نوع الجلسة', style: TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(context.l10n.cooRegistryColCode)),
+                              DataColumn(label: Text(context.l10n.cooRegistryColType)),
+                              DataColumn(label: Text(context.l10n.cooRegistryColNumber)),
+                              DataColumn(label: Text(context.l10n.cooRegistryColExporter)),
+                              DataColumn(label: Text(context.l10n.cooRegistryColStatus)),
+                              DataColumn(label: Text(context.l10n.cooRegistryColDate)),
+                            ],
+                            rows: filteredReviews.map((r) {
+                              final expName = r.draftInputData?['exporter_name'] ?? r.draftInputData?['box_1_exporter'] ?? '—';
+                              final isDraft = r.isDraft;
+                              final dateStr = r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt;
+                              final rowSummary = '${isDraft ? "مسودة مؤقتة" : "معتمدة نهائية"}\t${r.cooReviewCode}\t${r.certificateType}\t${r.certificateNumber}\t$expName\t${r.status}\t$dateStr';
+
+                              return DataRow(cells: [
+                                DataCell(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // 0. Clone (استنساخ)
+                                      IconButton(
+                                        key: Key('cloneCooRowBtn_${r.cooReviewId}'),
+                                        icon: const Icon(Icons.copy_all, color: AppTheme.wcagCobalt, size: 18),
+                                        tooltip: context.l10n.cloneCooRecordTooltip,
+                                        onPressed: () => _cloneCOOReview(r),
+                                      ),
+                                      // 1. Load into Stepper / Edit (استعادة وتحميل)
+                                      IconButton(
+                                        icon: const Icon(Icons.play_circle_outline, color: AppTheme.cobalt, size: 18),
+                                        tooltip: 'استعادة وتحميل الجلسة في أداة الفحص',
+                                        onPressed: () => _loadSessionIntoEditor(r),
+                                      ),
+                                      // 2. View Details (مشاهدة)
+                                      IconButton(
+                                        icon: const Icon(Icons.visibility, color: AppTheme.charcoal, size: 18),
+                                        tooltip: context.l10n.cooViewDetailsTooltip,
+                                        onPressed: () => _showCOOReviewDetailsDialog(r),
+                                      ),
+                                      // 3. Download PDF (تنزيل PDF)
+                                      IconButton(
+                                        icon: const Icon(Icons.picture_as_pdf, color: AppTheme.crimson, size: 18),
+                                        tooltip: context.l10n.cooDownloadPdfTooltip,
+                                        onPressed: () async {
+                                          final tData = {
+                                            'certificate_number': r.certificateNumber,
+                                            'box_1_exporter': expName,
+                                            'box_2_consignee': r.draftInputData?['importer_name'] ?? r.draftInputData?['box_2_consignee'] ?? '—',
+                                            'country_of_origin': r.draftInputData?['country_of_origin'] ?? '—',
+                                            'box_4_country_of_destination': r.draftInputData?['destination_country'] ?? r.draftInputData?['box_4_country_of_destination'] ?? '—',
+                                            'box_10_invoice_number_and_date': r.draftInputData?['invoice_number'] ?? r.draftInputData?['box_10_invoice_number_and_date'] ?? '—',
+                                          };
+                                          await CooExportService.printOrSavePdf(
+                                            templateData: tData,
+                                            certificateType: r.certificateType,
+                                            acidNumber: '7595528271020210010',
+                                          );
+                                        },
+                                      ),
+                                      // 4. Delete Draft (حذف المسودة)
+                                      if (isDraft)
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                                          tooltip: 'حذف المسودة',
+                                          onPressed: () => _deleteCOODraftSession(r),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                // Session Type Badge
+                                DataCell(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: isDraft ? AppTheme.orange.withOpacity(0.12) : AppTheme.emerald.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: isDraft ? AppTheme.orange : AppTheme.emerald),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(isDraft ? Icons.edit_document : Icons.verified_rounded, size: 13, color: isDraft ? AppTheme.orange : AppTheme.emerald),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          isDraft ? 'مسودة مؤقتة' : 'معتمدة نهائية',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: isDraft ? AppTheme.orange : AppTheme.emerald,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                DataCell(CopyableTableCell(
+                                  value: r.cooReviewCode,
+                                  rowSummary: rowSummary,
+                                  child: Text(r.cooReviewCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                )),
+                                DataCell(CopyableTableCell(
+                                  value: r.certificateType,
+                                  rowSummary: rowSummary,
+                                  child: Text(r.certificateType),
+                                )),
+                                DataCell(CopyableTableCell(
+                                  value: r.certificateNumber,
+                                  rowSummary: rowSummary,
+                                  child: Text(r.certificateNumber),
+                                )),
+                                DataCell(CopyableTableCell(
+                                  value: expName,
+                                  rowSummary: rowSummary,
+                                  child: Text(expName),
+                                )),
+                                DataCell(CopyableTableCell(
+                                  value: r.status,
+                                  rowSummary: rowSummary,
+                                  child: Chip(
+                                    label: Text(r.status, style: const TextStyle(color: Colors.white, fontSize: 11)),
+                                    backgroundColor: r.status == 'Verified' || r.status == 'Approved'
+                                        ? Colors.green
+                                        : (isDraft ? Colors.orange : Colors.blue),
+                                  ),
+                                )),
+                                DataCell(CopyableTableCell(
+                                  value: dateStr,
+                                  rowSummary: rowSummary,
+                                  child: Text(dateStr),
+                                )),
+                              ]);
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
-          ),
+          ],
         );
       },
     );
+  }
+
+  Widget _sessionKpiCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+              Text(value, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _loadSessionIntoEditor(CertificateOfOriginReviewModel session) {
+    final expName = session.draftInputData?['exporter_name'] ??
+        session.draftInputData?['box_1_exporter'] ??
+        session.systemSnapshotData?['supplier_name'] ??
+        '';
+    final impName = session.draftInputData?['importer_name'] ??
+        session.draftInputData?['box_2_consignee'] ??
+        session.systemSnapshotData?['company_name'] ??
+        '';
+    final originCountry = session.draftInputData?['country_of_origin'] ??
+        session.draftInputData?['box_3_country_of_origin'] ??
+        'Germany';
+    final destCountry = session.draftInputData?['destination_country'] ??
+        session.draftInputData?['box_4_country_of_destination'] ??
+        'Egypt';
+    final invNo = session.draftInputData?['invoice_number'] ??
+        session.draftInputData?['box_10_invoice_number_and_date'] ??
+        '';
+    final rawTxt = session.rawText ?? session.draftInputData?['raw_text'] ?? '';
+    final overrideReason = session.notes ?? session.draftInputData?['override_reason'] ?? '';
+
+    setState(() {
+      _selectedImportFileId = session.importFileId ?? _selectedImportFileId;
+      _certType = session.certificateType;
+      _certNumberCtrl.text = session.certificateNumber;
+      _exporterCtrl.text = expName;
+      _importerCtrl.text = impName;
+      _originCountryCtrl.text = originCountry;
+      _destCountryCtrl.text = destCountry;
+      _invoiceNoCtrl.text = invNo;
+      _rawTextCtrl.text = rawTxt;
+      _overrideReasonCtrl.text = overrideReason;
+      if (session.comparisonMatrix.isNotEmpty) {
+        _comparisonResult = {
+          'comparison_matrix': session.comparisonMatrix,
+          'has_discrepancies': session.hasDiscrepancies,
+          'has_critical_mismatch': session.hasCriticalMismatch,
+          'system_snapshot_data': session.systemSnapshotData,
+          'draft_input_data': session.draftInputData,
+        };
+      }
+      _activeStep = 1; // Jump to editor/smart input
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('تم استرجاع وتحميل بيانات الجلسة (${session.cooReviewCode}) بنجاح')),
+    );
+  }
+
+  Future<void> _deleteCOODraftSession(CertificateOfOriginReviewModel session) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.delete_forever, color: AppTheme.crimson),
+            SizedBox(width: 8),
+            Text('تأكيد حذف مسودة شهادة المنشأ'),
+          ],
+        ),
+        content: Text('هل أنت متأكد من حذف مسودة الجلسة (${session.cooReviewCode})؟ لن يؤثر ذلك على بيانات الشحنة الأصلية.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('تأكيد الحذف'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(cooReviewsProvider.notifier).deleteCOOReview(session.cooReviewId);
+      ref.invalidate(importFilesProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم حذف مسودة الجلسة بنجاح'), backgroundColor: AppTheme.crimson),
+        );
+      }
+    }
   }
 
   void _showCOOReviewDetailsDialog(CertificateOfOriginReviewModel r) {
@@ -1493,15 +2275,59 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     final originCountry = r.draftInputData?['country_of_origin'] ?? '—';
     final destCountry = r.draftInputData?['destination_country'] ?? r.draftInputData?['box_4_country_of_destination'] ?? '—';
     final overrideReason = r.notes ?? r.draftInputData?['override_reason'] ?? '';
+    final isDraft = r.isDraft;
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
         title: Row(
           children: [
-            const Icon(Icons.assignment, color: AppTheme.cobalt),
-            const SizedBox(width: 8),
-            Text(context.l10n.cooDetailsDialogTitle(r.cooReviewCode)),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (isDraft ? AppTheme.orange : AppTheme.emerald).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                isDraft ? Icons.bookmark_added_rounded : Icons.verified_rounded,
+                color: isDraft ? AppTheme.orange : AppTheme.emerald,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n.cooDetailsDialogTitle(r.cooReviewCode),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'رقم الشهادة: ${r.certificateNumber}  |  تاريخ الإنشاء: ${r.createdAt}',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: (isDraft ? AppTheme.orange : AppTheme.emerald).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDraft ? AppTheme.orange : AppTheme.emerald),
+              ),
+              child: Text(
+                isDraft ? 'مسودة مؤقتة' : 'معتمدة نهائية',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: isDraft ? AppTheme.orange : AppTheme.emerald,
+                ),
+              ),
+            ),
           ],
         ),
         content: SizedBox(
@@ -1564,7 +2390,17 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
           ),
         ),
         actions: [
-          TextButton(
+          TextButton.icon(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _loadSessionIntoEditor(r);
+            },
+            icon: const Icon(Icons.play_circle_outline, size: 16, color: AppTheme.emerald),
+            label: const Text('استعادة وتحميل في أداة المراجعة',
+                style: TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal, foregroundColor: Colors.white),
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text(context.l10n.close),
           ),
@@ -1573,46 +2409,102 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     );
   }
 
-  void _confirmDeleteCOOReview(CertificateOfOriginReviewModel r) {
-    showDialog(
+  Future<void> _exportCooRegistryToExcel(List<CertificateOfOriginReviewModel> reviews) async {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final headers = [
+      isAr ? 'نوع الجلسة' : 'Session Type',
+      context.l10n.cooRegistryColCode,
+      context.l10n.cooRegistryColType,
+      context.l10n.cooRegistryColNumber,
+      context.l10n.cooRegistryColExporter,
+      context.l10n.cooRegistryColStatus,
+      context.l10n.cooRegistryColDate,
+    ];
+    final rows = reviews.map((r) {
+      final expName = r.draftInputData?['exporter_name'] ?? r.draftInputData?['box_1_exporter'] ?? '—';
+      final isDraft = r.isDraft;
+      final dateStr = r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt;
+      return [
+        isDraft ? (isAr ? 'مسودة مؤقتة' : 'Draft') : (isAr ? 'معتمدة نهائية' : 'Certified'),
+        r.cooReviewCode,
+        r.certificateType,
+        r.certificateNumber,
+        expName,
+        r.status,
+        dateStr,
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToExcel(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.warning, color: Colors.red),
-            const SizedBox(width: 8),
-            Text(context.l10n.cooDeleteDialogTitle),
-          ],
-        ),
-        content: Text(context.l10n.cooDeleteDialogContent(r.cooReviewCode, r.certificateNumber)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(context.l10n.cancel),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              Navigator.of(ctx).pop();
-              try {
-                await ref.read(cooReviewsProvider.notifier).deleteCOOReview(r.cooReviewId);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(context.l10n.cooDeleteSuccessSnackbar), backgroundColor: Colors.green),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(context.l10n.cooDeleteErrorSnackbar(e.toString())), backgroundColor: Colors.red),
-                  );
-                }
-              }
-            },
-            child: Text(context.l10n.delete, style: const TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
+      headers: headers,
+      rows: rows,
+      stageName: isAr ? 'سجل شهادات المنشأ المبدئية' : 'Draft COO Registry',
+      importFileNameOrCode: 'Draft_COO_Registry',
     );
+  }
+
+  Future<void> _exportCooRegistryToPdf(List<CertificateOfOriginReviewModel> reviews) async {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final headers = [
+      isAr ? 'نوع الجلسة' : 'Session Type',
+      context.l10n.cooRegistryColCode,
+      context.l10n.cooRegistryColType,
+      context.l10n.cooRegistryColNumber,
+      context.l10n.cooRegistryColExporter,
+      context.l10n.cooRegistryColStatus,
+      context.l10n.cooRegistryColDate,
+    ];
+    final rows = reviews.map((r) {
+      final expName = r.draftInputData?['exporter_name'] ?? r.draftInputData?['box_1_exporter'] ?? '—';
+      final isDraft = r.isDraft;
+      final dateStr = r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt;
+      return [
+        isDraft ? (isAr ? 'مسودة مؤقتة' : 'Draft') : (isAr ? 'معتمدة نهائية' : 'Certified'),
+        r.cooReviewCode,
+        r.certificateType,
+        r.certificateNumber,
+        expName,
+        r.status,
+        dateStr,
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToPdf(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isAr ? 'سجل شهادات المنشأ المبدئية' : 'Draft COO Registry',
+      importFileNameOrCode: 'Draft_COO_Registry',
+    );
+  }
+
+  void _copyCooRegistryAsTsv(List<CertificateOfOriginReviewModel> reviews) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final headers = [
+      isAr ? 'نوع الجلسة' : 'Session Type',
+      context.l10n.cooRegistryColCode,
+      context.l10n.cooRegistryColType,
+      context.l10n.cooRegistryColNumber,
+      context.l10n.cooRegistryColExporter,
+      context.l10n.cooRegistryColStatus,
+      context.l10n.cooRegistryColDate,
+    ];
+    final rows = reviews.map((r) {
+      final expName = r.draftInputData?['exporter_name'] ?? r.draftInputData?['box_1_exporter'] ?? '—';
+      final isDraft = r.isDraft;
+      final dateStr = r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt;
+      return [
+        isDraft ? (isAr ? 'مسودة مؤقتة' : 'Draft') : (isAr ? 'معتمدة نهائية' : 'Certified'),
+        r.cooReviewCode,
+        r.certificateType,
+        r.certificateNumber,
+        expName,
+        r.status,
+        dateStr,
+      ];
+    }).toList();
+
+    TableCopyHelper.copyTable(context, headers, rows);
   }
 }

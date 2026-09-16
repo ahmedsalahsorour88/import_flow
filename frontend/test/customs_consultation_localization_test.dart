@@ -108,6 +108,41 @@ void main() {
       expect(lAr.acidShipmentDoc, equals('قيد رقم التسجيل المسبق للشحنة الكاملة (نافذة وكارجو إكس)'));
       expect(lAr.goeicAgencyName, equals('هيئة الرقابة على الصادرات والواردات'));
 
+      // Price List Dialog & Custom Item Coding Getters
+      expect(lAr.standardRatesFilledToast, equals('تم استدعاء وتعبئة الأسعار الاسترشادية القياسية المصرية بنجاح!'));
+      expect(lAr.approvedPriceField, equals('السعر المعتمد *'));
+      expect(lAr.notesPriceRangeField, equals('ملاحظات أو نطاق السعر'));
+      expect(lAr.totalExpensesCountSummary(50, 12), equals('إجمالي بنود المصروفات بالقائمة: 50 بند (12 بند مسعر بقيمة)'));
+      expect(lAr.savePriceListEditsBtn, equals('حفظ تعديلات القائمة'));
+      expect(lAr.createAndSavePriceListBtn, equals('إنشاء وحفظ قائمة الأسعار'));
+      expect(lAr.priceListTitleRequired, equals('يرجى كتابة عنوان قائمة الأسعار.'));
+      expect(lAr.selectBrokerRequired, equals('الرجاء اختيار المستخلص الجمركي'));
+      expect(lAr.priceListUpdatedSuccess, equals('تم تحديث وتعديل أسعار القائمة بنجاح!'));
+      expect(lAr.priceListCreatedSuccess, equals('تم إنشاء قائمة أسعار المخلص وحفظ الأسعار بنجاح!'));
+      expect(lAr.customsExpenseCodingTitle, equals('تكويد المصروفات الجمركية المرجعية'));
+      expect(lAr.linkAsAliasTab, equals('🔗 ربط كمرادف لبند معتمد'));
+      expect(lAr.registerNewCatalogCodeTab, equals('➕ تسجيل كود جديد بالكتالوج'));
+      expect(lAr.approvedCatalogItemLabel, equals('البند المعتمد في الكتالوج *'));
+      expect(lAr.searchApprovedCatalogHint, equals('ابحث في بنود الكتالوج المعتمدة...'));
+      expect(lAr.documentAliasLabel, equals('الاسم أو المرادف في المستند *'));
+      expect(lAr.referenceItemCodeLabel, equals('كود البند المرجعي *'));
+      expect(lAr.officialCategoryLabel, equals('الفئة الرسمية *'));
+      expect(lAr.canonicalArabicNameLabel, equals('الاسم العربي المعتمد للبند *'));
+      expect(lAr.unitTypeLabel, equals('نوع الوحدة *'));
+      expect(lAr.approvedPriceLabel, equals('السعر المعتمد *'));
+      expect(lAr.saveAndMapAliasBtn, equals('حفظ وتكويد المرادف'));
+      expect(lAr.registerCodeInCatalogBtn, equals('تسجيل الكود بالكتالوج'));
+      expect(lAr.needsCodingBadge, equals('بحاجة لتكويد'));
+      expect(lAr.customItemBadge, equals('بند مخصص'));
+      expect(lAr.deleteCustomItemTooltip, equals('حذف البند المخصص'));
+      expect(lAr.addCustomItemOrAliasBtn, equals('➕ تكويد بند جديد أو ربط مرادف'));
+      expect(lAr.smartFileExtractionBtn, equals('✨ استخراج ذكي من ملف'));
+      expect(lAr.fillApprovedArabicNameRequired, equals('يرجى إدخال الاسم العربي المعتمد للبند'));
+      expect(lAr.selectReferenceCodeRequired, equals('يرجى اختيار أو تحديد كود البند المرجعي'));
+      expect(lAr.pleaseEnterItemPrice, equals('يرجى تحديد السعر'));
+      expect(lAr.invalidItemPrice, equals('السعر غير صالح'));
+      expect(lAr.selectDateTooltip, equals('اختيار التاريخ'));
+
       // Verify strictly zero Latin characters [a-zA-Z] in Arabic keys
       final latinRegex = RegExp(r'[a-zA-Z]');
       expect(latinRegex.hasMatch(lAr.customsStudiesTitle), isFalse);
@@ -230,6 +265,41 @@ void main() {
       expect(lEn.acidShipmentDoc, equals('Advance ACID Filing for Entire Shipment (Nafeza / CargoX)'));
       expect(lEn.goeicAgencyName, equals('General Organization for Export & Import Control (GOEIC)'));
 
+      // Price List Dialog & Custom Item Coding Getters
+      expect(lEn.standardRatesFilledToast, equals('Egyptian standard benchmark rates filled successfully!'));
+      expect(lEn.approvedPriceField, equals('Approved Standard Price *'));
+      expect(lEn.notesPriceRangeField, equals('Notes / Price Range'));
+      expect(lEn.totalExpensesCountSummary(50, 12), equals('Total price list items: 50 items (12 priced items)'));
+      expect(lEn.savePriceListEditsBtn, equals('Save Price List Changes'));
+      expect(lEn.createAndSavePriceListBtn, equals('Create & Save Price List'));
+      expect(lEn.priceListTitleRequired, equals('Please provide a price list title.'));
+      expect(lEn.selectBrokerRequired, equals('Please select a customs broker'));
+      expect(lEn.priceListUpdatedSuccess, equals('Price list updated successfully!'));
+      expect(lEn.priceListCreatedSuccess, equals('Broker price list created successfully!'));
+      expect(lEn.customsExpenseCodingTitle, equals('Reference Customs Expense Coding'));
+      expect(lEn.linkAsAliasTab, equals('🔗 Link as Alias to Approved Code'));
+      expect(lEn.registerNewCatalogCodeTab, equals('➕ Register New Code in Catalog'));
+      expect(lEn.approvedCatalogItemLabel, equals('Approved Catalog Item *'));
+      expect(lEn.searchApprovedCatalogHint, equals('Search approved catalog items...'));
+      expect(lEn.documentAliasLabel, equals('Name or Alias in Document *'));
+      expect(lEn.referenceItemCodeLabel, equals('Reference Item Code *'));
+      expect(lEn.officialCategoryLabel, equals('Official Category *'));
+      expect(lEn.canonicalArabicNameLabel, equals('Official Arabic Name *'));
+      expect(lEn.unitTypeLabel, equals('Unit Type *'));
+      expect(lEn.approvedPriceLabel, equals('Approved Rate *'));
+      expect(lEn.saveAndMapAliasBtn, equals('Save & Map Alias'));
+      expect(lEn.registerCodeInCatalogBtn, equals('Register Code in Catalog'));
+      expect(lEn.needsCodingBadge, equals('Needs Coding'));
+      expect(lEn.customItemBadge, equals('Custom Item'));
+      expect(lEn.deleteCustomItemTooltip, equals('Delete Custom Item'));
+      expect(lEn.addCustomItemOrAliasBtn, equals('➕ Code New Item or Link Alias'));
+      expect(lEn.smartFileExtractionBtn, equals('✨ Smart File Extraction'));
+      expect(lEn.fillApprovedArabicNameRequired, equals('Please enter the official Arabic item name'));
+      expect(lEn.selectReferenceCodeRequired, equals('Please select or enter the reference item code'));
+      expect(lEn.pleaseEnterItemPrice, equals('Please enter a rate'));
+      expect(lEn.invalidItemPrice, equals('Invalid price rate'));
+      expect(lEn.selectDateTooltip, equals('Select Date'));
+
       // Verify no Arabic characters in English getters
       final arabicRegex = RegExp(r'[\u0600-\u06FF]');
       expect(arabicRegex.hasMatch(lEn.customsStudiesTitle), isFalse);
@@ -240,6 +310,13 @@ void main() {
       expect(arabicRegex.hasMatch(lEn.freightDataHeader), isFalse);
       expect(arabicRegex.hasMatch(lEn.partySupplierExporter), isFalse);
       expect(arabicRegex.hasMatch(lEn.partyImporterTeam), isFalse);
+      expect(arabicRegex.hasMatch(lEn.customsExpenseCodingTitle), isFalse);
+      expect(arabicRegex.hasMatch(lEn.referenceItemCodeLabel), isFalse);
+      expect(arabicRegex.hasMatch(lEn.officialCategoryLabel), isFalse);
+      expect(arabicRegex.hasMatch(lEn.unitTypeLabel), isFalse);
+      expect(arabicRegex.hasMatch(lEn.needsCodingBadge), isFalse);
+      expect(arabicRegex.hasMatch(lEn.customItemBadge), isFalse);
+      expect(arabicRegex.hasMatch(lEn.addCustomItemOrAliasBtn), isFalse);
     });
   });
 }

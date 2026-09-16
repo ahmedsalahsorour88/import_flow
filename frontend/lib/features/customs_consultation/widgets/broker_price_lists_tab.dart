@@ -603,8 +603,8 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                   headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
                                   headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                                   columns: [
-                                    DataColumn(label: Text(l.expenseCodeCol)),
                                     DataColumn(label: Text(isArabic ? 'الإجراءات' : 'Actions')),
+                                    DataColumn(label: Text(l.expenseCodeCol)),
                                     DataColumn(label: Text(l.expenseNameArCol)),
                                     DataColumn(label: Text(l.expenseNameEnCol)),
                                     DataColumn(label: Text(l.expenseCategoryCol)),
@@ -617,33 +617,6 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                     final unitText = _formatUnit(exp.defaultUnit, isArabic);
                                     return DataRow(
                                       cells: [
-                                        // 1. Code with Clickable Copy Badge
-                                        DataCell(
-                                          CopyableTableCell(
-                                            value: exp.expenseCode,
-                                            rowSummary: rowSummary,
-                                            child: InkWell(
-                                              onTap: () => CopyHelper.copy(context, exp.expenseCode),
-                                              borderRadius: BorderRadius.circular(4),
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: AppTheme.cobalt.withOpacity(0.08),
-                                                  borderRadius: BorderRadius.circular(4),
-                                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                                                ),
-                                                child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Text(exp.expenseCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
-                                                    const SizedBox(width: 4),
-                                                    const Icon(Icons.copy_rounded, size: 12, color: AppTheme.cobalt),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
                                         // 2. Actions (Edit, Delete, Copy) - Prominently Placed in 2nd Column
                                         DataCell(
                                           Container(
@@ -691,6 +664,33 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                                   onPressed: () => CopyHelper.copy(context, rowSummary),
                                                 ),
                                               ],
+                                            ),
+                                          ),
+                                        ),
+                                        // 1. Code with Clickable Copy Badge
+                                        DataCell(
+                                          CopyableTableCell(
+                                            value: exp.expenseCode,
+                                            rowSummary: rowSummary,
+                                            child: InkWell(
+                                              onTap: () => CopyHelper.copy(context, exp.expenseCode),
+                                              borderRadius: BorderRadius.circular(4),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.cobalt.withOpacity(0.08),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(exp.expenseCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
+                                                    const SizedBox(width: 4),
+                                                    const Icon(Icons.copy_rounded, size: 12, color: AppTheme.cobalt),
+                                                  ],
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         ),

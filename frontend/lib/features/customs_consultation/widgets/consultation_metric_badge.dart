@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 
 class ConsultationMetricBadge extends StatelessWidget {
@@ -17,12 +18,17 @@ class ConsultationMetricBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final effectiveColor = (isDark && (color == AppTheme.charcoal || color == const Color(0xFF2C3E50)))
+        ? AppTheme.darkTextPrimary
+        : color;
+
     final badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: effectiveColor.withOpacity(isDark ? 0.18 : 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: effectiveColor.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -30,10 +36,10 @@ class ConsultationMetricBadge extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(title, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
+              Text(title, style: TextStyle(fontSize: 11, color: effectiveColor, fontWeight: FontWeight.bold)),
               if (onTap != null) ...[
                 const SizedBox(width: 4),
-                Icon(Icons.open_in_new, size: 12, color: color),
+                Icon(Icons.open_in_new, size: 12, color: effectiveColor),
               ],
             ],
           ),

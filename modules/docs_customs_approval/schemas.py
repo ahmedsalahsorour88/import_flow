@@ -156,3 +156,80 @@ class CrossDocumentMatrixCheckResponse(BaseModel):
     checks: List[MatrixCheckItem]
     recommendations: List[str]
     open_tickets_count: int
+
+
+# --- Docs Customs Approval Session Schemas (STEP-09) ---
+
+class DocsCustomsApprovalSessionBase(BaseModel):
+    import_file_id: int
+    po_id: Optional[int] = None
+    overall_status: str = "APPROVED"
+    is_draft: bool = False
+
+    final_invoice_ref: Optional[str] = None
+    final_invoice_status: str = "Approved"
+
+    final_pl_ref: Optional[str] = None
+    final_pl_status: str = "Approved"
+
+    draft_bl_ref: Optional[str] = None
+    draft_bl_status: str = "Approved"
+
+    coo_ref: Optional[str] = None
+    coo_status: str = "Approved"
+
+    coc_ref: Optional[str] = None
+    coc_status: str = "Waived / Not Required"
+
+    commercial_signoff_by: Optional[str] = None
+    commercial_signoff_date: Optional[date] = None
+    customs_signoff_by: Optional[str] = None
+    customs_signoff_date: Optional[date] = None
+    customs_broker_name: Optional[str] = None
+
+    discrepancies_count: int = 0
+    open_tickets_count: int = 0
+
+    session_snapshot: Optional[Dict[str, Any]] = None
+    notes: Optional[str] = None
+    created_by: Optional[str] = "ADMIN"
+
+
+class DocsCustomsApprovalSessionCreate(DocsCustomsApprovalSessionBase):
+    pass
+
+
+class DocsCustomsApprovalSessionUpdate(BaseModel):
+    overall_status: Optional[str] = None
+    is_draft: Optional[bool] = None
+    final_invoice_ref: Optional[str] = None
+    final_invoice_status: Optional[str] = None
+    final_pl_ref: Optional[str] = None
+    final_pl_status: Optional[str] = None
+    draft_bl_ref: Optional[str] = None
+    draft_bl_status: Optional[str] = None
+    coo_ref: Optional[str] = None
+    coo_status: Optional[str] = None
+    coc_ref: Optional[str] = None
+    coc_status: Optional[str] = None
+    commercial_signoff_by: Optional[str] = None
+    commercial_signoff_date: Optional[date] = None
+    customs_signoff_by: Optional[str] = None
+    customs_signoff_date: Optional[date] = None
+    customs_broker_name: Optional[str] = None
+    discrepancies_count: Optional[int] = None
+    open_tickets_count: Optional[int] = None
+    session_snapshot: Optional[Dict[str, Any]] = None
+    notes: Optional[str] = None
+
+
+class DocsCustomsApprovalSessionResponse(DocsCustomsApprovalSessionBase):
+    session_id: int
+    session_code: str
+    import_file_code: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+

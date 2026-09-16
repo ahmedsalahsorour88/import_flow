@@ -16,8 +16,8 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameCtrl = TextEditingController(text: 'manager');
-  final _passwordCtrl = TextEditingController(text: 'manager123');
+  final _usernameCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
 
   @override
@@ -34,22 +34,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final username = _usernameCtrl.text.trim();
     final password = _passwordCtrl.text.trim();
 
-    final ok = await ref.read(authProvider.notifier).login(username, password);
-    if (!ok && mounted) {
-      final err = ref.read(authProvider).errorMessage ?? l.loginInvalidCredentials;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline, color: Colors.white),
-              const SizedBox(width: 10),
-              Expanded(child: Text(err)),
-            ],
+    try {
+      final ok = await ref.read(authProvider.notifier).login(username, password);
+      if (!ok && mounted) {
+        final err = ref.read(authProvider).errorMessage ?? l.loginInvalidCredentials;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(child: Text(err)),
+              ],
+            ),
+            backgroundColor: AppTheme.crimson,
+            behavior: SnackBarBehavior.floating,
           ),
-          backgroundColor: AppTheme.crimson,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(child: Text(e.toString())),
+              ],
+            ),
+            backgroundColor: AppTheme.crimson,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 

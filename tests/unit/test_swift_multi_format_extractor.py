@@ -165,3 +165,55 @@ SUZHOU YUHENG TEXTILE CO., LTD
     assert data["parsed_swift"]["transaction_reference"] == "FT/TEST/778899"
     assert data["parsed_swift"]["amount"] == 43704.0
     assert data["parsed_swift"]["currency"] == "USD"
+
+
+def test_exact_user_reported_ocr_swift_extraction():
+    """Tests the exact raw OCR text reported by user with multiline labels and value date preceding currency."""
+    user_ocr = """
+KtO:DE.PREVIEW>
+Results1-1of1
+(1:F01ARAIEGCXXXXX.SN...ISN.）(2:I103CITIUS33XXXXN)(3:(108:XXXXX))(4:
+:2O/TRANSACTION REFERENCE NUMBER
+FT/26228/KZ70Q
+:2BB/BANKOPERATIONCODE
+:CRED
+:B2A/Value Date,CCY,Amount
+260818U5D43704,00
+:5OK/ORDERING CUST
+/EG780057004001017153610010101
+SCAS FOR CONSTRUCTION AND FINISHING
+ROAD18
+EGYPT,44 ROAD 18
+SARIAT EL MAADICAIRO
+57A/Accountwith Bank
+PCBCCNBJJSS
+59/BeneficiaryCustomer
+/32250198613609841015
+SUZHOU YUHENG TEXTILE CO.,LTD
+16 KANGSHENG ROAD ZHITANG TOWN
+CHANGSHU CITY SUZHOU CHINA
+7O/DETAILS OFPAYMENT
+EG0010040 PI NO.YH20260730.6
+ALL DOCUMENTS SHOULD BE TRADED
+THROUGH AAIB
+ZA/DETAILS OF CHARGES
+:SHA
+"""
+    raw_text, normalized = extract_text_from_swift_file("sample_ocr.txt", user_ocr.encode("utf-8"))
+    p = parse_swift_mt103_text(normalized)
+
+    assert p["success"] is True
+    assert p["transaction_reference"] == "FT/26228/KZ70Q"
+    assert p["bank_operation_code"] == "CRED"
+    assert p["value_date"] == "2026-08-18"
+    assert p["currency"] == "USD"
+    assert p["amount"] == 43704.0
+    assert p["beneficiary_bank_swift"] == "PCBCCNBJJSS"
+    assert p["beneficiary_account_or_iban"] == "32250198613609841015"
+    assert "SUZHOU YUHENG" in p["beneficiary_name"]
+    assert "SCAS FOR CONSTRUCTION" in p["ordering_customer_name"]
+    assert p["ordering_account_or_iban"] == "EG780057004001017153610010101"
+    assert p["pi_number"] == "YH20260730.6"
+    assert p["po_number"] == "EG0010040"
+    assert p["charge_details"] == "SHA"
+

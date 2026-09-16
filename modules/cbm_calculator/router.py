@@ -9,6 +9,7 @@ from modules.cbm_calculator.schemas import (
     CBMCalculationUpdate,
     CBMQuickCalcRequest,
     CBMQuickCalcResponse,
+    CloneCBMCalculationRequest,
     LinkToPORequest,
 )
 from modules.cbm_calculator.service import CBMService
@@ -100,3 +101,14 @@ def restore_cbm_calculation(calc_id: int, db: Session = Depends(get_db)):
     Restore a soft-deleted CBM calculation record.
     """
     return CBMService.restore_service(db, calc_id)
+
+
+@router.post("/{calc_id}/clone", response_model=CBMCalculationResponse, status_code=status.HTTP_201_CREATED)
+def clone_cbm_calculation(
+    calc_id: int, payload: CloneCBMCalculationRequest, db: Session = Depends(get_db)
+):
+    """
+    Clone a CBM calculation session into a new draft with independent code, resetting linkages.
+    """
+    return CBMService.clone_cbm_calculation(db, calc_id, payload)
+

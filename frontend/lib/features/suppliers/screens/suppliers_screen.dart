@@ -432,6 +432,87 @@ ${l10n.supplierTsvHeaderBrands}: ${s.brands ?? '-'}
           padding: const EdgeInsets.symmetric(vertical: 12.0),
           child: Row(
             children: [
+              // Standard 4-Action Row Pill: View, Edit, Print, Delete
+              RowActionsPill(
+
+                onView: () => SupplierDetailsDialog.show(
+                  context,
+                  supplier,
+                  onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
+                ),
+                onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
+                onPrint: () => MasterDataExportService.printOrSaveSupplierPdf(supplier),
+                onDelete: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: Text(l10n.confirmActionTitle),
+                      content: Text(isActive
+                          ? l10n.confirmDeactivateSupplier(supplier.companyName)
+                          : l10n.confirmActivateSupplier(supplier.companyName)),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                          child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true && supplier.supplierId != null) {
+                    ref.read(suppliersProvider.notifier).toggleActiveStatus(supplier.supplierId!, isActive);
+                  }
+                },
+                deleteTooltip: isActive ? l10n.deactivateSupplierTooltip : l10n.activateSupplierTooltip,
+              ),
+              const SizedBox(width: 4),
+              // Quick Copy Supplier Summary Button
+              IconButton(
+                icon: const Icon(Icons.copy_all_rounded, color: AppTheme.cobalt, size: 20),
+                tooltip: l10n.supplierCopySummaryBtn,
+                onPressed: () => CopyHelper.copy(
+                  context,
+                  _buildSupplierSummary(supplier),
+                  customMessage: l10n.supplierCopySummarySuccess,
+                ),
+              ),
+              // AI Route Intelligence & GOEIC Compliance Buttons
+              if (supplier.supplierId != null) ...[
+                IconButton(
+                  icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 20),
+                  tooltip: l10n.routeIntelligenceBtnTooltip,
+                  onPressed: () => showRouteIntelligenceDialog(
+                    context,
+                    ref,
+                    supplierId: supplier.supplierId!,
+                    supplierName: supplier.companyName,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.workspace_premium_outlined, color: Colors.amber, size: 20),
+                  tooltip: l10n.supplierScorecardBtnTooltip,
+                  onPressed: () => showSupplierScorecardDialog(
+                    context,
+                    ref,
+                    supplierId: supplier.supplierId!,
+                    supplierName: supplier.companyName,
+                    country: supplier.foreignExporterCountry,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.verified_user_outlined, color: AppTheme.emerald, size: 20),
+                  tooltip: l10n.goeicVerificationBtnTooltip,
+                  onPressed: () => showGOEICVerificationDialog(
+                    context,
+                    ref,
+                    supplierId: supplier.supplierId!,
+                    supplierName: supplier.companyName,
+                  ),
+                ),
+                const SizedBox(width: 4),
+              ],
+              const SizedBox(width: 8),
               // Icon Avatar
               Container(
                 width: 48,
@@ -557,88 +638,7 @@ ${l10n.supplierTsvHeaderBrands}: ${s.brands ?? '-'}
                 ),
               ),
 
-              // AI Route Intelligence & GOEIC Compliance Buttons
-              if (supplier.supplierId != null) ...[
-                IconButton(
-                  icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 20),
-                  tooltip: l10n.routeIntelligenceBtnTooltip,
-                  onPressed: () => showRouteIntelligenceDialog(
-                    context,
-                    ref,
-                    supplierId: supplier.supplierId!,
-                    supplierName: supplier.companyName,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.workspace_premium_outlined, color: Colors.amber, size: 20),
-                  tooltip: l10n.supplierScorecardBtnTooltip,
-                  onPressed: () => showSupplierScorecardDialog(
-                    context,
-                    ref,
-                    supplierId: supplier.supplierId!,
-                    supplierName: supplier.companyName,
-                    country: supplier.foreignExporterCountry,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.verified_user_outlined, color: AppTheme.emerald, size: 20),
-                  tooltip: l10n.goeicVerificationBtnTooltip,
-                  onPressed: () => showGOEICVerificationDialog(
-                    context,
-                    ref,
-                    supplierId: supplier.supplierId!,
-                    supplierName: supplier.companyName,
-                  ),
-                ),
-                const SizedBox(width: 4),
-              ],
 
-              // Quick Copy Supplier Summary Button
-              IconButton(
-                icon: const Icon(Icons.copy_all_rounded, color: AppTheme.cobalt, size: 20),
-                tooltip: l10n.supplierCopySummaryBtn,
-                onPressed: () => CopyHelper.copy(
-                  context,
-                  _buildSupplierSummary(supplier),
-                  customMessage: l10n.supplierCopySummarySuccess,
-                ),
-              ),
-              const SizedBox(width: 4),
-
-              // Standard 4-Action Row Pill: View, Edit, Print, Delete
-              RowActionsPill(
-
-                onView: () => SupplierDetailsDialog.show(
-                  context,
-                  supplier,
-                  onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
-                ),
-                onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
-                onPrint: () => MasterDataExportService.printOrSaveSupplierPdf(supplier),
-                onDelete: () async {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: Text(l10n.confirmActionTitle),
-                      content: Text(isActive
-                          ? l10n.confirmDeactivateSupplier(supplier.companyName)
-                          : l10n.confirmActivateSupplier(supplier.companyName)),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                          child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
-                        ),
-                      ],
-                    ),
-                  );
-                  if (confirm == true && supplier.supplierId != null) {
-                    ref.read(suppliersProvider.notifier).toggleActiveStatus(supplier.supplierId!, isActive);
-                  }
-                },
-                deleteTooltip: isActive ? l10n.deactivateSupplierTooltip : l10n.activateSupplierTooltip,
-              ),
             ],
           ),
         ),

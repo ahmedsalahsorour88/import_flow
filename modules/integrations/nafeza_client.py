@@ -1,3 +1,4 @@
+import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional
@@ -12,7 +13,7 @@ class NafezaIntegrationClient:
 
     def __init__(self, mode: str = "MOCK", api_key: Optional[str] = None):
         self.mode = mode.upper()  # MOCK, STAGING, PRODUCTION
-        self.api_key = api_key or "NAFEZA_DEMO_API_KEY_2026"
+        self.api_key = api_key or os.getenv("NAFEZA_API_KEY", "NAFEZA_DEMO_API_KEY_2026")
         self.signer = PKISignerService(mode=self.mode)
 
     def request_acid_number(

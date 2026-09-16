@@ -22,12 +22,16 @@ class TransportLocationService:
         location_type: Optional[str] = None,
         country: Optional[str] = None,
         search: Optional[str] = None,
+        skip: int = 0,
+        limit: Optional[int] = None,
     ) -> List[TransportLocation]:
         return self.repo.get_all(
             include_inactive=include_inactive,
             location_type=location_type,
             country=country,
             search=search,
+            skip=skip,
+            limit=limit,
         )
 
     def get_by_id(self, location_id: int) -> TransportLocation:

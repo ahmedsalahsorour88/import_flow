@@ -9,8 +9,66 @@ class CourierEntry(BaseModel):
     dispatch_date: Optional[str] = Field(None, description="Courier dispatch date (YYYY-MM-DD)")
     is_received: bool = Field(False, description="Whether courier envelope package is physically delivered")
     received_date: Optional[str] = Field(None, description="Physical delivery / reception date (YYYY-MM-DD)")
+    received_time: Optional[str] = Field(None, description="Physical delivery time (HH:MM)")
     received_by: Optional[str] = Field(None, description="Staff member who received the courier envelope")
+    tracking_url: Optional[str] = Field(None, description="Direct web link to carrier live tracking")
+    pod_reference: Optional[str] = Field(None, description="Proof of delivery reference / receipt waybill number")
+    status: Optional[str] = Field("DISPATCHED", description="Courier status: DISPATCHED, IN_TRANSIT, DELIVERED, DELAYED")
     notes: Optional[str] = Field(None, description="Courier specific notes")
+
+
+class CourierReceiptProofRequest(BaseModel):
+    import_file_id: int = Field(..., description="Target Import File ID")
+    courier_no: str = Field(..., description="Courier Tracking / AWB Number to confirm")
+    received_date: str = Field(..., description="Actual receipt date (YYYY-MM-DD)")
+    received_time: Optional[str] = Field(None, description="Actual receipt time (HH:MM)")
+    received_by: str = Field(..., description="Staff member / archive specialist confirming delivery receipt")
+    pod_reference: Optional[str] = Field(None, description="Proof of delivery code / waybill acknowledgment")
+    notes: Optional[str] = Field(None, description="Delivery or package condition notes")
+    mark_documents_received: bool = Field(True, description="Whether to auto-mark all documents associated with this courier as physically received")
+
+
+class CourierAlertItem(BaseModel):
+    courier_no: str
+    courier_company: str
+    import_file_id: int
+    import_file_code: str
+    acid_number: Optional[str] = None
+    importer_name: Optional[str] = None
+    supplier_name: Optional[str] = None
+    dispatch_date: Optional[str] = None
+    days_in_transit: int = 0
+    alert_level: str = "INFO"  # 'INFO', 'WARNING', 'CRITICAL'
+    alert_message_ar: str
+    alert_message_en: str
+
+
+class CourierAlertsResponse(BaseModel):
+    total_active_couriers: int = 0
+    pending_receipt_count: int = 0
+    delayed_count: int = 0
+    delivered_count: int = 0
+    alerts: List[CourierAlertItem] = Field(default_factory=list)
+
+
+class CourierFlatItemResponse(BaseModel):
+    courier_no: str
+    courier_company: str
+    import_file_id: int
+    import_file_code: str
+    importer_name: Optional[str] = None
+    supplier_name: Optional[str] = None
+    dispatch_date: Optional[str] = None
+    is_received: bool = False
+    received_date: Optional[str] = None
+    received_time: Optional[str] = None
+    received_by: Optional[str] = None
+    tracking_url: Optional[str] = None
+    pod_reference: Optional[str] = None
+    status: str = "IN_TRANSIT"
+    days_in_transit: int = 0
+    associated_docs_count: int = 0
+    notes: Optional[str] = None
 
 
 class OriginalDocumentItem(BaseModel):

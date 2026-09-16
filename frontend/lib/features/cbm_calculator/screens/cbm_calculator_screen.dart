@@ -4,6 +4,7 @@ import '../../purchase_orders/models/purchase_order_model.dart';
 import '../widgets/saved_cbm_registry_tab.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
@@ -20,6 +21,8 @@ import '../../projects/providers/projects_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/cbm_calculator_model.dart';
 import '../providers/cbm_calculator_provider.dart';
+import '../../../core/helpers/table_copy_helper.dart';
+import '../../../core/services/table_export_service.dart';
 
 class CBMCalculatorScreen extends ConsumerStatefulWidget {
   const CBMCalculatorScreen({super.key});
@@ -56,6 +59,33 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
   ];
 
   final ScrollController _quickTabScrollController = ScrollController();
+  int _lastFocusedItemIndex = 0;
+
+  void _cloneQuickItem(int idx) {
+    if (idx < 0 || idx >= _quickItems.length) return;
+    final src = _quickItems[idx];
+    final cloned = CBMItemModel(
+      packageType: src.packageType,
+      quantity: src.quantity,
+      length: src.length,
+      width: src.width,
+      height: src.height,
+      unit: src.unit,
+      grossWeightPerUnitKg: src.grossWeightPerUnitKg,
+      isStackable: src.isStackable,
+    );
+    setState(() {
+      _quickItems.insert(idx + 1, cloned);
+      _lastFocusedItemIndex = idx + 1;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.l10n.cargoItemClonedSuccess),
+        backgroundColor: AppTheme.emerald,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -193,55 +223,108 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       backgroundColor: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.grey.shade100,
       body: Column(
         children: [
-          // Header Banner
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.charcoal, AppTheme.cobalt],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.calculate_outlined, color: Colors.white, size: 28),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l.cbmCalculatorTitle,
-                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        l.cbmCalculatorSubtitle,
-                        style: const TextStyle(color: AppTheme.cloudWhite, fontSize: 11),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+          // Header Banner (Responsive LayoutBuilder)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 1280;
+              return Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isCompact ? 16 : 24,
+                  vertical: isCompact ? 12 : 16,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isDark
+                        ? [const Color(0xFF141A22), const Color(0xFF1E293B)]
+                        : [AppTheme.charcoal, AppTheme.cobalt],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
                   ),
                 ),
-                const Spacer(),
-                const BackToDashboardButton(),
-                const SizedBox(width: 10),
-                TabBar(
-                  controller: _tabController,
-                  isScrollable: true,
-                  indicatorColor: Colors.amber,
-                  indicatorWeight: 3,
-                  labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  unselectedLabelColor: Colors.white70,
-                  labelColor: Colors.amber,
-                  tabs: [
-                    Tab(icon: const Icon(Icons.speed), text: l.quickOperationalCalculatorTab),
-                    Tab(icon: const Icon(Icons.history), text: l.savedCalculationsRegistryTab),
-                  ],
-                ),
-              ],
-            ),
+                child: isCompact
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.calculate_outlined, color: Colors.white, size: 28),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      l.cbmCalculatorTitle,
+                                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      l.cbmCalculatorSubtitle,
+                                      style: const TextStyle(color: AppTheme.cloudWhite, fontSize: 11),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const BackToDashboardButton(),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          TabBar(
+                            controller: _tabController,
+                            isScrollable: true,
+                            indicatorColor: Colors.amber,
+                            indicatorWeight: 3,
+                            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            unselectedLabelColor: Colors.white70,
+                            labelColor: Colors.amber,
+                            tabs: [
+                              Tab(icon: const Icon(Icons.speed), text: l.quickOperationalCalculatorTab),
+                              Tab(icon: const Icon(Icons.history), text: l.savedCalculationsRegistryTab),
+                            ],
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          const Icon(Icons.calculate_outlined, color: Colors.white, size: 28),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l.cbmCalculatorTitle,
+                                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  l.cbmCalculatorSubtitle,
+                                  style: const TextStyle(color: AppTheme.cloudWhite, fontSize: 11),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const BackToDashboardButton(),
+                          const SizedBox(width: 10),
+                          TabBar(
+                            controller: _tabController,
+                            isScrollable: true,
+                            indicatorColor: Colors.amber,
+                            indicatorWeight: 3,
+                            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            unselectedLabelColor: Colors.white70,
+                            labelColor: Colors.amber,
+                            tabs: [
+                              Tab(icon: const Icon(Icons.speed), text: l.quickOperationalCalculatorTab),
+                              Tab(icon: const Icon(Icons.history), text: l.savedCalculationsRegistryTab),
+                            ],
+                          ),
+                        ],
+                      ),
+              );
+            },
           ),
 
 
@@ -299,117 +382,150 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       recContainer = isArabic ? containerRec.recommendationSummary : containerRec.recommendationSummaryEn;
     }
 
-    return Scrollbar(
-      controller: _quickTabScrollController,
-      thumbVisibility: true,
-      trackVisibility: true,
-      child: SingleChildScrollView(
-        controller: _quickTabScrollController,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Active Editing Session Banner (If editing a saved calculation)
-            if (_activeSessionId != null) ...[
-              Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.amber.shade900.withOpacity(0.2) : Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber.shade700, width: 1.5),
-                ),
-                child: Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 12,
-                  runSpacing: 8,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyD, control: true): () {
+          if (_quickItems.isNotEmpty) {
+            final targetIdx = (_lastFocusedItemIndex >= 0 && _lastFocusedItemIndex < _quickItems.length)
+                ? _lastFocusedItemIndex
+                : _quickItems.length - 1;
+            _cloneQuickItem(targetIdx);
+          }
+        },
+        const SingleActivator(LogicalKeyboardKey.keyD, meta: true): () {
+          if (_quickItems.isNotEmpty) {
+            final targetIdx = (_lastFocusedItemIndex >= 0 && _lastFocusedItemIndex < _quickItems.length)
+                ? _lastFocusedItemIndex
+                : _quickItems.length - 1;
+            _cloneQuickItem(targetIdx);
+          }
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scrollbar(
+          controller: _quickTabScrollController,
+          thumbVisibility: true,
+          trackVisibility: true,
+          child: SingleChildScrollView(
+            controller: _quickTabScrollController,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Active Editing Session Banner (If editing a saved calculation)
+                if (_activeSessionId != null) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppTheme.darkElevatedSurface : Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: isDark ? AppTheme.wcagOrange : Colors.amber.shade700, width: 1.5),
+                    ),
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
+                      runSpacing: 8,
                       children: [
-                        Icon(Icons.edit_note, color: Colors.amber.shade700, size: 24),
-                        const SizedBox(width: 8),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              '${l.activeEditSessionBanner}: [$_activeSessionCode] - ${_activeSessionTitle ?? ""}',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : Colors.brown.shade900),
+                            Icon(Icons.edit_note, color: isDark ? AppTheme.wcagOrange : Colors.amber.shade700, size: 24),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '${l.activeEditSessionBanner}: [$_activeSessionCode] - ${_activeSessionTitle ?? ""}',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : Colors.brown.shade900),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  l.activeEditSessionHint,
+                                  style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.brown.shade800),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              l.activeEditSessionHint,
-                              style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.brown.shade800),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.emerald,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.check, size: 16),
+                              label: Text('${l.saveChangesInSession} [$_activeSessionCode]'),
+                              onPressed: _updateActiveSessionDirectly,
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.add, size: 16),
+                              label: Text(l.newBlankSession),
+                              onPressed: _clearActiveSession,
                             ),
                           ],
                         ),
                       ],
                     ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.emerald,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          ),
-                          icon: const Icon(Icons.check, size: 16),
-                          label: Text('${l.saveChangesInSession} [$_activeSessionCode]'),
-                          onPressed: _updateActiveSessionDirectly,
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          ),
-                          icon: const Icon(Icons.add, size: 16),
-                          label: Text(l.newBlankSession),
-                          onPressed: _clearActiveSession,
-                        ),
+                  ),
+                ],
+
+                // Live Results Summary Cards Header (Responsive LayoutBuilder)
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final cards = [
+                      _buildResultCardItem(l.totalCbmVolumeMetric, '${totalCbm.toStringAsFixed(4)} m³', Icons.view_in_ar, Colors.orange),
+                      if (_quickShipmentMode == 'air') ...[
+                        _buildResultCardItem(l.airChargeableWtMetric, '${chargeableWt.toStringAsFixed(2)} KG', Icons.airplanemode_active, Colors.purple,
+                            subtitle: '${l.volumetricWeight}: ${totalVolumetricWt.toStringAsFixed(2)} kg'),
+                        _buildResultCardItem(l.grossWeightMetric, '${totalGrossWt.toStringAsFixed(2)} KG', Icons.scale, Colors.green),
                       ],
-                    ),
-                  ],
+                      _buildResultCardItem(l.recommendedShippingMetric, recMethod, Icons.directions_boat,
+                          modeRec.isAirSuggested ? Colors.purple : (modeRec.isLclSuggested ? Colors.amber.shade900 : Colors.blue),
+                          subtitle: recContainer),
+                    ];
+
+                    if (constraints.maxWidth > 950) {
+                      return Row(
+                        children: cards.map((c) => Expanded(child: Padding(padding: const EdgeInsets.only(right: 8), child: c))).toList(),
+                      );
+                    } else if (constraints.maxWidth > 550) {
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: cards
+                            .map((c) => SizedBox(
+                                  width: (constraints.maxWidth - 8) / 2,
+                                  child: c,
+                                ))
+                            .toList(),
+                      );
+                    } else {
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: cards
+                            .map((c) => SizedBox(
+                                  width: constraints.maxWidth,
+                                  child: c,
+                                ))
+                            .toList(),
+                      );
+                    }
+                  },
                 ),
-              ),
-            ],
-
-            // Live Results Summary Cards Header (Responsive LayoutBuilder)
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final cards = [
-                  _buildResultCardItem(l.totalCbmVolumeMetric, '${totalCbm.toStringAsFixed(4)} m³', Icons.view_in_ar, Colors.orange),
-                  if (_quickShipmentMode == 'air') ...[
-                    _buildResultCardItem(l.airChargeableWtMetric, '${chargeableWt.toStringAsFixed(2)} KG', Icons.airplanemode_active, Colors.purple,
-                        subtitle: '${l.volumetricWeight}: ${totalVolumetricWt.toStringAsFixed(2)} kg'),
-                    _buildResultCardItem(l.grossWeightMetric, '${totalGrossWt.toStringAsFixed(2)} KG', Icons.scale, Colors.green),
-                  ],
-                  _buildResultCardItem(l.recommendedShippingMetric, recMethod, Icons.directions_boat,
-                      modeRec.isAirSuggested ? Colors.purple : (modeRec.isLclSuggested ? Colors.amber.shade900 : Colors.blue),
-                      subtitle: recContainer),
-                ];
-
-                if (constraints.maxWidth > 950) {
-                  return Row(
-                    children: cards.map((c) => Expanded(child: Padding(padding: const EdgeInsets.only(right: 8), child: c))).toList(),
-                  );
-                } else {
-                  return Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: cards
-                        .map((c) => SizedBox(
-                              width: (constraints.maxWidth - 16) / 2,
-                              child: c,
-                            ))
-                        .toList(),
-                  );
-                }
-              },
-            ),
             const SizedBox(height: 12),
 
             // Smart Mode & Cargo Stacking Skill Banner (MD-019.1)
@@ -435,13 +551,15 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                     spacing: 12,
                     runSpacing: 8,
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 22),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 4),
                           Text(l.cargoStackingInstructions, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 4),
                           ChoiceChip(
                             label: Text(l.stackableOption),
                             selected: _isStackable,
@@ -449,7 +567,6 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                             labelStyle: TextStyle(color: _isStackable ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal), fontWeight: FontWeight.bold, fontSize: 11),
                             onSelected: (val) => setState(() => _isStackable = true),
                           ),
-                          const SizedBox(width: 6),
                           ChoiceChip(
                             label: Text(l.nonStackableOption),
                             selected: !_isStackable,
@@ -459,8 +576,10 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                           ),
                         ],
                       ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
@@ -471,7 +590,6 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                             label: Text(l.compareContainersMatrix, style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
                             onPressed: () => _showContainerComparisonDialog(context, dualRec, totalCbm, totalGrossWt),
                           ),
-                          const SizedBox(width: 8),
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.emerald,
@@ -537,15 +655,20 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       children: [
                         const Icon(Icons.format_list_bulleted, color: AppTheme.cobalt),
                         const SizedBox(width: 8),
-                        Text(
-                          l.packageMeasurementsTitle,
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                        Flexible(
+                          child: Text(
+                            l.packageMeasurementsTitle,
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
 
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         // Shipment Mode Selector (Air vs Sea)
                         Container(
@@ -583,7 +706,6 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                             ],
                           ),
                         ),
-                        const SizedBox(width: 12),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
                           icon: const Icon(Icons.add, size: 18),
@@ -605,12 +727,53 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                             });
                           },
                         ),
-                        const SizedBox(width: 8),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
                           icon: const Icon(Icons.save_outlined, size: 18),
                           label: Text(_activeSessionId != null ? l.saveChanges : l.saveCalculationSession),
                           onPressed: () => _showSaveCalcDialog(context, _quickItems),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.emerald,
+                            side: const BorderSide(color: AppTheme.emerald),
+                          ),
+                          icon: const Icon(Icons.table_chart, size: 16),
+                          label: Text(
+                            Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
+                                ? 'تصدير إكسيل'
+                                : 'Export Excel',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                          onPressed: () => _exportQuickItemsToExcel(context),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.crimson,
+                            side: const BorderSide(color: AppTheme.crimson),
+                          ),
+                          icon: const Icon(Icons.picture_as_pdf, size: 16),
+                          label: Text(
+                            Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
+                                ? 'تصدير PDF'
+                                : 'Export PDF',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                          onPressed: () => _exportQuickItemsToPdf(context),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.cobalt,
+                            side: const BorderSide(color: AppTheme.cobalt),
+                          ),
+                          icon: const Icon(Icons.content_copy, size: 16),
+                          label: Text(
+                            Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
+                                ? 'نسخ الطرود'
+                                : 'Copy Packages',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                          onPressed: () => _copyQuickItemsAsTsv(context),
                         ),
                       ],
                     ),
@@ -621,18 +784,19 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
             const SizedBox(height: 8),
 
             // Dynamic Line Items List (Horizontally & Vertically Scrollable with Explicit Scrollbar)
-            Card(
-              elevation: 1,
-              color: isDark ? AppTheme.darkCardBackground : Colors.white,
-              child: SingleChildScrollView(
+            SelectionArea(
+              child: Card(
+                elevation: 1,
+                color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    minWidth: _quickShipmentMode == 'air' ? 1220 : 1080,
+                    minWidth: _quickShipmentMode == 'air' ? 1380 : 1260,
                   ),
                   child: SizedBox(
                     width: math.max(
-                      _quickShipmentMode == 'air' ? 1220.0 : 1080.0,
+                      _quickShipmentMode == 'air' ? 1380.0 : 1260.0,
                       MediaQuery.of(context).size.width - 64,
                     ),
                     child: Column(
@@ -665,7 +829,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                               ],
                               const SizedBox(width: 14),
                               SizedBox(width: 140, child: Text(l.calculatedOutputsCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                              const SizedBox(width: 48),
+                              const SizedBox(width: 96),
                             ],
                           ),
                         ),
@@ -944,6 +1108,15 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                     ],
                                   ),
                                 ),
+                                // Clone row button
+                                IconButton(
+                                  icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt),
+                                  tooltip: l.cloneQuickItemTooltip,
+                                  onPressed: () {
+                                    setState(() => _lastFocusedItemIndex = idx);
+                                    _cloneQuickItem(idx);
+                                  },
+                                ),
                                 if (_quickItems.length > 1)
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
@@ -961,15 +1134,18 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       ],
                     ),
                   ),
+                  ),
                 ),
               ),
-            ),
+             ),
 
             const SizedBox(height: 20),
           ],
         ),
       ),
-    );
+    ),
+    ),
+  );
   }
 
   Widget _buildResultCardItem(String title, String value, IconData icon, Color color, {String? subtitle}) {
@@ -1904,6 +2080,175 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     return SavedCbmRegistryTab(
       onLoadSession: _loadSessionForEditing,
       onSwitchToCalculator: () => _tabController.animateTo(0),
+    );
+  }
+
+  Future<void> _exportQuickItemsToExcel(BuildContext context) async {
+    final isArabic = Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar';
+    if (_quickItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(isArabic ? 'لا توجد طرود للتصدير' : 'No package lines to export'), backgroundColor: AppTheme.crimson),
+      );
+      return;
+    }
+
+    final headers = [
+      isArabic ? 'م' : '#',
+      isArabic ? 'نوع الطرد' : 'Package Type',
+      isArabic ? 'الوحدة' : 'Unit',
+      isArabic ? 'العدد' : 'Qty',
+      isArabic ? 'الطول' : 'Length',
+      isArabic ? 'العرض' : 'Width',
+      isArabic ? 'الارتفاع' : 'Height',
+      isArabic ? 'قابل للتراص' : 'Stackable',
+      if (_quickShipmentMode == 'air') isArabic ? 'الوزن القائم للوحدة (كجم)' : 'Gross Wt/Unit (kg)',
+      isArabic ? 'الحجم الإجمالي (CBM)' : 'Total CBM',
+      if (_quickShipmentMode == 'air') isArabic ? 'الوزن الحجمي (كجم)' : 'Volumetric Wt (kg)',
+      if (_quickShipmentMode == 'air') isArabic ? 'الوزن الخاضع للشحن (كجم)' : 'Chargeable Wt (kg)',
+    ];
+
+    final rows = _quickItems.asMap().entries.map((entry) {
+      final idx = entry.key + 1;
+      final item = entry.value;
+      final totalCbm = item.lengthM * item.widthM * item.heightM * item.quantity;
+      final totalVol = item.lengthCm * item.widthCm * item.heightCm * item.quantity / 6000.0;
+      final totalGross = item.grossWeightPerUnitKg * item.quantity;
+      final chargeable = math.max(totalVol, totalGross);
+
+      return [
+        '$idx',
+        item.packageType,
+        item.unit,
+        '${item.quantity}',
+        '${item.length}',
+        '${item.width}',
+        '${item.height}',
+        item.isStackable ? (isArabic ? 'نعم' : 'Yes') : (isArabic ? 'لا' : 'No'),
+        if (_quickShipmentMode == 'air') '${item.grossWeightPerUnitKg}',
+        totalCbm.toStringAsFixed(3),
+        if (_quickShipmentMode == 'air') totalVol.toStringAsFixed(1),
+        if (_quickShipmentMode == 'air') chargeable.toStringAsFixed(1),
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToExcel(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isArabic ? 'بيان أبعاد وأوزان الطرود' : 'Package Measurements',
+      importFileNameOrCode: _activeSessionCode ?? 'Quick_CBM',
+    );
+  }
+
+  Future<void> _exportQuickItemsToPdf(BuildContext context) async {
+    final isArabic = Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar';
+    if (_quickItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(isArabic ? 'لا توجد طرود للتصدير' : 'No package lines to export'), backgroundColor: AppTheme.crimson),
+      );
+      return;
+    }
+
+    final headers = [
+      '#',
+      isArabic ? 'النوع' : 'Type',
+      isArabic ? 'العدد' : 'Qty',
+      isArabic ? 'الأبعاد' : 'Dimensions',
+      isArabic ? 'CBM' : 'CBM',
+      if (_quickShipmentMode == 'air') isArabic ? 'الحجمي' : 'Vol Wt',
+      if (_quickShipmentMode == 'air') isArabic ? 'الخاضع للشحن' : 'Chargeable',
+    ];
+
+    final rows = _quickItems.asMap().entries.map((entry) {
+      final idx = entry.key + 1;
+      final item = entry.value;
+      final totalCbm = item.lengthM * item.widthM * item.heightM * item.quantity;
+      final totalVol = item.lengthCm * item.widthCm * item.heightCm * item.quantity / 6000.0;
+      final totalGross = item.grossWeightPerUnitKg * item.quantity;
+      final chargeable = math.max(totalVol, totalGross);
+
+      return [
+        '$idx',
+        item.packageType,
+        '${item.quantity}',
+        '${item.length}x${item.width}x${item.height} ${item.unit}',
+        totalCbm.toStringAsFixed(3),
+        if (_quickShipmentMode == 'air') totalVol.toStringAsFixed(1),
+        if (_quickShipmentMode == 'air') chargeable.toStringAsFixed(1),
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToPdf(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: isArabic ? 'حساب الحجم CBM' : 'CBM Calculator',
+      importFileNameOrCode: _activeSessionCode ?? 'Quick_CBM',
+      headerContext: TableExportHeaderContext(
+        title: isArabic ? 'بيان أبعاد وحجوم الطرود' : 'Package Measurements Specification',
+        subtitle: 'Sorour Logistics ERP — ${_activeSessionTitle ?? "Quick CBM"}',
+        metadata: {
+          isArabic ? 'طريقة الشحن' : 'Shipment Mode': _quickShipmentMode == 'air' ? (isArabic ? 'جوي' : 'Air') : (isArabic ? 'بحري' : 'Sea'),
+          isArabic ? 'إجمالي السطور' : 'Package Lines': '${_quickItems.length}',
+          isArabic ? 'التاريخ' : 'Date': DateTime.now().toString().substring(0, 10),
+        },
+      ),
+    );
+  }
+
+  void _copyQuickItemsAsTsv(BuildContext context) {
+    final isArabic = Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar';
+    if (_quickItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(isArabic ? 'لا توجد طرود للنسخ' : 'No package lines to copy'), backgroundColor: AppTheme.crimson),
+      );
+      return;
+    }
+
+    final headers = [
+      isArabic ? 'م' : '#',
+      isArabic ? 'نوع الطرد' : 'Package Type',
+      isArabic ? 'الوحدة' : 'Unit',
+      isArabic ? 'العدد' : 'Qty',
+      isArabic ? 'الطول' : 'Length',
+      isArabic ? 'العرض' : 'Width',
+      isArabic ? 'الارتفاع' : 'Height',
+      isArabic ? 'قابل للتراص' : 'Stackable',
+      if (_quickShipmentMode == 'air') isArabic ? 'الوزن القائم للوحدة (كجم)' : 'Gross Wt/Unit (kg)',
+      isArabic ? 'الحجم الإجمالي (CBM)' : 'Total CBM',
+      if (_quickShipmentMode == 'air') isArabic ? 'الوزن الحجمي (كجم)' : 'Volumetric Wt (kg)',
+      if (_quickShipmentMode == 'air') isArabic ? 'الوزن الخاضع للشحن (كجم)' : 'Chargeable Wt (kg)',
+    ];
+
+    final rows = _quickItems.asMap().entries.map((entry) {
+      final idx = entry.key + 1;
+      final item = entry.value;
+      final totalCbm = item.lengthM * item.widthM * item.heightM * item.quantity;
+      final totalVol = item.lengthCm * item.widthCm * item.heightCm * item.quantity / 6000.0;
+      final totalGross = item.grossWeightPerUnitKg * item.quantity;
+      final chargeable = math.max(totalVol, totalGross);
+
+      return [
+        '$idx',
+        item.packageType,
+        item.unit,
+        '${item.quantity}',
+        '${item.length}',
+        '${item.width}',
+        '${item.height}',
+        item.isStackable ? (isArabic ? 'نعم' : 'Yes') : (isArabic ? 'لا' : 'No'),
+        if (_quickShipmentMode == 'air') '${item.grossWeightPerUnitKg}',
+        totalCbm.toStringAsFixed(3),
+        if (_quickShipmentMode == 'air') totalVol.toStringAsFixed(1),
+        if (_quickShipmentMode == 'air') chargeable.toStringAsFixed(1),
+      ];
+    }).toList();
+
+    TableCopyHelper.copyTable(
+      context,
+      headers,
+      rows,
+      customMessage: isArabic ? 'تم نسخ بيانات الطرود كجدول بنجاح' : 'Packages table copied to clipboard',
     );
   }
 }

@@ -340,6 +340,12 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                                   columnSpacing: 18,
                                   columns: [
                                     DataColumn(
+                                      label: Text(
+                                        l.inqColActions,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                      ),
+                                    ),
+                                    DataColumn(
                                       label: _buildSortableHeader(l.inqColShipmentName, ShipmentInquirySortField.shipmentName, inquiryState),
                                     ),
                                     DataColumn(
@@ -364,12 +370,6 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                                       label: _buildSortableHeader(l.inqColFreightCost, ShipmentInquirySortField.freightCost, inquiryState),
                                       numeric: true,
                                     ),
-                                    DataColumn(
-                                      label: Text(
-                                        l.inqColActions,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                      ),
-                                    ),
                                   ],
                                    rows: shipments.map((file) {
                                      final row = ShipmentInquiryReportRow.fromImportFile(file, l);
@@ -378,6 +378,38 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                                      return DataRow(
                                        onSelectChanged: (_) => _openDetails(file),
                                        cells: [
+                                         // 9. Actions (Quick Copy Row + Smart Clone + View Details)
+                                         DataCell(
+                                           Row(
+                                             mainAxisSize: MainAxisSize.min,
+                                             children: [
+                                               // Quick Row Copy Button
+                                               IconButton(
+                                                 icon: const Icon(Icons.copy_rounded, color: AppTheme.emerald, size: 18),
+                                                 tooltip: l.inqCopyRowTooltip,
+                                                 onPressed: () {
+                                                   CopyHelper.copy(
+                                                     context,
+                                                     rowTsvSummary,
+                                                     customMessage: l.inqCopiedRowSuccess,
+                                                   );
+                                                 },
+                                               ),
+                                               // Smart Clone Button
+                                               IconButton(
+                                                 icon: const Icon(Icons.content_copy_rounded, color: AppTheme.cobalt, size: 18),
+                                                 tooltip: l.inqActionClone,
+                                                 onPressed: () => _openClone(file),
+                                               ),
+                                               // Details Button
+                                               IconButton(
+                                                 icon: const Icon(Icons.visibility_outlined, color: AppTheme.charcoal, size: 18),
+                                                 tooltip: l.inqActionDetails,
+                                                 onPressed: () => _openDetails(file),
+                                               ),
+                                             ],
+                                           ),
+                                         ),
                                          // 1. Shipment Name & File Code
                                          DataCell(
                                            CopyableTableCell(
@@ -559,38 +591,6 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                                            ),
                                          ),
 
-                                         // 9. Actions (Quick Copy Row + Smart Clone + View Details)
-                                         DataCell(
-                                           Row(
-                                             mainAxisSize: MainAxisSize.min,
-                                             children: [
-                                               // Quick Row Copy Button
-                                               IconButton(
-                                                 icon: const Icon(Icons.copy_rounded, color: AppTheme.emerald, size: 18),
-                                                 tooltip: l.inqCopyRowTooltip,
-                                                 onPressed: () {
-                                                   CopyHelper.copy(
-                                                     context,
-                                                     rowTsvSummary,
-                                                     customMessage: l.inqCopiedRowSuccess,
-                                                   );
-                                                 },
-                                               ),
-                                               // Smart Clone Button
-                                               IconButton(
-                                                 icon: const Icon(Icons.content_copy_rounded, color: AppTheme.cobalt, size: 18),
-                                                 tooltip: l.inqActionClone,
-                                                 onPressed: () => _openClone(file),
-                                               ),
-                                               // Details Button
-                                               IconButton(
-                                                 icon: const Icon(Icons.visibility_outlined, color: AppTheme.charcoal, size: 18),
-                                                 tooltip: l.inqActionDetails,
-                                                 onPressed: () => _openDetails(file),
-                                               ),
-                                             ],
-                                           ),
-                                         ),
                                        ],
                                      );
                                    }).toList(),

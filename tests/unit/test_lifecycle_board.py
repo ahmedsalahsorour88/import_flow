@@ -301,7 +301,7 @@ def test_full_stage_advancement_and_phase_transition(db_session):
     assert file1.current_stage == "Phase 3: Booking & Doc Prep"
     assert "STEP_06" in file1.current_module
     assert "حجز النولون" in file1.current_module
-    assert file1.progress_percent >= 28.0
+    assert file1.progress_percent >= 24.0
 
     # Verify SmartTask created for STEP_06
     task = db_session.query(SmartTask).filter(
@@ -536,6 +536,77 @@ def test_sync_lifecycle_step_api(db_session):
             assert "STEP_01" in data["auto_completed_prior_steps"]
     finally:
         app.dependency_overrides.clear()
+
+
+def test_transition_stage_activity_service_wrapper(db_session):
+    """Verify that transition_stage_activity_service functions seamlessly for 25-step sub-step transitions."""
+    res = service.transition_stage_activity_service(
+        db=db_session,
+        import_file_code="IMP-2026-0001",
+        completed_step_code="STEP_08_MATCH",
+        target_step_codes=["STEP_08_COO"],
+        notes="Testing automated 25-step sub-step transition",
+        performed_by="Compliance Officer",
+    )
+    assert res["completed_step"] == "STEP_08_MATCH"
+    assert "STEP_08_COO" in res["activated_steps"]
+    assert "Phase 3" in res["current_stage"]
+
+
+def test_25_steps_ordered_flow_and_neighbors():
+    """Verify all 25 steps in ORDERED_STEP_CODES and neighbor resolution."""
+    assert len(service.ORDERED_STEP_CODES) == 25
+    assert "STEP_08_PO" in service.ORDERED_STEP_CODES
+    assert "STEP_08_BL" in service.ORDERED_STEP_CODES
+    assert "STEP_08_MATCH" in service.ORDERED_STEP_CODES
+    assert "STEP_08_COO" in service.ORDERED_STEP_CODES
+    assert "STEP_08_COC" in service.ORDERED_STEP_CODES
+    assert "STEP_15" in service.ORDERED_STEP_CODES
+    assert "STEP_16" in service.ORDERED_STEP_CODES
+    assert "STEP_18" in service.ORDERED_STEP_CODES
+
+    # Verify legacy STEP_08 neighbor fallback
+    prev_code, next_code = service.get_step_neighbors("STEP_08")
+    assert prev_code == "STEP_07"
+    assert next_code == "STEP_08_PO"
+
+    # Verify sequential neighbors across sub-steps
+    prev_po, next_po = service.get_step_neighbors("STEP_08_PO")
+    assert prev_po == "STEP_07"
+    assert next_po == "STEP_08_BL"
+
+    prev_coc, next_coc = service.get_step_neighbors("STEP_08_COC")
+    assert prev_coc == "STEP_08_COO"
+    assert next_coc == "STEP_09"
+
+
+def test_initialize_file_lifecycle_from_alphanumeric_substep(db_session):
+    """Verify initialize_file_lifecycle_service gracefully handles alphanumeric 25-step codes like STEP_08_COO."""
+    file2 = ImportFile(
+        import_file_code="IMP-2026-0002",
+        company_name="Al-Ahram Industrial",
+        supplier_name="Global Steel Italy",
+        status="Draft",
+        is_active=True,
+    )
+    db_session.add(file2)
+    db_session.commit()
+
+    # Initialize from STEP_08_COO
+    service.initialize_file_lifecycle_service(db_session, "IMP-2026-0002", starting_step="STEP_08_COO")
+
+    # Verify prior steps up to STEP_08_MATCH are Completed
+    assert repo.get_activity(db_session, "IMP-2026-0002", "STEP_01").status == "Completed"
+    assert repo.get_activity(db_session, "IMP-2026-0002", "STEP_07").status == "Completed"
+    assert repo.get_activity(db_session, "IMP-2026-0002", "STEP_08_PO").status == "Completed"
+    assert repo.get_activity(db_session, "IMP-2026-0002", "STEP_08_BL").status == "Completed"
+    assert repo.get_activity(db_session, "IMP-2026-0002", "STEP_08_MATCH").status == "Completed"
+
+    # Verify target step is In-Progress
+    coo = repo.get_activity(db_session, "IMP-2026-0002", "STEP_08_COO")
+    assert coo is not None
+    assert coo.status == "In-Progress"
+
 
 
 

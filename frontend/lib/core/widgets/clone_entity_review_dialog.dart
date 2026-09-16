@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../localization/app_localizations.dart';
+import '../localization/app_localizations_ar.dart';
 
 /// Reusable Mandatory Review Dialog for Universal Entity Cloning (UX-CLONE-011).
 /// Differentiates clearly between copied data and mandatorily reset fields.
@@ -59,21 +60,31 @@ class CloneEntityReviewDialog extends StatefulWidget {
       String? notes,
     }) onConfirm,
   }) {
+    final isArFromApp = AppLocalizations.of(context) is AppLocalizationsAr;
+    final textDir = Directionality.maybeOf(context) ?? (isArFromApp ? TextDirection.rtl : TextDirection.ltr);
+    final isArabic = isArFromApp || textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
+    final locale = isArabic ? const Locale('ar') : const Locale('en');
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => CloneEntityReviewDialog(
-        entityType: entityType,
-        sourceCode: sourceCode,
-        suggestedNewCode: suggestedNewCode,
-        sourceTitle: sourceTitle,
-        copiedFieldsSummary: copiedFieldsSummary,
-        mandatorilyResetFields: mandatorilyResetFields,
-        allowCopyLineItems: allowCopyLineItems,
-        allowCopyAttachments: allowCopyAttachments,
-        initialCopyLineItems: initialCopyLineItems,
-        initialCopyAttachments: initialCopyAttachments,
-        onConfirm: onConfirm,
+      builder: (ctx) => AppLocalizationsProvider(
+        locale: locale,
+        child: Directionality(
+          textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
+          child: CloneEntityReviewDialog(
+            entityType: entityType,
+            sourceCode: sourceCode,
+            suggestedNewCode: suggestedNewCode,
+            sourceTitle: sourceTitle,
+            copiedFieldsSummary: copiedFieldsSummary,
+            mandatorilyResetFields: mandatorilyResetFields,
+            allowCopyLineItems: allowCopyLineItems,
+            allowCopyAttachments: allowCopyAttachments,
+            initialCopyLineItems: initialCopyLineItems,
+            initialCopyAttachments: initialCopyAttachments,
+            onConfirm: onConfirm,
+          ),
+        ),
       ),
     );
   }
@@ -175,10 +186,15 @@ class _CloneEntityReviewDialogState extends State<CloneEntityReviewDialog> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final isAr = Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar';
     final media = MediaQuery.of(context);
-    final dialogWidth = (media.size.width * 0.85).clamp(650.0, 920.0);
-    final dialogMaxHeight = (media.size.height * 0.90).clamp(480.0, 750.0);
+    final isMobile = media.size.width < 768;
+    final dialogWidth = isMobile
+        ? (media.size.width - 24).clamp(300.0, 700.0)
+        : (media.size.width * 0.85).clamp(650.0, 920.0);
+    final dialogMaxHeight = isMobile
+        ? (media.size.height - 32).clamp(400.0, 800.0)
+        : (media.size.height * 0.90).clamp(480.0, 750.0);
 
     return PopScope(
       canPop: !_hasUserModifications && !_isLoading,
@@ -191,11 +207,14 @@ class _CloneEntityReviewDialogState extends State<CloneEntityReviewDialog> {
       },
       child: Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 8 : 16,
+          vertical: isMobile ? 12 : 16,
+        ),
         child: Container(
           width: dialogWidth,
           constraints: BoxConstraints(maxHeight: dialogMaxHeight),
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(isMobile ? 12 : 20),
           child: Form(
             key: _formKey,
             child: Column(
@@ -219,62 +238,112 @@ class _CloneEntityReviewDialogState extends State<CloneEntityReviewDialog> {
                         children: [
                           Text(
                             l.cloneEntityDialogTitle(widget.entityType),
-                            style: const TextStyle(
-                              fontSize: 16,
+                            style: TextStyle(
+                              fontSize: isMobile ? 14 : 16,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.charcoal,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
                           Text(
                             l.cloneEntityDialogSubtitle,
                             style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
                     ),
-                    // Source Code Badge with Copy Action
-                    InkWell(
-                      onTap: () {
-                        Clipboard.setData(ClipboardData(text: widget.sourceCode));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              isAr
-                                  ? 'تم نسخ الكود المرجعي للأصل: ${widget.sourceCode}'
-                                  : 'Source reference code copied: ${widget.sourceCode}',
+                    if (!isMobile) ...[
+                      const SizedBox(width: 8),
+                      // Source Code Badge with Copy Action
+                      InkWell(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: widget.sourceCode));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                isAr
+                                    ? 'تم نسخ الكود المرجعي للأصل: ${widget.sourceCode}'
+                                    : 'Source reference code copied: ${widget.sourceCode}',
+                              ),
+                              duration: const Duration(seconds: 2),
                             ),
-                            duration: const Duration(seconds: 2),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(6),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                l.cloneSourceReferenceLabel(widget.sourceCode),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.charcoal,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.copy_rounded, size: 13, color: AppTheme.cobalt),
+                            ],
+                          ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
+                      ),
+                    ],
+                  ],
+                ),
+                if (isMobile) ...[
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: widget.sourceCode));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            isAr
+                                ? 'تم نسخ الكود المرجعي للأصل: ${widget.sourceCode}'
+                                : 'Source reference code copied: ${widget.sourceCode}',
+                          ),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Expanded(
+                            child: Text(
                               l.cloneSourceReferenceLabel(widget.sourceCode),
                               style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                                 color: AppTheme.charcoal,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(width: 6),
-                            const Icon(Icons.copy_rounded, size: 13, color: AppTheme.cobalt),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.copy_rounded, size: 13, color: AppTheme.cobalt),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
 
                 const SizedBox(height: 12),
                 const Divider(height: 1),
@@ -312,193 +381,242 @@ class _CloneEntityReviewDialogState extends State<CloneEntityReviewDialog> {
                         ],
 
                         // Target Code & Title Inputs
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: TextFormField(
-                                controller: _codeController,
-                                autofocus: true,
-                                decoration: InputDecoration(
-                                  labelText: l.cloneNewCodeLabel,
-                                  isDense: true,
-                                  border: const OutlineInputBorder(),
-                                  prefixIcon: const Icon(Icons.tag_rounded, size: 16),
-                                ),
-                                validator: (val) {
-                                  if (val == null || val.trim().isEmpty) {
-                                    return l.cloneNewCodeRequiredError;
-                                  }
-                                  if (val.trim() == widget.sourceCode.trim()) {
-                                    return isAr
-                                        ? 'يجب إدخال كود جديد مختلف عن الكود الأصلي'
-                                        : 'Target code must be different from source code';
-                                  }
-                                  return null;
-                                },
-                              ),
+                        if (isMobile) ...[
+                          TextFormField(
+                            controller: _codeController,
+                            autofocus: true,
+                            decoration: InputDecoration(
+                              labelText: l.cloneNewCodeLabel,
+                              isDense: true,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.tag_rounded, size: 16),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              flex: 3,
-                              child: TextFormField(
-                                controller: _titleController,
-                                decoration: InputDecoration(
-                                  labelText: isAr ? 'المسمى أو العنوان الجديد:' : 'Target Title / Name:',
-                                  isDense: true,
-                                  border: const OutlineInputBorder(),
-                                  prefixIcon: const Icon(Icons.title_rounded, size: 16),
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return l.cloneNewCodeRequiredError;
+                              }
+                              if (val.trim() == widget.sourceCode.trim()) {
+                                return isAr
+                                    ? 'يجب إدخال كود جديد مختلف عن الكود الأصلي'
+                                    : 'Target code must be different from source code';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          TextFormField(
+                            controller: _titleController,
+                            decoration: InputDecoration(
+                              labelText: isAr ? 'المسمى أو العنوان الجديد:' : 'Target Title / Name:',
+                              isDense: true,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.title_rounded, size: 16),
+                            ),
+                          ),
+                        ] else ...[
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: TextFormField(
+                                  controller: _codeController,
+                                  autofocus: true,
+                                  decoration: InputDecoration(
+                                    labelText: l.cloneNewCodeLabel,
+                                    isDense: true,
+                                    border: const OutlineInputBorder(),
+                                    prefixIcon: const Icon(Icons.tag_rounded, size: 16),
+                                  ),
+                                  validator: (val) {
+                                    if (val == null || val.trim().isEmpty) {
+                                      return l.cloneNewCodeRequiredError;
+                                    }
+                                    if (val.trim() == widget.sourceCode.trim()) {
+                                      return isAr
+                                          ? 'يجب إدخال كود جديد مختلف عن الكود الأصلي'
+                                          : 'Target code must be different from source code';
+                                    }
+                                    return null;
+                                  },
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                flex: 3,
+                                child: TextFormField(
+                                  controller: _titleController,
+                                  decoration: InputDecoration(
+                                    labelText: isAr ? 'المسمى أو العنوان الجديد:' : 'Target Title / Name:',
+                                    isDense: true,
+                                    border: const OutlineInputBorder(),
+                                    prefixIcon: const Icon(Icons.title_rounded, size: 16),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
 
                         const SizedBox(height: 14),
 
-                        // Section: Copied Data vs Mandatorily Reset Fields (Side-by-side)
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Left: Copied Data Summary
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.shade50.withOpacity(0.5),
-                                  border: Border.all(color: Colors.green.shade200),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.check_circle_outline, color: AppTheme.emerald, size: 16),
-                                        const SizedBox(width: 6),
-                                        Expanded(
-                                          child: Text(
-                                            l.cloneCopiedFieldsHeader,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                              color: AppTheme.emerald,
-                                            ),
+                        // Section: Copied Data vs Mandatorily Reset Fields
+                        Builder(
+                          builder: (context) {
+                            final copiedBox = Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade50.withOpacity(0.5),
+                                border: Border.all(color: Colors.green.shade200),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.check_circle_outline, color: AppTheme.emerald, size: 16),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          l.cloneCopiedFieldsHeader,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                            color: AppTheme.emerald,
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    ...widget.copiedFieldsSummary.entries.map(
-                                      (entry) => Padding(
-                                        padding: const EdgeInsets.only(bottom: 4),
-                                        child: Row(
-                                          children: [
-                                            Text(
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ...widget.copiedFieldsSummary.entries.map(
+                                    (entry) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 4),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          ConstrainedBox(
+                                            constraints: const BoxConstraints(maxWidth: 120),
+                                            child: Text(
                                               '• ${entry.key}: ',
                                               style: const TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w600,
                                                 color: AppTheme.charcoal,
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Text(
-                                                entry.value,
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey.shade800,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(width: 10),
-
-                            // Right: Mandatorily Reset Fields
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.shade50.withOpacity(0.5),
-                                  border: Border.all(color: Colors.orange.shade200),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.restart_alt_rounded, color: AppTheme.orange, size: 16),
-                                        const SizedBox(width: 6),
-                                        Expanded(
-                                          child: Text(
-                                            l.cloneResetFieldsHeader,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                              color: AppTheme.orange,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    ...widget.mandatorilyResetFields.map(
-                                      (field) => Padding(
-                                        padding: const EdgeInsets.only(bottom: 4),
-                                        child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text('• ', style: TextStyle(fontSize: 11, color: AppTheme.orange, fontWeight: FontWeight.bold)),
-                                            Expanded(
-                                              child: Text(
-                                                field,
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey.shade800,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    // Traceability indicator
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 4),
-                                      child: Row(
-                                        children: [
-                                          const Text('• ', style: TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
                                           Expanded(
                                             child: Text(
-                                              isAr
-                                                  ? 'ربط التتبع: يتم تسجيل (مستنسخ من: ${widget.sourceCode}) تلقائياً'
-                                                  : 'Traceability: (Cloned from: ${widget.sourceCode}) linked automatically',
-                                              style: const TextStyle(
+                                              entry.value,
+                                              style: TextStyle(
                                                 fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppTheme.cobalt,
+                                                color: Colors.grey.shade800,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            final resetBox = Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50.withOpacity(0.5),
+                                border: Border.all(color: Colors.orange.shade200),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.restart_alt_rounded, color: AppTheme.orange, size: 16),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          l.cloneResetFieldsHeader,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                            color: AppTheme.orange,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ...widget.mandatorilyResetFields.map(
+                                    (field) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 4),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text('• ', style: TextStyle(fontSize: 11, color: AppTheme.orange, fontWeight: FontWeight.bold)),
+                                          Expanded(
+                                            child: Text(
+                                              field,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey.shade800,
                                               ),
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  // Traceability indicator
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Row(
+                                      children: [
+                                        const Text('• ', style: TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                                        Expanded(
+                                          child: Text(
+                                            isAr
+                                                ? 'ربط التتبع: يتم تسجيل (مستنسخ من: ${widget.sourceCode}) تلقائياً'
+                                                : 'Traceability: (Cloned from: ${widget.sourceCode}) linked automatically',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppTheme.cobalt,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
+                            );
+
+                            if (isMobile) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  copiedBox,
+                                  const SizedBox(height: 10),
+                                  resetBox,
+                                ],
+                              );
+                            }
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(child: copiedBox),
+                                const SizedBox(width: 10),
+                                Expanded(child: resetBox),
+                              ],
+                            );
+                          },
                         ),
 
                         const SizedBox(height: 12),
@@ -565,8 +683,11 @@ class _CloneEntityReviewDialogState extends State<CloneEntityReviewDialog> {
                 const SizedBox(height: 12),
 
                 // ── Footer Actions ──
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     TextButton(
                       onPressed: _isLoading
@@ -582,12 +703,12 @@ class _CloneEntityReviewDialogState extends State<CloneEntityReviewDialog> {
                         style: const TextStyle(color: Colors.grey),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     ElevatedButton.icon(
+                      key: const Key('confirmCloneBtn'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.cobalt,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        padding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 18, vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       onPressed: _isLoading ? null : _submitClone,
@@ -600,7 +721,7 @@ class _CloneEntityReviewDialogState extends State<CloneEntityReviewDialog> {
                           : const Icon(Icons.control_point_duplicate_rounded, size: 16),
                       label: Text(
                         l.cloneConfirmAndCreateBtn,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: isMobile ? 11 : 12),
                       ),
                     ),
                   ],

@@ -16,12 +16,14 @@ import 'buttons/icon_action_button.dart';
 class RowActionsPill extends StatelessWidget {
   final VoidCallback? onView;
   final VoidCallback? onEdit;
+  final VoidCallback? onClone;
   final VoidCallback? onPrint;
   final VoidCallback? onDelete;
 
   /// Override tooltips for domain-specific labels (optional).
   final String? viewTooltip;
   final String? editTooltip;
+  final String? cloneTooltip;
   final String? printTooltip;
   final String? deleteTooltip;
 
@@ -31,10 +33,12 @@ class RowActionsPill extends StatelessWidget {
     super.key,
     this.onView,
     this.onEdit,
+    this.onClone,
     this.onPrint,
     this.onDelete,
     this.viewTooltip,
     this.editTooltip,
+    this.cloneTooltip,
     this.printTooltip,
     this.deleteTooltip,
     this.iconSize = 16.0,
@@ -66,7 +70,17 @@ class RowActionsPill extends StatelessWidget {
           ),
           const SizedBox(width: 4),
 
-          // 3. Print / Export
+          // 3. Clone / Duplicate
+          if (onClone != null) ...[
+            CloneActionButton(
+              tooltip: cloneTooltip ?? l.cloneRowTooltip,
+              onTap: onClone,
+              iconSize: iconSize,
+            ),
+            const SizedBox(width: 4),
+          ],
+
+          // 4. Print / Export
           PrintActionButton(
             tooltip: printTooltip ?? l.printTooltip,
             onTap: onPrint ??
@@ -83,7 +97,7 @@ class RowActionsPill extends StatelessWidget {
           ),
           const SizedBox(width: 4),
 
-          // 4. Delete
+          // 5. Delete
           DeleteActionButton(
             tooltip: deleteTooltip ?? l.deleteTooltip,
             onTap: onDelete,

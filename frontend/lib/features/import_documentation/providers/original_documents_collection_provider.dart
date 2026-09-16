@@ -102,6 +102,43 @@ class OriginalDocumentsCollectionNotifier
     }
   }
 
+  Future<OriginalDocumentsCollectionSessionModel> confirmCourierReceipt(
+    CourierReceiptProofRequestModel request,
+  ) async {
+    try {
+      final response = await _dio.post(
+        '/original-documents-collection/couriers/confirm-receipt',
+        data: request.toJson(),
+      );
+      final updated = OriginalDocumentsCollectionSessionModel.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+      await fetchSessions();
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<CourierAlertsResponseModel> fetchCourierAlerts() async {
+    try {
+      final response = await _dio.get('/original-documents-collection/couriers/alerts');
+      return CourierAlertsResponseModel.fromJson(response.data as Map<String, dynamic>);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<CourierFlatItemModel>> fetchAllCouriers() async {
+    try {
+      final response = await _dio.get('/original-documents-collection/couriers/all');
+      final List<dynamic> list = response.data;
+      return list.map((json) => CourierFlatItemModel.fromJson(json as Map<String, dynamic>)).toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<List<int>> downloadExcel(int importFileIdOrSessionId) async {
     try {
       final response = await _dio.get<List<int>>(
@@ -114,3 +151,14 @@ class OriginalDocumentsCollectionNotifier
     }
   }
 }
+
+final courierAlertsProvider = FutureProvider<CourierAlertsResponseModel>((ref) async {
+  final notifier = ref.watch(originalDocumentsSessionsProvider.notifier);
+  return notifier.fetchCourierAlerts();
+});
+
+final allCouriersProvider = FutureProvider<List<CourierFlatItemModel>>((ref) async {
+  final notifier = ref.watch(originalDocumentsSessionsProvider.notifier);
+  return notifier.fetchAllCouriers();
+});
+

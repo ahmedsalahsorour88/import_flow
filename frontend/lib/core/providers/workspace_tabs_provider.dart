@@ -7,6 +7,7 @@ class WorkspaceTab {
   final IconData icon;
   final int routeIndex;
   final bool isClosable;
+  final bool isDirty;
 
   const WorkspaceTab({
     required this.id,
@@ -14,6 +15,7 @@ class WorkspaceTab {
     required this.icon,
     required this.routeIndex,
     this.isClosable = true,
+    this.isDirty = false,
   });
 
   WorkspaceTab copyWith({
@@ -22,6 +24,7 @@ class WorkspaceTab {
     IconData? icon,
     int? routeIndex,
     bool? isClosable,
+    bool? isDirty,
   }) {
     return WorkspaceTab(
       id: id ?? this.id,
@@ -29,6 +32,7 @@ class WorkspaceTab {
       icon: icon ?? this.icon,
       routeIndex: routeIndex ?? this.routeIndex,
       isClosable: isClosable ?? this.isClosable,
+      isDirty: isDirty ?? this.isDirty,
     );
   }
 
@@ -130,6 +134,20 @@ class WorkspaceTabsNotifier extends StateNotifier<WorkspaceTabsState> {
     }
   }
 
+  void setTabDirty(String tabId, bool isDirty) {
+    final updatedTabs = state.tabs.map((tab) {
+      if (tab.id == tabId) {
+        return tab.copyWith(isDirty: isDirty);
+      }
+      return tab;
+    }).toList();
+    state = state.copyWith(tabs: updatedTabs);
+  }
+
+  void setActiveTabDirty(bool isDirty) {
+    setTabDirty(state.activeTabId, isDirty);
+  }
+
   void closeTab(String tabId) {
     final target = state.tabs.firstWhere(
       (t) => t.id == tabId,
@@ -173,6 +191,33 @@ class WorkspaceTabsNotifier extends StateNotifier<WorkspaceTabsState> {
         activeTabId: unclosable.first.id,
       );
     }
+  }
+
+  WorkspaceTab? selectNextTab() {
+    if (state.tabs.length <= 1) return state.activeTab;
+    final currentIdx = state.tabs.indexWhere((t) => t.id == state.activeTabId);
+    final nextIdx = (currentIdx + 1) % state.tabs.length;
+    final nextTab = state.tabs[nextIdx];
+    state = state.copyWith(activeTabId: nextTab.id);
+    return nextTab;
+  }
+
+  WorkspaceTab? selectPreviousTab() {
+    if (state.tabs.length <= 1) return state.activeTab;
+    final currentIdx = state.tabs.indexWhere((t) => t.id == state.activeTabId);
+    final prevIdx = (currentIdx - 1 + state.tabs.length) % state.tabs.length;
+    final prevTab = state.tabs[prevIdx];
+    state = state.copyWith(activeTabId: prevTab.id);
+    return prevTab;
+  }
+
+  WorkspaceTab? closeActiveTab() {
+    final active = state.activeTab;
+    if (active != null && active.isClosable) {
+      closeTab(active.id);
+      return state.activeTab;
+    }
+    return active;
   }
 }
 

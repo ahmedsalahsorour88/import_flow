@@ -229,18 +229,20 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
       _brokerName = partners.firstWhere((p) => p.providerId == _selectedBrokerId).partnerName;
     }
 
+    final l = context.l10n;
+
     if (_companyName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('❌ يرجى اختيار الشركة المستوردة المصرية'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ ${l.selectCompanyValidation}'), backgroundColor: Colors.red));
       return;
     }
     if (_supplierName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('❌ يرجى اختيار المورد الأجنبي'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ ${l.selectSupplierValidation}'), backgroundColor: Colors.red));
       return;
     }
 
     final selectedOwner = _ownerController.text.trim().isNotEmpty
         ? _ownerController.text.trim()
-        : (_companyName.isNotEmpty ? _companyName : 'مسؤول الشحنة');
+        : (_companyName.isNotEmpty ? _companyName : l.owner);
 
     final selectedPjNames = projects
         .where((p) => _selectedProjectIds.contains(p.projectId))
@@ -248,7 +250,6 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
         .join(', ');
 
     setState(() => _isSaving = true);
-    final l = context.l10n;
     try {
       final payload = {
         'custom_file_number': _customFileIdController.text.trim().isEmpty ? null : _customFileIdController.text.trim(),
@@ -392,7 +393,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ خطأ: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -591,7 +592,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                         controller: _hsCodeController,
                         decoration: InputDecoration(
                           labelText: l.guideHsCode,
-                          hintText: 'مثال: 8520',
+                          hintText: isArabic ? 'مثال: 8520' : 'e.g. 8520',
                           prefixIcon: const Icon(Icons.inventory_2_outlined, color: AppTheme.cobalt, size: 20),
                           border: const OutlineInputBorder(),
                           suffixIcon: _isMatchingGuide
@@ -615,7 +616,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                         controller: _productCategoryController,
                         decoration: InputDecoration(
                           labelText: l.guideProductCategory,
-                          hintText: 'مثال: إلكترونيات صوتية',
+                          hintText: isArabic ? 'مثال: إلكترونيات صوتية' : 'e.g. Audio Electronics',
                           prefixIcon: const Icon(Icons.category_outlined, color: AppTheme.cobalt, size: 20),
                           border: const OutlineInputBorder(),
                         ),
@@ -868,6 +869,8 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                             SearchableDropdownItem(value: 'STEP_04', label: DisplayNameResolver.resolveStepName('STEP_04', isArabic: isArabic)),
                             SearchableDropdownItem(value: 'STEP_05', label: DisplayNameResolver.resolveStepName('STEP_05', isArabic: isArabic)),
                             SearchableDropdownItem(value: 'STEP_06', label: DisplayNameResolver.resolveStepName('STEP_06', isArabic: isArabic)),
+                            SearchableDropdownItem(value: 'STEP_08_PO', label: DisplayNameResolver.resolveStepName('STEP_08_PO', isArabic: isArabic)),
+                            SearchableDropdownItem(value: 'STEP_08_BL', label: DisplayNameResolver.resolveStepName('STEP_08_BL', isArabic: isArabic)),
                             SearchableDropdownItem(value: 'STEP_08', label: DisplayNameResolver.resolveStepName('STEP_08', isArabic: isArabic)),
                             SearchableDropdownItem(value: 'STEP_10', label: DisplayNameResolver.resolveStepName('STEP_10', isArabic: isArabic)),
                             SearchableDropdownItem(value: 'STEP_12', label: DisplayNameResolver.resolveStepName('STEP_12', isArabic: isArabic)),
@@ -1152,12 +1155,12 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                       child: TextFormField(
                         controller: _ownerController,
                         decoration: InputDecoration(
-                          labelText: '${l.owner} (المسئول عن المشروع) *',
-                          hintText: 'اسم الشخص أو مسؤول المتابعة للمشروع',
+                          labelText: '${l.owner} *',
+                          hintText: l.ownerFieldHint,
                           border: const OutlineInputBorder(),
                           prefixIcon: const Icon(Icons.person_outline),
                         ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? '${l.owner} مطلوب' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty) ? l.ownerFieldRequired : null,
                       ),
                     ),
                   ],
@@ -1267,7 +1270,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
           label: Text(l.cancel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         ),
         ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12)),
+          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12)),
           onPressed: _isSaving ? null : _submit,
           icon: _isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.check, color: Colors.white),
           label: Text(widget.fileToEdit != null ? l.save : l.save, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),

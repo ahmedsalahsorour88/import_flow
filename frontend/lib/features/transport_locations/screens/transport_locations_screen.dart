@@ -360,26 +360,26 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                                       child: Table(
                                         defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                                         columnWidths: const {
-                                          0: FixedColumnWidth(140),
-                                          1: FlexColumnWidth(3),
-                                          2: FixedColumnWidth(140),
-                                          3: FlexColumnWidth(2),
+                                          0: FixedColumnWidth(210),
+                                          1: FixedColumnWidth(140),
+                                          2: FlexColumnWidth(3),
+                                          3: FixedColumnWidth(140),
                                           4: FlexColumnWidth(2),
-                                          5: FixedColumnWidth(95),
-                                          6: FixedColumnWidth(210),
+                                          5: FlexColumnWidth(2),
+                                          6: FixedColumnWidth(95),
                                         },
                                         children: [
                                           // Table Header
                                           TableRow(
                                             decoration: const BoxDecoration(color: AppTheme.charcoal),
                                             children: [
+                                              l10n.actionsCol,
                                               l10n.unLocodeCol,
                                               l10n.locationNameCol,
                                               l10n.locationTypeCol,
                                               l10n.countryCol,
                                               l10n.cityCol,
                                               l10n.statusCol,
-                                              l10n.actionsCol,
                                             ]
                                                 .map((h) => Padding(
                                                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -407,6 +407,50 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                                       color: isEven ? Colors.white : Colors.grey.shade50,
                                     ),
                                     children: [
+                                      // Actions: Quick Copy Summary, View, Edit, Print, Delete
+                                      _cell(
+                                        value: loc.unLocode,
+                                        rowSummary: rowSummary,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              icon: const Icon(Icons.copy_all_rounded, size: 18, color: AppTheme.cobalt),
+                                              tooltip: l10n.locationCopySummaryBtn,
+                                              onPressed: () => _copySingleLocationSummary(context, loc),
+                                              visualDensity: VisualDensity.compact,
+                                            ),
+                                            RowActionsPill(
+                                              onView: () => _showLocationDialog(context, location: loc),
+                                              onEdit: () => _showLocationDialog(context, location: loc),
+                                              onPrint: () => MasterDataExportService.printOrSaveLocationPdf(loc),
+                                              onDelete: () async {
+                                                final confirm = await showDialog<bool>(
+                                                  context: context,
+                                                  builder: (ctx) => AlertDialog(
+                                                    title: Text(l10n.confirmActionTitle),
+                                                    content: Text(isActive
+                                                        ? l10n.confirmDeactivateLocation(loc.locationName)
+                                                        : l10n.confirmActivateLocation(loc.locationName)),
+                                                    actions: [
+                                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+                                                      ElevatedButton(
+                                                        onPressed: () => Navigator.pop(ctx, true),
+                                                        style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                                        child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                                if (confirm == true && loc.locationId != null) {
+                                                  ref.read(transportLocationsProvider.notifier).toggleActive(loc.locationId!, isActive);
+                                                }
+                                              },
+                                              deleteTooltip: isActive ? l10n.deactivateLocationTooltip : l10n.activateLocationTooltip,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                       // UN/LOCODE
                                       _cell(
                                         value: loc.unLocode,
@@ -520,50 +564,6 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                                         ),
                                       ),
 
-                                      // Actions: Quick Copy Summary, View, Edit, Print, Delete
-                                      _cell(
-                                        value: loc.unLocode,
-                                        rowSummary: rowSummary,
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            IconButton(
-                                              icon: const Icon(Icons.copy_all_rounded, size: 18, color: AppTheme.cobalt),
-                                              tooltip: l10n.locationCopySummaryBtn,
-                                              onPressed: () => _copySingleLocationSummary(context, loc),
-                                              visualDensity: VisualDensity.compact,
-                                            ),
-                                            RowActionsPill(
-                                              onView: () => _showLocationDialog(context, location: loc),
-                                              onEdit: () => _showLocationDialog(context, location: loc),
-                                              onPrint: () => MasterDataExportService.printOrSaveLocationPdf(loc),
-                                              onDelete: () async {
-                                                final confirm = await showDialog<bool>(
-                                                  context: context,
-                                                  builder: (ctx) => AlertDialog(
-                                                    title: Text(l10n.confirmActionTitle),
-                                                    content: Text(isActive
-                                                        ? l10n.confirmDeactivateLocation(loc.locationName)
-                                                        : l10n.confirmActivateLocation(loc.locationName)),
-                                                    actions: [
-                                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                                                      ElevatedButton(
-                                                        onPressed: () => Navigator.pop(ctx, true),
-                                                        style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                                        child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                                if (confirm == true && loc.locationId != null) {
-                                                  ref.read(transportLocationsProvider.notifier).toggleActive(loc.locationId!, isActive);
-                                                }
-                                              },
-                                              deleteTooltip: isActive ? l10n.deactivateLocationTooltip : l10n.activateLocationTooltip,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
                                     ],
                                   );
                                 }),

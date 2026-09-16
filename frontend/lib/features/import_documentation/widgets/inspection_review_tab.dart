@@ -1346,13 +1346,13 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                     child: DataTable(
                       headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.06)),
                       columns: [
+                        DataColumn(label: Text(l10n.colInspActions)),
                         DataColumn(label: Text(l10n.colInspSessionCode)),
                         DataColumn(label: Text(l10n.colInspCertType)),
                         DataColumn(label: Text(l10n.colInspAgency)),
                         DataColumn(label: Text(l10n.colInspCertNo)),
                         DataColumn(label: Text(l10n.colInspStatus)),
                         DataColumn(label: Text(l10n.colInspCreatedAt)),
-                        DataColumn(label: Text(l10n.colInspActions)),
                       ],
                       rows: reviews.map((r) {
                         final rawTxt = r.rawText ?? r.draftInputData?['raw_text'] ?? '';
@@ -1361,51 +1361,6 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                         final rowSummary = '${r.inspectionReviewCode} | ${r.inspectionType} | ${r.inspectionAgency} | ${r.certificateNumber} | ${r.status} | $createdStr';
 
                         return DataRow(cells: [
-                          DataCell(
-                            CopyableTableCell(
-                              value: r.inspectionReviewCode,
-                              rowSummary: rowSummary,
-                              child: Text(r.inspectionReviewCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: r.inspectionType,
-                              rowSummary: rowSummary,
-                              child: Text(r.inspectionType),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: r.inspectionAgency,
-                              rowSummary: rowSummary,
-                              child: Text(r.inspectionAgency),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: r.certificateNumber,
-                              rowSummary: rowSummary,
-                              child: Text(r.certificateNumber),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: r.status,
-                              rowSummary: rowSummary,
-                              child: Chip(
-                                label: Text(r.status, style: const TextStyle(color: Colors.white, fontSize: 11)),
-                                backgroundColor: r.status == 'Verified' ? Colors.green : Colors.orange,
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: createdStr,
-                              rowSummary: rowSummary,
-                              child: Text(createdStr),
-                            ),
-                          ),
                           DataCell(
                             Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1481,6 +1436,52 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                               ],
                             ),
                           ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: r.inspectionReviewCode,
+                              rowSummary: rowSummary,
+                              child: Text(r.inspectionReviewCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: r.inspectionType,
+                              rowSummary: rowSummary,
+                              child: Text(r.inspectionType),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: r.inspectionAgency,
+                              rowSummary: rowSummary,
+                              child: Text(r.inspectionAgency),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: r.certificateNumber,
+                              rowSummary: rowSummary,
+                              child: Text(r.certificateNumber),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: r.status,
+                              rowSummary: rowSummary,
+                              child: Chip(
+                                label: Text(r.status, style: const TextStyle(color: Colors.white, fontSize: 11)),
+                                backgroundColor: r.status == 'Verified' ? Colors.green : Colors.orange,
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: createdStr,
+                              rowSummary: rowSummary,
+                              child: Text(createdStr),
+                            ),
+                          ),
+
                         ]);
                       }).toList(),
                     ),

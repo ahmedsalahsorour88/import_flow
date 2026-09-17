@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../projects/providers/projects_provider.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 import '../models/purchase_order_model.dart';
 
@@ -115,11 +116,13 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
     try {
       await _dio.post(ApiConstants.purchaseOrders, data: po.toJson());
       await fetchPurchaseOrders();
+      _ref.read(projectsProvider.notifier).fetchProjects();
       _ref.read(importFilesProvider.notifier).fetchImportFiles();
       _ref.read(shippingScenariosProvider.notifier).fetchSessions();
       return null;
     } on DioException catch (e) {
-      final detail = e.response?.data?['detail'];
+      final data = e.response?.data;
+      final detail = data is Map ? data['detail'] : null;
       String msg = 'Failed to create purchase order.';
       if (detail != null) {
         if (detail is List) {
@@ -143,11 +146,13 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
     try {
       await _dio.put('${ApiConstants.purchaseOrders}/$poId', data: data);
       await fetchPurchaseOrders();
+      _ref.read(projectsProvider.notifier).fetchProjects();
       _ref.read(importFilesProvider.notifier).fetchImportFiles();
       _ref.read(shippingScenariosProvider.notifier).fetchSessions();
       return null;
     } on DioException catch (e) {
-      final detail = e.response?.data?['detail'];
+      final responseData = e.response?.data;
+      final detail = responseData is Map ? responseData['detail'] : null;
       String msg = 'Failed to update purchase order.';
       if (detail != null) {
         if (detail is List) {
@@ -171,6 +176,7 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
     try {
       await _dio.delete('${ApiConstants.purchaseOrders}/$poId');
       await fetchPurchaseOrders();
+      _ref.read(projectsProvider.notifier).fetchProjects();
       _ref.read(importFilesProvider.notifier).fetchImportFiles();
       _ref.read(shippingScenariosProvider.notifier).fetchSessions();
       return true;
@@ -184,6 +190,7 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
     try {
       await _dio.post('${ApiConstants.purchaseOrders}/$poId/restore');
       await fetchPurchaseOrders();
+      _ref.read(projectsProvider.notifier).fetchProjects();
       _ref.read(importFilesProvider.notifier).fetchImportFiles();
       _ref.read(shippingScenariosProvider.notifier).fetchSessions();
       return true;
@@ -201,11 +208,13 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
       );
       final cloned = PurchaseOrderModel.fromJson(response.data);
       await fetchPurchaseOrders();
+      _ref.read(projectsProvider.notifier).fetchProjects();
       _ref.read(importFilesProvider.notifier).fetchImportFiles();
       _ref.read(shippingScenariosProvider.notifier).fetchSessions();
       return cloned;
     } on DioException catch (e) {
-      final detail = e.response?.data?['detail'];
+      final cloneData = e.response?.data;
+      final detail = cloneData is Map ? cloneData['detail'] : null;
       String msg = 'Failed to clone purchase order.';
       if (detail != null) {
         if (detail is List) {

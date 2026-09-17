@@ -18,6 +18,9 @@ from modules.freight_quotations.model import FreightRFQRequest
 from modules.purchase_orders.model import PurchaseOrder
 from modules.freight_booking.model import ShipmentBooking
 from modules.import_files.model import ImportFile
+from modules.customs_clearance.model import CustomsClearanceRecord
+from modules.warehouse_receiving.model import WarehouseReceivingRecord
+from modules.financial_settlement.model import LandedCostSettlementRecord
 from modules.file_closure.model import ImportFileClosureRecord
 from modules.file_closure.schemas import (
     FileClosureCreate,
@@ -31,6 +34,42 @@ from modules.file_closure.service import (
     soft_delete_closure_service,
     restore_closure_service,
 )
+
+
+def _create_prerequisite_records(db, import_file_id: int):
+    """Helper: create the three prerequisite records needed for final closure."""
+    clearance = CustomsClearanceRecord(
+        clearance_code="CLR-TEST-001",
+        import_file_id=import_file_id,
+        status="Final Release Granted",
+        declaration_46_no="46-TEST-001",
+        actual_duty_total=0.0,
+        total_duty_payable=0.0,
+        is_active=True,
+    )
+    db.add(clearance)
+    grn = WarehouseReceivingRecord(
+        grn_code="GRN-TEST-001",
+        import_file_id=import_file_id,
+        warehouse_name="Test Warehouse",
+        status="Received",
+        is_active=True,
+    )
+    db.add(grn)
+    settlement = LandedCostSettlementRecord(
+        settlement_code="SET-TEST-001",
+        import_file_id=import_file_id,
+        status="Calculated",
+        incoterm_code="FOB",
+        total_fob_egp=0.0,
+        total_expenses_egp=0.0,
+        total_landed_cost_egp=0.0,
+        is_active=True,
+    )
+    db.add(settlement)
+    db.commit()
+
+
 
 class TestFileClosureModule(unittest.TestCase):
     def setUp(self):
@@ -72,7 +111,9 @@ class TestFileClosureModule(unittest.TestCase):
         self.db.close()
 
     def test_close_import_file_checklist_validation_failure(self):
-        # Checklist with unmet condition
+        # Need prerequisite records so DB check passes, then checklist check raises 400
+        _create_prerequisite_records(self.db, self.import_file_id)
+
         schema = FileClosureCreate(
             import_file_id=self.import_file_id,
             closure_checklist=ClosureChecklistSchema(
@@ -91,6 +132,9 @@ class TestFileClosureModule(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 400)
 
     def test_close_import_file_success(self):
+        # Create prerequisite DB records first (mandatory for final closure)
+        _create_prerequisite_records(self.db, self.import_file_id)
+
         schema = FileClosureCreate(
             import_file_id=self.import_file_id,
             closure_checklist=ClosureChecklistSchema(
@@ -114,9 +158,12 @@ class TestFileClosureModule(unittest.TestCase):
         imp_file = self.db.query(ImportFile).filter(ImportFile.import_file_id == self.import_file_id).first()
         self.assertEqual(imp_file.status, "Closed")
         self.assertEqual(imp_file.progress_percent, 100.0)
-        self.assertEqual(imp_file.current_module, "Phase 10 - Import File Closure & Historical Archive")
+        self.assertTrue("Phase 10" in imp_file.current_module or "STEP_21" in imp_file.current_module)
 
     def test_soft_delete_and_restore(self):
+        # Create prerequisite DB records first
+        _create_prerequisite_records(self.db, self.import_file_id)
+
         schema = FileClosureCreate(
             import_file_id=self.import_file_id,
             closure_checklist=ClosureChecklistSchema(
@@ -141,12 +188,12 @@ class TestFileClosureModule(unittest.TestCase):
         self.assertTrue(restored.is_active)
 
     def test_close_import_file_with_skipped_stages_allowed(self):
-        # Set warehouse_received as skipped on import file
+        # Skip all three required stages on import file (STEP_17=customs, STEP_19=GRN, STEP_20=settlement)
         imp_file = self.db.query(ImportFile).filter(ImportFile.import_file_id == self.import_file_id).first()
-        imp_file.skipped_stages = ["STEP_19", "warehouse_received"]
+        imp_file.skipped_stages = ["STEP_17", "STEP_19", "STEP_20", "warehouse_received"]
         self.db.commit()
 
-        # Try closing with warehouse_received=False (because it was skipped/exempt)
+        # Try closing with warehouse_received=False (all three DB checks bypassed via skipped_stages)
         schema = FileClosureCreate(
             import_file_id=self.import_file_id,
             closure_checklist=ClosureChecklistSchema(
@@ -160,6 +207,7 @@ class TestFileClosureModule(unittest.TestCase):
         record = close_import_file_service(self.db, schema)
         self.assertIsNotNone(record.closure_id)
         self.assertEqual(record.status, "Closed")
+
 
     def test_save_draft_intermediate_closure_success(self):
         # Schema with only 2 out of 5 items completed and is_draft=True

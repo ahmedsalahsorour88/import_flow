@@ -3,18 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/freight_quotation_model.dart';
 import '../../../core/network/api_client.dart';
+import '../../import_files/providers/import_files_provider.dart';
 
 
 final freightQuotationsProvider =
     StateNotifierProvider<FreightQuotationsNotifier, AsyncValue<List<FreightRFQRequestModel>>>((ref) {
-  return FreightQuotationsNotifier(ref.read(dioProvider));
+  return FreightQuotationsNotifier(ref.read(dioProvider), ref);
 });
 
 class FreightQuotationsNotifier extends StateNotifier<AsyncValue<List<FreightRFQRequestModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
 
-  FreightQuotationsNotifier(this._dio) : super(const AsyncValue.loading()) {
+  FreightQuotationsNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchRFQs();
   }
 
@@ -83,6 +85,7 @@ class FreightQuotationsNotifier extends StateNotifier<AsyncValue<List<FreightRFQ
       );
       final awarded = FreightRFQRequestModel.fromJson(response.data);
       await fetchRFQs();
+      _ref?.invalidate(importFilesProvider);
       return awarded;
     } catch (e) {
       rethrow;

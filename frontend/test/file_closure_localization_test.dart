@@ -98,6 +98,14 @@ void main() {
         ar.fileClosureColLandedCostSettled,
         ar.fileClosureColTasksClosed,
         ar.fileClosureColNotes,
+        ar.searchAndCloneFileClosureBtn,
+        ar.cloneFileClosureDialogTitle,
+        ar.cloneFileClosureDialogSubtitle,
+        ar.cloneFileClosureTooltip,
+        ar.copyFileClosureRowSuccess,
+        ar.copyFileClosureTableSuccess,
+        ar.exportFileClosureExcelTooltip,
+        ar.exportFileClosurePdfTooltip,
       ];
 
       final List<String> enStrings = [
@@ -189,6 +197,14 @@ void main() {
         en.fileClosureColLandedCostSettled,
         en.fileClosureColTasksClosed,
         en.fileClosureColNotes,
+        en.searchAndCloneFileClosureBtn,
+        en.cloneFileClosureDialogTitle,
+        en.cloneFileClosureDialogSubtitle,
+        en.cloneFileClosureTooltip,
+        en.copyFileClosureRowSuccess,
+        en.copyFileClosureTableSuccess,
+        en.exportFileClosureExcelTooltip,
+        en.exportFileClosurePdfTooltip,
       ];
 
       expect(arStrings.length, enStrings.length);

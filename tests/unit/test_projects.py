@@ -82,6 +82,40 @@ class TestProjectsBackend:
         assert proj.allow_multi_company is True
         assert proj.status == "Open"
 
+    def test_pl01_new_import_project_creation_and_budget_tracking(self, db_session):
+        """PL-01: Create new import project with estimated budget and target end date tracking."""
+        service = ProjectService(db_session)
+        data = ProjectCreate(
+            project_name="خط إنتاج آلات صناعية 2026",
+            project_owner="Eng. Ahmed Salah",
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            import_type="Direct Commercial",
+            priority="High",
+            shipment_category="FCL Container",
+            total_budget_usd=250000.0,
+            target_end_date="2026-12-31",
+            notes="مشروع استيراد وتوريد خطوط إنتاج صناعية شاملة التركيب",
+        )
+        proj = service.create(data)
+
+        assert proj.project_id is not None
+        assert proj.project_code.startswith("PRJ-")
+        assert proj.project_name == "خط إنتاج آلات صناعية 2026"
+        assert proj.total_budget_usd == 250000.0
+        assert proj.target_end_date == "2026-12-31"
+        assert proj.status == "Open"
+        assert proj.is_active is True
+
+        # Test updating target end date and budget
+        updated = service.update(
+            proj.project_id,
+            ProjectUpdate(total_budget_usd=275000.0, target_end_date="2027-01-15")
+        )
+        assert updated.total_budget_usd == 275000.0
+        assert updated.target_end_date == "2027-01-15"
+
     def test_invalid_fk_raises_400(self, db_session):
         service = ProjectService(db_session)
         data = ProjectCreate(

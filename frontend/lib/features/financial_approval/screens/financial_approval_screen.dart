@@ -62,8 +62,19 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
   int? _selectedSupplierId;
   int? _paySelectedImportFileId;
   BudgetPrefillModel? _payPrefillData;
+  double? _paySelectedPercentage;
   bool _isSavingPayment = false;
   bool _isLoadingPayPrefill = false;
+
+  void _applyAdvancePercentageToAmount(double pct) {
+    setState(() {
+      _paySelectedPercentage = pct;
+      final baseAmount = _payPrefillData?.totalInvoiceAmount ?? 0.0;
+      if (baseAmount > 0) {
+        _amountController.text = (baseAmount * (pct / 100.0)).toStringAsFixed(2);
+      }
+    });
+  }
 
   // Import Budget Form State (BP-013)
   final _budgetFormKey = GlobalKey<FormState>();
@@ -501,6 +512,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         'swift_code': _swiftCodeController.text.trim(),
         'iban_account_no': _ibanController.text.trim(),
         'notes': _payNotesController.text.trim(),
+        'advance_percentage': _paySelectedPercentage,
       };
 
       if (_editingPaymentId != null) {
@@ -518,8 +530,12 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       } else {
         final created = await ref.read(paymentRequestsProvider.notifier).createPaymentRequest(payload);
         if (mounted && created != null) {
+          final taskMsg = (created.smartTaskCode != null) ? ' (${created.smartTaskCode})' : '';
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.paymentRequestCreatedSuccess(created.paymentCode)), backgroundColor: AppTheme.emerald),
+            SnackBar(
+              content: Text('${context.l10n.paymentRequestCreatedSuccess(created.paymentCode)}$taskMsg'),
+              backgroundColor: AppTheme.emerald,
+            ),
           );
           _showPaymentDetailsDialog(created);
         }
@@ -557,6 +573,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       _swiftCodeController.text = p.swiftCode ?? '';
       _ibanController.text = p.ibanAccountNo ?? '';
       _payNotesController.text = p.notes ?? '';
+      _paySelectedPercentage = p.advancePercentage;
       _dueDate = DateTime.tryParse(p.dueDate) ?? DateTime.now().add(const Duration(days: 12));
       _requestDate = p.requestDate.isNotEmpty ? (DateTime.tryParse(p.requestDate) ?? DateTime.now()) : DateTime.now();
     });
@@ -2892,6 +2909,40 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                         ],
                                       ),
                                     const SizedBox(height: 12),
+
+                                    if (_payPrefillData != null && _payPrefillData!.totalInvoiceAmount > 0) ...[
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
+                                        crossAxisAlignment: WrapCrossAlignment.center,
+                                        children: [
+                                          Text(
+                                            'حساب النسبة من أمر الشراء (${_payPrefillData!.totalInvoiceAmount.toStringAsFixed(2)} $_currencyCode):',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                                            ),
+                                          ),
+                                          ...[10.0, 20.0, 30.0, 50.0, 100.0].map((pct) {
+                                            final isSel = _paySelectedPercentage == pct;
+                                            return ChoiceChip(
+                                              label: Text('${pct.toStringAsFixed(0)}%'),
+                                              selected: isSel,
+                                              selectedColor: const Color(0xFFD97706),
+                                              labelStyle: TextStyle(
+                                                fontSize: 11,
+                                                color: isSel ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                                fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                                              ),
+                                              visualDensity: VisualDensity.compact,
+                                              onSelected: (_) => _applyAdvancePercentageToAmount(pct),
+                                            );
+                                          }),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                    ],
 
                                     // Row 3: Amount, Currency, Exchange Rate, Request Date, Due Date (5 fields responsive)
                                     if (constraints.maxWidth >= 1100)

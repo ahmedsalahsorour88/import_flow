@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../providers/goods_in_transit_provider.dart';
@@ -31,6 +32,7 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final density = ref.watch(displayDensityProvider);
     final gitAsync = ref.watch(goodsInTransitProvider);
 
     final tabs = [
@@ -71,7 +73,7 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
           final totalContainers = activeItems.fold<int>(0, (s, i) => s + i.containersCount);
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -400,13 +402,13 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                                                       Text(
                                                         rawCode,
                                                         style: TextStyle(
-                                                          fontSize: 10,
+                                                          fontSize: DisplayDensityMode.clampFontSize(11.0),
                                                           fontWeight: FontWeight.w600,
                                                           color: Colors.grey.shade700,
                                                         ),
                                                       ),
                                                       const SizedBox(width: 3),
-                                                      const Icon(Icons.copy, size: 10, color: Colors.grey),
+                                                      const Icon(Icons.copy, size: 11, color: Colors.grey),
                                                     ],
                                                   ),
                                                 ),
@@ -548,7 +550,7 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
     }
 
     return VerticalStageScaffold(
-      stageCode: 'GIT-01',
+      stageCode: 'PHASE-6: STEP_19',
       titleEn: 'Goods In Transit (GIT) Inventory Ledger',
       titleAr: 'رصيد ومطابقة البضاعة في الطريق',
       headerIcon: Icons.local_shipping,
@@ -556,6 +558,13 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
       tabs: tabs,
       selectedIndex: 0,
       onTabSelected: (_) {},
+      headerActions: [
+        IconButton(
+          icon: Icon(Icons.refresh, color: Colors.white70, size: density.buttonIconSize),
+          tooltip: l.warehouseReceivingRefreshTooltip,
+          onPressed: () => ref.invalidate(goodsInTransitProvider),
+        ),
+      ],
       body: bodyContent,
     );
   }
@@ -585,7 +594,7 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(val, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: color), overflow: TextOverflow.ellipsis),
-                Text(title, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade700), overflow: TextOverflow.ellipsis),
+                Text(title, style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(11.0), color: Colors.grey.shade700), overflow: TextOverflow.ellipsis),
               ],
             ),
           ),

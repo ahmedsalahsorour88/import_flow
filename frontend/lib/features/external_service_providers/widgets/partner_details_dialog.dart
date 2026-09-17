@@ -67,7 +67,19 @@ class PartnerDetailsDialog extends StatelessWidget {
     if (p.website != null && p.website!.isNotEmpty) b.writeln('${l10n.websiteDetailLabel}: ${p.website}');
     if (p.swiftCode != null && p.swiftCode!.isNotEmpty) b.writeln('${l10n.partnerSwiftCodeDetailLabel}: ${p.swiftCode}');
     if (p.scacCode != null && p.scacCode!.isNotEmpty) b.writeln('${l10n.partnerScacCodeDetailLabel}: ${p.scacCode}');
+    if (p.defaultFreeDays != null) b.writeln('${l10n.defaultFreeDaysLabel}: ${p.defaultFreeDays}');
+    if (p.fiataId != null && p.fiataId!.isNotEmpty) b.writeln('${l10n.fiataLicenseLabel}: ${p.fiataId}');
+    if (p.shippingModes != null && p.shippingModes!.isNotEmpty) b.writeln('${l10n.shippingModesLabel}: ${p.shippingModes}');
+    if (p.supportedCurrencies != null && p.supportedCurrencies!.isNotEmpty) b.writeln('${l10n.supportedCurrenciesLabel}: ${p.supportedCurrencies}');
+    if (p.inspectionAccreditationNumber != null && p.inspectionAccreditationNumber!.isNotEmpty) b.writeln('${l10n.inspectionAccreditationNumLabel}: ${p.inspectionAccreditationNumber}');
+    if (p.inspectionScope != null && p.inspectionScope!.isNotEmpty) b.writeln('${l10n.inspectionScopeLabel}: ${p.inspectionScope}');
     if (p.clearanceLicenseNumber != null && p.clearanceLicenseNumber!.isNotEmpty) b.writeln('${l10n.clearanceLicenseDetailLabel}: ${p.clearanceLicenseNumber}');
+    if (p.authorizedPorts != null && p.authorizedPorts!.isNotEmpty) b.writeln('${l10n.authorizedPortsLabel}: ${p.authorizedPorts}');
+    if (p.transportLicenseNumber != null && p.transportLicenseNumber!.isNotEmpty) b.writeln('${l10n.transportLicenseNumLabel}: ${p.transportLicenseNumber}');
+    if (p.fleetTypes != null && p.fleetTypes!.isNotEmpty) b.writeln('${l10n.fleetTypesLabel}: ${p.fleetTypes}');
+    if (p.coverageAreas != null && p.coverageAreas!.isNotEmpty) b.writeln('${l10n.coverageAreasLabel}: ${p.coverageAreas}');
+    if (p.insuranceLicenseNumber != null && p.insuranceLicenseNumber!.isNotEmpty) b.writeln('${l10n.insuranceLicenseNumLabel}: ${p.insuranceLicenseNumber}');
+    if (p.insuranceCoverageTypes != null && p.insuranceCoverageTypes!.isNotEmpty) b.writeln('${l10n.insuranceCoverageTypesLabel}: ${p.insuranceCoverageTypes}');
     if (p.commercialRegister != null && p.commercialRegister!.isNotEmpty) b.writeln('${l10n.commercialRegDetailLabel}: ${p.commercialRegister}');
     if (p.taxId != null && p.taxId!.isNotEmpty) b.writeln('${l10n.taxIdDetailLabel}: ${p.taxId}');
     b.writeln('${l10n.partnerStatusCol}: ${p.isActive ? l10n.statusActive : l10n.statusInactive}');
@@ -276,7 +288,79 @@ class PartnerDetailsDialog extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 12),
                               ],
-                              if (partner.clearanceLicenseNumber != null && partner.clearanceLicenseNumber!.isNotEmpty)
+                              if (partner.defaultFreeDays != null) ...[
+                                Expanded(
+                                  child: _buildCopyableInfoField(
+                                    context: context,
+                                    label: l10n.defaultFreeDaysLabel,
+                                    value: l10n.partnerFreeDaysBadge(partner.defaultFreeDays!),
+                                    icon: Icons.timer_outlined,
+                                    highlightColor: AppTheme.emerald,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              if (partner.fiataId != null && partner.fiataId!.isNotEmpty) ...[
+                                Expanded(
+                                  child: _buildCopyableInfoField(
+                                    context: context,
+                                    label: l10n.fiataLicenseLabel,
+                                    value: partner.fiataId!,
+                                    icon: Icons.badge_rounded,
+                                    highlightColor: isDark ? AppTheme.cobalt : AppTheme.charcoal,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              if (partner.shippingModes != null && partner.shippingModes!.isNotEmpty) ...[
+                                Expanded(
+                                  child: _buildCopyableInfoField(
+                                    context: context,
+                                    label: l10n.shippingModesLabel,
+                                    value: partner.shippingModes!,
+                                    icon: Icons.alt_route_rounded,
+                                    highlightColor: AppTheme.cobalt,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              if (partner.supportedCurrencies != null && partner.supportedCurrencies!.isNotEmpty) ...[
+                                Expanded(
+                                  child: _buildCopyableInfoField(
+                                    context: context,
+                                    label: l10n.supportedCurrenciesLabel,
+                                    value: partner.supportedCurrencies!,
+                                    icon: Icons.monetization_on_outlined,
+                                    highlightColor: AppTheme.emerald,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              if (partner.inspectionAccreditationNumber != null && partner.inspectionAccreditationNumber!.isNotEmpty) ...[
+                                Expanded(
+                                  child: _buildCopyableInfoField(
+                                    context: context,
+                                    label: l10n.inspectionAccreditationNumLabel,
+                                    value: partner.inspectionAccreditationNumber!,
+                                    icon: Icons.verified_user_outlined,
+                                    highlightColor: AppTheme.cobalt,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              if (partner.inspectionScope != null && partner.inspectionScope!.isNotEmpty) ...[
+                                Expanded(
+                                  child: _buildCopyableInfoField(
+                                    context: context,
+                                    label: l10n.inspectionScopeLabel,
+                                    value: partner.inspectionScope!,
+                                    icon: Icons.rule_folder_outlined,
+                                    highlightColor: AppTheme.emerald,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              if (partner.clearanceLicenseNumber != null && partner.clearanceLicenseNumber!.isNotEmpty) ...[
                                 Expanded(
                                   child: _buildCopyableInfoField(
                                     context: context,
@@ -286,6 +370,80 @@ class PartnerDetailsDialog extends StatelessWidget {
                                     highlightColor: AppTheme.orange,
                                   ),
                                 ),
+                                const SizedBox(width: 12),
+                              ],
+                              if (partner.authorizedPorts != null && partner.authorizedPorts!.isNotEmpty) ...[
+                                Expanded(
+                                  child: _buildCopyableInfoField(
+                                    context: context,
+                                    label: l10n.authorizedPortsLabel,
+                                    value: partner.authorizedPorts!,
+                                    icon: Icons.anchor_outlined,
+                                    highlightColor: AppTheme.orange,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              if (partner.transportLicenseNumber != null && partner.transportLicenseNumber!.isNotEmpty) ...[
+                                Expanded(
+                                  child: _buildCopyableInfoField(
+                                    context: context,
+                                    label: l10n.transportLicenseNumLabel,
+                                    value: partner.transportLicenseNumber!,
+                                    icon: Icons.local_shipping_outlined,
+                                    highlightColor: AppTheme.emerald,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              if (partner.fleetTypes != null && partner.fleetTypes!.isNotEmpty) ...[
+                                Expanded(
+                                  child: _buildCopyableInfoField(
+                                    context: context,
+                                    label: l10n.fleetTypesLabel,
+                                    value: partner.fleetTypes!,
+                                    icon: Icons.rv_hookup,
+                                    highlightColor: AppTheme.emerald,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              if (partner.coverageAreas != null && partner.coverageAreas!.isNotEmpty) ...[
+                                Expanded(
+                                  child: _buildCopyableInfoField(
+                                    context: context,
+                                    label: l10n.coverageAreasLabel,
+                                    value: partner.coverageAreas!,
+                                    icon: Icons.map_outlined,
+                                    highlightColor: AppTheme.emerald,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              if (partner.insuranceLicenseNumber != null && partner.insuranceLicenseNumber!.isNotEmpty) ...[
+                                Expanded(
+                                  child: _buildCopyableInfoField(
+                                    context: context,
+                                    label: l10n.insuranceLicenseNumLabel,
+                                    value: partner.insuranceLicenseNumber!,
+                                    icon: Icons.verified_user_outlined,
+                                    highlightColor: AppTheme.cobalt,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              if (partner.insuranceCoverageTypes != null && partner.insuranceCoverageTypes!.isNotEmpty) ...[
+                                Expanded(
+                                  child: _buildCopyableInfoField(
+                                    context: context,
+                                    label: l10n.insuranceCoverageTypesLabel,
+                                    value: partner.insuranceCoverageTypes!,
+                                    icon: Icons.health_and_safety_outlined,
+                                    highlightColor: AppTheme.cobalt,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
                             ],
                           ),
                           const Divider(height: 16),

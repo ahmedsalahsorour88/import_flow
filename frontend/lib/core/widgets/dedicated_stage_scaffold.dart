@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
+import '../theme/density_provider.dart';
 import 'back_to_dashboard_button.dart';
 import 'shipment_stage_lifecycle_control.dart';
 
@@ -7,7 +9,7 @@ import 'shipment_stage_lifecycle_control.dart';
 /// Provides a unified enterprise header with stage code badge, lifecycle controls,
 /// shipment selector, and header actions while dedicating 100% of the screen width
 /// to the actual stage workspace without nested vertical sub-tab navigation.
-class DedicatedStageScaffold extends StatelessWidget {
+class DedicatedStageScaffold extends ConsumerWidget {
   final String stageCode;
   final String titleAr;
   final String titleEn;
@@ -36,14 +38,19 @@ class DedicatedStageScaffold extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final density = ref.watch(displayDensityProvider);
+
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       body: Column(
         children: [
           // Top Header Bar
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: density.isUltraCompact ? 5 : (density.isCompact ? 7 : 9),
+            ),
             decoration: BoxDecoration(
               color: AppTheme.charcoal,
               boxShadow: [
@@ -62,13 +69,13 @@ class DedicatedStageScaffold extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.all(density.isUltraCompact ? 5 : (density.isCompact ? 6.5 : 8)),
                       decoration: BoxDecoration(
                         color: headerColor.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: headerColor.withOpacity(0.5)),
                       ),
-                      child: Icon(headerIcon, color: headerColor, size: 20),
+                      child: Icon(headerIcon, color: headerColor, size: density.headerIconSize),
                     ),
                     const SizedBox(width: 12),
                     Flexible(
@@ -79,9 +86,9 @@ class DedicatedStageScaffold extends StatelessWidget {
                         children: [
                           Text(
                             Directionality.of(context) == TextDirection.rtl ? titleAr : titleEn,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
-                              fontSize: 15.5,
+                              fontSize: density.headerTitleFontSize,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.2,
                             ),
@@ -90,7 +97,10 @@ class DedicatedStageScaffold extends StatelessWidget {
                           ),
                           if (stageCode.isNotEmpty)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: density.isUltraCompact ? 6 : 8,
+                                vertical: density.isUltraCompact ? 1 : 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: headerColor.withOpacity(0.3),
                                 borderRadius: BorderRadius.circular(4),
@@ -98,9 +108,9 @@ class DedicatedStageScaffold extends StatelessWidget {
                               ),
                               child: Text(
                                 stageCode,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 11,
+                                  fontSize: DisplayDensityMode.clampFontSize(density.headerSubtitleFontSize),
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -163,9 +173,17 @@ class DedicatedStageScaffold extends StatelessWidget {
                         onStatusChanged: onShipmentStatusChanged,
                       ),
                     ],
-                    if (headerActions != null) ...[
-                      const SizedBox(width: 16),
-                      ...headerActions!,
+                    if (headerActions != null && headerActions!.isNotEmpty) ...[
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          alignment: WrapAlignment.end,
+                          children: headerActions!,
+                        ),
+                      ),
                     ],
                     const SizedBox(width: 12),
                     const BackToDashboardButton(),
@@ -178,9 +196,12 @@ class DedicatedStageScaffold extends StatelessWidget {
           // Optional Top Banner
           if (topBanner != null) topBanner!,
 
-          // 100% Full-Width Body Workspace
+          // 100% Full-Width Body Workspace with Anti-Occlusion Clearance Buffer (+72px)
           Expanded(
-            child: body,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 72.0),
+              child: body,
+            ),
           ),
         ],
       ),

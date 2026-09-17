@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/display_name_resolver.dart';
+import '../../../core/services/table_export_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/reopen_shipment_dialog.dart';
@@ -13,7 +18,7 @@ import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/file_closure_model.dart';
 import '../providers/file_closure_provider.dart';
-import '../../../core/services/display_name_resolver.dart';
+import '../widgets/search_and_clone_file_closure_dialog.dart';
 
 class FileClosureScreen extends ConsumerStatefulWidget {
   const FileClosureScreen({super.key});
@@ -46,11 +51,156 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
     super.dispose();
   }
 
-  void _showCloseFileDialog() {
+  void _showCloseFileDialog({ImportFileClosureModel? initialRecord, bool isCloneDraft = false}) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const _FileClosureFormDialog(),
+      builder: (context) => _FileClosureFormDialog(
+        initialRecord: initialRecord,
+        isCloneDraft: isCloneDraft,
+      ),
+    );
+  }
+
+  void _openSearchAndCloneDialog(List<ImportFileClosureModel> records) {
+    showDialog(
+      context: context,
+      builder: (c) => SearchAndCloneFileClosureDialog(
+        records: records,
+        onSelectRecord: (selected) => _onCloneClosure(selected),
+      ),
+    );
+  }
+
+  void _onCloneClosure(ImportFileClosureModel source) {
+    final l = context.l10n;
+    final isAr = l.isArabic;
+    final newDraftCode = 'CLOSURE-DRAFT-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: isAr ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+          child: CloneEntityReviewDialog(
+            entityType: isAr ? 'شهادة إغلاق وأرشفة ملف استيراد' : 'Import File Closure Certificate',
+            sourceCode: source.closureCode,
+            suggestedNewCode: newDraftCode,
+            sourceTitle: '${source.closureCode} (${source.isFullyVerified ? (isAr ? "مغلق ومؤرشف" : "Archived") : (isAr ? "مسودة" : "Draft")})',
+            copiedFieldsSummary: {
+              isAr ? 'رقم ملف الاستيراد' : 'Import File ID': '#${source.importFileId}',
+              isAr ? 'المحاسب / المراجع' : 'Auditor / Reviewer': source.auditorName,
+              isAr ? 'مستودع الأرشيف الرقمي' : 'Archive Vault': source.archiveLocation,
+              isAr ? 'حالة الشروط المستوفاة' : 'Conditions Verified':
+                  '${(source.closureChecklist.docsVerified ? 1 : 0) + (source.closureChecklist.customsCleared ? 1 : 0) + (source.closureChecklist.warehouseReceived ? 1 : 0) + (source.closureChecklist.landedCostSettled ? 1 : 0) + (source.closureChecklist.tasksClosed ? 1 : 0)} / 5',
+              if (source.archivalNotes != null && source.archivalNotes!.isNotEmpty)
+                isAr ? 'ملاحظات الأرشفة' : 'Archival Notes': source.archivalNotes!,
+            },
+            mandatorilyResetFields: isAr
+                ? const [
+                    'معرف الإغلاق (Closure ID): يتم تصفيره لإنشاء سجل أرشفة جديد في قاعدة البيانات',
+                    'كود الشهادة: يتم تعيينه تلقائياً كمسودة (CLOSURE-DRAFT-XXXX)',
+                    'حالة الإغلاق: يعاد ضبطها إلى مسودة قيد الاستيفاء (Draft / Incomplete)',
+                    'تاريخ الإغلاق والاعتماد: يعاد ضبطه على اللحظة الحالية والمراجع الحالي',
+                  ]
+                : const [
+                    'Closure ID: Cleared to 0 for new database record generation',
+                    'Closure Code: Re-assigned as new DRAFT (CLOSURE-DRAFT-XXXX)',
+                    'Closure Status: Reset to Draft / Incomplete',
+                    'Closed Date & Auditor: Reset to current instant & operator',
+                  ],
+            allowCopyLineItems: true,
+            allowCopyAttachments: false,
+            onConfirm: ({
+              required String newCode,
+              required String newTitle,
+              required bool copyLineItems,
+              required bool copyAttachments,
+              String? notes,
+            }) async {
+              final clonedChecklist = copyLineItems
+                  ? ClosureChecklistModel(
+                      docsVerified: source.closureChecklist.docsVerified,
+                      customsCleared: source.closureChecklist.customsCleared,
+                      warehouseReceived: source.closureChecklist.warehouseReceived,
+                      landedCostSettled: source.closureChecklist.landedCostSettled,
+                      tasksClosed: source.closureChecklist.tasksClosed,
+                    )
+                  : ClosureChecklistModel(
+                      docsVerified: false,
+                      customsCleared: false,
+                      warehouseReceived: false,
+                      landedCostSettled: false,
+                      tasksClosed: false,
+                    );
+
+              final cloned = ImportFileClosureModel(
+                closureId: 0,
+                closureCode: newCode,
+                importFileId: source.importFileId,
+                closureChecklist: clonedChecklist,
+                auditorName: source.auditorName,
+                archiveLocation: source.archiveLocation,
+                archivalNotes: notes ?? source.archivalNotes,
+                status: 'Draft',
+                isActive: true,
+                closedAt: DateTime.now().toIso8601String(),
+                createdAt: DateTime.now().toIso8601String(),
+                updatedAt: DateTime.now().toIso8601String(),
+              );
+
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _showCloseFileDialog(initialRecord: cloned, isCloneDraft: true);
+                }
+              });
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _copyClosureRowTsv(
+    ImportFileClosureModel r,
+    ImportFileModel? file,
+    AppLocalizations l10n,
+  ) {
+    final fileTitle = file != null ? file.primaryNameWithCode : '#${r.importFileId}';
+    final chk = r.closureChecklist;
+    final headers = [
+      l10n.fileClosureColClosureCode,
+      l10n.fileClosureColImportFile,
+      l10n.fileClosureColArchiveVault,
+      l10n.fileClosureColAuditor,
+      l10n.fileClosureColClosedDate,
+      l10n.fileClosureColDocsVerified,
+      l10n.fileClosureColCustomsCleared,
+      l10n.fileClosureColWarehouseReceived,
+      l10n.fileClosureColLandedCostSettled,
+      l10n.fileClosureColTasksClosed,
+      l10n.fileClosureColNotes,
+    ];
+    final values = [
+      r.closureCode,
+      fileTitle,
+      r.archiveLocation,
+      r.auditorName,
+      r.closedAt,
+      chk.docsVerified ? '100%' : '0%',
+      chk.customsCleared ? '100%' : '0%',
+      chk.warehouseReceived ? '100%' : '0%',
+      chk.landedCostSettled ? '100%' : '0%',
+      chk.tasksClosed ? '100%' : '0%',
+      r.archivalNotes ?? '',
+    ];
+
+    TableCopyHelper.copyRow(
+      context,
+      values,
+      headers: headers,
+      customMessage: l10n.copyFileClosureRowSuccess,
     );
   }
 
@@ -77,14 +227,11 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
       l10n.fileClosureColNotes,
     ];
 
-    final buffer = StringBuffer();
-    buffer.writeln(headers.join('\t'));
-
-    for (final r in records) {
+    final rows = records.map((r) {
       final matchingFile = filesMap[r.importFileId];
       final fileTitle = matchingFile != null ? matchingFile.primaryNameWithCode : '#${r.importFileId}';
       final chk = r.closureChecklist;
-      final row = [
+      return [
         r.closureCode,
         fileTitle,
         r.archiveLocation,
@@ -97,13 +244,119 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
         chk.tasksClosed ? '100%' : '0%',
         r.archivalNotes ?? '',
       ];
-      buffer.writeln(row.join('\t'));
+    }).toList();
+
+    TableCopyHelper.copyTable(
+      context,
+      headers,
+      rows,
+      customMessage: l10n.copyFileClosureTableSuccess,
+    );
+  }
+
+  Future<void> _exportClosuresExcel(
+    List<ImportFileClosureModel> records,
+    Map<int, ImportFileModel> filesMap,
+  ) async {
+    final l10n = context.l10n;
+    if (records.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.fileClosureEmptyRecords), backgroundColor: AppTheme.orange),
+      );
+      return;
     }
 
-    CopyHelper.copy(
-      context,
-      buffer.toString().trimRight(),
-      customMessage: l10n.fileClosureExportTsvSuccess,
+    final headers = [
+      l10n.fileClosureColClosureCode,
+      l10n.fileClosureColImportFile,
+      l10n.fileClosureColArchiveVault,
+      l10n.fileClosureColAuditor,
+      l10n.fileClosureColClosedDate,
+      l10n.fileClosureColDocsVerified,
+      l10n.fileClosureColCustomsCleared,
+      l10n.fileClosureColWarehouseReceived,
+      l10n.fileClosureColLandedCostSettled,
+      l10n.fileClosureColTasksClosed,
+      l10n.fileClosureColNotes,
+    ];
+
+    final rows = records.map((r) {
+      final matchingFile = filesMap[r.importFileId];
+      final fileTitle = matchingFile != null ? matchingFile.primaryNameWithCode : '#${r.importFileId}';
+      final chk = r.closureChecklist;
+      return [
+        r.closureCode,
+        fileTitle,
+        r.archiveLocation,
+        r.auditorName,
+        r.closedAt,
+        chk.docsVerified ? '100%' : '0%',
+        chk.customsCleared ? '100%' : '0%',
+        chk.warehouseReceived ? '100%' : '0%',
+        chk.landedCostSettled ? '100%' : '0%',
+        chk.tasksClosed ? '100%' : '0%',
+        r.archivalNotes ?? '',
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToExcel(
+      context: context,
+      stageName: 'File Closure & Archival',
+      importFileNameOrCode: 'Registry',
+      headers: headers,
+      rows: rows,
+    );
+  }
+
+  Future<void> _exportClosuresPdf(
+    List<ImportFileClosureModel> records,
+    Map<int, ImportFileModel> filesMap,
+  ) async {
+    final l10n = context.l10n;
+    if (records.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.fileClosureEmptyRecords), backgroundColor: AppTheme.orange),
+      );
+      return;
+    }
+
+    final headers = [
+      l10n.fileClosureColClosureCode,
+      l10n.fileClosureColImportFile,
+      l10n.fileClosureColArchiveVault,
+      l10n.fileClosureColAuditor,
+      l10n.fileClosureColClosedDate,
+      l10n.fileClosureColDocsVerified,
+      l10n.fileClosureColCustomsCleared,
+      l10n.fileClosureColWarehouseReceived,
+      l10n.fileClosureColLandedCostSettled,
+      l10n.fileClosureColTasksClosed,
+    ];
+
+    final rows = records.map((r) {
+      final matchingFile = filesMap[r.importFileId];
+      final fileTitle = matchingFile != null ? matchingFile.primaryNameWithCode : '#${r.importFileId}';
+      final chk = r.closureChecklist;
+      return [
+        r.closureCode,
+        fileTitle,
+        r.archiveLocation,
+        r.auditorName,
+        r.closedAt,
+        chk.docsVerified ? '100%' : '0%',
+        chk.customsCleared ? '100%' : '0%',
+        chk.warehouseReceived ? '100%' : '0%',
+        chk.landedCostSettled ? '100%' : '0%',
+        chk.tasksClosed ? '100%' : '0%',
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToPdf(
+      context: context,
+      stageName: 'File Closure & Archival',
+      importFileNameOrCode: 'Registry',
+      headers: headers,
+      rows: rows,
     );
   }
 
@@ -138,6 +391,9 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isAr = Directionality.of(context) == TextDirection.rtl;
+    final density = ref.watch(displayDensityProvider);
     final closuresState = ref.watch(fileClosureProvider);
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final importFilesMap = {for (final f in importFiles) f.importFileId: f};
@@ -157,7 +413,7 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
     ];
 
     return VerticalStageScaffold(
-      stageCode: 'CLR-01',
+      stageCode: 'PHASE-6: STEP_21',
       titleEn: 'Import File Final Closure & Archival',
       titleAr: 'إغلاق الملف والأرشفة التاريخية',
       headerIcon: Icons.archive,
@@ -171,200 +427,301 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
       },
       headerActions: [
         IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white70),
+          icon: Icon(Icons.refresh, color: Colors.white70, size: density.buttonIconSize),
           tooltip: context.l10n.fileClosureRefreshTooltip,
           onPressed: () => ref.read(fileClosureProvider.notifier).fetchClosures(),
         ),
       ],
       body: SelectionArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Data Actions Toolbar
-              MasterDataToolbarWidget(
-                moduleEndpoint: 'file-closure',
-                title: 'File_Closure',
-                onRefreshNeeded: () => ref.read(fileClosureProvider.notifier).fetchClosures(),
-              ),
-              const SizedBox(height: 12),
-
-              // Top Toolbar
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
-                        onPressed: () => _showCloseFileDialog(),
-                        icon: const Icon(Icons.lock_clock, color: Colors.white),
-                        label: Text(context.l10n.fileClosureNewCertificateBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      ),
-                      const SizedBox(width: 12),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.emerald,
-                          side: const BorderSide(color: AppTheme.emerald),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        ),
-                        icon: const Icon(Icons.table_chart_outlined, size: 18),
-                        label: Text(context.l10n.fileClosureExportTsvBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        onPressed: () => _copyArchivedFilesTsv(closuresState.valueOrNull ?? [], importFilesMap),
-                      ),
-                      const Spacer(),
-                      SizedBox(
-                        width: 300,
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText: context.l10n.fileClosureSearchHint,
-                            prefixIcon: const Icon(Icons.search),
-                            suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                              valueListenable: _searchController,
-                              builder: (context, value, _) {
-                                if (value.text.isEmpty) return const SizedBox.shrink();
-                                return IconButton(
-                                  icon: const Icon(Icons.clear, size: 18),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    ref.read(fileClosureProvider.notifier).fetchClosures(search: '');
-                                  },
-                                );
-                              },
-                            ),
-                            isDense: true,
-                            border: const OutlineInputBorder(),
-                          ),
-                          onChanged: (val) {
-                            ref.read(fileClosureProvider.notifier).fetchClosures(search: val);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Closed Shipments Reopening Banner
-              if (closedFiles.isNotEmpty) ...[
-                Column(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Data Actions Toolbar
+                    MasterDataToolbarWidget(
+                      moduleEndpoint: 'file-closure',
+                      title: 'File_Closure',
+                      onRefreshNeeded: () => ref.read(fileClosureProvider.notifier).fetchClosures(),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Top Toolbar
                     Card(
                       elevation: 2,
-                      color: Colors.amber.shade50,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: Colors.amber.shade300)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        padding: const EdgeInsets.all(16),
+                        child: Wrap(
+                          spacing: 12,
+                          runSpacing: 10,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          alignment: WrapAlignment.spaceBetween,
                           children: [
-                            Row(
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 8,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
-                                const Icon(Icons.history, color: AppTheme.orange, size: 22),
-                                const SizedBox(width: 8),
-                                Text(context.l10n.fileClosureClosedFilesBannerTitle(closedFiles.length), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                                ElevatedButton.icon(
+                                  key: const Key('createClosureBtn'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.cobalt,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  ),
+                                  onPressed: () => _showCloseFileDialog(),
+                                  icon: const Icon(Icons.lock_clock, color: Colors.white, size: 18),
+                                  label: Text(context.l10n.fileClosureNewCertificateBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                ),
+                                ElevatedButton.icon(
+                                  key: const Key('searchAndCloneClosureBtn'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.emerald,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  ),
+                                  onPressed: () => _openSearchAndCloneDialog(closuresState.valueOrNull ?? []),
+                                  icon: const Icon(Icons.difference_outlined, size: 18),
+                                  label: Text(context.l10n.searchAndCloneFileClosureBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                ),
+                                OutlinedButton.icon(
+                                  key: const Key('copyClosureTableTsvBtn'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppTheme.cobalt,
+                                    side: const BorderSide(color: AppTheme.cobalt),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  ),
+                                  icon: const Icon(Icons.table_chart_outlined, size: 18),
+                                  label: Text(context.l10n.fileClosureExportTsvBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  onPressed: () => _copyArchivedFilesTsv(closuresState.valueOrNull ?? [], importFilesMap),
+                                ),
+                                IconButton(
+                                  key: const Key('exportClosureExcelBtn'),
+                                  icon: const Icon(Icons.description_outlined, color: AppTheme.emerald),
+                                  tooltip: context.l10n.exportFileClosureExcelTooltip,
+                                  onPressed: () => _exportClosuresExcel(closuresState.valueOrNull ?? [], importFilesMap),
+                                ),
+                                IconButton(
+                                  key: const Key('exportClosurePdfBtn'),
+                                  icon: const Icon(Icons.picture_as_pdf_outlined, color: AppTheme.crimson),
+                                  tooltip: context.l10n.exportFileClosurePdfTooltip,
+                                  onPressed: () => _exportClosuresPdf(closuresState.valueOrNull ?? [], importFilesMap),
+                                ),
                               ],
                             ),
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 12,
-                              runSpacing: 10,
-                              children: closedFiles.map((cf) {
-                                final isAr = Localizations.localeOf(context).languageCode == 'ar';
-                                final shipName = DisplayNameResolver.resolveShipmentName(cf, isArabic: isAr);
-                                final phaseName = cf.closedAtPhase != null
-                                    ? DisplayNameResolver.resolvePhaseName(cf.closedAtPhase!, isArabic: isAr)
-                                    : context.l10n.fileClosureClosedBadge;
-
-                                return Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          CopyableText(shipName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 13)),
-                                          const SizedBox(width: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
-                                            child: Text(phaseName, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.crimson)),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 3),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.cobalt.withOpacity(0.08),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: CopyableText(cf.importFileCode, style: TextStyle(fontSize: 10, color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
-                                      ),
-                                      if (cf.closureReason != null && cf.closureReason!.isNotEmpty) ...[
-                                        const SizedBox(height: 4),
-                                        Text(context.l10n.fileClosureStopReason(cf.closureReason!), style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.black87)),
-                                      ],
-                                      const SizedBox(height: 8),
-                                      ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppTheme.emerald,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                        ),
+                            SizedBox(
+                              width: 280,
+                              child: TextField(
+                                controller: _searchController,
+                                decoration: InputDecoration(
+                                  hintText: context.l10n.fileClosureSearchHint,
+                                  prefixIcon: const Icon(Icons.search, size: 20),
+                                  suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                                    valueListenable: _searchController,
+                                    builder: (context, value, _) {
+                                      if (value.text.isEmpty) return const SizedBox.shrink();
+                                      return IconButton(
+                                        icon: const Icon(Icons.clear, size: 18),
                                         onPressed: () {
-                                          ReopenShipmentDialog.show(
-                                            context,
-                                            importFile: cf,
-                                            onSuccess: () => ref.read(importFilesProvider.notifier).fetchImportFiles(),
-                                          );
+                                          _searchController.clear();
+                                          ref.read(fileClosureProvider.notifier).fetchClosures(search: '');
                                         },
-                                        icon: const Icon(Icons.restart_alt, size: 14),
-                                        label: Text(context.l10n.fileClosureReopenBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                      ),
-                                    ],
+                                      );
+                                    },
                                   ),
-                                );
-                              }).toList(),
+                                  isDense: true,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                ),
+                                onChanged: (val) {
+                                  ref.read(fileClosureProvider.notifier).fetchClosures(search: val);
+                                },
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ),
                     const SizedBox(height: 16),
+
+                    // Closed Shipments Reopening Banner
+                    if (closedFiles.isNotEmpty) ...[
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Card(
+                            elevation: 2,
+                            color: isDark ? const Color(0xFF2E1A05) : Colors.amber.shade50,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(color: isDark ? const Color(0xFF78350F) : Colors.amber.shade300),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.history, color: AppTheme.orange, size: 22),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          context.l10n.fileClosureClosedFilesBannerTitle(closedFiles.length),
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: isDark ? const Color(0xFFFEF3C7) : AppTheme.charcoal,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Wrap(
+                                    spacing: 12,
+                                    runSpacing: 10,
+                                    children: closedFiles.map((cf) {
+                                      final isArLocale = Localizations.localeOf(context).languageCode == 'ar';
+                                      final shipName = DisplayNameResolver.resolveShipmentName(cf, isArabic: isArLocale);
+                                      final phaseName = cf.closedAtPhase != null
+                                          ? DisplayNameResolver.resolvePhaseName(cf.closedAtPhase!, isArabic: isArLocale)
+                                          : context.l10n.fileClosureClosedBadge;
+
+                                      return Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Wrap(
+                                              spacing: 8,
+                                              runSpacing: 4,
+                                              crossAxisAlignment: WrapCrossAlignment.center,
+                                              children: [
+                                                CopyableText(
+                                                  shipName,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: isDark ? Colors.white : AppTheme.charcoal,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: isDark ? const Color(0xFF7F1D1D) : Colors.red.shade100,
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    phaseName,
+                                                    style: TextStyle(
+                                                      fontSize: DisplayDensityMode.clampFontSize(11.0),
+                                                      fontWeight: FontWeight.bold,
+                                                      color: isDark ? const Color(0xFFFECACA) : AppTheme.crimson,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 3),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.cobalt.withOpacity(0.08),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: CopyableText(
+                                                cf.importFileCode,
+                                                style: TextStyle(
+                                                  fontSize: DisplayDensityMode.clampFontSize(11.0),
+                                                  color: isDark ? const Color(0xFF93C5FD) : Colors.grey.shade700,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                            if (cf.closureReason != null && cf.closureReason!.isNotEmpty) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                context.l10n.fileClosureStopReason(cf.closureReason!),
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontStyle: FontStyle.italic,
+                                                  color: isDark ? const Color(0xFFCBD5E1) : Colors.black87,
+                                                ),
+                                              ),
+                                            ],
+                                            const SizedBox(height: 8),
+                                            ElevatedButton.icon(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: AppTheme.emerald,
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                              ),
+                                              onPressed: () {
+                                                ReopenShipmentDialog.show(
+                                                  context,
+                                                  importFile: cf,
+                                                  onSuccess: () => ref.read(importFilesProvider.notifier).fetchImportFiles(),
+                                                );
+                                              },
+                                              icon: const Icon(Icons.restart_alt, size: 14),
+                                              label: Text(context.l10n.fileClosureReopenBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
-              ],
+              ),
 
-              // Closure Records Grid/List
-              Expanded(
-                child: closuresState.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (err, _) => Center(child: Text('${context.l10n.fileClosureFetchError} $err', style: const TextStyle(color: AppTheme.crimson))),
-                  data: (records) {
-                    if (records.isEmpty) {
-                      return Center(child: Text(context.l10n.fileClosureEmptyRecords));
-                    }
+              // Closure Records Grid/List as Sliver
+              closuresState.when(
+                loading: () => const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                error: (err, _) => SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: Text('${context.l10n.fileClosureFetchError} $err', style: const TextStyle(color: AppTheme.crimson))),
+                ),
+                data: (records) {
+                  if (records.isEmpty) {
+                    return SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(child: Text(context.l10n.fileClosureEmptyRecords)),
+                    );
+                  }
 
-                    return ListView.builder(
-                      itemCount: records.length,
-                      itemBuilder: (context, idx) {
+                  return SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, idx) {
                         final r = records[idx];
                         final chk = r.closureChecklist;
                         final matchingFile = importFilesMap[r.importFileId];
-                        final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                        final isArLocale = Localizations.localeOf(context).languageCode == 'ar';
                         final rawCode = 'IMP-${r.importFileId}';
                         final shipName = matchingFile != null
-                            ? DisplayNameResolver.resolveShipmentName(matchingFile, isArabic: isAr)
-                            : DisplayNameResolver.resolveShipmentNameByCode(rawCode, shipments: importFiles, isArabic: isAr);
+                            ? DisplayNameResolver.resolveShipmentName(matchingFile, isArabic: isArLocale)
+                            : DisplayNameResolver.resolveShipmentNameByCode(rawCode, shipments: importFiles, isArabic: isArLocale);
 
                         return Card(
                           margin: const EdgeInsets.only(bottom: 16),
@@ -374,28 +731,74 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
+                                Wrap(
+                                  spacing: 10,
+                                  runSpacing: 6,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  alignment: WrapAlignment.spaceBetween,
                                   children: [
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 6,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.emerald.withOpacity(0.12),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(color: AppTheme.emerald),
+                                          ),
+                                          child: CopyableText(r.closureCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                                        ),
+                                        CopyableText(
+                                          shipName,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: isDark ? Colors.white : AppTheme.charcoal,
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: isDark ? const Color(0xFF334155) : AppTheme.charcoal.withOpacity(0.08),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: CopyableText(
+                                            rawCode,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: isDark ? const Color(0xFFCBD5E1) : Colors.grey.shade700,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        CopyableText(
+                                          context.l10n.fileClosureVaultLabel(r.archiveLocation),
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                      decoration: BoxDecoration(color: AppTheme.emerald.withOpacity(0.12), borderRadius: BorderRadius.circular(6), border: Border.all(color: AppTheme.emerald)),
-                                      child: CopyableText(r.closureCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    CopyableText(shipName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08), borderRadius: BorderRadius.circular(4)),
-                                      child: CopyableText(rawCode, style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    CopyableText(context.l10n.fileClosureVaultLabel(r.archiveLocation), style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
-                                    const Spacer(),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                      decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(6)),
-                                      child: Text(context.l10n.fileClosureStatusBadgeClosed, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 12)),
+                                      decoration: BoxDecoration(
+                                        color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        r.isFullyVerified
+                                            ? context.l10n.fileClosureStatusBadgeClosed
+                                            : (isAr ? 'مسودة قيد الاستيفاء' : 'Draft / Incomplete'),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: isDark ? Colors.white : Colors.black87,
+                                          fontSize: 12,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -408,11 +811,11 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                                   spacing: 8,
                                   runSpacing: 8,
                                   children: [
-                                    _buildChecklistChip(context.l10n.fileClosureChecklistDocsOriginals, chk.docsVerified),
-                                    _buildChecklistChip(context.l10n.fileClosureChecklistCustomsCleared, chk.customsCleared),
-                                    _buildChecklistChip(context.l10n.fileClosureChecklistWarehouseGrn, chk.warehouseReceived),
-                                    _buildChecklistChip(context.l10n.fileClosureChecklistLandedCost, chk.landedCostSettled),
-                                    _buildChecklistChip(context.l10n.fileClosureChecklistTasksClosed, chk.tasksClosed),
+                                    _buildChecklistChip(context.l10n.fileClosureChecklistDocsOriginals, chk.docsVerified, isDark),
+                                    _buildChecklistChip(context.l10n.fileClosureChecklistCustomsCleared, chk.customsCleared, isDark),
+                                    _buildChecklistChip(context.l10n.fileClosureChecklistWarehouseGrn, chk.warehouseReceived, isDark),
+                                    _buildChecklistChip(context.l10n.fileClosureChecklistLandedCost, chk.landedCostSettled, isDark),
+                                    _buildChecklistChip(context.l10n.fileClosureChecklistTasksClosed, chk.tasksClosed, isDark),
                                   ],
                                 ),
 
@@ -420,97 +823,131 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                                   const SizedBox(height: 12),
                                   Container(
                                     padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(6)),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade50,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
                                     child: Row(
                                       children: [
                                         const Icon(Icons.note, size: 16, color: Colors.grey),
                                         const SizedBox(width: 8),
-                                        Expanded(child: Text(context.l10n.fileClosureArchivalNotes(r.archivalNotes!), style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic))),
+                                        Expanded(
+                                          child: Text(
+                                            context.l10n.fileClosureArchivalNotes(r.archivalNotes!),
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontStyle: FontStyle.italic,
+                                              color: isDark ? const Color(0xFFCBD5E1) : Colors.black87,
+                                            ),
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
                                 ],
 
-                                const SizedBox(height: 8),
-                                Row(
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  alignment: WrapAlignment.spaceBetween,
                                   children: [
-                                    RowActionsPill(
-                                      onView: () {
-                                        showDialog(
-                                          context: context,
-                                          builder: (c) => AlertDialog(
-                                            title: Text(context.l10n.fileClosureCertificateDialogTitle(r.closureCode)),
-                                            content: SelectionArea(
-                                              child: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  CopyableText(context.l10n.fileClosureCertFileNo(r.importFileId)),
-                                                  const SizedBox(height: 4),
-                                                  CopyableText(context.l10n.fileClosureCertLocation(r.archiveLocation)),
-                                                  const SizedBox(height: 4),
-                                                  CopyableText(context.l10n.fileClosureCertAuditor(r.auditorName)),
-                                                  const SizedBox(height: 4),
-                                                  CopyableText(context.l10n.fileClosureCertClosedDate(r.closedAt)),
-                                                  if (r.archivalNotes != null) ...[
-                                                    const SizedBox(height: 4),
-                                                    CopyableText(context.l10n.fileClosureCertNotes(r.archivalNotes!)),
-                                                  ],
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 6,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      children: [
+                                        RowActionsPill(
+                                          onView: () {
+                                            showDialog(
+                                              context: context,
+                                              builder: (c) => AlertDialog(
+                                                title: Text(context.l10n.fileClosureCertificateDialogTitle(r.closureCode)),
+                                                content: SelectionArea(
+                                                  child: Column(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      CopyableText(context.l10n.fileClosureCertFileNo(r.importFileId)),
+                                                      const SizedBox(height: 4),
+                                                      CopyableText(context.l10n.fileClosureCertLocation(r.archiveLocation)),
+                                                      const SizedBox(height: 4),
+                                                      CopyableText(context.l10n.fileClosureCertAuditor(r.auditorName)),
+                                                      const SizedBox(height: 4),
+                                                      CopyableText(context.l10n.fileClosureCertClosedDate(r.closedAt)),
+                                                      if (r.archivalNotes != null) ...[
+                                                        const SizedBox(height: 4),
+                                                        CopyableText(context.l10n.fileClosureCertNotes(r.archivalNotes!)),
+                                                      ],
+                                                    ],
+                                                  ),
+                                                ),
+                                                actions: [
+                                                  OutlinedButton.icon(
+                                                    icon: const Icon(Icons.copy, size: 16),
+                                                    label: Text(context.l10n.fileClosureCopyCertTsvBtn),
+                                                    onPressed: () => _copySingleCertificateSummary(r, matchingFile),
+                                                  ),
+                                                  TextButton(onPressed: () => Navigator.pop(c), child: Text(context.l10n.close)),
                                                 ],
                                               ),
-                                            ),
-                                            actions: [
-                                              OutlinedButton.icon(
-                                                icon: const Icon(Icons.copy, size: 16),
-                                                label: Text(context.l10n.fileClosureCopyCertTsvBtn),
-                                                onPressed: () => _copySingleCertificateSummary(r, matchingFile),
+                                            );
+                                          },
+                                          onEdit: () {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text(context.l10n.fileClosureEditSnack(r.closureCode)), backgroundColor: AppTheme.orange),
+                                            );
+                                          },
+                                          onPrint: () => _copySingleCertificateSummary(r, matchingFile),
+                                          onDelete: () async {
+                                            final l10n = context.l10n;
+                                            final confirm = await showDialog<bool>(
+                                              context: context,
+                                              builder: (c) => AlertDialog(
+                                                title: Text(l10n.fileClosureDeleteTitle),
+                                                content: Text(l10n.fileClosureDeleteMessage),
+                                                actions: [
+                                                  TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l10n.cancel)),
+                                                  TextButton(onPressed: () => Navigator.pop(c, true), child: Text(l10n.delete, style: const TextStyle(color: AppTheme.crimson))),
+                                                ],
                                               ),
-                                              TextButton(onPressed: () => Navigator.pop(c), child: Text(context.l10n.close)),
-                                            ],
+                                            );
+                                            if (confirm == true) {
+                                              ref.read(fileClosureProvider.notifier).softDeleteClosure(r.closureId);
+                                            }
+                                          },
+                                          viewTooltip: context.l10n.fileClosureViewTooltip,
+                                          editTooltip: context.l10n.fileClosureEditTooltip,
+                                          printTooltip: context.l10n.fileClosurePrintTooltip,
+                                          deleteTooltip: context.l10n.fileClosureDeleteTooltip,
+                                        ),
+                                        OutlinedButton.icon(
+                                          key: Key('copyClosureRowBtn_${r.closureCode}'),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: AppTheme.cobalt,
+                                            side: BorderSide(color: Colors.blue.shade300),
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                           ),
-                                        );
-                                      },
-                                      onEdit: () {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text(context.l10n.fileClosureEditSnack(r.closureCode)), backgroundColor: AppTheme.orange),
-                                        );
-                                      },
-                                      onPrint: () => _copySingleCertificateSummary(r, matchingFile),
-                                      onDelete: () async {
-                                        final l10n = context.l10n;
-                                        final confirm = await showDialog<bool>(
-                                          context: context,
-                                          builder: (c) => AlertDialog(
-                                            title: Text(l10n.fileClosureDeleteTitle),
-                                            content: Text(l10n.fileClosureDeleteMessage),
-                                            actions: [
-                                              TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l10n.cancel)),
-                                              TextButton(onPressed: () => Navigator.pop(c, true), child: Text(l10n.delete, style: const TextStyle(color: AppTheme.crimson))),
-                                            ],
-                                          ),
-                                        );
-                                        if (confirm == true) {
-                                          ref.read(fileClosureProvider.notifier).softDeleteClosure(r.closureId);
-                                        }
-                                      },
-                                      viewTooltip: context.l10n.fileClosureViewTooltip,
-                                      editTooltip: context.l10n.fileClosureEditTooltip,
-                                      printTooltip: context.l10n.fileClosurePrintTooltip,
-                                      deleteTooltip: context.l10n.fileClosureDeleteTooltip,
+                                          icon: const Icon(Icons.copy_outlined, size: 14),
+                                          label: Text(context.l10n.fileClosureCopyCertTsvBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                          onPressed: () => _copyClosureRowTsv(r, matchingFile, context.l10n),
+                                        ),
+                                        IconButton(
+                                          key: Key('cloneClosureBtn_${r.closureCode}'),
+                                          icon: const Icon(Icons.difference_outlined, color: AppTheme.emerald, size: 18),
+                                          tooltip: context.l10n.cloneFileClosureTooltip,
+                                          onPressed: () => _onCloneClosure(r),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(width: 8),
-                                    OutlinedButton.icon(
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: AppTheme.cobalt,
-                                        side: BorderSide(color: Colors.blue.shade300),
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    CopyableText(
+                                      context.l10n.fileClosureAuditorLabel(r.auditorName),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600,
                                       ),
-                                      icon: const Icon(Icons.copy_outlined, size: 14),
-                                      label: Text(context.l10n.fileClosureCopyCertTsvBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                      onPressed: () => _copySingleCertificateSummary(r, matchingFile),
                                     ),
-                                    const Spacer(),
-                                    CopyableText(context.l10n.fileClosureAuditorLabel(r.auditorName), style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
                                   ],
                                 ),
                               ],
@@ -518,9 +955,10 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                           ),
                         );
                       },
-                    );
-                  },
-                ),
+                      childCount: records.length,
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -529,11 +967,20 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
     );
   }
 
-  Widget _buildChecklistChip(String label, bool isOk) {
+  Widget _buildChecklistChip(String label, bool isOk, bool isDark) {
     return Chip(
       avatar: Icon(isOk ? Icons.check_circle : Icons.cancel, color: isOk ? AppTheme.emerald : AppTheme.crimson, size: 16),
-      label: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isOk ? Colors.black87 : AppTheme.crimson)),
-      backgroundColor: isOk ? AppTheme.emerald.withOpacity(0.1) : AppTheme.crimson.withOpacity(0.1),
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: isOk ? (isDark ? Colors.white : Colors.black87) : AppTheme.crimson,
+        ),
+      ),
+      backgroundColor: isOk
+          ? AppTheme.emerald.withOpacity(isDark ? 0.2 : 0.1)
+          : AppTheme.crimson.withOpacity(isDark ? 0.2 : 0.1),
     );
   }
 }
@@ -543,7 +990,13 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
 // -----------------------------------------------------------------------------
 
 class _FileClosureFormDialog extends ConsumerStatefulWidget {
-  const _FileClosureFormDialog();
+  final ImportFileClosureModel? initialRecord;
+  final bool isCloneDraft;
+
+  const _FileClosureFormDialog({
+    this.initialRecord,
+    this.isCloneDraft = false,
+  });
 
   @override
   ConsumerState<_FileClosureFormDialog> createState() => _FileClosureFormDialogState();
@@ -553,18 +1006,44 @@ class _FileClosureFormDialogState extends ConsumerState<_FileClosureFormDialog> 
   final _formKey = GlobalKey<FormState>();
   int? _selectedImportFileId;
 
-  bool _docsVerified = true;
-  bool _customsCleared = true;
-  bool _warehouseReceived = true;
-  bool _landedCostSettled = true;
-  bool _tasksClosed = true;
+  late bool _docsVerified;
+  late bool _customsCleared;
+  late bool _warehouseReceived;
+  late bool _landedCostSettled;
+  late bool _tasksClosed;
 
-  final TextEditingController _auditorCtrl = TextEditingController(text: 'Adel Hassan (Senior Auditor)');
-  final TextEditingController _vaultCtrl = TextEditingController(text: 'Digital Vault Archive 2026 - Main Server');
-  final TextEditingController _notesCtrl = TextEditingController(text: 'تم استيفاء جميع المستندات والإفراج الجمركي وحساب تكلفة الوصول بنجاح.');
+  late final TextEditingController _auditorCtrl;
+  late final TextEditingController _vaultCtrl;
+  late final TextEditingController _notesCtrl;
 
   bool _isLoading = false;
   bool _isDraftSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final init = widget.initialRecord;
+    if (init != null) {
+      _selectedImportFileId = init.importFileId;
+      _docsVerified = init.closureChecklist.docsVerified;
+      _customsCleared = init.closureChecklist.customsCleared;
+      _warehouseReceived = init.closureChecklist.warehouseReceived;
+      _landedCostSettled = init.closureChecklist.landedCostSettled;
+      _tasksClosed = init.closureChecklist.tasksClosed;
+      _auditorCtrl = TextEditingController(text: init.auditorName);
+      _vaultCtrl = TextEditingController(text: init.archiveLocation);
+      _notesCtrl = TextEditingController(text: init.archivalNotes ?? '');
+    } else {
+      _docsVerified = true;
+      _customsCleared = true;
+      _warehouseReceived = true;
+      _landedCostSettled = true;
+      _tasksClosed = true;
+      _auditorCtrl = TextEditingController(text: 'Adel Hassan (Senior Auditor)');
+      _vaultCtrl = TextEditingController(text: 'Digital Vault Archive 2026 - Main Server');
+      _notesCtrl = TextEditingController(text: 'تم استيفاء جميع المستندات والإفراج الجمركي وحساب تكلفة الوصول بنجاح.');
+    }
+  }
 
   @override
   void dispose() {
@@ -670,6 +1149,9 @@ class _FileClosureFormDialogState extends ConsumerState<_FileClosureFormDialog> 
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final dialogWidth = (screenWidth - 32).clamp(320.0, 700.0);
+    final isAr = Directionality.of(context) == TextDirection.rtl;
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     final int completedCount = (_docsVerified ? 1 : 0) +
@@ -683,16 +1165,22 @@ class _FileClosureFormDialogState extends ConsumerState<_FileClosureFormDialog> 
         ? AppTheme.emerald
         : (completedCount >= 3 ? AppTheme.cobalt : (completedCount >= 1 ? Colors.orange.shade800 : Colors.grey.shade600));
 
+    final titleText = widget.isCloneDraft
+        ? '${context.l10n.fileClosureDialogTitle} (${isAr ? "مسودة مستنسخة" : "Cloned Draft"})'
+        : context.l10n.fileClosureDialogTitle;
+
     return AlertDialog(
+      actionsOverflowButtonSpacing: 8,
+      actionsOverflowDirection: VerticalDirection.down,
       title: Row(
         children: [
-          const Icon(Icons.inventory_2_outlined, color: AppTheme.cobalt, size: 24),
+          Icon(widget.isCloneDraft ? Icons.difference_outlined : Icons.inventory_2_outlined, color: AppTheme.cobalt, size: 24),
           const SizedBox(width: 8),
-          Expanded(child: Text(context.l10n.fileClosureDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+          Expanded(child: Text(titleText, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
         ],
       ),
       content: SizedBox(
-        width: 600,
+        width: dialogWidth,
         child: SelectionArea(
           child: Form(
             key: _formKey,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
@@ -17,6 +18,10 @@ import '../widgets/discrepancy_and_damage_tab.dart';
 import '../widgets/final_duty_payment_tab.dart';
 import '../widgets/under_bond_release_dialog.dart';
 import '../../../core/services/display_name_resolver.dart';
+import '../../../core/helpers/table_copy_helper.dart';
+import '../../../core/services/table_export_service.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
+import '../widgets/search_and_clone_customs_clearance_dialog.dart';
 
 
 class CustomsClearanceScreen extends ConsumerStatefulWidget {
@@ -78,12 +83,166 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     super.dispose();
   }
 
-  void _copyClearanceRecordsTsv(List<CustomsClearanceModel> records, AppLocalizations l) {
-    if (records.isEmpty) return;
+
+
+  void _showAddEditDialog([CustomsClearanceModel? recordToEdit, bool isCloneDraft = false]) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _CustomsClearanceFormDialog(
+        recordToEdit: recordToEdit,
+        isCloneDraft: isCloneDraft,
+      ),
+    );
+  }
+
+  void _openSearchAndCloneClearanceDialog(List<CustomsClearanceModel> records) {
+    showDialog(
+      context: context,
+      builder: (ctx) => SearchAndCloneCustomsClearanceDialog(
+        records: records,
+        onSelectRecord: _onCloneClearance,
+      ),
+    );
+  }
+
+  void _onCloneClearance(CustomsClearanceModel rec) {
+    final l = context.l10n;
+    final isAr = l.isArabic;
+    final newDraftCode = 'CLR-DRAFT-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: isAr ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+          child: CloneEntityReviewDialog(
+            entityType: isAr ? 'بيان تخليص ومعاينة جمركية' : 'Customs Clearance & Inspection Record',
+            sourceCode: rec.clearanceCode,
+            suggestedNewCode: newDraftCode,
+            sourceTitle: rec.declaration46No != null && rec.declaration46No!.isNotEmpty
+                ? '${l.customsClearanceDeclaration46Label}: ${rec.declaration46No}'
+                : rec.customsOfficeName,
+            copiedFieldsSummary: {
+              isAr ? 'الجمرك / المركز' : 'Customs Office': rec.customsOfficeName,
+              isAr ? 'المسار الجمركي' : 'Channel Type': rec.channelType,
+              isAr ? 'ضريبة الوارد' : 'Import Duty': '${rec.importDutyAmount.toStringAsFixed(2)} EGP',
+              isAr ? 'ضريبة القيمة المضافة' : 'VAT': '${rec.vatAmount.toStringAsFixed(2)} EGP',
+              isAr ? 'ضريبة الجدول' : 'Schedule Tax': '${rec.scheduleTaxAmount.toStringAsFixed(2)} EGP',
+              isAr ? 'أرباح تجارية (WHT)' : 'WHT': '${rec.whtAmount.toStringAsFixed(2)} EGP',
+              isAr ? 'رسوم الفحص المعملي' : 'Lab Service Fees': '${rec.labServiceFees.toStringAsFixed(2)} EGP',
+              isAr ? 'إجمالي الرسوم الجمركية' : 'Total Duty Payable': '${rec.totalDutyPayable.toStringAsFixed(2)} EGP',
+              isAr ? 'فترة السماح بالميناء' : 'Free Days Allowed': '${rec.freeDaysAllowed} days',
+            },
+            mandatorilyResetFields: isAr
+                ? const [
+                    'معرف التخليص الجمركي: يتم تفريغه لتوليد سجل بيان جمركي جديد',
+                    'كود المعاملة: يعاد تعيينه كمسودة (CLR-DRAFT)',
+                    'رقم 46 ك.م وإذن التسليم: يتم تفريغهم لحين القيد والتسليم الفعلي للبيان الجديد',
+                    'حالة السداد وإيصال البنك: يعاد ضبطها إلى "غير مسدد" ومسح الإيصالات السابقة',
+                    'تصريح وتاريخ الإفراج الجمركي: يتم تفريغهما لحين إنهاء إجراءات الإفراج',
+                    'حالة المعاملة: تعاد للبدء المبدئي (قيد المعاينة والفحص)',
+                  ]
+                : const [
+                    'Clearance ID: Cleared for new record generation',
+                    'Clearance Code: Re-assigned as new DRAFT',
+                    'Decl. 46 & Delivery Order: Cleared until actual registration',
+                    'Payment Status & Bank Receipt: Reset to Unpaid and receipts wiped',
+                    'Release Permit & Dates: Cleared until final release procedures',
+                    'Operational Status: Reset to Initial (Inspection In Progress)',
+                  ],
+            allowCopyLineItems: true,
+            allowCopyAttachments: false,
+            onConfirm: ({
+              required String newCode,
+              required String newTitle,
+              required bool copyLineItems,
+              required bool copyAttachments,
+              String? notes,
+            }) async {
+              final clonedDraft = CustomsClearanceModel(
+                customsClearanceId: 0,
+                clearanceCode: newCode,
+                importFileId: rec.importFileId,
+                declaration46No: null,
+                customsOfficeName: rec.customsOfficeName,
+                channelType: rec.channelType,
+                inspectionDate: null,
+                regulatoryBodies: List<String>.from(rec.regulatoryBodies),
+                sampleTestStatus: 'Samples Under Testing',
+                inspectionNotes: null,
+                importDutyAmount: rec.importDutyAmount,
+                vatAmount: rec.vatAmount,
+                scheduleTaxAmount: rec.scheduleTaxAmount,
+                whtAmount: rec.whtAmount,
+                labServiceFees: rec.labServiceFees,
+                totalDutyPayable: rec.totalDutyPayable,
+                estimatedDutyTotal: rec.estimatedDutyTotal,
+                actualDutyTotal: 0.0,
+                dutyVarianceAmount: 0.0,
+                dutyVariancePercentage: 0.0,
+                dutyVarianceReason: null,
+                nafezaAssessmentJson: null,
+                portArrivalDate: null,
+                deliveryOrderNumber: null,
+                deliveryOrderExpiry: null,
+                freeDaysAllowed: rec.freeDaysAllowed,
+                portGateOutDate: null,
+                paymentStatus: 'Unpaid',
+                bankReceiptNo: null,
+                payingBankName: null,
+                paymentDate: null,
+                paymentNotes: null,
+                releasePermitNo: null,
+                releaseDate: null,
+                demurrageStorageFees: 0.0,
+                dispatchAuthorized: false,
+                dispatchDate: null,
+                status: 'Inspection In Progress',
+                owner: 'Current User',
+                notes: notes ?? 'Cloned from ${rec.clearanceCode}',
+                isActive: true,
+                createdAt: DateTime.now().toIso8601String(),
+                updatedAt: DateTime.now().toIso8601String(),
+              );
+
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _showAddEditDialog(clonedDraft, true);
+                }
+              });
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _copyClearanceRowTsv(CustomsClearanceModel record, AppLocalizations l) {
     final allFiles = ref.read(importFilesProvider).valueOrNull ?? [];
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final buffer = StringBuffer();
-    buffer.writeln([
+    final rawCode = 'IMP-${record.importFileId}';
+    final shipTitle = DisplayNameResolver.resolveShipmentTitleByCode(rawCode, shipments: allFiles, isArabic: isAr);
+    final actual = (record.actualDutyTotal > 0 ? record.actualDutyTotal : record.totalDutyPayable).toStringAsFixed(2);
+    final est = record.estimatedDutyTotal.toStringAsFixed(2);
+    final variance = '${record.dutyVarianceAmount >= 0 ? "+" : ""}${record.dutyVarianceAmount.toStringAsFixed(2)}';
+
+    final rowData = [
+      record.clearanceCode,
+      shipTitle,
+      record.declaration46No ?? '-',
+      record.customsOfficeName,
+      record.channelType,
+      record.deliveryOrderNumber ?? '-',
+      actual,
+      est,
+      variance,
+      record.paymentStatus,
+      record.status,
+    ];
+
+    final headers = [
       l.customsClearanceColClearanceCode,
       l.importFile,
       l.customsClearanceColDecl46,
@@ -95,15 +254,42 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       l.customsClearanceColDutyVariance,
       l.customsClearanceColPaymentStatus,
       l.status,
-    ].join('\t'));
+    ];
 
-    for (final r in records) {
+    TableCopyHelper.copyRow(
+      context,
+      rowData,
+      headers: headers,
+      includeHeaders: true,
+      customMessage: l.copyCustomsClearanceRowSuccess,
+    );
+  }
+
+  void _copyClearanceTableTsv(List<CustomsClearanceModel> records, AppLocalizations l) {
+    if (records.isEmpty) return;
+    final allFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final headers = [
+      l.customsClearanceColClearanceCode,
+      l.importFile,
+      l.customsClearanceColDecl46,
+      l.customsClearanceOfficeLabel,
+      l.customsClearanceChannelLabel,
+      l.customsClearanceDeliveryOrderLabel,
+      l.customsClearanceColActualDuty,
+      l.customsClearanceColEstimatedDuty,
+      l.customsClearanceColDutyVariance,
+      l.customsClearanceColPaymentStatus,
+      l.status,
+    ];
+
+    final rows = records.map((r) {
       final rawCode = 'IMP-${r.importFileId}';
       final shipTitle = DisplayNameResolver.resolveShipmentTitleByCode(rawCode, shipments: allFiles, isArabic: isAr);
       final actual = (r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable).toStringAsFixed(2);
       final est = r.estimatedDutyTotal.toStringAsFixed(2);
       final variance = '${r.dutyVarianceAmount >= 0 ? "+" : ""}${r.dutyVarianceAmount.toStringAsFixed(2)}';
-      buffer.writeln([
+      return [
         r.clearanceCode,
         shipTitle,
         r.declaration46No ?? '-',
@@ -115,17 +301,111 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
         variance,
         r.paymentStatus,
         r.status,
-      ].join('\t'));
-    }
+      ];
+    }).toList();
 
-    CopyHelper.copy(context, buffer.toString(), customMessage: l.customsClearanceExportTsvSuccess);
+    TableCopyHelper.copyTable(
+      context,
+      headers,
+      rows,
+      customMessage: l.copyCustomsClearanceTableSuccess,
+    );
   }
 
-  void _showAddEditDialog([CustomsClearanceModel? recordToEdit]) {
-    showDialog(
+  Future<void> _exportClearanceExcel(List<CustomsClearanceModel> records, AppLocalizations l) async {
+    final allFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final headers = [
+      'كود التخليص',
+      'ملف الشحنة',
+      'رقم 46 ك.م',
+      'الجمرك / المركز',
+      'المسار',
+      'إذن التسليم',
+      'الرسوم الفعلية (ج.م)',
+      'الرسوم التقديرية (ج.م)',
+      'الفارق (ج.م)',
+      'حالة السداد',
+      'الحالة التشغيلية',
+    ];
+
+    final rows = records.map((r) {
+      final rawCode = 'IMP-${r.importFileId}';
+      final shipTitle = DisplayNameResolver.resolveShipmentTitleByCode(rawCode, shipments: allFiles, isArabic: isAr);
+      final actual = (r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable).toStringAsFixed(2);
+      final est = r.estimatedDutyTotal.toStringAsFixed(2);
+      final variance = '${r.dutyVarianceAmount >= 0 ? "+" : ""}${r.dutyVarianceAmount.toStringAsFixed(2)}';
+      return [
+        r.clearanceCode,
+        shipTitle,
+        r.declaration46No ?? '-',
+        r.customsOfficeName,
+        r.channelType,
+        r.deliveryOrderNumber ?? '-',
+        actual,
+        est,
+        variance,
+        r.paymentStatus,
+        r.status,
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToExcel(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => _CustomsClearanceFormDialog(recordToEdit: recordToEdit),
+      stageName: 'Customs Clearance',
+      importFileNameOrCode: 'Registry',
+      headers: headers,
+      rows: rows,
+    );
+  }
+
+  Future<void> _exportClearancePdf(List<CustomsClearanceModel> records, AppLocalizations l) async {
+    final allFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final headers = [
+      'كود التخليص',
+      'ملف الشحنة',
+      '46 ك.م',
+      'الجمرك',
+      'المسار',
+      'إذن التسليم',
+      'الرسوم',
+      'حالة السداد',
+      'الحالة',
+    ];
+
+    final rows = records.map((r) {
+      final rawCode = 'IMP-${r.importFileId}';
+      final shipTitle = DisplayNameResolver.resolveShipmentTitleByCode(rawCode, shipments: allFiles, isArabic: isAr);
+      final actual = (r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable).toStringAsFixed(2);
+      return [
+        r.clearanceCode,
+        shipTitle,
+        r.declaration46No ?? '-',
+        r.customsOfficeName,
+        r.channelType,
+        r.deliveryOrderNumber ?? '-',
+        actual,
+        r.paymentStatus,
+        r.status,
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToPdf(
+      context: context,
+      stageName: 'Customs Clearance',
+      importFileNameOrCode: 'Registry',
+      headers: headers,
+      rows: rows,
+      headerContext: TableExportHeaderContext(
+        title: 'Customs Clearance & Port Operations Registry',
+        subtitle: 'Sorour Logistics ERP — سجل الميناء والتخليص الجمركي والمعاينة والمطابقة',
+        metadata: {
+          'Total Records': records.length.toString(),
+          'Paid & Verified': records.where((r) => r.paymentStatus == 'Paid & Verified').length.toString(),
+          'Final Release': records.where((r) => r.status == 'Final Release Granted').length.toString(),
+        },
+      ),
     );
   }
 
@@ -148,17 +428,18 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final density = ref.watch(displayDensityProvider);
     final clearanceAsync = ref.watch(customsClearanceProvider);
 
     return VerticalStageScaffold(
-      stageCode: 'PHASE-07',
+      stageCode: 'PHASE-5',
       titleAr: 'الميناء والتخليص الجمركي والمعاينة والمطابقة',
       titleEn: 'Port Operations & Customs Clearance Hub',
       headerIcon: Icons.gavel_rounded,
       headerColor: Colors.purple,
       headerActions: [
         ElevatedButton.icon(
-          icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+          icon: Icon(Icons.auto_awesome_rounded, size: density.buttonIconSize),
           label: Text(l.customsClearanceAiBrokerExtractorBtn),
           onPressed: () => UniversalEntityExtractorDialog.showCustomsBrokerExtractor(
             context,
@@ -167,9 +448,17 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.emerald,
             foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: EdgeInsets.symmetric(
+              horizontal: density.isCompact ? 10 : 14,
+              vertical: density.isCompact ? 6 : 10,
+            ),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
+        ),
+        IconButton(
+          icon: Icon(Icons.refresh, color: Colors.white70, size: density.buttonIconSize),
+          tooltip: l.refresh,
+          onPressed: _refreshData,
         ),
       ],
       selectedIndex: _selectedTab,
@@ -197,25 +486,28 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
         ),
       ],
       body: SelectionArea(
-        child: clearanceAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, stack) => Center(
-            child: Text(l.customsClearanceErrorFetch(err.toString()), style: const TextStyle(color: Colors.red)),
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 72.0),
+          child: clearanceAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, stack) => Center(
+              child: Text(l.customsClearanceErrorFetch(err.toString()), style: const TextStyle(color: Colors.red)),
+            ),
+            data: (records) {
+              switch (_selectedTab) {
+                case 0:
+                  return _buildClearanceFollowUpView(records, l);
+                case 1:
+                  return _buildDrawingSamplesAndShortageView(records, l);
+                case 2:
+                  return _buildDiscrepancyAndDamageView(records, l);
+                case 3:
+                  return _buildFinalDutyPaymentView(records, l);
+                default:
+                  return _buildClearanceFollowUpView(records, l);
+              }
+            },
           ),
-          data: (records) {
-            switch (_selectedTab) {
-              case 0:
-                return _buildClearanceFollowUpView(records, l);
-              case 1:
-                return _buildDrawingSamplesAndShortageView(records, l);
-              case 2:
-                return _buildDiscrepancyAndDamageView(records, l);
-              case 3:
-                return _buildFinalDutyPaymentView(records, l);
-              default:
-                return _buildClearanceFollowUpView(records, l);
-            }
-          },
         ),
       ),
     );
@@ -225,6 +517,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   // SUB-VIEW 0: CUSTOMS CLEARANCE FOLLOW-UP
   // ===========================================================================
   Widget _buildClearanceFollowUpView(List<CustomsClearanceModel> records, AppLocalizations l) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final filtered = records.where((r) {
       if (_selectedStatusFilter != 'All' && r.status != _selectedStatusFilter) return false;
       if (_searchController.text.trim().isEmpty) return true;
@@ -237,84 +530,155 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
 
     return Column(
       children: [
-        // Filter & Action Bar
+        // Responsive Filter & Action Bar
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          color: Colors.white,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 280,
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: l.customsClearanceSearchHint,
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: _searchController,
-                        builder: (context, value, _) {
-                          return value.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear, size: 18),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() {});
-                                  },
-                                )
-                              : const SizedBox.shrink();
-                        },
-                      ),
-                      border: const OutlineInputBorder(),
-                      isDense: true,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            border: Border(
+              bottom: BorderSide(
+                color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+              ),
+            ),
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isSmall = constraints.maxWidth < 750;
+              final searchField = SizedBox(
+                width: isSmall ? constraints.maxWidth : 260,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: l.customsClearanceSearchHint,
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _searchController,
+                      builder: (context, value, _) {
+                        return value.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 16),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() {});
+                                },
+                              )
+                            : const SizedBox.shrink();
+                      },
                     ),
-                    onChanged: (_) => setState(() {}),
+                    border: const OutlineInputBorder(),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    isDense: true,
                   ),
+                  onChanged: (_) => setState(() {}),
                 ),
-                const SizedBox(width: 12),
-                DropdownButton<String>(
-                  value: _selectedStatusFilter,
-                  underline: const SizedBox(),
-                  items: [
-                    DropdownMenuItem(value: 'All', child: Text(l.customsClearanceFilterAll)),
-                    DropdownMenuItem(value: 'Inspection In Progress', child: Text(l.customsClearanceFilterInspection)),
-                    DropdownMenuItem(value: 'Duty Requested', child: Text(l.customsClearanceFilterDutyRequested)),
-                    DropdownMenuItem(value: 'Duty Paid', child: Text(l.customsClearanceFilterDutyPaid)),
-                    DropdownMenuItem(value: 'Final Release Granted', child: Text(l.customsClearanceFilterFinalRelease)),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedStatusFilter = val);
-                  },
-                ),
-                const SizedBox(width: 12),
+              );
+
+              final statusDropdown = DropdownButton<String>(
+                value: _selectedStatusFilter,
+                underline: const SizedBox(),
+                dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                items: [
+                  DropdownMenuItem(value: 'All', child: Text(l.customsClearanceFilterAll)),
+                  DropdownMenuItem(value: 'Inspection In Progress', child: Text(l.customsClearanceFilterInspection)),
+                  DropdownMenuItem(value: 'Duty Requested', child: Text(l.customsClearanceFilterDutyRequested)),
+                  DropdownMenuItem(value: 'Duty Paid', child: Text(l.customsClearanceFilterDutyPaid)),
+                  DropdownMenuItem(value: 'Final Release Granted', child: Text(l.customsClearanceFilterFinalRelease)),
+                ],
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedStatusFilter = val);
+                },
+              );
+
+              final actionButtons = [
                 ElevatedButton.icon(
+                  key: const Key('createClearanceBtn'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.cobalt,
                     foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   icon: const Icon(Icons.add, size: 16),
                   label: Text(l.customsClearanceNewRecordButton),
                   onPressed: () => _showAddEditDialog(),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 ElevatedButton.icon(
+                  key: const Key('searchAndCloneClearanceBtn'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal.shade700,
+                    backgroundColor: AppTheme.cobalt.withOpacity(0.85),
                     foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
-                  icon: const Icon(Icons.copy_all_outlined, size: 16),
-                  label: Text(l.customsClearanceExportTsvBtn),
-                  onPressed: () => _copyClearanceRecordsTsv(filtered, l),
+                  icon: const Icon(Icons.difference_outlined, size: 16),
+                  label: Text(l.searchAndCloneCustomsClearanceBtn),
+                  onPressed: () => _openSearchAndCloneClearanceDialog(records),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
                 IconButton(
-                  icon: const Icon(Icons.refresh, color: AppTheme.cobalt),
+                  key: const Key('copyClearanceTableTsvBtn'),
+                  icon: const Icon(Icons.copy_all_outlined, size: 20, color: AppTheme.cobalt),
+                  tooltip: l.copyCustomsClearanceTableSuccess,
+                  onPressed: () => _copyClearanceTableTsv(filtered, l),
+                ),
+                IconButton(
+                  key: const Key('exportClearanceExcelBtn'),
+                  icon: const Icon(Icons.table_view_outlined, size: 20, color: AppTheme.emerald),
+                  tooltip: l.exportCustomsClearanceExcelTooltip,
+                  onPressed: () => _exportClearanceExcel(filtered, l),
+                ),
+                IconButton(
+                  key: const Key('exportClearancePdfBtn'),
+                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 20, color: AppTheme.crimson),
+                  tooltip: l.exportCustomsClearancePdfTooltip,
+                  onPressed: () => _exportClearancePdf(filtered, l),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh, color: AppTheme.cobalt, size: 20),
                   tooltip: l.customsDeclRefreshTooltip,
                   onPressed: _refreshData,
                 ),
-              ],
-            ),
+              ];
+
+              if (isSmall) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    searchField,
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        statusDropdown,
+                        ...actionButtons,
+                      ],
+                    ),
+                  ],
+                );
+              }
+
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                alignment: WrapAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      searchField,
+                      const SizedBox(width: 12),
+                      statusDropdown,
+                    ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: actionButtons,
+                  ),
+                ],
+              );
+            },
           ),
         ),
         const Divider(height: 1),
@@ -383,6 +747,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   Widget _buildClearanceCard(CustomsClearanceModel record, AppLocalizations l) {
     final allFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final rawFileCode = 'IMP-${record.importFileId}';
     final shipName = DisplayNameResolver.resolveShipmentNameByCode(rawFileCode, shipments: allFiles, isArabic: isAr);
 
@@ -411,158 +776,270 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       channelLabel = l.customsClearanceChannelYellow;
     }
 
+    final primaryTextColor = isDark ? const Color(0xFFF1F5F9) : AppTheme.charcoal;
+    final secondaryTextColor = isDark ? const Color(0xFF94A3B8) : Colors.black87;
+    final tertiaryTextColor = isDark ? const Color(0xFF64748B) : Colors.black54;
+
+    final actionButtons = [
+      IconButton(
+        key: Key('editClearanceBtn_${record.clearanceCode}'),
+        icon: const Icon(Icons.edit_outlined, color: AppTheme.cobalt, size: 20),
+        tooltip: l.customsClearanceEditTooltip,
+        onPressed: () => _showAddEditDialog(record),
+      ),
+      IconButton(
+        key: Key('copyClearanceRowBtn_${record.clearanceCode}'),
+        icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 20),
+        tooltip: l.copyCustomsClearanceRowSuccess,
+        onPressed: () => _copyClearanceRowTsv(record, l),
+      ),
+      IconButton(
+        key: Key('cloneClearanceBtn_${record.clearanceCode}'),
+        icon: const Icon(Icons.difference_outlined, color: AppTheme.cobalt, size: 20),
+        tooltip: l.cloneCustomsClearanceTooltip,
+        onPressed: () => _onCloneClearance(record),
+      ),
+      IconButton(
+        key: Key('underBondBtn_${record.clearanceCode}'),
+        icon: const Icon(Icons.lock_clock_outlined, color: AppTheme.orange, size: 20),
+        tooltip: l.customsClearanceUnderBondTooltip,
+        onPressed: () => showUnderBondReleaseDialog(
+          context,
+          ref,
+          clearanceId: record.customsClearanceId,
+          declarationNo: record.declaration46No ?? record.clearanceCode,
+          isAlreadyUnderBond: record.status.contains('Bond') || record.status.contains('Quarantine'),
+          onDone: _refreshData,
+        ),
+      ),
+      IconButton(
+        key: Key('payDutyBtn_${record.clearanceCode}'),
+        icon: const Icon(Icons.payments_outlined, color: AppTheme.emerald, size: 20),
+        tooltip: l.customsClearancePayTooltip,
+        onPressed: () => _showDutyPaymentDialog(record),
+      ),
+      IconButton(
+        key: Key('finalReleaseBtn_${record.clearanceCode}'),
+        icon: const Icon(Icons.assignment_turned_in_outlined, color: Colors.indigo, size: 20),
+        tooltip: l.customsClearanceReleaseTooltip,
+        onPressed: () => _showFinalReleaseDialog(record),
+      ),
+    ];
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
+        child: LayoutBuilder(
+          builder: (context, cardConstraints) {
+            final isNarrow = cardConstraints.maxWidth < 650;
+
+            final statusBadge = Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: statusColor.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
+              child: Text(
+                statusLabel,
+                style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+            );
+
+            final channelBadge = Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: (isGreenChannel ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: isGreenChannel ? AppTheme.emerald : AppTheme.crimson, width: 0.8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isGreenChannel ? Icons.check_circle_outline : Icons.flag_rounded,
+                    size: 14,
+                    color: isGreenChannel ? AppTheme.emerald : AppTheme.crimson,
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      channelLabel,
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isGreenChannel ? AppTheme.emerald : AppTheme.crimson),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            );
+
+            final headerWidget = isNarrow
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.charcoal.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: CopyableText(
-                          record.clearanceCode,
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 13),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: (isGreenChannel ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: isGreenChannel ? AppTheme.emerald : AppTheme.crimson, width: 0.8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(isGreenChannel ? Icons.check_circle_outline : Icons.flag_rounded, size: 14, color: isGreenChannel ? AppTheme.emerald : AppTheme.crimson),
-                            const SizedBox(width: 4),
-                            Text(
-                              channelLabel,
-                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isGreenChannel ? AppTheme.emerald : AppTheme.crimson),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF0F172A) : AppTheme.charcoal.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: CopyableText(
+                                record.clearanceCode,
+                                style: TextStyle(fontWeight: FontWeight.bold, color: primaryTextColor, fontSize: 13),
+                              ),
                             ),
+                          ),
+                          const SizedBox(width: 8),
+                          statusBadge,
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          channelBadge,
+                          if (record.declaration46No != null && record.declaration46No!.isNotEmpty)
+                            CopyableText('${l.customsClearanceDeclaration46Label}: ${record.declaration46No}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
+                          if (record.deliveryOrderNumber != null && record.deliveryOrderNumber!.isNotEmpty)
+                            CopyableText('${l.customsClearanceDeliveryOrderLabel}: ${record.deliveryOrderNumber}', style: TextStyle(fontSize: 11.5, color: tertiaryTextColor)),
+                        ],
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF0F172A) : AppTheme.charcoal.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: CopyableText(
+                                record.clearanceCode,
+                                style: TextStyle(fontWeight: FontWeight.bold, color: primaryTextColor, fontSize: 13),
+                              ),
+                            ),
+                            channelBadge,
+                            if (record.declaration46No != null && record.declaration46No!.isNotEmpty)
+                              CopyableText('${l.customsClearanceDeclaration46Label}: ${record.declaration46No}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
+                            if (record.deliveryOrderNumber != null && record.deliveryOrderNumber!.isNotEmpty)
+                              CopyableText('${l.customsClearanceDeliveryOrderLabel}: ${record.deliveryOrderNumber}', style: TextStyle(fontSize: 11.5, color: tertiaryTextColor)),
                           ],
                         ),
                       ),
-                      if (record.declaration46No != null && record.declaration46No!.isNotEmpty)
-                        CopyableText('${l.customsClearanceDeclaration46Label}: ${record.declaration46No}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
-                      if (record.deliveryOrderNumber != null && record.deliveryOrderNumber!.isNotEmpty)
-                        CopyableText('${l.customsClearanceDeliveryOrderLabel}: ${record.deliveryOrderNumber}', style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
+                      const SizedBox(width: 8),
+                      statusBadge,
                     ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: statusColor.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
-                  child: Text(
-                    statusLabel,
-                    style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-            const Divider(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      CopyableText('🏢 ${l.customsClearanceOfficeLabel}: ${record.customsOfficeName}', style: const TextStyle(fontSize: 12, color: Colors.black87)),
-                      Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 6,
-                        runSpacing: 2,
-                        children: [
-                          CopyableText(
-                            '📦 ${l.customsClearanceFileRefLabel}: $shipName',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                          ),
-                          if (rawFileCode.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: AppTheme.cobalt.withOpacity(0.08),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: CopyableText(
-                                rawFileCode,
-                                style: TextStyle(fontSize: 10, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                        ],
-                      ),
-                      if (record.freeDaysAllowed > 0)
-                        Text('⏱️ ${l.customsClearanceFreeDaysLabel(record.freeDaysAllowed)}', style: const TextStyle(fontSize: 11.5, color: Colors.indigo, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      CopyableText('💰 ${l.customsClearanceTotalDutiesCard}: ${(record.actualDutyTotal > 0 ? record.actualDutyTotal : record.totalDutyPayable).toStringAsFixed(2)} EGP', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
-                      const SizedBox(height: 4),
-                      if (record.estimatedDutyTotal > 0)
-                        CopyableText(
-                          '⚖️ ${l.customsClearanceEstimatedDutiesCard(record.estimatedDutyTotal.toStringAsFixed(2), "${record.dutyVarianceAmount >= 0 ? '+' : ''}${record.dutyVarianceAmount.toStringAsFixed(2)}", record.dutyVariancePercentage.toString())}',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: record.dutyVarianceAmount.abs() > 500 ? AppTheme.orange : Colors.black54),
-                        ),
-                      Text('${l.customsClearancePaymentStatusLabel}: ${record.paymentStatus == "Paid & Verified" ? l.customsClearanceStatusPaid : l.customsClearanceStatusPendingPayment}', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: record.paymentStatus == 'Paid & Verified' ? AppTheme.emerald : Colors.red)),
-                    ],
-                  ),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined, color: AppTheme.cobalt, size: 20),
-                      tooltip: l.customsClearanceEditTooltip,
-                      onPressed: () => _showAddEditDialog(record),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.lock_clock_outlined, color: AppTheme.orange, size: 20),
-                      tooltip: l.customsClearanceUnderBondTooltip,
-                      onPressed: () => showUnderBondReleaseDialog(
-                        context,
-                        ref,
-                        clearanceId: record.customsClearanceId,
-                        declarationNo: record.declaration46No ?? record.clearanceCode,
-                        isAlreadyUnderBond: record.status.contains('Bond') || record.status.contains('Quarantine'),
-                        onDone: _refreshData,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.payments_outlined, color: AppTheme.emerald, size: 20),
-                      tooltip: l.customsClearancePayTooltip,
-                      onPressed: () => _showDutyPaymentDialog(record),
-                    ),
+                  );
 
-                    IconButton(
-                      icon: const Icon(Icons.assignment_turned_in_outlined, color: Colors.indigo, size: 20),
-                      tooltip: l.customsClearanceReleaseTooltip,
-                      onPressed: () => _showFinalReleaseDialog(record),
+            final officeAndShipmentBlock = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CopyableText('🏢 ${l.customsClearanceOfficeLabel}: ${record.customsOfficeName}', style: TextStyle(fontSize: 12, color: secondaryTextColor)),
+                const SizedBox(height: 4),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  runSpacing: 2,
+                  children: [
+                    CopyableText(
+                      '📦 ${l.customsClearanceFileRefLabel}: $shipName',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: primaryTextColor),
                     ),
+                    if (rawFileCode.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cobalt.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: CopyableText(
+                          rawFileCode,
+                          style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(11.0), color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade700, fontWeight: FontWeight.w600),
+                        ),
+                      ),
                   ],
                 ),
+                if (record.freeDaysAllowed > 0) ...[
+                  const SizedBox(height: 4),
+                  Text('⏱️ ${l.customsClearanceFreeDaysLabel(record.freeDaysAllowed)}', style: TextStyle(fontSize: 11.5, color: isDark ? const Color(0xFF818CF8) : Colors.indigo, fontWeight: FontWeight.bold)),
+                ],
               ],
-            ),
-          ],
+            );
+
+            final dutiesAndPaymentBlock = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CopyableText('💰 ${l.customsClearanceTotalDutiesCard}: ${(record.actualDutyTotal > 0 ? record.actualDutyTotal : record.totalDutyPayable).toStringAsFixed(2)} EGP', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                const SizedBox(height: 4),
+                if (record.estimatedDutyTotal > 0)
+                  CopyableText(
+                    '⚖️ ${l.customsClearanceEstimatedDutiesCard(record.estimatedDutyTotal.toStringAsFixed(2), "${record.dutyVarianceAmount >= 0 ? '+' : ''}${record.dutyVarianceAmount.toStringAsFixed(2)}", record.dutyVariancePercentage.toString())}',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: record.dutyVarianceAmount.abs() > 500 ? AppTheme.orange : tertiaryTextColor),
+                  ),
+                const SizedBox(height: 4),
+                Text('${l.customsClearancePaymentStatusLabel}: ${record.paymentStatus == "Paid & Verified" ? l.customsClearanceStatusPaid : l.customsClearanceStatusPendingPayment}', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: record.paymentStatus == 'Paid & Verified' ? AppTheme.emerald : Colors.red)),
+              ],
+            );
+
+            Widget detailsAndActions;
+            if (isNarrow) {
+              detailsAndActions = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  officeAndShipmentBlock,
+                  const SizedBox(height: 10),
+                  dutiesAndPaymentBlock,
+                  const SizedBox(height: 8),
+                  const Divider(height: 12),
+                  Wrap(
+                    spacing: 2,
+                    runSpacing: 2,
+                    children: actionButtons,
+                  ),
+                ],
+              );
+            } else {
+              detailsAndActions = Row(
+                children: [
+                  Expanded(child: officeAndShipmentBlock),
+                  Expanded(child: dutiesAndPaymentBlock),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: actionButtons,
+                  ),
+                ],
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                headerWidget,
+                const Divider(height: 18),
+                detailsAndActions,
+              ],
+            );
+          },
         ),
       ),
     );
@@ -571,7 +1048,8 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
 
 class _CustomsClearanceFormDialog extends ConsumerStatefulWidget {
   final CustomsClearanceModel? recordToEdit;
-  const _CustomsClearanceFormDialog({this.recordToEdit});
+  final bool isCloneDraft;
+  const _CustomsClearanceFormDialog({this.recordToEdit, this.isCloneDraft = false});
 
   @override
   ConsumerState<_CustomsClearanceFormDialog> createState() => _CustomsClearanceFormDialogState();
@@ -599,9 +1077,9 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
     if (widget.recordToEdit != null) {
       final r = widget.recordToEdit!;
       _selectedImportFileId = r.importFileId;
-      _decl46Ctrl.text = r.declaration46No ?? '';
+      _decl46Ctrl.text = widget.isCloneDraft ? '' : (r.declaration46No ?? '');
       _officeCtrl.text = r.customsOfficeName;
-      _doNumberCtrl.text = r.deliveryOrderNumber ?? '';
+      _doNumberCtrl.text = widget.isCloneDraft ? '' : (r.deliveryOrderNumber ?? '');
       _freeDaysCtrl.text = r.freeDaysAllowed.toString();
       _channelType = r.channelType;
       _dutyCtrl.text = r.importDutyAmount.toString();
@@ -665,12 +1143,17 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
   Widget build(BuildContext context) {
     final l = context.l10n;
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final titleText = widget.isCloneDraft
+        ? l.cloneCustomsClearanceDialogTitle
+        : (widget.recordToEdit == null
+            ? l.customsClearanceNewDialogTitle
+            : l.customsClearanceEditDialogTitle(widget.recordToEdit!.clearanceCode));
 
     return AlertDialog(
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(widget.recordToEdit == null ? l.customsClearanceNewDialogTitle : l.customsClearanceEditDialogTitle(widget.recordToEdit!.clearanceCode)),
+          Text(titleText),
           SmartUploadButton(
             module: SmartUploadModule.customsClearance,
             compact: true,
@@ -681,7 +1164,7 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
       ),
       content: SelectionArea(
         child: SizedBox(
-          width: 600,
+          width: (MediaQuery.of(context).size.width - 32).clamp(320.0, 680.0),
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
@@ -758,11 +1241,12 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         value: _channelType,
+                        isExpanded: true,
                         decoration: InputDecoration(labelText: l.customsClearanceChannelLabel, border: const OutlineInputBorder()),
                         items: [
-                          DropdownMenuItem(value: 'Red Channel', child: Text('🔴 ${l.customsClearanceChannelRed}')),
-                          DropdownMenuItem(value: 'Green Channel', child: Text('🟢 ${l.customsClearanceChannelGreen}')),
-                          DropdownMenuItem(value: 'Yellow Channel', child: Text('🟡 ${l.customsClearanceChannelYellow}')),
+                          DropdownMenuItem(value: 'Red Channel', child: Text('🔴 ${l.customsClearanceChannelRed}', overflow: TextOverflow.ellipsis)),
+                          DropdownMenuItem(value: 'Green Channel', child: Text('🟢 ${l.customsClearanceChannelGreen}', overflow: TextOverflow.ellipsis)),
+                          DropdownMenuItem(value: 'Yellow Channel', child: Text('🟡 ${l.customsClearanceChannelYellow}', overflow: TextOverflow.ellipsis)),
                         ],
                         onChanged: (val) {
                           if (val != null) setState(() => _channelType = val);
@@ -955,7 +1439,7 @@ class _DutyPaymentDialogState extends ConsumerState<_DutyPaymentDialog> {
       ),
       content: SelectionArea(
         child: SizedBox(
-          width: 520,
+          width: (MediaQuery.of(context).size.width - 32).clamp(320.0, 560.0),
           child: Form(
             key: _formKey,
             child: Column(
@@ -1105,7 +1589,7 @@ class _FinalReleaseDialogState extends ConsumerState<_FinalReleaseDialog> {
       ),
       content: SelectionArea(
         child: SizedBox(
-          width: 450,
+          width: (MediaQuery.of(context).size.width - 32).clamp(320.0, 480.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,

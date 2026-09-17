@@ -14,6 +14,9 @@ import '../widgets/freight_rfq_dialog.dart';
 import '../../experience_guide/widgets/smart_shipment_reference_card.dart';
 import '../../experience_guide/widgets/add_guide_entry_dialog.dart';
 import '../../smart_checklists/widgets/smart_checklist_dialog.dart';
+import '../../customs_tariff/widgets/duty_calculator_dialog.dart';
+import '../../financial_settlement/widgets/estimated_landed_cost_dialog.dart';
+import '../../financial_approval/widgets/supplier_advance_payment_dialog.dart';
 import 'visual_container_load_planner_dialog.dart';
 
 
@@ -368,6 +371,67 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                 ),
               ],
             ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.emerald,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.calculate, size: 18),
+            label: const Text('المحاكاة الجمركية', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              showDutyCalculatorDialog(
+                context,
+                ref,
+                initialImportFileId: file.importFileId,
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD97706),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.payments_outlined, size: 18),
+            label: const Text('طلب دفعة المورد (FN-01)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              showSupplierAdvancePaymentDialog(
+                context,
+                ref,
+                importFileId: file.importFileId,
+                importFileCode: file.importFileCode,
+                fileTitle: file.displayName,
+                supplierId: file.supplierId,
+                supplierName: file.supplierName,
+                projectId: file.projectIds.isNotEmpty ? file.projectIds.first : null,
+                totalAmountForeign: file.estimatedCost > 0 ? file.estimatedCost : null,
+                currency: file.estimatedCostCurrency.isNotEmpty ? file.estimatedCostCurrency : 'USD',
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F766E),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.analytics_outlined, size: 18),
+            label: const Text('محاكاة تكلفة الوصول (Landed Cost)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              showEstimatedLandedCostDialog(
+                context,
+                ref,
+                importFileId: file.importFileId,
+              );
+            },
           ),
           const SizedBox(width: 8),
           ElevatedButton.icon(

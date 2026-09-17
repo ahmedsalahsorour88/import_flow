@@ -28,8 +28,55 @@ def close_import_file_service(db: Session, schema: FileClosureCreate) -> ImportF
     total_items = len(checklist_dict) if checklist_dict else 5
     progress_percent = (completed_count / total_items) * 100.0 if total_items > 0 else 0.0
 
+    # ── DB-Enforced Closure Validation (for non-draft final closure) ─────────
     if not schema.is_draft:
         validate_closure_checklist(checklist_dict, getattr(imp_file, 'skipped_stages', None))
+
+        db_errors = []
+
+        # 1. Verify customs clearance has Final Release Granted
+        try:
+            from modules.customs_clearance.model import CustomsClearanceRecord
+            clearance = db.query(CustomsClearanceRecord).filter(
+                CustomsClearanceRecord.import_file_id == schema.import_file_id,
+                CustomsClearanceRecord.is_active == True,
+                CustomsClearanceRecord.status == "Final Release Granted",
+            ).first()
+            if not clearance and not (imp_file.skipped_stages and "STEP_17" in (imp_file.skipped_stages or [])):
+                db_errors.append("لم يتم إتمام التخليص الجمركي النهائي (Final Release Granted) لهذا الملف.")
+        except Exception:
+            pass
+
+        # 2. Verify at least one GRN exists
+        try:
+            from modules.warehouse_receiving.model import WarehouseReceivingRecord
+            grn = db.query(WarehouseReceivingRecord).filter(
+                WarehouseReceivingRecord.import_file_id == schema.import_file_id,
+                WarehouseReceivingRecord.is_active == True,
+            ).first()
+            if not grn and not (imp_file.skipped_stages and "STEP_19" in (imp_file.skipped_stages or [])):
+                db_errors.append("لم يتم إصدار إذن إضافة (GRN) لاستلام البضاعة في المخزن.")
+        except Exception:
+            pass
+
+        # 3. Verify financial settlement exists and is calculated
+        try:
+            from modules.financial_settlement.model import LandedCostSettlementRecord
+            settlement = db.query(LandedCostSettlementRecord).filter(
+                LandedCostSettlementRecord.import_file_id == schema.import_file_id,
+                LandedCostSettlementRecord.is_active == True,
+                LandedCostSettlementRecord.status.in_(["Calculated", "Approved", "Closed"]),
+            ).first()
+            if not settlement and not (imp_file.skipped_stages and "STEP_20" in (imp_file.skipped_stages or [])):
+                db_errors.append("لم يتم إنشاء أو اعتماد تسوية التكلفة الاستيرادية الشاملة (Landed Cost Settlement).")
+        except Exception:
+            pass
+
+        if db_errors:
+            raise HTTPException(
+                status_code=400,
+                detail="لا يمكن إغلاق الملف نهائياً — المتطلبات التالية غير مستوفاة:\n" + "\n".join(f"• {e}" for e in db_errors)
+            )
 
     existing_record = get_closure_by_import_file_id(db, schema.import_file_id)
     if existing_record:
@@ -53,12 +100,31 @@ def close_import_file_service(db: Session, schema: FileClosureCreate) -> ImportF
         imp_file.status = "Closed"
         imp_file.current_module = "Phase 10 - Import File Closure & Historical Archive"
         imp_file.current_stage = f"Archived & Closed (Certificate: {record.closure_code})"
-        imp_file.progress_percent = 100.0
+        if (imp_file.progress_percent or 0.0) < 100.0:
+            imp_file.progress_percent = 100.0
         imp_file.next_action = "File Archived - Read-Only Historical State"
 
     db.commit()
     db.refresh(record)
+
+    # Lifecycle advance: STEP_20 → STEP_21 (Settlement approved → Final Closure)
+    if not schema.is_draft:
+        try:
+            from modules.lifecycle_board.service import advance_lifecycle_step_service
+            advance_lifecycle_step_service(
+                db=db,
+                import_file_id=schema.import_file_id,
+                completed_step_code="STEP_20",
+                target_step_codes=["STEP_21"],
+                notes=f"تم الإغلاق النهائي للملف الاستيرادي وأرشفته (الكود: {record.closure_code}) بواسطة {schema.auditor_name or 'Finance Manager'}.",
+                assigned_user=schema.auditor_name or "Finance Manager",
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Lifecycle advance STEP_20→STEP_21 failed: %s", e)
+
     return record
+
 
 def get_closure_service(db: Session, closure_id: int) -> ImportFileClosureRecord:
     record = get_closure_by_id(db, closure_id)

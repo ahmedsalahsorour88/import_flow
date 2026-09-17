@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -53,11 +54,12 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final density = ref.watch(displayDensityProvider);
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     final content = SelectionArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 92),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -103,7 +105,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
         actions: [
           IconButton(
             tooltip: l10n.closeAndReturn,
-            icon: const Icon(Icons.close, color: Colors.white),
+            icon: Icon(Icons.close, color: Colors.white, size: density.buttonIconSize),
             onPressed: () => Navigator.of(context).maybePop(),
           ),
           const SizedBox(width: 8),
@@ -1094,7 +1096,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                   child: Text(
                     isMandatoryCore ? l10n.docMandatoryCore : l10n.docConditional,
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: DisplayDensityMode.clampFontSize(11.0),
                       fontWeight: FontWeight.bold,
                       color: isMandatoryCore ? Colors.red.shade900 : Colors.blue.shade900,
                     ),
@@ -1133,7 +1135,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: badgeColor),
                   ),
-                  child: Text(badgeText, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: badgeColor)),
+                  child: Text(badgeText, style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(11.0), fontWeight: FontWeight.bold, color: badgeColor)),
                 ),
               ],
             ),

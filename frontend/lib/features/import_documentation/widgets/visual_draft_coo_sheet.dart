@@ -539,7 +539,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Serial No.', style: TextStyle(fontSize: 9.5, color: Colors.black87)),
+                          const Text('Serial No.', style: TextStyle(fontSize: 11.0, color: Colors.black87)),
                           const SizedBox(width: 8),
                           Flexible(
                             child: CopyableText(
@@ -616,7 +616,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('5. For certifying authority use only', style: TextStyle(fontSize: 9.5, color: Colors.black87)),
+                      const Text('5. For certifying authority use only', style: TextStyle(fontSize: 11.0, color: Colors.black87)),
                       const SizedBox(height: 4),
                       Center(
                         child: Container(
@@ -629,7 +629,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 9.5,
+                              fontSize: 11.0,
                               color: Color(0xFF1B4F72),
                               letterSpacing: 0.3,
                               height: 1.2,
@@ -642,7 +642,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                         alignment: Alignment.bottomRight,
                         child: Text(
                           'VERIFY URL: HTTP://CHECK.ECOCCPIT.NET/',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 8.5, color: Colors.black87),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: Colors.black87),
                         ),
                       ),
                     ],
@@ -720,7 +720,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                               decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
                               child: Text(
                                 rowDesc,
-                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 10.5, color: Colors.black87, height: 1.3),
+                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11.0, color: Colors.black87, height: 1.3),
                               ),
                             ),
                           ),
@@ -730,7 +730,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                             child: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
-                              child: Text(rowHs, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5)),
+                              child: Text(rowHs, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0)),
                             ),
                           ),
                           // Box 9: Quantity & Gross Weight
@@ -756,7 +756,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                         decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
                         child: Text(
                           cleanBox7,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 10.5, color: Colors.black87, height: 1.3),
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11.0, color: Colors.black87, height: 1.3),
                         ),
                       ),
                     ),
@@ -769,7 +769,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                         child: Wrap(
                           spacing: 4,
                           runSpacing: 4,
-                          children: hsCodesList.map((hs) => Text(hs, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5))).toList(),
+                          children: hsCodesList.map((hs) => Text(hs, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0))).toList(),
                         ),
                       ),
                     ),
@@ -798,15 +798,15 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('11. Declaration by the exporter', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    Text('11. Declaration by the exporter', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.black87)),
                     SizedBox(height: 4),
                     Text(
                       'The undersigned hereby declares that the above details and statements are correct, that all the goods were produced in China and that they comply with the Rules of Origin of the People\'s Republic of China.',
-                      style: TextStyle(fontSize: 9, height: 1.25, color: Colors.black87),
+                      style: TextStyle(fontSize: 11.0, height: 1.25, color: Colors.black87),
                     ),
                     SizedBox(height: 38),
                     Divider(height: 1, color: Colors.black54),
-                    Text('Place and date, signature and stamp of authorized signatory', style: TextStyle(fontSize: 8, color: Colors.black54)),
+                    Text('Place and date, signature and stamp of authorized signatory', style: TextStyle(fontSize: 11.0, color: Colors.black54)),
                   ],
                 ),
               ),
@@ -820,15 +820,15 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('12. Certification', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    Text('12. Certification', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.black87)),
                     SizedBox(height: 4),
                     Text(
                       'It is hereby certified that the declaration by the exporter is correct.',
-                      style: TextStyle(fontSize: 9, height: 1.25, color: Colors.black87),
+                      style: TextStyle(fontSize: 11.0, height: 1.25, color: Colors.black87),
                     ),
                     SizedBox(height: 38),
                     Divider(height: 1, color: Colors.black54),
-                    Text('Place and date, signature and stamp of certifying authority', style: TextStyle(fontSize: 8, color: Colors.black54)),
+                    Text('Place and date, signature and stamp of certifying authority', style: TextStyle(fontSize: 11.0, color: Colors.black54)),
                   ],
                 ),
               ),
@@ -921,7 +921,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                         const SizedBox(height: 2),
                         const Text(
                           'See notes overleaf before completing this form.',
-                          style: TextStyle(fontSize: 8.5, fontStyle: FontStyle.italic, color: Colors.black54),
+                          style: TextStyle(fontSize: 11.0, fontStyle: FontStyle.italic, color: Colors.black54),
                         ),
                       ],
                     ),
@@ -940,7 +940,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                           alignment: Alignment.centerLeft,
                           child: Text(
                             '2. Certificate used in preferential trade between',
-                            style: TextStyle(fontSize: 8.5, color: Colors.black54),
+                            style: TextStyle(fontSize: 11.0, color: Colors.black54),
                           ),
                         ),
                         const SizedBox(height: 3),
@@ -948,7 +948,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                           'EU',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.black87),
                         ),
-                        const Text('and', style: TextStyle(fontSize: 9.5, color: Colors.black54)),
+                        const Text('and', style: TextStyle(fontSize: 11.0, color: Colors.black54)),
                         Text(
                           destination.toUpperCase(),
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black87),
@@ -956,7 +956,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                         const SizedBox(height: 2),
                         const Text(
                           '(Insert appropriate countries, groups of countries or territories)',
-                          style: TextStyle(fontSize: 7.5, fontStyle: FontStyle.italic, color: Colors.black45),
+                          style: TextStyle(fontSize: 11.0, fontStyle: FontStyle.italic, color: Colors.black45),
                         ),
                       ],
                     ),
@@ -1004,7 +1004,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                         children: [
                           const Text(
                             '4. Country, group of countries or territory in which the products are considered as originating',
-                            style: TextStyle(fontSize: 8.5, color: Colors.black54),
+                            style: TextStyle(fontSize: 11.0, color: Colors.black54),
                           ),
                           const SizedBox(height: 6),
                           Container(
@@ -1019,7 +1019,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                           if (originsList.isNotEmpty && !originsList.contains('EU'))
                             Padding(
                               padding: const EdgeInsets.only(top: 3),
-                              child: Text('(${originsList.join(', ')})', style: const TextStyle(fontSize: 8.5, color: Colors.black54)),
+                              child: Text('(${originsList.join(', ')})', style: const TextStyle(fontSize: 11.0, color: Colors.black54)),
                             ),
                         ],
                       ),
@@ -1120,7 +1120,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                                       borderRadius: BorderRadius.circular(3),
                                       border: Border.all(color: Colors.purple.shade300),
                                     ),
-                                    child: Text('🔖 $rowHs', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.purple)),
+                                    child: Text('🔖 $rowHs', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: Colors.purple)),
                                   ),
                                   const SizedBox(height: 10),
                                   CustomPaint(
@@ -1164,11 +1164,11 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('ACID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.green)),
-                                  Text(acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.green)),
+                                  const Text('ACID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: Colors.green)),
+                                  Text(acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: Colors.green)),
                                   if (rowInv.isNotEmpty) ...[
                                     const SizedBox(height: 4),
-                                    Text(rowInv, style: const TextStyle(fontSize: 9.5, color: Colors.black87)),
+                                    Text(rowInv, style: const TextStyle(fontSize: 11.0, color: Colors.black87)),
                                   ],
                                   const SizedBox(height: 10),
                                   CustomPaint(
@@ -1212,7 +1212,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                                     borderRadius: BorderRadius.circular(3),
                                     border: Border.all(color: Colors.purple.shade300),
                                   ),
-                                  child: Text('🔖 $hs', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.purple)),
+                                  child: Text('🔖 $hs', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: Colors.purple)),
                                 );
                               }).toList(),
                             ),
@@ -1260,11 +1260,11 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('ACID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.green)),
-                            Text(acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.green)),
+                            const Text('ACID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: Colors.green)),
+                            Text(acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: Colors.green)),
                             if (invoiceData.isNotEmpty && invoiceData != 'INVOICE INFO') ...[
                               const SizedBox(height: 4),
-                              Text(invoiceData, style: const TextStyle(fontSize: 9.5, color: Colors.black87)),
+                              Text(invoiceData, style: const TextStyle(fontSize: 11.0, color: Colors.black87)),
                             ],
                             const SizedBox(height: 14),
                             CustomPaint(
@@ -1296,15 +1296,15 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('11. CUSTOMS ENDORSEMENT', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    const Text('11. CUSTOMS ENDORSEMENT', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.black87)),
                     const SizedBox(height: 3),
-                    const Text('Declaration certified', style: TextStyle(fontSize: 8.5)),
-                    const Text('Export document (2)', style: TextStyle(fontSize: 8.5)),
-                    const Text('Form .............................. No ..............................', style: TextStyle(fontSize: 8, color: Colors.black54)),
-                    const Text('Of .....................................................................', style: TextStyle(fontSize: 8, color: Colors.black54)),
+                    const Text('Declaration certified', style: TextStyle(fontSize: 11.0)),
+                    const Text('Export document (2)', style: TextStyle(fontSize: 11.0)),
+                    const Text('Form .............................. No ..............................', style: TextStyle(fontSize: 11.0, color: Colors.black54)),
+                    const Text('Of .....................................................................', style: TextStyle(fontSize: 11.0, color: Colors.black54)),
                     const SizedBox(height: 2),
-                    const Text('Customs office: Vilnius regional customs office', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w500)),
-                    const Text('Issuing country or territory: Lithuania', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w500)),
+                    const Text('Customs office: Vilnius regional customs office', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.w500)),
+                    const Text('Issuing country or territory: Lithuania', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.w500)),
                     const SizedBox(height: 4),
                     Wrap(
                       spacing: 6,
@@ -1315,8 +1315,8 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                         const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Place and date:', style: TextStyle(fontSize: 8, color: Colors.black54)),
-                            Text('2026-08-11', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                            Text('Place and date:', style: TextStyle(fontSize: 11.0, color: Colors.black54)),
+                            Text('2026-08-11', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold)),
                           ],
                         ),
                         // Customs Stamp Simulation
@@ -1328,14 +1328,14 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                           ),
                           child: Text(
                             'A-004 • LT VM • 2026-08-11',
-                            style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+                            style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     const Divider(height: 1, color: Colors.black54),
-                    const Center(child: Text('(Signature)', style: TextStyle(fontSize: 8, color: Colors.black54))),
+                    const Center(child: Text('(Signature)', style: TextStyle(fontSize: 11.0, color: Colors.black54))),
                   ],
                 ),
               ),
@@ -1349,11 +1349,11 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('12. DECLARATION BY THE EXPORTER', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    const Text('12. DECLARATION BY THE EXPORTER', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.black87)),
                     const SizedBox(height: 3),
                     const Text(
                       'I, the undersigned, declare that the goods described above meet the conditions required for the issue of this certificate.',
-                      style: TextStyle(fontSize: 8.5, height: 1.25),
+                      style: TextStyle(fontSize: 11.0, height: 1.25),
                     ),
                     const SizedBox(height: 14),
                     Wrap(
@@ -1365,8 +1365,8 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                         const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Place and date:', style: TextStyle(fontSize: 8, color: Colors.black54)),
-                            Text('VILNIUS 2026-08-11', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                            Text('Place and date:', style: TextStyle(fontSize: 11.0, color: Colors.black54)),
+                            Text('VILNIUS 2026-08-11', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold)),
                           ],
                         ),
                         // Exporter Stamp Simulation
@@ -1378,14 +1378,14 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                           ),
                           child: Text(
                             'NARBUTAS DOKUMENTAI',
-                            style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.bold, color: Colors.indigo.shade900),
+                            style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.indigo.shade900),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     const Divider(height: 1, color: Colors.black54),
-                    const Center(child: Text('(Signature)', style: TextStyle(fontSize: 8, color: Colors.black54))),
+                    const Center(child: Text('(Signature)', style: TextStyle(fontSize: 11.0, color: Colors.black54))),
                   ],
                 ),
               ),
@@ -1402,11 +1402,11 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
             children: [
               Text(
                 '(1) If goods are not packed, indicate number of articles or state \'in bulk\', as appropriate.',
-                style: TextStyle(fontSize: 7.5, color: Colors.black54),
+                style: TextStyle(fontSize: 11.0, color: Colors.black54),
               ),
               Text(
                 '(2) Complete only where the regulations of the exporting country or territory require.',
-                style: TextStyle(fontSize: 7.5, color: Colors.black54),
+                style: TextStyle(fontSize: 11.0, color: Colors.black54),
               ),
             ],
           ),
@@ -1439,14 +1439,14 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 9, color: Colors.black54)),
+          Text(label, style: const TextStyle(fontSize: 11.0, color: Colors.black54)),
           const SizedBox(height: 2),
-          CopyableText(firstLine, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.black87)),
+          CopyableText(firstLine, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: Colors.black87)),
           if (otherLines.isNotEmpty) ...[
             const SizedBox(height: 2),
             CopyableText(
               otherLines,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 9.5, color: Colors.black87, height: 1.25),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11.0, color: Colors.black87, height: 1.25),
             ),
           ],
         ],
@@ -1464,7 +1464,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
         ),
         child: Text(
           title,
-          style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.black87),
+          style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.black87),
           textAlign: TextAlign.center,
         ),
       ),
@@ -1481,7 +1481,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
         ),
         child: CopyableText(
           content,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87),
+          style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.black87),
         ),
       ),
     );

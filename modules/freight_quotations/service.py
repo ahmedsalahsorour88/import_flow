@@ -14,7 +14,13 @@ from modules.freight_quotations.schemas import (
     RFQBenchmarkResponse,
 )
 from modules.freight_quotations.repository import FreightQuotationRepository
-from modules.freight_quotations.validators import validate_carrier_exists, validate_quotation_dates
+from modules.freight_quotations.validators import (
+    validate_carrier_exists,
+    validate_quotation_dates,
+    validate_import_file_exists,
+    validate_po_exists,
+    validate_project_exists,
+)
 
 
 
@@ -72,6 +78,13 @@ class FreightQuotationService:
 
     @staticmethod
     def create_rfq(db: Session, rfq_in: FreightRFQRequestCreate) -> FreightRFQRequestResponse:
+        if rfq_in.import_file_id:
+            validate_import_file_exists(db, rfq_in.import_file_id)
+        if rfq_in.po_id:
+            validate_po_exists(db, rfq_in.po_id)
+        if rfq_in.project_id:
+            validate_project_exists(db, rfq_in.project_id)
+
         for q in rfq_in.quotations:
             validate_carrier_exists(db, q.provider_id)
             validate_quotation_dates(rfq_in.crd_date, q.sailing_date, q.estimated_arrival_date)
@@ -123,6 +136,13 @@ class FreightQuotationService:
                 detail=f"Freight RFQ with ID '{rfq_id}' not found.",
             )
 
+        if update_in.import_file_id:
+            validate_import_file_exists(db, update_in.import_file_id)
+        if update_in.po_id:
+            validate_po_exists(db, update_in.po_id)
+        if update_in.project_id:
+            validate_project_exists(db, update_in.project_id)
+
         crd = update_in.crd_date or db_rfq.crd_date
         if update_in.quotations is not None:
             for q in update_in.quotations:
@@ -136,6 +156,7 @@ class FreightQuotationService:
     def award_quotation(db: Session, rfq_id: int, quotation_id: int) -> FreightRFQRequestResponse:
         """
         Awards a specific carrier quotation, freezes choice, and updates RFQ status to 'Awarded'.
+        Also bidirectionally synchronizes the awarded scenario with the linked ImportFile.
         """
         db_rfq = FreightQuotationRepository.get_by_id(db, rfq_id)
         if not db_rfq:
@@ -160,6 +181,24 @@ class FreightQuotationService:
 
         db_rfq.selected_quotation_id = quotation_id
         db_rfq.status = "Awarded"
+
+        # Bidirectional sync with linked ImportFile
+        if db_rfq.import_file_id:
+            from modules.import_files.model import ImportFile
+            imp = db.query(ImportFile).filter(
+                ImportFile.import_file_id == db_rfq.import_file_id
+            ).first()
+            if imp:
+                imp.selected_scenario = f"{found_quote.provider_name} ({db_rfq.rfq_code})"
+                if found_quote.free_days_at_pod:
+                    imp.target_free_days = found_quote.free_days_at_pod
+                if db_rfq.pol_name:
+                    imp.port_of_loading = db_rfq.pol_name
+                if db_rfq.pod_name:
+                    imp.port_of_discharge = db_rfq.pod_name
+                if db_rfq.crd_date:
+                    imp.cargo_ready_date = db_rfq.crd_date
+
         db.commit()
         db.refresh(db_rfq)
         return FreightQuotationService._compute_rfq_metrics(db, db_rfq)

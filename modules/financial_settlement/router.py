@@ -9,6 +9,8 @@ from .schemas import (
     FinancialSettlementResponse,
     OdooJournalEntryResponse,
     OdooExportConfig,
+    EstimatedLandedCostSimulationRequest,
+    EstimatedLandedCostSimulationResponse,
 )
 from .service import (
     create_settlement_service,
@@ -18,6 +20,7 @@ from .service import (
     list_settlements_service,
     soft_delete_settlement_service,
     restore_settlement_service,
+    simulate_estimated_landed_cost_service,
 )
 from .odoo_export_service import (
     generate_odoo_journal_entry_service,
@@ -122,3 +125,16 @@ def export_odoo_excel(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+@router.post("/simulate-file/{import_file_id}", response_model=EstimatedLandedCostSimulationResponse)
+def simulate_estimated_landed_cost(
+    import_file_id: int,
+    payload: Optional[EstimatedLandedCostSimulationRequest] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    محاكاة واحتساب تكلفة الوصول التقديرية للشحنة وللوحدة الواحدة (PL-08: Estimated Landed Cost Simulation).
+    """
+    return simulate_estimated_landed_cost_service(db, import_file_id, payload)
+

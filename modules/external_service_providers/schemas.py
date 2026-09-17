@@ -12,8 +12,20 @@ class PartnerBase(BaseModel):
 
     # Category Specific
     clearance_license_number: Optional[str] = Field(None, max_length=50)
+    authorized_ports: Optional[str] = Field(None, max_length=300, description="الموانئ والمنافذ الجمركية المعتمدة للعمل بها")
     scac_code: Optional[str] = Field(None, max_length=20)
     tracking_url: Optional[str] = Field(None, max_length=300)
+    default_free_days: Optional[int] = Field(14, ge=0, description="فترة السماح الافتراضية بالأيام (Free Days)")
+    fiata_id: Optional[str] = Field(None, max_length=50, description="رخصة الفياتا أو كود ترخيص الشحن الدولي")
+    shipping_modes: Optional[str] = Field(None, max_length=200, description="طرق الشحن المدعومة (FCL, LCL, Air, Land)")
+    supported_currencies: Optional[str] = Field(None, max_length=100, description="العملات المعتمدة لتقديم عروض الأسعار")
+    inspection_accreditation_number: Optional[str] = Field(None, max_length=100, description="رقم اعتماد جهة الفحص والتسجيل بالرقابة على الصادرات GOIEC / ISO")
+    inspection_scope: Optional[str] = Field(None, max_length=300, description="نطاق الفحص المعتمد وشهادات المطابقة CoC / VOC")
+    transport_license_number: Optional[str] = Field(None, max_length=100, description="رقم ترخيص النقل البري / وزارة النقل")
+    fleet_types: Optional[str] = Field(None, max_length=300, description="أنواع الشاحنات والأسطول (حاويات 20/40، كساحات، برادات، جامبو)")
+    coverage_areas: Optional[str] = Field(None, max_length=300, description="نطاق التغطية الجغرافية والمحافظات والموانئ")
+    insurance_license_number: Optional[str] = Field(None, max_length=100, description="رقم ترخيص الهيئة العامة للرقابة المالية FRA لشركة التأمين")
+    insurance_coverage_types: Optional[str] = Field(None, max_length=300, description="أنواع التغطيات التأمينية المعتمدة (شروط أ، ب، ج، أخطار حرب)")
     swift_code: Optional[str] = Field(None, max_length=20)
     bank_code: Optional[str] = Field(None, max_length=20)
     branch_name: Optional[str] = Field(None, max_length=100)
@@ -46,8 +58,20 @@ class PartnerUpdate(BaseModel):
     tax_id: Optional[str] = None
     commercial_register: Optional[str] = None
     clearance_license_number: Optional[str] = None
+    authorized_ports: Optional[str] = None
     scac_code: Optional[str] = None
     tracking_url: Optional[str] = None
+    default_free_days: Optional[int] = None
+    fiata_id: Optional[str] = None
+    shipping_modes: Optional[str] = None
+    supported_currencies: Optional[str] = None
+    inspection_accreditation_number: Optional[str] = None
+    inspection_scope: Optional[str] = None
+    transport_license_number: Optional[str] = None
+    fleet_types: Optional[str] = None
+    coverage_areas: Optional[str] = None
+    insurance_license_number: Optional[str] = None
+    insurance_coverage_types: Optional[str] = None
     swift_code: Optional[str] = None
     bank_code: Optional[str] = None
     branch_name: Optional[str] = None

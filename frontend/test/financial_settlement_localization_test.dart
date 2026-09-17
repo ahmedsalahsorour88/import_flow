@@ -10,6 +10,14 @@ void main() {
 
     test('All Screen 29 getters should have non-empty Arabic and English translations', () {
       final List<String> arStrings = [
+        ar.searchAndCloneFinancialSettlementBtn,
+        ar.cloneFinancialSettlementDialogTitle,
+        ar.cloneFinancialSettlementDialogSubtitle,
+        ar.cloneFinancialSettlementTooltip,
+        ar.copyFinancialSettlementRowSuccess,
+        ar.copyFinancialSettlementTableSuccess,
+        ar.exportFinancialSettlementExcelTooltip,
+        ar.exportFinancialSettlementPdfTooltip,
         ar.financialSettlementStageTitle,
         ar.financialSettlementTabRegistry,
         ar.financialSettlementTabNewEntry,
@@ -130,6 +138,14 @@ void main() {
       ];
 
       final List<String> enStrings = [
+        en.searchAndCloneFinancialSettlementBtn,
+        en.cloneFinancialSettlementDialogTitle,
+        en.cloneFinancialSettlementDialogSubtitle,
+        en.cloneFinancialSettlementTooltip,
+        en.copyFinancialSettlementRowSuccess,
+        en.copyFinancialSettlementTableSuccess,
+        en.exportFinancialSettlementExcelTooltip,
+        en.exportFinancialSettlementPdfTooltip,
         en.financialSettlementStageTitle,
         en.financialSettlementTabRegistry,
         en.financialSettlementTabNewEntry,

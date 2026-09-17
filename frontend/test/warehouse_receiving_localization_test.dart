@@ -107,6 +107,14 @@ void main() {
         ar.warehouseReceivingColAcceptedQty,
         ar.warehouseReceivingColShortageQty,
         ar.warehouseReceivingColDamagedQty,
+        ar.searchAndCloneWarehouseReceivingBtn,
+        ar.cloneWarehouseReceivingDialogTitle,
+        ar.cloneWarehouseReceivingDialogSubtitle,
+        ar.cloneWarehouseReceivingTooltip,
+        ar.copyWarehouseReceivingRowSuccess,
+        ar.copyWarehouseReceivingTableSuccess,
+        ar.exportWarehouseReceivingExcelTooltip,
+        ar.exportWarehouseReceivingPdfTooltip,
       ];
 
       final List<String> enStrings = [
@@ -207,6 +215,14 @@ void main() {
         en.warehouseReceivingColAcceptedQty,
         en.warehouseReceivingColShortageQty,
         en.warehouseReceivingColDamagedQty,
+        en.searchAndCloneWarehouseReceivingBtn,
+        en.cloneWarehouseReceivingDialogTitle,
+        en.cloneWarehouseReceivingDialogSubtitle,
+        en.cloneWarehouseReceivingTooltip,
+        en.copyWarehouseReceivingRowSuccess,
+        en.copyWarehouseReceivingTableSuccess,
+        en.exportWarehouseReceivingExcelTooltip,
+        en.exportWarehouseReceivingPdfTooltip,
       ];
 
       expect(arStrings.length, enStrings.length);

@@ -2472,8 +2472,30 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get customsDeclMetricExemptions => 'إعفاءات الشراكة الأوروبية';
   @override String get customsDeclFxRateLabel => 'سعر صرف الدولار الجمركي';
   @override String get customsDeclVatBaseLabel => 'الوعاء الضريبي للقيمة المضافة';
+  @override String get searchAndCloneCustomsDeclBtn => 'استنساخ إقرار 46 جمركي';
+  @override String get cloneCustomsDeclDialogTitle => 'بحث واستنساخ إقرار جمركي سابق (شهادة 46 ك.م)';
+  @override String get cloneCustomsDeclDialogSubtitle => 'اختر إقراراً جمركياً أو ملف شحنة لاستنساخ بيانات التقييم الجمركي كمسودة جديدة قابلة للتعديل';
+  @override String get cloneCustomsDeclSuccess => 'تم استنساخ بيانات الإقرار الجمركي كمسودة جديدة (46 ك.م) قابلة للتعديل بنجاح';
+  @override String get cloneCustomsDeclRowTooltip => 'استنساخ هذا الإقرار كمسودة جديدة';
+  @override String get copyApprovalRowSuccess => 'تم نسخ سطر الموافقة الرقابية كـ TSV بنجاح';
+  @override String get copyApprovalTableSuccess => 'تم نسخ جدول الموافقات الرقابية كـ TSV بنجاح';
+  @override String get exportExcelApprovalsTooltip => 'تصدير الموافقات الرقابية إلى Excel';
+  @override String get exportPdfApprovalsTooltip => 'طباعة / تصدير PDF';
+  @override String get exportRegistryExcelTooltip => 'تصدير سجل الإقرارات إلى Excel';
+  @override String get exportRegistryPdfTooltip => 'طباعة / تصدير سجل الإقرارات PDF';
+  @override String get copyRegistryRowSuccess => 'تم نسخ بيانات سطر الإقرار بصيغة TSV بنجاح';
+  @override String get copyRegistryTableSuccess => 'تم نسخ سجل الإقرارات الجمركية بصيغة TSV بنجاح';
+  @override String get cloneFromAssessmentBtn => 'استنساخ كمسودة جديدة';
 
-  // ── Screen 24: Customs Clearance Management ────────────────────────────────
+  // ── Screen 24/27: Customs Clearance Management ────────────────────────────────
+  @override String get searchAndCloneCustomsClearanceBtn => 'بحث واستنساخ بيان تخليص سابق';
+  @override String get cloneCustomsClearanceDialogTitle => 'استنساخ بيان تخليص ومعاينة جمركية';
+  @override String get cloneCustomsClearanceDialogSubtitle => 'اختر بياناً سابقاً لنسخ بيانات التخليص في مسودة جديدة';
+  @override String get cloneCustomsClearanceTooltip => 'استنساخ هذا البيان الجمركي';
+  @override String get copyCustomsClearanceRowSuccess => 'تم نسخ بيانات سجل التخليص بصيغة TSV بنجاح';
+  @override String get copyCustomsClearanceTableSuccess => 'تم نسخ جدول التخليص الجمركي بصيغة TSV بنجاح';
+  @override String get exportCustomsClearanceExcelTooltip => 'تصدير سجل التخليص الجمركي إلى Excel';
+  @override String get exportCustomsClearancePdfTooltip => 'تصدير سجل التخليص الجمركي إلى PDF';
   @override String get customsClearanceStageTitle => 'الميناء والتخليص الجمركي والمعاينة والمطابقة';
   @override String get customsClearanceTabFollowUp => 'متابعة الكشف والتثمين والتفتيش الجمركي';
   @override String get customsClearanceTabSamples => 'سحب العينات وتحديد عجز البضائع';
@@ -2954,8 +2976,25 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get freightBookingBreakdownHeader => '📊 تفاصيل احتساب التوفير ناتج حاصل ضرب فرق السعر × الكمية:';
   @override String freightBookingBreakdownSavingsUnit(String name, String orig, String exec, String unitDiff, String qty, String unitType, String savings) => '• $name: (\$$orig - \$$exec = \$$unitDiff) × $qty $unitType = \$$savings USD توفير';
   @override String get freightBookingPrintSystemHeader => 'SOROUR LOGISTICS ERP - CARRIER BOOKING CONFIRMATION';
+  @override String get searchAndCloneFreightBookingBtn => 'بحث واستنساخ حجز سابق';
+  @override String get cloneFreightBookingDialogTitle => 'استنساخ حجز شحن بحري / جوي';
+  @override String get cloneFreightBookingDialogSubtitle => 'اختيار حجز شحن سابق واستنساخه كمسودة جديدة مع تصفير أرقام التأكيد والبوالص';
+  @override String get cloneBookingRowTooltip => 'استنساخ حجز الشحن كمسودة جديدة';
+  @override String get copyBookingRowSuccess => 'تم نسخ بيانات حجز الشحن إلى الحافظة بنجاح';
+  @override String get copyBookingsTableSuccess => 'تم نسخ جدول حجوزات الشحن كـ TSV بنجاح';
+  @override String get exportBookingsExcelTooltip => 'تصدير سجل الحجوزات إلى Excel';
+  @override String get exportBookingsPdfTooltip => 'تصدير سجل الحجوزات إلى PDF';
 
   // ── Screen 26 & 52: Cargo Shipping Tracking & Freight Allocations (VGM) ───
+  @override String get searchAndCloneCargoShippingBtn => 'بحث واستنساخ شحنة سابقة';
+  @override String get cloneCargoShippingDialogTitle => 'استنساخ سجل شحن وحاويات';
+  @override String get cloneCargoShippingDialogSubtitle => 'اختر شحنة سابقة واستنسخ تجهيز الحاويات والـ VGM كمسودة جديدة';
+  @override String get cloneCargoShippingTooltip => 'استنساخ الشحنة وتخصيص الحاويات كمسودة جديدة';
+  @override String get cargoShippingDuplicateContainerTooltip => 'تكرار / استنساخ الحاوية (Ctrl + D)';
+  @override String get copyCargoShippingRowSuccess => 'تم نسخ بيانات الشحنة إلى الحافظة بنجاح';
+  @override String get copyCargoShippingTableSuccess => 'تم نسخ جدول سجل الشحنات كـ TSV بنجاح';
+  @override String get exportCargoShippingExcelTooltip => 'تصدير سجل الشحنات إلى Excel';
+  @override String get exportCargoShippingPdfTooltip => 'تصدير سجل الشحنات إلى PDF';
   @override String get cargoShippingAllocationsTitle => 'تخصيص وتوزيع الحاويات والوزن الإجمالي المعتمد للشحن';
   @override String get cargoShippingTrackingTitle => 'متابعة حركة الشحن وتحميل وتوريد الحاويات وضبط المهل';
   @override String get cargoShippingFormTab => 'تجهيز الشحن ومتابعة التحميل';
@@ -3139,6 +3178,14 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get cargoShippingSlaCopyMilestoneSuccess => 'تم نسخ تفاصيل المرحلة';
 
   // Screen 28: Warehouse Receiving & Inspection (GRN)
+  @override String get searchAndCloneWarehouseReceivingBtn => 'بحث واستنساخ إذن إضافة سابق';
+  @override String get cloneWarehouseReceivingDialogTitle => 'استنساخ إذن إضافة وفحص مخزني (GRN)';
+  @override String get cloneWarehouseReceivingDialogSubtitle => 'اختر إذن إضافة مخزني سابق لنسخ تفاصيل الأصناف وكميات الفحص كمسودة جديدة';
+  @override String get cloneWarehouseReceivingTooltip => 'استنساخ إذن الإضافة كمسودة جديدة';
+  @override String get copyWarehouseReceivingRowSuccess => 'تم نسخ بيانات إذن الإضافة (GRN) إلى الحافظة';
+  @override String get copyWarehouseReceivingTableSuccess => 'تم نسخ جدول أذون الإضافة المخزنية إلى الحافظة';
+  @override String get exportWarehouseReceivingExcelTooltip => 'تصدير سجل أذون الإضافة إلى Excel';
+  @override String get exportWarehouseReceivingPdfTooltip => 'تصدير سجل أذون الإضافة إلى PDF';
   @override String get warehouseReceivingStageTitle => 'استلام البضائع بالمخازن وفحص الجودة';
   @override String get warehouseReceivingTabRegistry => 'سجل أذون الإضافة المخزنية';
   @override String get warehouseReceivingTabNewEntry => 'إنشاء إذن استلام وفحص مخزني';
@@ -3240,6 +3287,14 @@ class AppLocalizationsAr extends AppLocalizations {
   // ==========================================
   // Screen 29: Landed Cost Settlement (FinancialSettlementScreen & OdooJournalEntryDialog)
   // ==========================================
+  @override String get searchAndCloneFinancialSettlementBtn => 'بحث واستنساخ تسوية تكلفة سابقة';
+  @override String get cloneFinancialSettlementDialogTitle => 'استنساخ تسوية تكلفة الوصول';
+  @override String get cloneFinancialSettlementDialogSubtitle => 'إنشاء مسودة تسوية جديدة مستنسخة مع تصفير المعرفات وإعادة الضبط';
+  @override String get cloneFinancialSettlementTooltip => 'استنساخ هذه التسوية كمسودة جديدة';
+  @override String get copyFinancialSettlementRowSuccess => 'تم نسخ بيانات التسوية المحددة إلى الحافظة (TSV)';
+  @override String get copyFinancialSettlementTableSuccess => 'تم نسخ جدول تسويات التكلفة إلى الحافظة (TSV)';
+  @override String get exportFinancialSettlementExcelTooltip => 'تصدير سجل التسويات إلى Excel';
+  @override String get exportFinancialSettlementPdfTooltip => 'تصدير سجل التسويات إلى PDF';
   @override String get financialSettlementStageTitle => 'التسوية المالية وتكلفة البند النهائي';
   @override String get financialSettlementTabRegistry => 'سجل تسويات تكلفة الوصول';
   @override String get financialSettlementTabNewEntry => 'احتساب وتسوية تكلفة شحنة جديدة';
@@ -3361,6 +3416,14 @@ class AppLocalizationsAr extends AppLocalizations {
   // ---------------------------------------------------------------------------
   // Screen 30: File Closure & Archival
   // ---------------------------------------------------------------------------
+  @override String get searchAndCloneFileClosureBtn => 'بحث واستنساخ أرشفة سابقة';
+  @override String get cloneFileClosureDialogTitle => 'استنساخ شهادة إغلاق وأرشفة ملف (مسودة)';
+  @override String get cloneFileClosureDialogSubtitle => 'تكرار سجل إغلاق وأرشفة شحنة سابق إلى مسودة جديدة مع تصفير المعرفات الحساسة.';
+  @override String get cloneFileClosureTooltip => 'استنساخ شهادة الإغلاق هذه كمسودة جديدة';
+  @override String get copyFileClosureRowSuccess => 'تم نسخ بيانات شهادة إغلاق الملف كجدول بنجاح';
+  @override String get copyFileClosureTableSuccess => 'تم نسخ سجل الملفات المؤرشفة بالكامل كجدول بنجاح';
+  @override String get exportFileClosureExcelTooltip => 'تصدير سجل الشحنات المؤرشفة إلى Excel';
+  @override String get exportFileClosurePdfTooltip => 'تصدير سجل الشحنات المؤرشفة إلى PDF';
   @override String get fileClosureStageTitle => 'إغلاق الملف والأرشفة التاريخية';
   @override String get fileClosureTabArchivedRegistry => 'سجل الملفات المغلقة والمؤرشفة';
   @override String get fileClosureTabCloseFile => 'إغلاق وأرشفة ملف شحنة';
@@ -3497,6 +3560,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get allowedShipmentCategoriesLabel => 'أنواع الشحنات المتاحة للمشروع *';
   @override String get estTotalBudgetUsdLabel => 'الميزانية التقديرية بالدولار';
   @override String get estTotalBudgetUsdHint => 'مثال: 500000';
+  @override String get targetEndDateLabel => 'تاريخ الانتهاء المستهدف';
+  @override String get targetEndDateHint => 'YYYY-MM-DD';
+  @override String get targetEndDateCol => 'الانتهاء المستهدف';
   @override String get allowMultiShipmentTitle => 'السماح بالشحن على دفعات متتابعة';
   @override String get allowMultiShipmentSubtitle => 'يسمح بتوزيع توريد المشروع على عدة شحنات ورسائل جمركية متتابعة';
   @override String get allowMultiCompanyTitle => 'السماح بتعدد الكيانات والشركات';
@@ -3938,11 +4004,46 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get shippingLineDetailsHeader => 'بيانات الخط الملاحي';
   @override String get scacCarrierCodeLabel => 'كود الناقل الملاحي *';
   @override String get scacCarrierCodeHint => 'كود الناقل الملاحي';
+  @override String get defaultFreeDaysLabel => 'فترة السماح الافتراضية (أيام) *';
+  @override String get defaultFreeDaysHint => 'مثال: 14 أو 21 يوم';
+  @override String partnerFreeDaysBadge(int days) => '$days يوم سماح';
   @override String get trackingWebUrlLabel => 'رابط تتبع الشحنات الملاحية';
   @override String get trackingWebUrlHint => 'رابط التتبع الإلكتروني';
-  @override String get customsBrokerLicenseHeader => 'ترخيص التخليص الجمركي';
+  @override String get freightForwarderDetailsHeader => 'بيانات وكيل الشحن الدولي وعروض الأسعار';
+  @override String get fiataLicenseLabel => 'رخصة الفياتا / ترخيص الشحن الدولي';
+  @override String get fiataLicenseHint => 'مثال: FIATA-EG-7721';
+  @override String get shippingModesLabel => 'طرق ومجالات الشحن المدعومة';
+  @override String get shippingModesHint => 'مثال: Sea FCL, Sea LCL, Air Freight, Land';
+  @override String get supportedCurrenciesLabel => 'العملات المعتمدة لعروض الأسعار';
+  @override String get supportedCurrenciesHint => 'مثال: USD, EUR, EGP';
+  @override String partnerFiataBadge(String fiata) => 'فياتا: $fiata';
+  @override String get inspectionAgencyDetailsHeader => 'بيانات جهة الفحص والاعتماد';
+  @override String get inspectionAccreditationNumLabel => 'رقم اعتماد جهة الفحص (GOIEC / ISO) *';
+  @override String get inspectionAccreditationNumHint => 'مثال: GOIEC-EG-9001 أو ISO-17020';
+  @override String get inspectionScopeLabel => 'نطاق الفحص والمعاينة وشهادات المطابقة (CoC / VOC)';
+  @override String get inspectionScopeHint => 'مثال: Pre-shipment Inspection, CoC/VOC, Food, Machinery';
+  @override String partnerAccreditationBadge(String num) => 'اعتماد: $num';
+  @override String get customsBrokerLicenseHeader => 'ترخيص التخليص الجمركي والموانئ المعتمدة';
   @override String get customsClearanceLicenseNumLabel => 'رقم ترخيص مزاولة التخليص الجمركي *';
   @override String get customsClearanceLicenseNumHint => 'رقم رخصة التخليص الجمركي';
+  @override String get authorizedPortsLabel => 'الموانئ والمنافذ الجمركية المعتمدة للعمل';
+  @override String get authorizedPortsHint => 'مثال: ميناء الإسكندرية، السخنة، بورسعيد، دمياط، مطار القاهرة';
+  @override String partnerPortsBadge(String ports) => 'الموانئ: $ports';
+  @override String get inlandTransportDetailsHeader => 'بيانات أسطول وترخيص النقل البري';
+  @override String get transportLicenseNumLabel => 'رقم ترخيص النقل البري *';
+  @override String get transportLicenseNumHint => 'مثال: MOT-EG-8844 / ترخيص وزارة النقل';
+  @override String get fleetTypesLabel => 'أنواع الشاحنات والأسطول *';
+  @override String get fleetTypesHint => 'مثال: تريلات حاويات 20/40 قدم، كساحات، برادات، جامبو';
+  @override String get coverageAreasLabel => 'نطاق التغطية والمحافظات المعتمدة';
+  @override String get coverageAreasHint => 'مثال: موانئ الإسكندرية، السخنة، بورسعيد، دمياط، القاهرة الكبرى';
+  @override String partnerFleetBadge(String fleet) => 'الأسطول: $fleet';
+  @override String partnerCoverageBadge(String areas) => 'التغطية: $areas';
+  @override String get insuranceDetailsHeader => 'بيانات ترخيص وتغطيات التأمين البحري';
+  @override String get insuranceLicenseNumLabel => 'رقم ترخيص هيئة الرقابة المالية (FRA) *';
+  @override String get insuranceLicenseNumHint => 'مثال: FRA-INS-302 / هيئة الرقابة المالية';
+  @override String get insuranceCoverageTypesLabel => 'أنواع التغطيات التأمينية المعتمدة *';
+  @override String get insuranceCoverageTypesHint => 'مثال: شروط معهد التأمين A / B / C، كل الأخطار، أخطار الحرب';
+  @override String partnerInsuranceCoverageBadge(String cov) => 'تغطية: $cov';
   @override String get partnerTaxIdLabel => 'رقم التسجيل الضريبي';
   @override String get partnerTaxIdHint => 'الرقم الضريبي';
   @override String get partnerCommercialRegLabel => 'رقم السجل التجاري';

@@ -253,9 +253,9 @@ class VisualDraftBLSheet extends StatelessWidget {
                                   'BILL OF LADING (DRAFT)',
                                   style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 0.8, color: AppTheme.charcoal),
                                 ),
-                                Text(
+                                 Text(
                                   'NON-NEGOTIABLE — FOR DRAFT & REFERENCE REVIEW ONLY',
-                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red),
+                                  style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.red),
                                 ),
                               ],
                             ),
@@ -287,7 +287,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('SHIPPER / EXPORTER:', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                                    Text('SHIPPER / EXPORTER:', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
                                     const SizedBox(height: 4),
                                     CopyableText(shipper, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
                                   ],
@@ -302,10 +302,10 @@ class VisualDraftBLSheet extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text("CARRIER'S AGENTS ENDORSEMENTS:", style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                                    Text("CARRIER'S AGENTS ENDORSEMENTS:", style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
                                     const SizedBox(height: 4),
-                                    const Text("SHIPPER'S LOAD, STOW AND COUNT; FCL/FCL; SAID TO CONTAIN", style: TextStyle(fontSize: 9.5)),
-                                    const Text("Standard International Maritime Carrier Endorsement", style: TextStyle(fontSize: 9.5)),
+                                    const Text("SHIPPER'S LOAD, STOW AND COUNT; FCL/FCL; SAID TO CONTAIN", style: TextStyle(fontSize: 11.0)),
+                                    const Text("Standard International Maritime Carrier Endorsement", style: TextStyle(fontSize: 11.0)),
                                   ],
                                 ),
                               ),
@@ -331,7 +331,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('CONSIGNEE:', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                                    Text('CONSIGNEE:', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
                                     const SizedBox(height: 4),
                                     CopyableText(consignee, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
                                   ],
@@ -346,9 +346,9 @@ class VisualDraftBLSheet extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('PORT OF DISCHARGE AGENT:', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                                    Text('PORT OF DISCHARGE AGENT:', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
                                     const SizedBox(height: 4),
-                                    CopyableText(pod, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600)),
+                                    CopyableText(pod, style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.w600)),
                                   ],
                                 ),
                               ),
@@ -364,7 +364,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('NOTIFY PARTY:', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                            Text('NOTIFY PARTY:', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
                             const SizedBox(height: 4),
                             CopyableText(notifyParty, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
                           ],
@@ -392,7 +392,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                         child: const Text(
                           'PARTICULARS FURNISHED BY THE SHIPPER — NOT CHECKED BY CARRIER — CARRIER NOT RESPONSIBLE',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                          style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                         ),
                       ),
                       const Divider(height: 1, thickness: 1, color: Colors.black87),
@@ -431,8 +431,8 @@ class VisualDraftBLSheet extends StatelessWidget {
                                   children: [
                                     CopyableText(containerSummary, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                     const SizedBox(height: 6),
-                                    Text('Marks & Numbers: N/A', style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
-                                    Text('FCL / FCL', style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
+                                    Text('Marks & Numbers: N/A', style: TextStyle(fontSize: 11.0, color: Colors.grey.shade700)),
+                                    Text('FCL / FCL', style: TextStyle(fontSize: 11.0, color: Colors.grey.shade700)),
                                   ],
                                 ),
                               ),
@@ -469,18 +469,18 @@ class VisualDraftBLSheet extends StatelessWidget {
                                               Expanded(
                                                 child: Text(
                                                   'EGYPTIAN CUSTOMS ADVANCED INFORMATION (ACID BLOCK):',
-                                                  style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                                  style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                                                   overflow: TextOverflow.ellipsis,
                                                 ),
                                               ),
                                             ],
                                           ),
                                           const SizedBox(height: 4),
-                                          SelectableText('ACID: $acid', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.black87)),
-                                          SelectableText('EGYPTIAN IMPORTER TAX ID: $taxId', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.black87)),
-                                          SelectableText('SHIPPER REGISTRATION TYPE: $regType', style: const TextStyle(fontSize: 10, color: Colors.black87)),
-                                          SelectableText('SHIPPER ID: $regId', style: const TextStyle(fontSize: 10, color: Colors.black87)),
-                                          SelectableText('SHIPPER COUNTRY: $country (CODE: $countryCode)', style: const TextStyle(fontSize: 10, color: Colors.black87)),
+                                          SelectableText('ACID: $acid', style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.black87)),
+                                          SelectableText('EGYPTIAN IMPORTER TAX ID: $taxId', style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.black87)),
+                                          SelectableText('SHIPPER REGISTRATION TYPE: $regType', style: const TextStyle(fontSize: 11.0, color: Colors.black87)),
+                                          SelectableText('SHIPPER ID: $regId', style: const TextStyle(fontSize: 11.0, color: Colors.black87)),
+                                          SelectableText('SHIPPER COUNTRY: $country (CODE: $countryCode)', style: const TextStyle(fontSize: 11.0, color: Colors.black87)),
                                         ],
                                       ),
                                     ),
@@ -506,7 +506,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                                   children: [
                                     CopyableText('$grossWeight KGS', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                                     const SizedBox(height: 4),
-                                    CopyableText('Net: $netWeight KGS', style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
+                                    CopyableText('Net: $netWeight KGS', style: TextStyle(fontSize: 11.0, color: Colors.grey.shade700)),
                                   ],
                                 ),
                               ),
@@ -558,16 +558,16 @@ class VisualDraftBLSheet extends StatelessWidget {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Sorour Logistics ERP Draft B/L Certification Engine', style: TextStyle(fontSize: 9.5, color: Colors.grey)),
-                                Text('Generated: ${DateTime.now().toLocal().toString().substring(0, 19)}', style: const TextStyle(fontSize: 9.5, color: Colors.grey)),
+                                const Text('Sorour Logistics ERP Draft B/L Certification Engine', style: TextStyle(fontSize: 11.0, color: Colors.grey)),
+                                Text('Generated: ${DateTime.now().toLocal().toString().substring(0, 19)}', style: const TextStyle(fontSize: 11.0, color: Colors.grey)),
                               ],
                             ),
                             const Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                Text('SIGNED FOR THE CARRIER / AGENT:', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+                                Text('SIGNED FOR THE CARRIER / AGENT:', style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold)),
                                 SizedBox(height: 8),
-                                Text('OCEAN CARRIER / Authorized Agent', style: TextStyle(fontSize: 10, color: Colors.black87)),
+                                Text('OCEAN CARRIER / Authorized Agent', style: TextStyle(fontSize: 11.0, color: Colors.black87)),
                               ],
                             ),
                           ],
@@ -595,9 +595,9 @@ class VisualDraftBLSheet extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+            Text(title, style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
             const SizedBox(height: 2),
-            CopyableText(val, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600), maxLines: 2, overflow: TextOverflow.ellipsis),
+            CopyableText(val, style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.w600), maxLines: 2, overflow: TextOverflow.ellipsis),
           ],
         ),
       ),
@@ -614,7 +614,7 @@ class VisualDraftBLSheet extends StatelessWidget {
         ),
         child: Text(
           title,
-          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold),
         ),
       ),
     );

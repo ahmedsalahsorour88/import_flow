@@ -66,6 +66,8 @@ class ImportFileClosureModel {
     required this.updatedAt,
   });
 
+  bool get isFullyVerified => closureChecklist.isAllCompleted && status == 'Closed';
+
   factory ImportFileClosureModel.fromJson(Map<String, dynamic> json) {
     return ImportFileClosureModel(
       closureId: json['closure_id'],

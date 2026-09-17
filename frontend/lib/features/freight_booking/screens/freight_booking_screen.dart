@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/display_name_resolver.dart';
+import '../../../core/services/table_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
@@ -13,15 +17,15 @@ import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../lifecycle_board/providers/lifecycle_board_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../shipping_scenarios/models/shipping_scenario_model.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
+import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../models/freight_booking_model.dart';
 import '../providers/freight_booking_provider.dart';
-import '../../lifecycle_board/providers/lifecycle_board_provider.dart';
-import '../../smart_tasks/providers/smart_tasks_provider.dart';
-import '../../../core/services/display_name_resolver.dart';
+import '../widgets/search_and_clone_freight_booking_dialog.dart';
 
 class FreightBookingScreen extends ConsumerStatefulWidget {
   const FreightBookingScreen({super.key});
@@ -90,9 +94,284 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
     );
   }
 
+  void _openSearchAndCloneDialog(List<ShipmentBookingModel> bookings) {
+    final isAr = AppLocalizations.of(context).isArabic;
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: isAr ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+          child: SearchAndCloneFreightBookingDialog(
+            bookings: bookings,
+            onSelectBooking: (selected) => _onCloneBooking(selected),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _onCloneBooking(ShipmentBookingModel booking) {
+    final l = AppLocalizations.of(context);
+    final isAr = l.isArabic;
+    final newDraftCode = 'BK-DRAFT-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: isAr ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+          child: CloneEntityReviewDialog(
+            entityType: isAr ? 'حجز شحن بحري / جوي' : 'Freight Booking',
+            sourceCode: booking.bookingCode,
+            suggestedNewCode: newDraftCode,
+            sourceTitle: '${booking.shippingLineName ?? "—"} (${booking.polName ?? "—"} ➔ ${booking.podName ?? "—"})',
+            copiedFieldsSummary: {
+              isAr ? 'الخط الملاحي / الوكيل' : 'Carrier / Forwarder': '${booking.shippingLineName ?? "—"} / ${booking.freightForwarderName ?? "—"}',
+              isAr ? 'خط السير' : 'Route': '${booking.polName ?? "—"} ➔ ${booking.podName ?? "—"}',
+              isAr ? 'تخصيص الحاويات' : 'Allocated Containers': booking.containersData.map((c) => "${c.quantity}x ${c.containerType}").join(", "),
+              isAr ? 'إجمالي النولون التقديري' : 'Total Freight': '\$${booking.totalFreightCostUsd.toStringAsFixed(2)} USD',
+            },
+            mandatorilyResetFields: isAr
+                ? const [
+                    'رقم تأكيد الحجز (Confirmation No): يتم تفريغه للمسودة الجديدة',
+                    'اسم السفينة ورقم الرحلة (Vessel & Voyage): يتطلب إعادة تأكيد',
+                    'تاريخ المغادرة الفعلي (ATD): غير محدد للمسودة الجديدة',
+                    'حالة الحجز: تعاد إلى مسودة قيد الإعداد (Draft)',
+                  ]
+                : const [
+                    'Booking Confirmation No: Cleared for new draft',
+                    'Vessel & Voyage: Cleared for re-allocation',
+                    'Actual Time of Departure (ATD): Cleared',
+                    'Booking Status: Reset to Draft',
+                  ],
+            allowCopyLineItems: true,
+            allowCopyAttachments: false,
+            onConfirm: ({
+              required String newCode,
+              required String newTitle,
+              required bool copyLineItems,
+              required bool copyAttachments,
+              String? notes,
+            }) async {
+              final cloned = ShipmentBookingModel(
+                bookingId: 0,
+                bookingCode: newCode,
+                bookingConfirmationNo: '',
+                importFileId: booking.importFileId,
+                importFileCode: booking.importFileCode,
+                shippingLineId: booking.shippingLineId,
+                shippingLineName: booking.shippingLineName,
+                freightForwarderId: booking.freightForwarderId,
+                freightForwarderName: booking.freightForwarderName,
+                polLocationId: booking.polLocationId,
+                polName: booking.polName,
+                podLocationId: booking.podLocationId,
+                podName: booking.podName,
+                vesselName: booking.vesselName,
+                voyageNumber: booking.voyageNumber,
+                etd: booking.etd,
+                eta: booking.eta,
+                atd: null,
+                expectedWarehouseArrivalDate: null,
+                containersData: copyLineItems ? booking.containersData : [],
+                costChargesData: copyLineItems ? booking.costChargesData : [],
+                totalFreightCostUsd: booking.totalFreightCostUsd,
+                status: 'Draft',
+                departureDelayDays: 0,
+                isActive: true,
+                createdAt: DateTime.now().toIso8601String(),
+                updatedAt: DateTime.now().toIso8601String(),
+              );
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('${l.cloneBookingRowTooltip}: $newCode'),
+                    backgroundColor: AppTheme.cobalt,
+                  ),
+                );
+
+                _showAddEditBookingDialog(cloned);
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _copyBookingRowTsv(ShipmentBookingModel bkg, AppLocalizations l) {
+    final rowData = [
+      bkg.bookingCode,
+      bkg.importFileCode ?? '',
+      bkg.bookingConfirmationNo ?? '',
+      bkg.shippingLineName ?? '',
+      bkg.freightForwarderName ?? '',
+      bkg.polName ?? '',
+      bkg.podName ?? '',
+      bkg.vesselName ?? '',
+      bkg.voyageNumber ?? '',
+      bkg.etd != null && bkg.etd!.length >= 10 ? bkg.etd!.substring(0, 10) : '',
+      bkg.eta != null && bkg.eta!.length >= 10 ? bkg.eta!.substring(0, 10) : '',
+      bkg.containersData.map((c) => '${c.quantity}x ${c.containerType}').join(', '),
+      bkg.totalFreightCostUsd.toStringAsFixed(2),
+      bkg.status,
+    ];
+    final headers = [
+      l.freightBookingColBookingCode,
+      l.freightBookingColImportFile,
+      l.freightBookingColConfirmationNo,
+      l.freightBookingShippingLineLabel,
+      l.freightBookingForwarderLabel,
+      l.freightBookingPolLabel,
+      l.freightBookingPodLabel,
+      l.freightBookingVesselNameInput,
+      l.freightBookingVoyageNoInput,
+      l.freightBookingEtdLabel,
+      l.freightBookingEtaLabel,
+      l.freightBookingColContainers,
+      l.freightBookingColTotalFreight,
+      l.freightBookingColStatus,
+    ];
+
+    TableCopyHelper.copyRow(
+      context,
+      rowData,
+      headers: headers,
+      includeHeaders: true,
+      customMessage: l.copyBookingRowSuccess,
+    );
+  }
+
+  void _copyBookingsTableTsv(List<ShipmentBookingModel> bookings, AppLocalizations l) {
+    final headers = [
+      l.freightBookingColBookingCode,
+      l.freightBookingColImportFile,
+      l.freightBookingColConfirmationNo,
+      l.freightBookingShippingLineLabel,
+      l.freightBookingForwarderLabel,
+      l.freightBookingPolLabel,
+      l.freightBookingPodLabel,
+      l.freightBookingVesselNameInput,
+      l.freightBookingVoyageNoInput,
+      l.freightBookingEtdLabel,
+      l.freightBookingEtaLabel,
+      l.freightBookingColContainers,
+      l.freightBookingColTotalFreight,
+      l.freightBookingColStatus,
+    ];
+    final rows = bookings.map((b) => [
+      b.bookingCode,
+      b.importFileCode ?? '',
+      b.bookingConfirmationNo ?? '',
+      b.shippingLineName ?? '',
+      b.freightForwarderName ?? '',
+      b.polName ?? '',
+      b.podName ?? '',
+      b.vesselName ?? '',
+      b.voyageNumber ?? '',
+      b.etd != null && b.etd!.length >= 10 ? b.etd!.substring(0, 10) : '',
+      b.eta != null && b.eta!.length >= 10 ? b.eta!.substring(0, 10) : '',
+      b.containersData.map((c) => '${c.quantity}x ${c.containerType}').join(', '),
+      b.totalFreightCostUsd.toStringAsFixed(2),
+      b.status,
+    ]).toList();
+
+    TableCopyHelper.copyTable(
+      context,
+      headers,
+      rows,
+      customMessage: l.copyBookingsTableSuccess,
+    );
+  }
+
+  Future<void> _exportBookingsExcel(List<ShipmentBookingModel> bookings, AppLocalizations l) async {
+    final headers = [
+      l.freightBookingColBookingCode,
+      l.freightBookingColImportFile,
+      l.freightBookingColConfirmationNo,
+      l.freightBookingShippingLineLabel,
+      l.freightBookingForwarderLabel,
+      l.freightBookingPolLabel,
+      l.freightBookingPodLabel,
+      l.freightBookingVesselNameInput,
+      l.freightBookingVoyageNoInput,
+      l.freightBookingEtdLabel,
+      l.freightBookingEtaLabel,
+      l.freightBookingColContainers,
+      l.freightBookingColTotalFreight,
+      l.freightBookingColStatus,
+    ];
+    final rows = bookings.map((b) => [
+      b.bookingCode,
+      b.importFileCode ?? '',
+      b.bookingConfirmationNo ?? '',
+      b.shippingLineName ?? '',
+      b.freightForwarderName ?? '',
+      b.polName ?? '',
+      b.podName ?? '',
+      b.vesselName ?? '',
+      b.voyageNumber ?? '',
+      b.etd != null && b.etd!.length >= 10 ? b.etd!.substring(0, 10) : '',
+      b.eta != null && b.eta!.length >= 10 ? b.eta!.substring(0, 10) : '',
+      b.containersData.map((c) => '${c.quantity}x ${c.containerType}').join(', '),
+      b.totalFreightCostUsd.toStringAsFixed(2),
+      b.status,
+    ]).toList();
+
+    await TableExportService.exportTableToExcel(
+      context: context,
+      stageName: 'Freight Booking',
+      importFileNameOrCode: 'Registry',
+      headers: headers,
+      rows: rows,
+    );
+  }
+
+  Future<void> _exportBookingsPdf(List<ShipmentBookingModel> bookings, AppLocalizations l) async {
+    final headers = [
+      l.freightBookingColBookingCode,
+      l.freightBookingColConfirmationNo,
+      l.freightBookingShippingLineLabel,
+      l.freightBookingColRoute,
+      l.freightBookingColContainers,
+      l.freightBookingColTotalFreight,
+      l.freightBookingColStatus,
+    ];
+    final rows = bookings.map((b) => [
+      b.bookingCode,
+      b.bookingConfirmationNo ?? '—',
+      b.shippingLineName ?? '—',
+      '${b.polName ?? "-"} -> ${b.podName ?? "-"}',
+      b.containersData.map((c) => '${c.quantity}x ${c.containerType}').join(', '),
+      '\$${b.totalFreightCostUsd.toStringAsFixed(2)}',
+      b.status,
+    ]).toList();
+
+    await TableExportService.exportTableToPdf(
+      context: context,
+      stageName: 'Freight Booking',
+      importFileNameOrCode: 'Registry',
+      headers: headers,
+      rows: rows,
+      headerContext: TableExportHeaderContext(
+        title: 'Freight Bookings Registry',
+        subtitle: 'Sorour Logistics ERP — سجل حجوزات الشحن والناقلين',
+        metadata: {
+          'Total Bookings': bookings.length.toString(),
+          'Confirmed': bookings.where((b) => b.status == 'Confirmed').length.toString(),
+          'Total USD': '\$${bookings.fold(0.0, (acc, b) => acc + b.totalFreightCostUsd).toStringAsFixed(2)}',
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final bookingsState = ref.watch(freightBookingProvider);
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final importFilesMap = {for (final f in importFiles) f.importFileId: f};
@@ -169,9 +448,10 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
           },
         ),
       ],
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+      body: SelectionArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Data Actions Toolbar
@@ -185,70 +465,161 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
             // Top Toolbar
             Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                      ),
-                      onPressed: () => _showAddEditBookingDialog(),
-                      icon: const Icon(Icons.add_task, color: Colors.white),
-                      label: Text(
-                        l.freightBookingCreateButton,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const Spacer(),
-                    SizedBox(
-                      width: 250,
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: l.freightBookingSearchHint,
-                          prefixIcon: const Icon(Icons.search),
-                          isDense: true,
-                          border: const OutlineInputBorder(),
+                padding: const EdgeInsets.all(14),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 1100;
+                    final bookings = bookingsState.valueOrNull ?? [];
+                    final actionButtons = [
+                      ElevatedButton.icon(
+                        key: const Key('createBookingBtn'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.cobalt,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
-                        onChanged: (val) {
-                          ref.read(freightBookingProvider.notifier).fetchBookings(search: val, status: _selectedStatusFilter);
-                        },
+                        onPressed: () => _showAddEditBookingDialog(),
+                        icon: const Icon(Icons.add_task, size: 18),
+                        label: Text(
+                          l.freightBookingCreateButton,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 220,
-                      child: SearchableDropdownField<String>(
-                        value: _selectedStatusFilter,
-                        labelText: l.freightBookingFilterStatusLabel,
-                        searchHintText: l.freightBookingFilterStatusHint,
-                        items: [
-                          SearchableDropdownItem(value: 'All', label: l.freightBookingStatusAll),
-                          SearchableDropdownItem(value: 'Draft', label: l.freightBookingStatusDraft),
-                          SearchableDropdownItem(value: 'Booking Requested', label: l.freightBookingStatusRequested),
-                          SearchableDropdownItem(value: 'Confirmed', label: l.freightBookingStatusConfirmed),
-                          SearchableDropdownItem(value: 'Sailed', label: l.freightBookingStatusSailed),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() => _selectedStatusFilter = val);
-                            ref.read(freightBookingProvider.notifier).fetchBookings(search: _searchController.text, status: val);
-                          }
-                        },
+                      OutlinedButton.icon(
+                        key: const Key('searchAndCloneBookingBtn'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? const Color(0xFF93C5FD) : AppTheme.cobalt,
+                          side: BorderSide(color: isDark ? const Color(0xFF3B82F6) : AppTheme.cobalt),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => _openSearchAndCloneDialog(bookings),
+                        icon: const Icon(Icons.copy_all_rounded, size: 16),
+                        label: Text(
+                          l.searchAndCloneFreightBookingBtn,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
-                    ),
-                  ],
+                      OutlinedButton.icon(
+                        key: const Key('copyBookingsTableTsvBtn'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? const Color(0xFF93C5FD) : AppTheme.cobalt,
+                          side: BorderSide(color: isDark ? const Color(0xFF3B82F6) : AppTheme.cobalt),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => _copyBookingsTableTsv(bookings, l),
+                        icon: const Icon(Icons.copy, size: 16),
+                        label: Text(l.customsDeclExportTsvButton, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                      OutlinedButton.icon(
+                        key: const Key('exportBookingsExcelBtn'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? const Color(0xFF6EE7B7) : AppTheme.flatEmerald,
+                          side: BorderSide(color: isDark ? const Color(0xFF10B981) : AppTheme.flatEmerald),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => _exportBookingsExcel(bookings, l),
+                        icon: const Icon(Icons.table_view_outlined, size: 16),
+                        label: Text(l.exportBookingsExcelTooltip, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                      OutlinedButton.icon(
+                        key: const Key('exportBookingsPdfBtn'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? const Color(0xFFFCA5A5) : AppTheme.crimson,
+                          side: BorderSide(color: isDark ? const Color(0xFFEF4444) : AppTheme.crimson),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => _exportBookingsPdf(bookings, l),
+                        icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                        label: Text(l.exportBookingsPdfTooltip, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ];
+
+                    final searchAndFilter = [
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minWidth: 180,
+                          maxWidth: isNarrow ? constraints.maxWidth : 260,
+                        ),
+                        child: TextField(
+                          key: const Key('bookingSearchField'),
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: l.freightBookingSearchHint,
+                            hintStyle: TextStyle(color: isDark ? const Color(0xFF64748B) : Colors.grey.shade500),
+                            prefixIcon: Icon(Icons.search, color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600),
+                            isDense: true,
+                            filled: true,
+                            fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
+                            ),
+                          ),
+                          style: TextStyle(color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B)),
+                          onChanged: (val) {
+                            ref.read(freightBookingProvider.notifier).fetchBookings(search: val, status: _selectedStatusFilter);
+                          },
+                        ),
+                      ),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minWidth: 180,
+                          maxWidth: isNarrow ? constraints.maxWidth : 220,
+                        ),
+                        child: SearchableDropdownField<String>(
+                          value: _selectedStatusFilter,
+                          labelText: l.freightBookingFilterStatusLabel,
+                          searchHintText: l.freightBookingFilterStatusHint,
+                          items: [
+                            SearchableDropdownItem(value: 'All', label: l.freightBookingStatusAll),
+                            SearchableDropdownItem(value: 'Draft', label: l.freightBookingStatusDraft),
+                            SearchableDropdownItem(value: 'Booking Requested', label: l.freightBookingStatusRequested),
+                            SearchableDropdownItem(value: 'Confirmed', label: l.freightBookingStatusConfirmed),
+                            SearchableDropdownItem(value: 'Sailed', label: l.freightBookingStatusSailed),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() => _selectedStatusFilter = val);
+                              ref.read(freightBookingProvider.notifier).fetchBookings(search: _searchController.text, status: val);
+                            }
+                          },
+                        ),
+                      ),
+                    ];
+
+                    return Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      alignment: WrapAlignment.spaceBetween,
+                      children: [
+                        ...actionButtons,
+                        ...searchAndFilter,
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
             const SizedBox(height: 16),
 
             // Master DataTable
-            Expanded(
-              child: bookingsState.when(
+            bookingsState.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (err, stack) => Center(child: Text('❌ Error: $err', style: const TextStyle(color: Colors.red))),
                 data: (bookings) {
@@ -259,11 +630,16 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                   }
                   return Card(
                     elevation: 2,
+                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
+                    ),
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: SingleChildScrollView(
                         child: DataTable(
-                          headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.06)),
+                          headingRowColor: WidgetStateProperty.all(isDark ? const Color(0xFF0F172A) : AppTheme.charcoal.withOpacity(0.06)),
                           horizontalMargin: 12,
                           columnSpacing: 16,
                           columns: [
@@ -286,34 +662,54 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                               cells: [
                                 // 1. Operations Pill in Column 1
                                 DataCell(
-                                  RowActionsPill(
-                                    onView: () => _showViewBookingDialog(bkg),
-                                    onEdit: () => _showAddEditBookingDialog(bkg),
-                                    onPrint: () => _showPrintBookingDialog(bkg),
-                                    onDelete: () async {
-                                      final confirm = await showDialog<bool>(
-                                        context: context,
-                                        builder: (c) => AlertDialog(
-                                          title: Text(l.freightBookingDeleteConfirmTitle),
-                                          content: Text(l.freightBookingDeleteConfirmMessage(bkg.bookingCode)),
-                                          actions: [
-                                            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
-                                            ElevatedButton(
-                                              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
-                                              onPressed: () => Navigator.pop(c, true),
-                                              child: Text(l.delete),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      RowActionsPill(
+                                        onView: () => _showViewBookingDialog(bkg),
+                                        onEdit: () => _showAddEditBookingDialog(bkg),
+                                        onClone: () => _onCloneBooking(bkg),
+                                        onPrint: () => _showPrintBookingDialog(bkg),
+                                        onDelete: () async {
+                                          final confirm = await showDialog<bool>(
+                                            context: context,
+                                            builder: (c) => AlertDialog(
+                                              title: Text(l.freightBookingDeleteConfirmTitle),
+                                              content: Text(l.freightBookingDeleteConfirmMessage(bkg.bookingCode)),
+                                              actions: [
+                                                TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+                                                ElevatedButton(
+                                                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
+                                                  onPressed: () => Navigator.pop(c, true),
+                                                  child: Text(l.delete),
+                                                ),
+                                              ],
                                             ),
-                                          ],
-                                        ),
-                                      );
-                                      if (confirm == true) {
-                                        await ref.read(freightBookingProvider.notifier).softDeleteBooking(bkg.bookingId);
-                                      }
-                                    },
-                                    viewTooltip: l.freightBookingViewTooltip,
-                                    editTooltip: l.freightBookingEditTooltip,
-                                    printTooltip: l.freightBookingPrintTooltip,
-                                    deleteTooltip: l.freightBookingDeleteTooltip,
+                                          );
+                                          if (confirm == true) {
+                                            await ref.read(freightBookingProvider.notifier).softDeleteBooking(bkg.bookingId);
+                                          }
+                                        },
+                                        viewTooltip: l.freightBookingViewTooltip,
+                                        editTooltip: l.freightBookingEditTooltip,
+                                        cloneTooltip: l.cloneBookingRowTooltip,
+                                        printTooltip: l.freightBookingPrintTooltip,
+                                        deleteTooltip: l.freightBookingDeleteTooltip,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      IconButton(
+                                        key: Key('copyBookingRowBtn_${bkg.bookingCode}'),
+                                        icon: const Icon(Icons.copy, size: 16),
+                                        tooltip: l.copyBookingRowSuccess,
+                                        onPressed: () => _copyBookingRowTsv(bkg, l),
+                                      ),
+                                      IconButton(
+                                        key: Key('cloneBookingRowBtn_${bkg.bookingCode}'),
+                                        icon: const Icon(Icons.copy_all_rounded, size: 16, color: AppTheme.cobalt),
+                                        tooltip: l.cloneBookingRowTooltip,
+                                        onPressed: () => _onCloneBooking(bkg),
+                                      ),
+                                    ],
                                   ),
                                 ),
 
@@ -560,8 +956,8 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                   );
                 },
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1343,7 +1739,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
           ],
         ),
         content: Container(
-          width: 500,
+          width: (MediaQuery.of(context).size.width - 32).clamp(320.0, 500.0),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.orange.shade50.withOpacity(0.5),
@@ -1705,7 +2101,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
           ],
         ),
         content: SizedBox(
-          width: 960,
+          width: (MediaQuery.of(context).size.width - 32).clamp(320.0, 960.0),
           height: 680,
           child: Column(
             children: [
@@ -2597,7 +2993,7 @@ class _FreightBookingViewDialog extends StatelessWidget {
         ],
       ),
       content: SizedBox(
-        width: 750,
+        width: (MediaQuery.of(context).size.width - 32).clamp(320.0, 750.0),
         height: 520,
         child: SelectionArea(
           child: SingleChildScrollView(
@@ -3016,7 +3412,7 @@ class _FreightBookingPrintDialog extends StatelessWidget {
         ],
       ),
       content: SizedBox(
-        width: 700,
+        width: (MediaQuery.of(context).size.width - 32).clamp(320.0, 700.0),
         height: 520,
         child: Container(
           padding: const EdgeInsets.all(16),

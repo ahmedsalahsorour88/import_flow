@@ -20,6 +20,10 @@ import '../models/cargo_shipping_model.dart';
 import '../providers/cargo_shipping_provider.dart';
 import '../services/cargo_shipping_sla_export_service.dart';
 import '../../lifecycle_board/providers/lifecycle_board_provider.dart';
+import '../../../core/helpers/table_copy_helper.dart';
+import '../../../core/services/table_export_service.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
+import '../widgets/search_and_clone_cargo_shipping_dialog.dart';
 
 
 class CargoShippingScreen extends ConsumerStatefulWidget {
@@ -303,6 +307,335 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       default:
         return type;
     }
+  }
+
+  void _openSearchAndCloneShippingDialog(List<CargoShippingModel> records) {
+    final l = context.l10n;
+    final isAr = l.isArabic;
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: isAr ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+          child: SearchAndCloneCargoShippingDialog(
+            records: records,
+            onSelectRecord: (selected) => _onCloneCargoShipping(selected),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _onCloneCargoShipping(CargoShippingModel rec) {
+    final l = context.l10n;
+    final isAr = l.isArabic;
+    final newDraftCode = 'SHP-DRAFT-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+
+    final containerSummary = rec.containersLoadingData.isNotEmpty
+        ? rec.containersLoadingData.map((c) => '${c.quantity}x ${c.containerType}').join(', ')
+        : (rec.shipmentType == 'LCL' ? 'LCL Consolidation' : 'Standard 40HC');
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: isAr ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+          child: CloneEntityReviewDialog(
+            entityType: isAr ? 'شحنة وتخصيص حاويات' : 'Cargo Shipping & Container Allocation',
+            sourceCode: rec.cargoShippingCode,
+            suggestedNewCode: newDraftCode,
+            sourceTitle: '${rec.importFileCode ?? "IMP-${rec.importFileId}"} - ${rec.companyName ?? ""}',
+            copiedFieldsSummary: {
+              isAr ? 'نوع الشحن' : 'Shipment Type': rec.shipmentType,
+              isAr ? 'تخصيص الحاويات' : 'Allocated Containers': containerSummary,
+              isAr ? 'إجمالي الوزن (VGM)' : 'Total VGM Weight': '${rec.containersLoadingData.fold<double>(0.0, (acc, c) => acc + c.grossWeightKg).toStringAsFixed(0)} kg',
+              if (rec.shipmentType == 'LCL' && rec.lclTrackingData?.cfsWarehouseName != null)
+                isAr ? 'مستودع التجميع (CFS)' : 'CFS Warehouse': rec.lclTrackingData!.cfsWarehouseName ?? '',
+            },
+            mandatorilyResetFields: isAr
+                ? const [
+                    'معرف الشحنة (Shipping ID): يتم تفريغه لتوليد سجل جديد',
+                    'كود الشحنة (Shipping Code): يعاد تعيينه كمسودة (DRAFT)',
+                    'ملف الاستيراد: يتطلب إعادة الربط بملف استيراد جديد أو قيد التجهيز',
+                    'حالة تتبع الحاويات: تعاد للبدء المبدئي (ASSIGNED / Cargo Ready)',
+                    'سجل المهل وتواريخ التحميل (48h SLA): تعاد للتهيئة والتوقيت الجديد',
+                  ]
+                : const [
+                    'Shipping Record ID: Cleared for new draft creation',
+                    'Shipping Code: Auto-generated as new DRAFT',
+                    'Import File Link: Requires selection of target import file',
+                    'Container Tracking Status: Reset to ASSIGNED / Cargo Ready',
+                    'SLA Milestones & Dates: Re-initialized to current date/time',
+                  ],
+            allowCopyLineItems: true,
+            allowCopyAttachments: false,
+            onConfirm: ({
+              required String newCode,
+              required String newTitle,
+              required bool copyLineItems,
+              required bool copyAttachments,
+              String? notes,
+            }) async {
+              final nowIso = DateTime.now().toIso8601String();
+              final List<ContainerLoadingModel> clonedContainers = [];
+
+              if (copyLineItems && rec.containersLoadingData.isNotEmpty) {
+                for (final c in rec.containersLoadingData) {
+                  final ms = DateTime.now().millisecondsSinceEpoch.toString();
+                  final dupUnits = c.individualUnits.map((u) {
+                    return {
+                      'container_no': 'MSCU${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}${clonedContainers.length + 1}',
+                      'seal_no': 'SL-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}${clonedContainers.length + 1}',
+                    };
+                  }).toList();
+
+                  clonedContainers.add(
+                    ContainerLoadingModel(
+                      containerType: c.containerType,
+                      quantity: c.quantity,
+                      containerNo: dupUnits.isNotEmpty ? (dupUnits.first['container_no'] ?? '') : 'MSCU${ms.substring(6)}',
+                      sealNo: dupUnits.isNotEmpty ? (dupUnits.first['seal_no'] ?? '') : 'SL-${ms.substring(8)}',
+                      tareWeightKg: c.tareWeightKg,
+                      netWeightKg: c.netWeightKg,
+                      grossWeightKg: c.grossWeightKg,
+                      vgmStatus: 'Submitted',
+                      vgmRefNo: 'VGM-${ms.substring(8)}',
+                      containerAssignmentDate: nowIso,
+                      trackingStatus: 'ASSIGNED',
+                      individualUnits: dupUnits,
+                    ),
+                  );
+                }
+              }
+
+              setState(() {
+                _editingRecordId = null;
+                _editingRecordCode = newCode;
+                _selectedImportFileId = null;
+                _shipmentType = rec.shipmentType;
+                if (clonedContainers.isNotEmpty) {
+                  _containers = clonedContainers;
+                } else {
+                  _initDefaultContainer();
+                }
+                if (rec.shipmentType == 'LCL' && rec.lclTrackingData != null) {
+                  final cfsName = rec.lclTrackingData!.cfsWarehouseName ?? 'CFS Warehouse';
+                  _cfsWarehouseCtrl.text = cfsName;
+                  _lclTracking = LclLoadingTrackingModel(
+                    shipmentType: 'LCL',
+                    cfsWarehouseName: cfsName,
+                    consolidationScheduledDate: nowIso,
+                    trackingStatus: 'ASSIGNED',
+                  );
+                }
+                _activeStepIndex = 0;
+                _visitedFormSteps.add(0);
+                for (final c in _milestoneNoteControllers.values) {
+                  c.dispose();
+                }
+                _milestoneNoteControllers.clear();
+                _selectedMilestoneForNote.clear();
+              });
+
+              _visitedMainTabs.add(0);
+              _mainTabController.animateTo(0);
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('${l.cloneCargoShippingTooltip}: $newCode'),
+                    backgroundColor: AppTheme.cobalt,
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _copyShippingRowTsv(CargoShippingModel rec, AppLocalizations l) {
+    final containerSummary = rec.containersLoadingData
+        .map((c) => '${c.containerNo} (${c.containerType})')
+        .join(', ');
+    final gatedCount = rec.containersLoadingData.where((c) => c.trackingStatus == 'GATED_IN_AT_PORT').length;
+    final hasBreach = rec.containersLoadingData.any((c) => c.isSlaBreached) || (rec.lclTrackingData?.isSlaBreached ?? false);
+
+    final rowData = [
+      rec.cargoShippingCode,
+      rec.importFileCode ?? 'IMP-${rec.importFileId}',
+      rec.companyName ?? '',
+      rec.shipmentType,
+      containerSummary,
+      rec.status,
+      '$gatedCount/${rec.containersLoadingData.length}',
+      hasBreach ? l.cargoShippingSlaBreached : l.cargoShippingSlaOnTime,
+      rec.isActive ? 'Active' : 'Deleted',
+    ];
+
+    final headers = [
+      'كود الشحنة',
+      'ملف الاستيراد',
+      'الشركة المستوردة',
+      'نوع الشحن',
+      'الحاويات وأرقام الأقفال',
+      'الحالة',
+      'دخول الميناء (Gate-In)',
+      'موقف مهلة 48h SLA',
+      'الحالة التشغيلية',
+    ];
+
+    TableCopyHelper.copyRow(
+      context,
+      rowData,
+      headers: headers,
+      includeHeaders: true,
+      customMessage: l.copyCargoShippingRowSuccess,
+    );
+  }
+
+  void _copyShippingTableTsv(List<CargoShippingModel> records, AppLocalizations l) {
+    final headers = [
+      'كود الشحنة',
+      'ملف الاستيراد',
+      'الشركة المستوردة',
+      'نوع الشحن',
+      'الحاويات المخصصة',
+      'إجمالي الوزن (VGM)',
+      'الحالة',
+      'دخول الميناء (Gate-In)',
+      'موقف مهلة 48h SLA',
+      'الحالة التشغيلية',
+    ];
+
+    final rows = records.map((r) {
+      final containerSummary = r.containersLoadingData
+          .map((c) => '${c.containerNo} (${c.containerType})')
+          .join(', ');
+      final totalVgm = r.containersLoadingData.fold<double>(0.0, (acc, c) => acc + c.grossWeightKg);
+      final gatedCount = r.containersLoadingData.where((c) => c.trackingStatus == 'GATED_IN_AT_PORT').length;
+      final hasBreach = r.containersLoadingData.any((c) => c.isSlaBreached) || (r.lclTrackingData?.isSlaBreached ?? false);
+
+      return [
+        r.cargoShippingCode,
+        r.importFileCode ?? 'IMP-${r.importFileId}',
+        r.companyName ?? '',
+        r.shipmentType,
+        containerSummary,
+        '${totalVgm.toStringAsFixed(0)} kg',
+        r.status,
+        '$gatedCount/${r.containersLoadingData.length}',
+        hasBreach ? l.cargoShippingSlaBreached : l.cargoShippingSlaOnTime,
+        r.isActive ? 'Active' : 'Deleted',
+      ];
+    }).toList();
+
+    TableCopyHelper.copyTable(
+      context,
+      headers,
+      rows,
+      customMessage: l.copyCargoShippingTableSuccess,
+    );
+  }
+
+  Future<void> _exportShippingExcel(List<CargoShippingModel> records, AppLocalizations l) async {
+    final headers = [
+      'كود الشحنة',
+      'ملف الاستيراد',
+      'الشركة المستوردة',
+      'نوع الشحن',
+      'الحاويات المخصصة',
+      'إجمالي الوزن (VGM)',
+      'الحالة',
+      'دخول الميناء (Gate-In)',
+      'موقف مهلة 48h SLA',
+      'الحالة التشغيلية',
+    ];
+
+    final rows = records.map((r) {
+      final containerSummary = r.containersLoadingData
+          .map((c) => '${c.containerNo} (${c.containerType})')
+          .join(', ');
+      final totalVgm = r.containersLoadingData.fold<double>(0.0, (acc, c) => acc + c.grossWeightKg);
+      final gatedCount = r.containersLoadingData.where((c) => c.trackingStatus == 'GATED_IN_AT_PORT').length;
+      final hasBreach = r.containersLoadingData.any((c) => c.isSlaBreached) || (r.lclTrackingData?.isSlaBreached ?? false);
+
+      return [
+        r.cargoShippingCode,
+        r.importFileCode ?? 'IMP-${r.importFileId}',
+        r.companyName ?? '',
+        r.shipmentType,
+        containerSummary,
+        '${totalVgm.toStringAsFixed(0)} kg',
+        r.status,
+        '$gatedCount/${r.containersLoadingData.length}',
+        hasBreach ? l.cargoShippingSlaBreached : l.cargoShippingSlaOnTime,
+        r.isActive ? 'Active' : 'Deleted',
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToExcel(
+      context: context,
+      stageName: 'Cargo Shipping',
+      importFileNameOrCode: 'Registry',
+      headers: headers,
+      rows: rows,
+    );
+  }
+
+  Future<void> _exportShippingPdf(List<CargoShippingModel> records, AppLocalizations l) async {
+    final headers = [
+      'كود الشحنة',
+      'ملف الاستيراد',
+      'الشركة المستوردة',
+      'نوع الشحن',
+      'الحاويات',
+      'إجمالي الوزن',
+      'الحالة',
+      'Gate-In',
+      '48h SLA',
+    ];
+
+    final rows = records.map((r) {
+      final containerSummary = r.containersLoadingData
+          .map((c) => '${c.containerNo} (${c.containerType})')
+          .join(', ');
+      final totalVgm = r.containersLoadingData.fold<double>(0.0, (acc, c) => acc + c.grossWeightKg);
+      final gatedCount = r.containersLoadingData.where((c) => c.trackingStatus == 'GATED_IN_AT_PORT').length;
+      final hasBreach = r.containersLoadingData.any((c) => c.isSlaBreached) || (r.lclTrackingData?.isSlaBreached ?? false);
+
+      return [
+        r.cargoShippingCode,
+        r.importFileCode ?? 'IMP-${r.importFileId}',
+        r.companyName ?? '—',
+        r.shipmentType,
+        containerSummary.isNotEmpty ? containerSummary : '—',
+        '${totalVgm.toStringAsFixed(0)} kg',
+        r.status,
+        '$gatedCount/${r.containersLoadingData.length}',
+        hasBreach ? 'BREACHED' : 'ON TIME',
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToPdf(
+      context: context,
+      stageName: 'Cargo Shipping',
+      importFileNameOrCode: 'Registry',
+      headers: headers,
+      rows: rows,
+      headerContext: TableExportHeaderContext(
+        title: 'Cargo Shipping & Container Loading Registry',
+        subtitle: 'Sorour Logistics ERP — سجل تخصيص الحاويات ومتابعة الشحن',
+        metadata: {
+          'Total Records': records.length.toString(),
+          'FCL Shipments': records.where((r) => r.shipmentType == 'FCL').length.toString(),
+          'LCL Shipments': records.where((r) => r.shipmentType == 'LCL').length.toString(),
+        },
+      ),
+    );
   }
 
   void _copyContainerAllocationsManifest() {
@@ -1130,16 +1463,17 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   ],
                 ),
                 const SizedBox(height: 8),
-                Row(
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 6,
                   children: [
                     Text(context.l10n.cargoShippingCargoStackingLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    const SizedBox(width: 8),
                     ChoiceChip(
                       label: Text(context.l10n.cargoShippingStackable),
                       selected: _isStackable,
                       onSelected: (val) => setState(() => _isStackable = val),
                     ),
-                    const SizedBox(width: 6),
                     ChoiceChip(
                       label: Text(context.l10n.cargoShippingNonStackable),
                       selected: !_isStackable,
@@ -1173,10 +1507,13 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
           // Container Allocation Header
           if (_shipmentType == 'FCL') ...[
-            Row(
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 Text(context.l10n.cargoShippingContainersHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                const Spacer(),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                   onPressed: () {
@@ -1391,9 +1728,52 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   },
                 ),
               ),
+              const SizedBox(width: 6),
+              // Task E: Table Row-Level Container Duplicate
+              Tooltip(
+                message: context.l10n.cargoShippingDuplicateContainerTooltip,
+                child: IconButton(
+                  key: Key('duplicateContainerBtn_$index'),
+                  icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt),
+                  onPressed: () {
+                    final ms = DateTime.now().millisecondsSinceEpoch.toString();
+                    final dupUnits = item.individualUnits.map((u) {
+                      return {
+                        'container_no': 'MSCU${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}${_containers.length + 1}',
+                        'seal_no': 'SL-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}${_containers.length + 1}',
+                      };
+                    }).toList();
+                    final dup = ContainerLoadingModel(
+                      containerType: item.containerType,
+                      quantity: item.quantity,
+                      containerNo: dupUnits.isNotEmpty ? (dupUnits.first['container_no'] ?? '') : 'MSCU${ms.substring(6)}',
+                      sealNo: dupUnits.isNotEmpty ? (dupUnits.first['seal_no'] ?? '') : 'SL-${ms.substring(8)}',
+                      tareWeightKg: item.tareWeightKg,
+                      netWeightKg: item.netWeightKg,
+                      grossWeightKg: item.grossWeightKg,
+                      vgmStatus: item.vgmStatus,
+                      vgmRefNo: 'VGM-${ms.substring(8)}',
+                      containerAssignmentDate: DateTime.now().toIso8601String(),
+                      trackingStatus: 'ASSIGNED',
+                      individualUnits: dupUnits,
+                    );
+                    setState(() {
+                      _containers.insert(index + 1, dup);
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('تم تكرار الحاوية بنجاح (${dup.containerType})'),
+                        backgroundColor: AppTheme.cobalt,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                ),
+              ),
               if (_containers.length > 1) ...[
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 IconButton(
+                  key: Key('deleteContainerBtn_$index'),
                   icon: const Icon(Icons.delete, color: Colors.red),
                   onPressed: () => setState(() => _containers.removeAt(index)),
                 ),
@@ -3019,10 +3399,13 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
   // ===========================================================================
   Widget _buildSavedShippingRegistryTab() {
     final recordsAsync = ref.watch(cargoShippingProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l = context.l10n;
 
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           MasterDataToolbarWidget(
             moduleEndpoint: 'cargo-shipping',
@@ -3031,161 +3414,292 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           ),
           const SizedBox(height: 12),
 
-          // Filters Bar
+          // Top Actions Toolbar (Task D, E, J)
+          Card(
+            elevation: 2,
+            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final list = recordsAsync.valueOrNull ?? [];
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      ElevatedButton.icon(
+                        key: const Key('createShippingBtn'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.cobalt,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () {
+                          _resetForm();
+                          _mainTabController.animateTo(0);
+                        },
+                        icon: const Icon(Icons.add_task, size: 16),
+                        label: Text(
+                          l.cargoShippingCreateNewRecord,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        key: const Key('searchAndCloneShippingBtn'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? const Color(0xFF93C5FD) : AppTheme.cobalt,
+                          side: BorderSide(color: isDark ? const Color(0xFF3B82F6) : AppTheme.cobalt),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => _openSearchAndCloneShippingDialog(list),
+                        icon: const Icon(Icons.copy_all_rounded, size: 16),
+                        label: Text(
+                          l.searchAndCloneCargoShippingBtn,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        key: const Key('copyShippingTableTsvBtn'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? const Color(0xFF93C5FD) : AppTheme.cobalt,
+                          side: BorderSide(color: isDark ? const Color(0xFF3B82F6) : AppTheme.cobalt),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => _copyShippingTableTsv(list, l),
+                        icon: const Icon(Icons.copy, size: 16),
+                        label: Text(
+                          l.customsDeclExportTsvButton,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        key: const Key('exportShippingExcelBtn'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? const Color(0xFF86EFAC) : Colors.green.shade700,
+                          side: BorderSide(color: isDark ? const Color(0xFF22C55E) : Colors.green.shade600),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => _exportShippingExcel(list, l),
+                        icon: const Icon(Icons.table_chart, size: 16),
+                        label: Text(
+                          l.exportCargoShippingExcelTooltip,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        key: const Key('exportShippingPdfBtn'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? const Color(0xFFFCA5A5) : Colors.red.shade700,
+                          side: BorderSide(color: isDark ? const Color(0xFFEF4444) : Colors.red.shade400),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => _exportShippingPdf(list, l),
+                        icon: const Icon(Icons.picture_as_pdf, size: 16),
+                        label: Text(
+                          l.exportCargoShippingPdfTooltip,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Filters Bar (Responsive LayoutBuilder for Task A)
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: context.l10n.cargoShippingRegistrySearchHint,
-                      prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
-                      suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: _searchController,
-                        builder: (context, value, _) {
-                          return value.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear, size: 18),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() {});
-                                  },
-                                )
-                              : const SizedBox.shrink();
-                        },
-                      ),
-                      border: const OutlineInputBorder(),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 900;
+                final searchField = TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: context.l10n.cargoShippingRegistrySearchHint,
+                    prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
+                    suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _searchController,
+                      builder: (context, value, _) {
+                        return value.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 18),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() {});
+                                },
+                              )
+                            : const SizedBox.shrink();
+                      },
                     ),
-                    onChanged: (_) => setState(() {}),
+                    border: const OutlineInputBorder(),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  flex: 2,
-                  child: SearchableDropdownField<String>(
-                    labelText: context.l10n.cargoShippingStatusFilterLabel,
-                    value: _registryStatusFilter,
-                    items: [
-                      SearchableDropdownItem(value: 'All', label: context.l10n.cargoShippingStatusAll),
-                      SearchableDropdownItem(value: 'Cargo Ready', label: context.l10n.cargoShippingStatusCargoReady),
-                      SearchableDropdownItem(value: 'Completed', label: context.l10n.cargoShippingStatusCompleted),
+                  onChanged: (_) => setState(() {}),
+                );
+
+                final statusDropdown = SearchableDropdownField<String>(
+                  labelText: context.l10n.cargoShippingStatusFilterLabel,
+                  value: _registryStatusFilter,
+                  items: [
+                    SearchableDropdownItem(value: 'All', label: context.l10n.cargoShippingStatusAll),
+                    SearchableDropdownItem(value: 'Cargo Ready', label: context.l10n.cargoShippingStatusCargoReady),
+                    SearchableDropdownItem(value: 'Completed', label: context.l10n.cargoShippingStatusCompleted),
+                  ],
+                  onChanged: (v) => setState(() => _registryStatusFilter = v ?? 'All'),
+                );
+
+                final slaDropdown = SearchableDropdownField<String>(
+                  labelText: context.l10n.cargoShippingSlaFilterLabel,
+                  value: _registrySlaFilter,
+                  items: [
+                    SearchableDropdownItem(value: 'All', label: context.l10n.cargoShippingSlaAll),
+                    SearchableDropdownItem(value: 'OnTime', label: context.l10n.cargoShippingSlaOnTimeFilter),
+                    SearchableDropdownItem(value: 'Breached', label: context.l10n.cargoShippingSlaBreachedFilter),
+                  ],
+                  onChanged: (v) => setState(() => _registrySlaFilter = v ?? 'All'),
+                );
+
+                final activeDropdown = SearchableDropdownField<String>(
+                  labelText: context.l10n.cargoShippingActiveFilterLabel,
+                  value: _registryActiveFilter,
+                  items: [
+                    SearchableDropdownItem(value: 'All', label: context.l10n.cargoShippingActiveAll),
+                    SearchableDropdownItem(value: 'Active', label: context.l10n.cargoShippingActiveOnly),
+                    SearchableDropdownItem(value: 'Deleted', label: context.l10n.cargoShippingDeletedOnly),
+                  ],
+                  onChanged: (v) => setState(() => _registryActiveFilter = v ?? 'Active'),
+                );
+
+                if (isWide) {
+                  return Row(
+                    children: [
+                      Expanded(flex: 3, child: searchField),
+                      const SizedBox(width: 10),
+                      Expanded(flex: 2, child: statusDropdown),
+                      const SizedBox(width: 10),
+                      Expanded(flex: 2, child: slaDropdown),
+                      const SizedBox(width: 10),
+                      Expanded(flex: 2, child: activeDropdown),
                     ],
-                    onChanged: (v) => setState(() => _registryStatusFilter = v ?? 'All'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  flex: 2,
-                  child: SearchableDropdownField<String>(
-                    labelText: context.l10n.cargoShippingSlaFilterLabel,
-                    value: _registrySlaFilter,
-                    items: [
-                      SearchableDropdownItem(value: 'All', label: context.l10n.cargoShippingSlaAll),
-                      SearchableDropdownItem(value: 'OnTime', label: context.l10n.cargoShippingSlaOnTimeFilter),
-                      SearchableDropdownItem(value: 'Breached', label: context.l10n.cargoShippingSlaBreachedFilter),
+                  );
+                } else {
+                  final halfWidth = (constraints.maxWidth - 10) / 2;
+                  return Column(
+                    children: [
+                      searchField,
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          SizedBox(width: halfWidth.clamp(140.0, 300.0), child: statusDropdown),
+                          SizedBox(width: halfWidth.clamp(140.0, 300.0), child: slaDropdown),
+                          SizedBox(width: constraints.maxWidth, child: activeDropdown),
+                        ],
+                      ),
                     ],
-                    onChanged: (v) => setState(() => _registrySlaFilter = v ?? 'All'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  flex: 2,
-                  child: SearchableDropdownField<String>(
-                    labelText: context.l10n.cargoShippingActiveFilterLabel,
-                    value: _registryActiveFilter,
-                    items: [
-                      SearchableDropdownItem(value: 'All', label: context.l10n.cargoShippingActiveAll),
-                      SearchableDropdownItem(value: 'Active', label: context.l10n.cargoShippingActiveOnly),
-                      SearchableDropdownItem(value: 'Deleted', label: context.l10n.cargoShippingDeletedOnly),
-                    ],
-                    onChanged: (v) => setState(() => _registryActiveFilter = v ?? 'Active'),
-                  ),
-                ),
-              ],
+                  );
+                }
+              },
             ),
           ),
           const SizedBox(height: 12),
 
           // Registry DataTable
-          Expanded(
-            child: recordsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, _) => Center(
-                child: Text('${context.l10n.error}: $err', style: const TextStyle(color: Colors.red)),
-              ),
-              data: (list) {
-                final filtered = list.where((item) {
-                  // Search query
-                  final query = _searchController.text.trim().toLowerCase();
-                  if (query.isNotEmpty) {
-                    final matchCode = item.cargoShippingCode.toLowerCase().contains(query);
-                    final matchFile = (item.importFileCode ?? '').toLowerCase().contains(query);
-                    final matchCompany = (item.companyName ?? '').toLowerCase().contains(query);
-                    final matchContainer = item.containersLoadingData.any((c) => c.containerNo.toLowerCase().contains(query) || c.sealNo.toLowerCase().contains(query));
-                    if (!matchCode && !matchFile && !matchCompany && !matchContainer) return false;
-                  }
-
-                  // Status filter
-                  if (_registryStatusFilter != 'All' && item.status != _registryStatusFilter) return false;
-
-                  // SLA filter
-                  final hasBreach = item.containersLoadingData.any((c) => c.isSlaBreached) || (item.lclTrackingData?.isSlaBreached ?? false);
-                  if (_registrySlaFilter == 'Breached' && !hasBreach) return false;
-                  if (_registrySlaFilter == 'OnTime' && hasBreach) return false;
-
-                  // Active filter
-                  if (_registryActiveFilter == 'Active' && !item.isActive) return false;
-                  if (_registryActiveFilter == 'Deleted' && item.isActive) return false;
-
-                  return true;
-                }).toList();
-
-                if (filtered.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.folder_open, size: 64, color: Colors.grey.shade400),
-                        const SizedBox(height: 12),
-                        Text(context.l10n.cargoShippingNoMatchingRecords, style: const TextStyle(color: Colors.grey, fontSize: 14)),
-                        const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                          onPressed: () => _mainTabController.animateTo(0),
-                          icon: const Icon(Icons.add, color: Colors.white),
-                          label: Text(context.l10n.cargoShippingCreateNewRecord, style: const TextStyle(color: Colors.white)),
-                        ),
-                      ],
-                    ),
-                  );
+          recordsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, _) => Center(
+              child: Text('${context.l10n.error}: $err', style: const TextStyle(color: Colors.red)),
+            ),
+            data: (list) {
+              final filtered = list.where((item) {
+                // Search query
+                final query = _searchController.text.trim().toLowerCase();
+                if (query.isNotEmpty) {
+                  final matchCode = item.cargoShippingCode.toLowerCase().contains(query);
+                  final matchFile = (item.importFileCode ?? '').toLowerCase().contains(query);
+                  final matchCompany = (item.companyName ?? '').toLowerCase().contains(query);
+                  final matchContainer = item.containersLoadingData.any((c) => c.containerNo.toLowerCase().contains(query) || c.sealNo.toLowerCase().contains(query));
+                  if (!matchCode && !matchFile && !matchCompany && !matchContainer) return false;
                 }
 
-                final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
-                final importFilesMap = {for (final f in importFiles) f.importFileId: f};
+                // Status filter
+                if (_registryStatusFilter != 'All' && item.status != _registryStatusFilter) return false;
 
-                return Card(
-                  elevation: 1,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  child: ListView.separated(
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (ctx, idx) {
-                      final rec = filtered[idx];
-                      return _buildRegistryRow(rec, importFilesMap);
-                    },
+                // SLA filter
+                final hasBreach = item.containersLoadingData.any((c) => c.isSlaBreached) || (item.lclTrackingData?.isSlaBreached ?? false);
+                if (_registrySlaFilter == 'Breached' && !hasBreach) return false;
+                if (_registrySlaFilter == 'OnTime' && hasBreach) return false;
+
+                // Active filter
+                if (_registryActiveFilter == 'Active' && !item.isActive) return false;
+                if (_registryActiveFilter == 'Deleted' && item.isActive) return false;
+
+                return true;
+              }).toList();
+
+              if (filtered.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.folder_open, size: 64, color: Colors.grey.shade400),
+                      const SizedBox(height: 12),
+                      Text(context.l10n.cargoShippingNoMatchingRecords, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                        onPressed: () => _mainTabController.animateTo(0),
+                        icon: const Icon(Icons.add, color: Colors.white),
+                        label: Text(context.l10n.cargoShippingCreateNewRecord, style: const TextStyle(color: Colors.white)),
+                      ),
+                    ],
                   ),
                 );
-              },
-            ),
+              }
+
+              final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+              final importFilesMap = {for (final f in importFiles) f.importFileId: f};
+
+              return Card(
+                elevation: 1,
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(color: isDark ? const Color(0xFF334155) : Colors.grey.shade300),
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, __) => Divider(
+                    height: 1,
+                    color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
+                  ),
+                  itemBuilder: (ctx, idx) {
+                    final rec = filtered[idx];
+                    return _buildRegistryRow(rec, importFilesMap);
+                  },
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -3195,6 +3709,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
   Widget _buildRegistryRow(CargoShippingModel rec, Map<int, dynamic> importFilesMap) {
     final hasBreach = rec.containersLoadingData.any((c) => c.isSlaBreached) || (rec.lclTrackingData?.isSlaBreached ?? false);
     final gatedCount = rec.containersLoadingData.where((c) => c.trackingStatus == 'GATED_IN_AT_PORT').length;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final matchingFile = importFilesMap[rec.importFileId];
     final fileCode = matchingFile?.primaryNameWithCode ?? rec.importFileCode ?? 'IMP-${rec.importFileId}';
@@ -3203,30 +3718,33 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
         : (rec.companyName != null && rec.companyName!.isNotEmpty && rec.companyName != 'N/A' ? rec.companyName! : context.l10n.importCompanies);
     final supplierName = (matchingFile?.supplierName.isNotEmpty == true && matchingFile?.supplierName != 'N/A') ? matchingFile!.supplierName : '';
 
-    // The primary title is always formatted as Primary Name (Code) - Company Name
     final displayName = fileCode.isNotEmpty ? '$fileCode - $companyName' : companyName;
 
     return ListTile(
       onTap: () => _loadRecordForEditing(rec),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       leading: CircleAvatar(
-        backgroundColor: rec.isActive ? AppTheme.cobalt.withOpacity(0.12) : Colors.grey.shade300,
+        backgroundColor: rec.isActive
+            ? AppTheme.cobalt.withOpacity(0.12)
+            : (isDark ? const Color(0xFF334155) : Colors.grey.shade300),
         child: Icon(
           rec.isActive ? Icons.folder_special : Icons.delete_outline,
           color: rec.isActive ? AppTheme.cobalt : Colors.grey,
         ),
       ),
-      title: Row(
+      title: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 8,
+        runSpacing: 4,
         children: [
-          // Primary Name is the Import File
-          Flexible(
-            child: Text(
-              displayName,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
-              overflow: TextOverflow.ellipsis,
+          Text(
+            displayName,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: isDark ? const Color(0xFFF1F5F9) : AppTheme.charcoal,
             ),
           ),
-          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
@@ -3235,7 +3753,6 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             ),
             child: Text(rec.cargoShippingCode, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
           ),
-          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
@@ -3244,7 +3761,6 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             ),
             child: Text(rec.shipmentType, style: TextStyle(fontSize: 11, color: rec.shipmentType == 'FCL' ? Colors.blue : Colors.purple, fontWeight: FontWeight.bold)),
           ),
-          const Spacer(),
           if (!rec.isActive)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -3260,7 +3776,10 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           children: [
             Text(
               '${supplierName.isNotEmpty ? "${context.l10n.cargoShippingSupplierLabel} $supplierName | " : ""}${context.l10n.cargoShippingContainersHeader} ${rec.containersLoadingData.map((c) => "${c.containerNo} (${c.sealNo})").join(", ")}',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade700,
+              ),
             ),
             const SizedBox(height: 6),
             Wrap(
@@ -3288,8 +3807,23 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Copy row TSV Button (Task E)
+          IconButton(
+            key: Key('copyShippingRowBtn_${rec.cargoShippingCode}'),
+            icon: const Icon(Icons.copy, color: AppTheme.cobalt),
+            tooltip: context.l10n.copyCargoShippingRowSuccess,
+            onPressed: () => _copyShippingRowTsv(rec, context.l10n),
+          ),
+          // Clone Shipping Record Button (Task D)
+          IconButton(
+            key: Key('cloneShippingRowBtn_${rec.cargoShippingCode}'),
+            icon: const Icon(Icons.copy_all_rounded, color: AppTheme.cobalt),
+            tooltip: context.l10n.cloneCargoShippingTooltip,
+            onPressed: () => _onCloneCargoShipping(rec),
+          ),
           // Edit Button (Restores if deleted and loads into form)
           IconButton(
+            key: Key('editShippingBtn_${rec.cargoShippingCode}'),
             icon: const Icon(Icons.edit, color: AppTheme.cobalt),
             tooltip: context.l10n.cargoShippingEditTooltip,
             onPressed: () => _loadRecordForEditing(rec),

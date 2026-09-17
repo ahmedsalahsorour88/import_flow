@@ -2,21 +2,23 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../import_files/providers/import_files_provider.dart';
 import '../models/financial_approval_model.dart';
 
 final paymentRequestsProvider =
     StateNotifierProvider<PaymentRequestsNotifier, AsyncValue<List<PaymentRequestModel>>>((ref) {
-  return PaymentRequestsNotifier();
+  return PaymentRequestsNotifier(ref);
 });
 
 class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentRequestModel>>> {
+  final Ref? ref;
   final Dio _dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 30),
     receiveTimeout: const Duration(seconds: 30),
   ));
   CancelToken? _cancelToken;
 
-  PaymentRequestsNotifier() : super(const AsyncValue.loading()) {
+  PaymentRequestsNotifier([this.ref]) : super(const AsyncValue.loading()) {
     fetchPaymentRequests();
   }
 
@@ -123,6 +125,11 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
       );
       final paid = PaymentRequestModel.fromJson(response.data);
       await fetchPaymentRequests();
+      if (ref != null) {
+        try {
+          ref!.invalidate(importFilesProvider);
+        } catch (_) {}
+      }
       return paid;
     } catch (e) {
       rethrow;
@@ -151,6 +158,11 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
       );
       final reconciled = PaymentRequestModel.fromJson(response.data);
       await fetchPaymentRequests();
+      if (ref != null) {
+        try {
+          ref!.invalidate(importFilesProvider);
+        } catch (_) {}
+      }
       return reconciled;
     } catch (e) {
       rethrow;
@@ -227,6 +239,11 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
       );
       final reconciled = PaymentRequestModel.fromJson(response.data);
       await fetchPaymentRequests();
+      if (ref != null) {
+        try {
+          ref!.invalidate(importFilesProvider);
+        } catch (_) {}
+      }
       return reconciled;
     } catch (e) {
       rethrow;
@@ -328,6 +345,11 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
       );
       final reconciled = PaymentRequestModel.fromJson(response.data);
       await fetchPaymentRequests();
+      if (ref != null) {
+        try {
+          ref!.invalidate(importFilesProvider);
+        } catch (_) {}
+      }
       return reconciled;
     } catch (e) {
       rethrow;
@@ -355,17 +377,18 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
 
 final importBudgetsProvider =
     StateNotifierProvider<ImportBudgetsNotifier, AsyncValue<List<ImportBudgetModel>>>((ref) {
-  return ImportBudgetsNotifier();
+  return ImportBudgetsNotifier(ref);
 });
 
 class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetModel>>> {
+  final Ref? ref;
   final Dio _dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 30),
     receiveTimeout: const Duration(seconds: 30),
   ));
   CancelToken? _cancelToken;
 
-  ImportBudgetsNotifier() : super(const AsyncValue.loading()) {
+  ImportBudgetsNotifier([this.ref]) : super(const AsyncValue.loading()) {
     fetchImportBudgets();
   }
 
@@ -463,6 +486,12 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
       );
       final approved = ImportBudgetModel.fromJson(response.data);
       await fetchImportBudgets();
+      if (ref != null) {
+        try {
+          ref!.invalidate(importFilesProvider);
+          ref!.invalidate(paymentRequestsProvider);
+        } catch (_) {}
+      }
       return approved;
     } catch (e) {
       rethrow;

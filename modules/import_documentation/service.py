@@ -639,6 +639,22 @@ def receive_banking_document_service(
             imp.form4_execution_days = item.execution_days
             db.commit()
 
+        # Advance Central Lifecycle (STEP_12 -> STEP_13)
+        if item.doc_type == "Form 4":
+            try:
+                from modules.lifecycle_board.service import advance_lifecycle_step_service
+                advance_lifecycle_step_service(
+                    db=db,
+                    import_file_id=item.import_file_id,
+                    completed_step_code="STEP_12",
+                    target_step_codes=["STEP_13"],
+                    notes=f"تم استلام وتوثيق نموذج 4 البنكي برقم ({item.doc_reference_number}). الانتقال إلى مرحلة فتح الإقرار الجمركي 46.",
+                    assigned_user="Bank / Financial Controller",
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning("Lifecycle advance STEP_12->STEP_13 failed: %s", e)
+
     return enrich_banking_response(db, item)
 
 
@@ -2168,12 +2184,49 @@ def create_inspection_review_service(db: Session, schema: InspectionCertificateR
     existing = repo.get_inspection_review_by_file_id(db, schema.import_file_id, include_inactive=False)
     if existing:
         update_schema = InspectionCertificateReviewUpdate(**schema.model_dump(exclude_unset=True))
-        return repo.update_inspection_review(db, existing.inspection_review_id, update_schema)
-    return repo.create_inspection_review(db, schema)
+        saved = repo.update_inspection_review(db, existing.inspection_review_id, update_schema)
+    else:
+        saved = repo.create_inspection_review(db, schema)
+
+    # Advance Central Lifecycle (STEP_08_COC -> STEP_09)
+    if saved.status in ["Verified", "Approved", "Discrepancy_Accepted"]:
+        try:
+            from modules.lifecycle_board.service import advance_lifecycle_step_service
+            advance_lifecycle_step_service(
+                db=db,
+                import_file_id=saved.import_file_id,
+                completed_step_code="STEP_08_COC",
+                target_step_codes=["STEP_09"],
+                notes=f"تم اعتماد مراجعة مسودة شهادة الفحص والتفتيش ({saved.inspection_review_code}). الانتقال إلى مرحلة الاعتماد الجمركي النهائي للأوراق.",
+                assigned_user="Compliance Officer",
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Lifecycle advance STEP_08_COC->STEP_09 failed: %s", e)
+
+    return saved
 
 
 def update_inspection_review_service(db: Session, review_id: int, schema: InspectionCertificateReviewUpdate) -> InspectionCertificateReviewSession:
-    return repo.update_inspection_review(db, review_id, schema)
+    saved = repo.update_inspection_review(db, review_id, schema)
+
+    # Advance Central Lifecycle (STEP_08_COC -> STEP_09)
+    if saved.status in ["Verified", "Approved", "Discrepancy_Accepted"]:
+        try:
+            from modules.lifecycle_board.service import advance_lifecycle_step_service
+            advance_lifecycle_step_service(
+                db=db,
+                import_file_id=saved.import_file_id,
+                completed_step_code="STEP_08_COC",
+                target_step_codes=["STEP_09"],
+                notes=f"تم تحديث واعتماد مراجعة شهادة الفحص ({saved.inspection_review_code}). الانتقال إلى مرحلة الاعتماد الجمركي للأوراق.",
+                assigned_user="Compliance Officer",
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Lifecycle advance STEP_08_COC->STEP_09 failed: %s", e)
+
+    return saved
 
 
 # --- SPECIALIZED CERTIFICATE DRAFT GENERATORS, EXTRACTION & CROSS-MATCHING ---
@@ -4073,6 +4126,23 @@ def create_po_reconciliation_session_service(
         )
 
     session = repo.create_po_reconciliation_session(db, schema)
+
+    # Advance Central Lifecycle (STEP_08_PO -> STEP_08_BL)
+    if session.overall_status in ["MATCHED", "APPROVED", "CERTIFIED", "PASS", "CONFORMING"] or session.is_safe_for_certification:
+        try:
+            from modules.lifecycle_board.service import advance_lifecycle_step_service
+            advance_lifecycle_step_service(
+                db=db,
+                import_file_id=session.import_file_id,
+                completed_step_code="STEP_08_PO",
+                target_step_codes=["STEP_08_BL"],
+                notes=f"تم إتمام مطابقة الفاتورة وقائمة التعبئة مع أمر الشراء ({session.session_code}). الانتقال إلى مراجعة مسودة بوليصة الشحن.",
+                assigned_user=session.certified_by or "Documentation Auditor",
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Lifecycle advance STEP_08_PO->STEP_08_BL failed: %s", e)
+
     return enrich_po_reconciliation_session_response(db, session)
 
 
@@ -4110,6 +4180,23 @@ def update_po_reconciliation_session_service(
             detail=f"جلسة المطابقة رقم {session_id} غير موجودة للتحديث.",
         )
     updated = repo.update_po_reconciliation_session(db, session_id, schema)
+
+    # Advance Central Lifecycle (STEP_08_PO -> STEP_08_BL)
+    if updated.overall_status in ["MATCHED", "APPROVED", "CERTIFIED", "PASS", "CONFORMING"] or updated.is_safe_for_certification:
+        try:
+            from modules.lifecycle_board.service import advance_lifecycle_step_service
+            advance_lifecycle_step_service(
+                db=db,
+                import_file_id=updated.import_file_id,
+                completed_step_code="STEP_08_PO",
+                target_step_codes=["STEP_08_BL"],
+                notes=f"تم تحديث واعتماد مطابقة الفاتورة وقائمة التعبئة مع أمر الشراء ({updated.session_code}). الانتقال إلى مسودة بوليصة الشحن.",
+                assigned_user=updated.certified_by or "Documentation Auditor",
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Lifecycle advance STEP_08_PO->STEP_08_BL failed: %s", e)
+
     return enrich_po_reconciliation_session_response(db, updated)
 
 

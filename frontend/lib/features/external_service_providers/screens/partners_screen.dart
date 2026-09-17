@@ -79,7 +79,19 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
       l10n.partnersTsvHeaderWebsite,
       l10n.partnersTsvHeaderSwift,
       l10n.partnersTsvHeaderScac,
+      l10n.defaultFreeDaysLabel,
+      l10n.fiataLicenseLabel,
+      l10n.shippingModesLabel,
+      l10n.supportedCurrenciesLabel,
+      l10n.inspectionAccreditationNumLabel,
+      l10n.inspectionScopeLabel,
       l10n.partnersTsvHeaderLicense,
+      l10n.authorizedPortsLabel,
+      l10n.transportLicenseNumLabel,
+      l10n.fleetTypesLabel,
+      l10n.coverageAreasLabel,
+      l10n.insuranceLicenseNumLabel,
+      l10n.insuranceCoverageTypesLabel,
       l10n.partnersTsvHeaderCommercialReg,
       l10n.partnersTsvHeaderTaxId,
       l10n.partnersTsvHeaderStatus,
@@ -99,7 +111,19 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
       p.website ?? '',
       p.swiftCode ?? '',
       p.scacCode ?? '',
+      p.defaultFreeDays != null ? '${p.defaultFreeDays}' : '',
+      p.fiataId ?? '',
+      p.shippingModes ?? '',
+      p.supportedCurrencies ?? '',
+      p.inspectionAccreditationNumber ?? '',
+      p.inspectionScope ?? '',
       p.clearanceLicenseNumber ?? '',
+      p.authorizedPorts ?? '',
+      p.transportLicenseNumber ?? '',
+      p.fleetTypes ?? '',
+      p.coverageAreas ?? '',
+      p.insuranceLicenseNumber ?? '',
+      p.insuranceCoverageTypes ?? '',
       p.commercialRegister ?? '',
       p.taxId ?? '',
       p.isActive ? l10n.statusActive : l10n.statusInactive,
@@ -127,7 +151,19 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     if (p.website != null && p.website!.isNotEmpty) b.writeln('${l10n.websiteDetailLabel}: ${p.website}');
     if (p.swiftCode != null && p.swiftCode!.isNotEmpty) b.writeln('${l10n.partnerSwiftCodeDetailLabel}: ${p.swiftCode}');
     if (p.scacCode != null && p.scacCode!.isNotEmpty) b.writeln('${l10n.partnerScacCodeDetailLabel}: ${p.scacCode}');
+    if (p.defaultFreeDays != null) b.writeln('${l10n.defaultFreeDaysLabel}: ${p.defaultFreeDays}');
+    if (p.fiataId != null && p.fiataId!.isNotEmpty) b.writeln('${l10n.fiataLicenseLabel}: ${p.fiataId}');
+    if (p.shippingModes != null && p.shippingModes!.isNotEmpty) b.writeln('${l10n.shippingModesLabel}: ${p.shippingModes}');
+    if (p.supportedCurrencies != null && p.supportedCurrencies!.isNotEmpty) b.writeln('${l10n.supportedCurrenciesLabel}: ${p.supportedCurrencies}');
+    if (p.inspectionAccreditationNumber != null && p.inspectionAccreditationNumber!.isNotEmpty) b.writeln('${l10n.inspectionAccreditationNumLabel}: ${p.inspectionAccreditationNumber}');
+    if (p.inspectionScope != null && p.inspectionScope!.isNotEmpty) b.writeln('${l10n.inspectionScopeLabel}: ${p.inspectionScope}');
     if (p.clearanceLicenseNumber != null && p.clearanceLicenseNumber!.isNotEmpty) b.writeln('${l10n.clearanceLicenseDetailLabel}: ${p.clearanceLicenseNumber}');
+    if (p.authorizedPorts != null && p.authorizedPorts!.isNotEmpty) b.writeln('${l10n.authorizedPortsLabel}: ${p.authorizedPorts}');
+    if (p.transportLicenseNumber != null && p.transportLicenseNumber!.isNotEmpty) b.writeln('${l10n.transportLicenseNumLabel}: ${p.transportLicenseNumber}');
+    if (p.fleetTypes != null && p.fleetTypes!.isNotEmpty) b.writeln('${l10n.fleetTypesLabel}: ${p.fleetTypes}');
+    if (p.coverageAreas != null && p.coverageAreas!.isNotEmpty) b.writeln('${l10n.coverageAreasLabel}: ${p.coverageAreas}');
+    if (p.insuranceLicenseNumber != null && p.insuranceLicenseNumber!.isNotEmpty) b.writeln('${l10n.insuranceLicenseNumLabel}: ${p.insuranceLicenseNumber}');
+    if (p.insuranceCoverageTypes != null && p.insuranceCoverageTypes!.isNotEmpty) b.writeln('${l10n.insuranceCoverageTypesLabel}: ${p.insuranceCoverageTypes}');
     if (p.commercialRegister != null && p.commercialRegister!.isNotEmpty) b.writeln('${l10n.commercialRegDetailLabel}: ${p.commercialRegister}');
     if (p.taxId != null && p.taxId!.isNotEmpty) b.writeln('${l10n.taxIdDetailLabel}: ${p.taxId}');
     b.writeln('${l10n.partnerStatusCol}: ${p.isActive ? l10n.statusActive : l10n.statusInactive}');
@@ -488,7 +524,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
 
                   return LayoutBuilder(
                     builder: (context, constraints) {
-                      final tableWidth = constraints.maxWidth < 1100 ? 1100.0 : constraints.maxWidth;
+                      final tableWidth = constraints.maxWidth < 1350 ? 1350.0 : constraints.maxWidth;
 
                       return Container(
                         width: double.infinity,
@@ -515,12 +551,12 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                 child: Table(
                                   defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                                   columnWidths: const {
-                                    0: FixedColumnWidth(215),
-                                    1: FixedColumnWidth(140),
+                                    0: FixedColumnWidth(480),
+                                    1: FixedColumnWidth(160),
                                     2: FlexColumnWidth(3.0),
                                     3: FlexColumnWidth(2.6),
                                     4: FlexColumnWidth(2.2),
-                                    5: FixedColumnWidth(95),
+                                    5: FixedColumnWidth(100),
                                   },
                                   children: [
                                     // Table Header
@@ -565,9 +601,11 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                         children: [
                                           // Actions: View, Edit, Print, Delete, Statement of Account
                                           _cell(
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
+                                            child: SingleChildScrollView(
+                                              scrollDirection: Axis.horizontal,
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
                                                 Tooltip(
                                                   message: l10n.partnerStatementOfAccountTooltip,
                                                   child: InkWell(
@@ -697,39 +735,43 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                               ],
                                             ),
                                           ),
+                                        ),
                                           // Code
                                           _cell(
-                                            child: Tooltip(
-                                              message: '${l10n.partnerCodeBadgeLabel}${partner.partnerCode} (${l10n.partnersCopyFieldTooltip})',
-                                              child: InkWell(
-                                                onTap: () => CopyHelper.copy(
-                                                  context,
-                                                  partner.partnerCode,
-                                                  customMessage: l10n.copiedToClipboard(partner.partnerCode),
-                                                ),
-                                                borderRadius: BorderRadius.circular(6),
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                                  decoration: BoxDecoration(
-                                                    color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.08),
-                                                    borderRadius: BorderRadius.circular(6),
-                                                    border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.charcoal.withOpacity(0.15)),
+                                            child: SingleChildScrollView(
+                                              scrollDirection: Axis.horizontal,
+                                              child: Tooltip(
+                                                message: '${l10n.partnerCodeBadgeLabel}${partner.partnerCode} (${l10n.partnersCopyFieldTooltip})',
+                                                child: InkWell(
+                                                  onTap: () => CopyHelper.copy(
+                                                    context,
+                                                    partner.partnerCode,
+                                                    customMessage: l10n.copiedToClipboard(partner.partnerCode),
                                                   ),
-                                                  child: Row(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      Text(
-                                                        partner.partnerCode,
-                                                        style: TextStyle(
-                                                          fontWeight: FontWeight.bold,
-                                                          fontSize: 12,
-                                                          letterSpacing: 0.3,
-                                                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                                    decoration: BoxDecoration(
+                                                      color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.08),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                      border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.charcoal.withOpacity(0.15)),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Text(
+                                                          partner.partnerCode,
+                                                          style: TextStyle(
+                                                            fontWeight: FontWeight.bold,
+                                                            fontSize: 12,
+                                                            letterSpacing: 0.3,
+                                                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                                          ),
                                                         ),
-                                                      ),
-                                                      const SizedBox(width: 4),
-                                                      Icon(Icons.copy_rounded, size: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
-                                                    ],
+                                                        const SizedBox(width: 4),
+                                                        Icon(Icons.copy_rounded, size: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
+                                                      ],
+                                                    ),
                                                   ),
                                                 ),
                                               ),
@@ -829,6 +871,120 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                       ],
                                                     ),
                                                   ),
+                                                if (partner.defaultFreeDays != null)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 2),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.timer_outlined, size: 12, color: AppTheme.emerald),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            l10n.partnerFreeDaysBadge(partner.defaultFreeDays!),
+                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                if (partner.fiataId != null && partner.fiataId!.isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 2),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(Icons.badge_rounded, size: 12, color: isDark ? AppTheme.cobalt : AppTheme.charcoal),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            l10n.partnerFiataBadge(partner.fiataId!),
+                                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.cobalt : AppTheme.charcoal),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                if (partner.shippingModes != null && partner.shippingModes!.isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 2),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.alt_route_rounded, size: 12, color: AppTheme.cobalt),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            partner.shippingModes!,
+                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppTheme.cobalt),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                if (partner.supportedCurrencies != null && partner.supportedCurrencies!.isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 2),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.monetization_on_outlined, size: 12, color: AppTheme.emerald),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            partner.supportedCurrencies!,
+                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                if (partner.inspectionAccreditationNumber != null && partner.inspectionAccreditationNumber!.isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 2),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.verified_user_outlined, size: 12, color: AppTheme.cobalt),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            l10n.partnerAccreditationBadge(partner.inspectionAccreditationNumber!),
+                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                if (partner.inspectionScope != null && partner.inspectionScope!.isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 2),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.rule_folder_outlined, size: 12, color: AppTheme.emerald),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            partner.inspectionScope!,
+                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppTheme.emerald),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
                                                 if (partner.clearanceLicenseNumber != null && partner.clearanceLicenseNumber!.isNotEmpty)
                                                   Padding(
                                                     padding: const EdgeInsets.only(bottom: 2),
@@ -841,6 +997,120 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                           child: Text(
                                                             l10n.partnerLicenseLabel(partner.clearanceLicenseNumber!),
                                                             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                if (partner.authorizedPorts != null && partner.authorizedPorts!.isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 2),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.anchor_outlined, size: 12, color: AppTheme.orange),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            l10n.partnerPortsBadge(partner.authorizedPorts!),
+                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppTheme.orange),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                if (partner.transportLicenseNumber != null && partner.transportLicenseNumber!.isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 2),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.local_shipping_outlined, size: 12, color: AppTheme.emerald),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            l10n.partnerLicenseLabel(partner.transportLicenseNumber!),
+                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                if (partner.fleetTypes != null && partner.fleetTypes!.isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 2),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.rv_hookup, size: 12, color: AppTheme.emerald),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            l10n.partnerFleetBadge(partner.fleetTypes!),
+                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppTheme.emerald),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                if (partner.coverageAreas != null && partner.coverageAreas!.isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 2),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.map_outlined, size: 12, color: AppTheme.emerald),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            l10n.partnerCoverageBadge(partner.coverageAreas!),
+                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppTheme.emerald),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                if (partner.insuranceLicenseNumber != null && partner.insuranceLicenseNumber!.isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 2),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.verified_user_outlined, size: 12, color: AppTheme.cobalt),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            l10n.partnerLicenseLabel(partner.insuranceLicenseNumber!),
+                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                if (partner.insuranceCoverageTypes != null && partner.insuranceCoverageTypes!.isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 2),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.health_and_safety_outlined, size: 12, color: AppTheme.cobalt),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            l10n.partnerInsuranceCoverageBadge(partner.insuranceCoverageTypes!),
+                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppTheme.cobalt),
                                                             maxLines: 1,
                                                             overflow: TextOverflow.ellipsis,
                                                           ),
@@ -1032,6 +1302,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
       'Freight Forwarder',
       'Inland Transport',
       'Inspection Agency',
+      'Insurance Company',
     ];
 
     final Set<String> selectedCategories = partnerToEdit != null
@@ -1042,8 +1313,24 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     final taxIdCtrl = TextEditingController(text: partnerToEdit?.taxId ?? '');
     final regCtrl = TextEditingController(text: partnerToEdit?.commercialRegister ?? '');
     final licenseCtrl = TextEditingController(text: partnerToEdit?.clearanceLicenseNumber ?? '');
+    final authorizedPortsCtrl = TextEditingController(text: partnerToEdit?.authorizedPorts ?? '');
+    final transportLicenseCtrl = TextEditingController(text: partnerToEdit?.transportLicenseNumber ?? '');
+    final fleetTypesCtrl = TextEditingController(text: partnerToEdit?.fleetTypes ?? '');
+    final coverageAreasCtrl = TextEditingController(text: partnerToEdit?.coverageAreas ?? '');
+    final insuranceLicenseCtrl = TextEditingController(text: partnerToEdit?.insuranceLicenseNumber ?? '');
+    final insuranceCoverageCtrl = TextEditingController(text: partnerToEdit?.insuranceCoverageTypes ?? '');
     final scacCtrl = TextEditingController(text: partnerToEdit?.scacCode ?? '');
+    final defaultFreeDaysCtrl = TextEditingController(
+      text: partnerToEdit?.defaultFreeDays != null ? partnerToEdit!.defaultFreeDays.toString() : '14',
+    );
     final trackingCtrl = TextEditingController(text: partnerToEdit?.trackingUrl ?? '');
+    final fiataCtrl = TextEditingController(text: partnerToEdit?.fiataId ?? '');
+    final shippingModesCtrl = TextEditingController(text: partnerToEdit?.shippingModes ?? '');
+    final supportedCurrenciesCtrl = TextEditingController(
+      text: partnerToEdit?.supportedCurrencies ?? (partnerToEdit != null ? '' : 'USD, EUR, EGP'),
+    );
+    final accreditationCtrl = TextEditingController(text: partnerToEdit?.inspectionAccreditationNumber ?? '');
+    final inspectionScopeCtrl = TextEditingController(text: partnerToEdit?.inspectionScope ?? '');
     final swiftCtrl = TextEditingController(text: partnerToEdit?.swiftCode ?? '');
     final bankCodeCtrl = TextEditingController(text: partnerToEdit?.bankCode ?? '');
     final branchCtrl = TextEditingController(text: partnerToEdit?.branchName ?? '');
@@ -1066,6 +1353,10 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
             final isBank = selectedCategories.contains('Bank');
             final isShippingLine = selectedCategories.contains('Shipping Line');
             final isCustomsBroker = selectedCategories.contains('Customs Broker');
+            final isFreightForwarder = selectedCategories.contains('Freight Forwarder');
+            final isInspectionAgency = selectedCategories.contains('Inspection Agency');
+            final isInlandTransport = selectedCategories.contains('Inland Transport');
+            final isInsuranceCompany = selectedCategories.contains('Insurance Company');
 
             Widget buildCopySuffix(TextEditingController ctrl) {
               return ValueListenableBuilder<TextEditingValue>(
@@ -1260,7 +1551,7 @@ suffixIcon: buildCopySuffix(branchCtrl),
                                           Expanded(
                                             child: CustomTextField(
                                               controller: scacCtrl,
-suffixIcon: buildCopySuffix(scacCtrl),
+                                              suffixIcon: buildCopySuffix(scacCtrl),
                                               label: l10n.scacCarrierCodeLabel,
                                               icon: Icons.code,
                                               isRequired: true,
@@ -1270,14 +1561,30 @@ suffixIcon: buildCopySuffix(scacCtrl),
                                           const SizedBox(width: 12),
                                           Expanded(
                                             child: CustomTextField(
-                                              controller: trackingCtrl,
-suffixIcon: buildCopySuffix(trackingCtrl),
-                                              label: l10n.trackingWebUrlLabel,
-                                              icon: Icons.link,
-                                              hint: l10n.trackingWebUrlHint,
+                                              controller: defaultFreeDaysCtrl,
+                                              suffixIcon: buildCopySuffix(defaultFreeDaysCtrl),
+                                              label: l10n.defaultFreeDaysLabel,
+                                              icon: Icons.timer_outlined,
+                                              isRequired: true,
+                                              keyboardType: TextInputType.number,
+                                              hint: l10n.defaultFreeDaysHint,
+                                              validator: (val) {
+                                                if (val == null || val.trim().isEmpty) return l10n.fieldRequired;
+                                                final parsed = int.tryParse(val.trim());
+                                                if (parsed == null || parsed < 0) return l10n.defaultFreeDaysHint;
+                                                return null;
+                                              },
                                             ),
                                           ),
                                         ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      CustomTextField(
+                                        controller: trackingCtrl,
+                                        suffixIcon: buildCopySuffix(trackingCtrl),
+                                        label: l10n.trackingWebUrlLabel,
+                                        icon: Icons.link,
+                                        hint: l10n.trackingWebUrlHint,
                                       ),
                                     ],
                                   ),
@@ -1300,11 +1607,196 @@ suffixIcon: buildCopySuffix(trackingCtrl),
                                       const SizedBox(height: 10),
                                       CustomTextField(
                                         controller: licenseCtrl,
-suffixIcon: buildCopySuffix(licenseCtrl),
+                                        suffixIcon: buildCopySuffix(licenseCtrl),
                                         label: l10n.customsClearanceLicenseNumLabel,
                                         icon: Icons.assignment_ind,
                                         isRequired: true,
                                         hint: l10n.customsClearanceLicenseNumHint,
+                                      ),
+                                      const SizedBox(height: 10),
+                                      CustomTextField(
+                                        controller: authorizedPortsCtrl,
+                                        suffixIcon: buildCopySuffix(authorizedPortsCtrl),
+                                        label: l10n.authorizedPortsLabel,
+                                        icon: Icons.anchor_outlined,
+                                        hint: l10n.authorizedPortsHint,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+
+                              if (isFreightForwarder) ...[
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.charcoal.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: AppTheme.charcoal.withOpacity(0.2)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '📦 ${l10n.freightForwarderDetailsHeader}',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: isDarkDialog ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: CustomTextField(
+                                              controller: fiataCtrl,
+                                              suffixIcon: buildCopySuffix(fiataCtrl),
+                                              label: l10n.fiataLicenseLabel,
+                                              icon: Icons.badge_outlined,
+                                              hint: l10n.fiataLicenseHint,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: CustomTextField(
+                                              controller: supportedCurrenciesCtrl,
+                                              suffixIcon: buildCopySuffix(supportedCurrenciesCtrl),
+                                              label: l10n.supportedCurrenciesLabel,
+                                              icon: Icons.monetization_on_outlined,
+                                              hint: l10n.supportedCurrenciesHint,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      CustomTextField(
+                                        controller: shippingModesCtrl,
+                                        suffixIcon: buildCopySuffix(shippingModesCtrl),
+                                        label: l10n.shippingModesLabel,
+                                        icon: Icons.alt_route_rounded,
+                                        hint: l10n.shippingModesHint,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+
+                              if (isInspectionAgency) ...[
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.cobalt.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '🔬 ${l10n.inspectionAgencyDetailsHeader}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.cobalt,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      CustomTextField(
+                                        controller: accreditationCtrl,
+                                        suffixIcon: buildCopySuffix(accreditationCtrl),
+                                        label: l10n.inspectionAccreditationNumLabel,
+                                        icon: Icons.verified_user_outlined,
+                                        isRequired: true,
+                                        hint: l10n.inspectionAccreditationNumHint,
+                                      ),
+                                      const SizedBox(height: 10),
+                                      CustomTextField(
+                                        controller: inspectionScopeCtrl,
+                                        suffixIcon: buildCopySuffix(inspectionScopeCtrl),
+                                        label: l10n.inspectionScopeLabel,
+                                        icon: Icons.rule_folder_outlined,
+                                        hint: l10n.inspectionScopeHint,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+
+                              if (isInlandTransport) ...[
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.emerald.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: AppTheme.emerald.withOpacity(0.2)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('🚛 ${l10n.inlandTransportDetailsHeader}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                                      const SizedBox(height: 10),
+                                      CustomTextField(
+                                        controller: transportLicenseCtrl,
+                                        suffixIcon: buildCopySuffix(transportLicenseCtrl),
+                                        label: l10n.transportLicenseNumLabel,
+                                        icon: Icons.badge_outlined,
+                                        isRequired: true,
+                                        hint: l10n.transportLicenseNumHint,
+                                      ),
+                                      const SizedBox(height: 10),
+                                      CustomTextField(
+                                        controller: fleetTypesCtrl,
+                                        suffixIcon: buildCopySuffix(fleetTypesCtrl),
+                                        label: l10n.fleetTypesLabel,
+                                        icon: Icons.local_shipping_outlined,
+                                        isRequired: true,
+                                        hint: l10n.fleetTypesHint,
+                                      ),
+                                      const SizedBox(height: 10),
+                                      CustomTextField(
+                                        controller: coverageAreasCtrl,
+                                        suffixIcon: buildCopySuffix(coverageAreasCtrl),
+                                        label: l10n.coverageAreasLabel,
+                                        icon: Icons.map_outlined,
+                                        hint: l10n.coverageAreasHint,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+
+                              if (isInsuranceCompany) ...[
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.cobalt.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('🛡️ ${l10n.insuranceDetailsHeader}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                      const SizedBox(height: 10),
+                                      CustomTextField(
+                                        controller: insuranceLicenseCtrl,
+                                        suffixIcon: buildCopySuffix(insuranceLicenseCtrl),
+                                        label: l10n.insuranceLicenseNumLabel,
+                                        icon: Icons.verified_user_outlined,
+                                        isRequired: true,
+                                        hint: l10n.insuranceLicenseNumHint,
+                                      ),
+                                      const SizedBox(height: 10),
+                                      CustomTextField(
+                                        controller: insuranceCoverageCtrl,
+                                        suffixIcon: buildCopySuffix(insuranceCoverageCtrl),
+                                        label: l10n.insuranceCoverageTypesLabel,
+                                        icon: Icons.health_and_safety_outlined,
+                                        isRequired: true,
+                                        hint: l10n.insuranceCoverageTypesHint,
                                       ),
                                     ],
                                   ),
@@ -1478,9 +1970,21 @@ suffixIcon: buildCopySuffix(countryCtrl),
                                 partnerType: partnerTypeJoined,
                                 taxId: taxIdCtrl.text.trim().isEmpty ? null : taxIdCtrl.text.trim(),
                                 commercialRegister: regCtrl.text.trim().isEmpty ? null : regCtrl.text.trim(),
-                                clearanceLicenseNumber: licenseCtrl.text.trim().isEmpty ? null : licenseCtrl.text.trim(),
+                                clearanceLicenseNumber: isCustomsBroker ? (licenseCtrl.text.trim().isEmpty ? null : licenseCtrl.text.trim()) : null,
+                                authorizedPorts: isCustomsBroker ? (authorizedPortsCtrl.text.trim().isEmpty ? null : authorizedPortsCtrl.text.trim()) : null,
+                                transportLicenseNumber: isInlandTransport ? (transportLicenseCtrl.text.trim().isEmpty ? null : transportLicenseCtrl.text.trim()) : null,
+                                fleetTypes: isInlandTransport ? (fleetTypesCtrl.text.trim().isEmpty ? null : fleetTypesCtrl.text.trim()) : null,
+                                coverageAreas: isInlandTransport ? (coverageAreasCtrl.text.trim().isEmpty ? null : coverageAreasCtrl.text.trim()) : null,
+                                insuranceLicenseNumber: isInsuranceCompany ? (insuranceLicenseCtrl.text.trim().isEmpty ? null : insuranceLicenseCtrl.text.trim()) : null,
+                                insuranceCoverageTypes: isInsuranceCompany ? (insuranceCoverageCtrl.text.trim().isEmpty ? null : insuranceCoverageCtrl.text.trim()) : null,
                                 scacCode: scacCtrl.text.trim().isEmpty ? null : scacCtrl.text.trim(),
                                 trackingUrl: trackingCtrl.text.trim().isEmpty ? null : trackingCtrl.text.trim(),
+                                defaultFreeDays: isShippingLine ? (int.tryParse(defaultFreeDaysCtrl.text.trim()) ?? 14) : null,
+                                fiataId: isFreightForwarder ? (fiataCtrl.text.trim().isEmpty ? null : fiataCtrl.text.trim()) : null,
+                                shippingModes: isFreightForwarder ? (shippingModesCtrl.text.trim().isEmpty ? null : shippingModesCtrl.text.trim()) : null,
+                                supportedCurrencies: isFreightForwarder ? (supportedCurrenciesCtrl.text.trim().isEmpty ? null : supportedCurrenciesCtrl.text.trim()) : null,
+                                inspectionAccreditationNumber: isInspectionAgency ? (accreditationCtrl.text.trim().isEmpty ? null : accreditationCtrl.text.trim()) : null,
+                                inspectionScope: isInspectionAgency ? (inspectionScopeCtrl.text.trim().isEmpty ? null : inspectionScopeCtrl.text.trim()) : null,
                                 swiftCode: swiftCtrl.text.trim().isEmpty ? null : swiftCtrl.text.trim(),
                                 bankCode: bankCodeCtrl.text.trim().isEmpty ? null : bankCodeCtrl.text.trim(),
                                 branchName: branchCtrl.text.trim().isEmpty ? null : branchCtrl.text.trim(),
@@ -1503,6 +2007,42 @@ suffixIcon: buildCopySuffix(countryCtrl),
                                 }
                                 if (FieldChangeItem.isDifferent(partnerToEdit.partnerType, partner.partnerType)) {
                                   changes.add(FieldChangeItem(fieldName: l10n.diffPartnerType, oldValue: partnerToEdit.partnerType, newValue: partner.partnerType));
+                                }
+                                if (FieldChangeItem.isDifferent(partnerToEdit.fiataId, partner.fiataId)) {
+                                  changes.add(FieldChangeItem(fieldName: l10n.fiataLicenseLabel, oldValue: partnerToEdit.fiataId ?? '—', newValue: partner.fiataId ?? '—'));
+                                }
+                                if (FieldChangeItem.isDifferent(partnerToEdit.shippingModes, partner.shippingModes)) {
+                                  changes.add(FieldChangeItem(fieldName: l10n.shippingModesLabel, oldValue: partnerToEdit.shippingModes ?? '—', newValue: partner.shippingModes ?? '—'));
+                                }
+                                if (FieldChangeItem.isDifferent(partnerToEdit.supportedCurrencies, partner.supportedCurrencies)) {
+                                  changes.add(FieldChangeItem(fieldName: l10n.supportedCurrenciesLabel, oldValue: partnerToEdit.supportedCurrencies ?? '—', newValue: partner.supportedCurrencies ?? '—'));
+                                }
+                                if (FieldChangeItem.isDifferent(partnerToEdit.inspectionAccreditationNumber, partner.inspectionAccreditationNumber)) {
+                                  changes.add(FieldChangeItem(fieldName: l10n.inspectionAccreditationNumLabel, oldValue: partnerToEdit.inspectionAccreditationNumber ?? '—', newValue: partner.inspectionAccreditationNumber ?? '—'));
+                                }
+                                if (FieldChangeItem.isDifferent(partnerToEdit.inspectionScope, partner.inspectionScope)) {
+                                  changes.add(FieldChangeItem(fieldName: l10n.inspectionScopeLabel, oldValue: partnerToEdit.inspectionScope ?? '—', newValue: partner.inspectionScope ?? '—'));
+                                }
+                                if (FieldChangeItem.isDifferent(partnerToEdit.clearanceLicenseNumber, partner.clearanceLicenseNumber)) {
+                                  changes.add(FieldChangeItem(fieldName: l10n.customsClearanceLicenseNumLabel, oldValue: partnerToEdit.clearanceLicenseNumber ?? '—', newValue: partner.clearanceLicenseNumber ?? '—'));
+                                }
+                                if (FieldChangeItem.isDifferent(partnerToEdit.authorizedPorts, partner.authorizedPorts)) {
+                                  changes.add(FieldChangeItem(fieldName: l10n.authorizedPortsLabel, oldValue: partnerToEdit.authorizedPorts ?? '—', newValue: partner.authorizedPorts ?? '—'));
+                                }
+                                if (FieldChangeItem.isDifferent(partnerToEdit.transportLicenseNumber, partner.transportLicenseNumber)) {
+                                  changes.add(FieldChangeItem(fieldName: l10n.transportLicenseNumLabel, oldValue: partnerToEdit.transportLicenseNumber ?? '—', newValue: partner.transportLicenseNumber ?? '—'));
+                                }
+                                if (FieldChangeItem.isDifferent(partnerToEdit.fleetTypes, partner.fleetTypes)) {
+                                  changes.add(FieldChangeItem(fieldName: l10n.fleetTypesLabel, oldValue: partnerToEdit.fleetTypes ?? '—', newValue: partner.fleetTypes ?? '—'));
+                                }
+                                if (FieldChangeItem.isDifferent(partnerToEdit.coverageAreas, partner.coverageAreas)) {
+                                  changes.add(FieldChangeItem(fieldName: l10n.coverageAreasLabel, oldValue: partnerToEdit.coverageAreas ?? '—', newValue: partner.coverageAreas ?? '—'));
+                                }
+                                if (FieldChangeItem.isDifferent(partnerToEdit.insuranceLicenseNumber, partner.insuranceLicenseNumber)) {
+                                  changes.add(FieldChangeItem(fieldName: l10n.insuranceLicenseNumLabel, oldValue: partnerToEdit.insuranceLicenseNumber ?? '—', newValue: partner.insuranceLicenseNumber ?? '—'));
+                                }
+                                if (FieldChangeItem.isDifferent(partnerToEdit.insuranceCoverageTypes, partner.insuranceCoverageTypes)) {
+                                  changes.add(FieldChangeItem(fieldName: l10n.insuranceCoverageTypesLabel, oldValue: partnerToEdit.insuranceCoverageTypes ?? '—', newValue: partner.insuranceCoverageTypes ?? '—'));
                                 }
                                 if (FieldChangeItem.isDifferent(partnerToEdit.email, partner.email)) {
                                   changes.add(FieldChangeItem(fieldName: l10n.diffPartnerEmail, oldValue: partnerToEdit.email, newValue: partner.email));
@@ -1571,8 +2111,20 @@ suffixIcon: buildCopySuffix(countryCtrl),
       taxIdCtrl.dispose();
       regCtrl.dispose();
       licenseCtrl.dispose();
+      authorizedPortsCtrl.dispose();
+      transportLicenseCtrl.dispose();
+      fleetTypesCtrl.dispose();
+      coverageAreasCtrl.dispose();
+      insuranceLicenseCtrl.dispose();
+      insuranceCoverageCtrl.dispose();
       scacCtrl.dispose();
+      defaultFreeDaysCtrl.dispose();
       trackingCtrl.dispose();
+      fiataCtrl.dispose();
+      shippingModesCtrl.dispose();
+      supportedCurrenciesCtrl.dispose();
+      accreditationCtrl.dispose();
+      inspectionScopeCtrl.dispose();
       swiftCtrl.dispose();
       bankCodeCtrl.dispose();
       branchCtrl.dispose();

@@ -13,11 +13,14 @@ from .schemas import (
     CustomsTariffCreate,
     CustomsTariffUpdate,
     MultiItemCustomsBreakdown,
+    MultiItemCustomsEstimateLine,
     MultiItemCustomsEstimateRequest,
     MultiItemCustomsLineBreakdown,
     PreferentialAgreementCreate,
     PreferentialAgreementResponse,
     TariffVerificationRequest,
+    ImportFileCustomsSimulationRequest,
+    ImportFileCustomsSimulationResponse,
 )
 from .validators import (
     validate_effective_date_range,
@@ -1250,6 +1253,278 @@ def evaluate_duty_by_origin_and_document_service(
             warning_note=warning,
             summary_ar=f"توجد اتفاقية مع {origin_code} ({ag_name}) ولكن لم يتم إرفاق {req_doc}. تم تطبيق الضريبة الأساسية {base_duty}% مؤقتاً.",
         )
+
+
+def simulate_import_file_customs_duty_service(
+    db: Session,
+    import_file_id: int,
+    request: Optional[ImportFileCustomsSimulationRequest] = None,
+) -> ImportFileCustomsSimulationResponse:
+    """
+    محاكاة واحتساب الرسوم والضرائب التقديرية لملف الشحنة الاستيرادية (PL-07: Customs Duty Simulation).
+    1. استخراج بنود أمر الشراء أو الفواتير المرتبطة بالملف.
+    2. استرجاع سعر الصرف الجمركي الرسمي للعملة في تاريخ التقدير.
+    3. استرجاع أو احتساب النولون والتأمين (فعلي أو حكمي).
+    4. تشغيل محرك الحساب الجمركي المصري المتعدد الأصناف (Nafeza Statement Engine).
+    5. حفظ وتحديث قيمة الرسوم التقديرية ومستندات الفحص والموافقات في دراسة الاستشارة وميزانية الملف.
+    """
+    from modules.import_files.model import ImportFile
+    from modules.purchase_orders.model import PurchaseOrder
+    from modules.customs_consultation.model import CustomsConsultationSession, CustomsChecklistItem
+
+    req = request or ImportFileCustomsSimulationRequest()
+    calc_date = req.estimate_date or date.today()
+
+    import_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if not import_file:
+        raise HTTPException(
+            status_code=404,
+            detail=f"ملف الشحنة رقم {import_file_id} غير موجود.",
+        )
+
+    # 1. Gather POs and Line Items
+    pos = (
+        db.query(PurchaseOrder)
+        .filter(PurchaseOrder.import_file_id == import_file_id, PurchaseOrder.is_active == True)
+        .all()
+    )
+    po_numbers = [po.po_number for po in pos if po.po_number]
+
+    # Collect lines
+    estimate_lines: List[MultiItemCustomsEstimateLine] = []
+    currency = "USD"
+    line_idx = 1
+
+    for po in pos:
+        if po.currency and po.currency.currency_code:
+            currency = po.currency.currency_code
+        for item in (po.line_items or []):
+            hs = (item.tariff.hs_code if getattr(item, "tariff", None) else getattr(item, "hs_code", "")) or ""
+            hs = hs.strip()
+            if not hs and import_file.hs_code:
+                hs = import_file.hs_code.strip()
+            if not hs:
+                hs = "8479.89.90"
+
+            qty = Decimal(str(item.quantity or 1.0))
+            u_price = Decimal(str(item.unit_price or 0.0))
+            val_fc = Decimal(str(item.total_price or (qty * u_price)))
+            if val_fc <= Decimal("0.00"):
+                val_fc = Decimal("1000.00")
+
+            origin = (getattr(item, "country_of_origin", "") or getattr(po, "country_of_origin", "") or "").strip()
+            if origin and " - " in origin:
+                origin = origin.split(" - ")[0].strip()
+            if origin and len(origin) > 2:
+                origin = origin[:2]
+
+            estimate_lines.append(
+                MultiItemCustomsEstimateLine(
+                    line_no=line_idx,
+                    hs_code=hs,
+                    value_fc=val_fc,
+                    weight_kg=Decimal(str(getattr(item, "gross_weight_kg", 0.0) or 0.0)),
+                    qty=qty,
+                    origin_country=origin.upper() if origin else None,
+                )
+            )
+            line_idx += 1
+
+    # Fallback to invoices_data if no PO items exist
+    if not estimate_lines and import_file.invoices_data:
+        for inv in import_file.invoices_data:
+            inv_amt = Decimal(str(inv.get("amount") or 0.0))
+            if inv_amt > Decimal("0.00"):
+                inv_curr = inv.get("currency") or "USD"
+                currency = inv_curr
+                hs = (import_file.hs_code or "8479.89.90").strip()
+                estimate_lines.append(
+                    MultiItemCustomsEstimateLine(
+                        line_no=line_idx,
+                        hs_code=hs,
+                        value_fc=inv_amt,
+                        weight_kg=Decimal("0.00"),
+                        qty=Decimal("1.00"),
+                        origin_country=None,
+                    )
+                )
+                line_idx += 1
+
+    # If still no items, provide a baseline estimate line
+    if not estimate_lines:
+        cost = Decimal(str(import_file.estimated_cost or 10000.0))
+        currency = import_file.estimated_cost_currency or "USD"
+        estimate_lines.append(
+            MultiItemCustomsEstimateLine(
+                line_no=1,
+                hs_code=(import_file.hs_code or "8479.89.90").strip(),
+                value_fc=cost if cost > Decimal("0.00") else Decimal("10000.00"),
+                weight_kg=Decimal("0.00"),
+                qty=Decimal("1.00"),
+                origin_country=None,
+            )
+        )
+
+    # 2. Resolve Currency & Customs Exchange Rate
+    if req.exchange_rate is not None and req.exchange_rate > Decimal("0.00"):
+        fx_rate = req.exchange_rate
+    else:
+        from modules.currencies.service import CurrencyService
+        c_service = CurrencyService(db)
+        r_val, _, _ = c_service._get_rate_to_egp(currency, rate_type="customs", as_of_date=calc_date)
+        fx_rate = Decimal(str(r_val))
+
+    # 3. Resolve Freight & Insurance
+    has_freight_doc = req.freight_egp is not None and req.freight_egp > Decimal("0.00")
+    freight_val_egp = req.freight_egp or Decimal("0.00")
+    if not has_freight_doc:
+        from modules.freight_quotations.model import FreightRFQRequest, FreightQuotationItem
+        awarded_rfq = (
+            db.query(FreightRFQRequest)
+            .filter(FreightRFQRequest.import_file_id == import_file_id)
+            .order_by(FreightRFQRequest.rfq_id.desc())
+            .first()
+        )
+        if awarded_rfq and awarded_rfq.selected_quotation_id:
+            winning_q = db.query(FreightQuotationItem).filter(
+                FreightQuotationItem.quotation_id == awarded_rfq.selected_quotation_id
+            ).first()
+            if winning_q and winning_q.total_cost:
+                q_cost = Decimal(str(winning_q.total_cost))
+                q_curr = winning_q.currency_code or currency
+                if q_curr.upper() == "EGP":
+                    freight_val_egp = q_cost
+                else:
+                    freight_val_egp = _round(q_cost * fx_rate)
+                has_freight_doc = True
+
+    has_ins_doc = req.insurance_egp is not None and req.insurance_egp > Decimal("0.00")
+    ins_val_egp = req.insurance_egp or Decimal("0.00")
+
+    # 4. Build Multi-Item Calculation Request and execute
+    calc_request = MultiItemCustomsEstimateRequest(
+        currency=currency,
+        exchange_rate=fx_rate,
+        insurance_egp=ins_val_egp,
+        freight_egp=freight_val_egp,
+        packaging_egp=req.packaging_egp or Decimal("0.00"),
+        has_insurance_document=has_ins_doc,
+        has_freight_document=has_freight_doc,
+        estimate_date=calc_date,
+        lines=estimate_lines,
+    )
+
+    breakdown = estimate_multi_item_customs_duty_service(db, calc_request)
+
+    # 5. Persist to Consultation Session if requested
+    consultation_id = None
+    if req.save_to_consultation:
+        consultation = (
+            db.query(CustomsConsultationSession)
+            .filter(
+                CustomsConsultationSession.import_file_id == import_file_id,
+                CustomsConsultationSession.is_active == True,
+            )
+            .first()
+        )
+
+        grand_duties_egp = float(breakdown.grand_total_payable_egp)
+
+        if not consultation:
+            from modules.external_service_providers.model import ExternalServiceProvider
+            broker = (
+                db.query(ExternalServiceProvider)
+                .filter(ExternalServiceProvider.partner_type.ilike("%Broker%"), ExternalServiceProvider.is_active == True)
+                .first()
+            )
+            broker_id = broker.provider_id if broker else (import_file.broker_id or 1)
+            broker_name = broker.partner_name if broker else (import_file.broker_name or "المخلص الجمركي المعتمد")
+
+            consultation = CustomsConsultationSession(
+                consultation_code=f"CONS-{import_file.import_file_code}",
+                title=f"دراسة استشارة جمركية — {import_file.import_file_code}",
+                broker_id=broker_id,
+                broker_name=broker_name,
+                import_file_id=import_file_id,
+                overall_status="Pending Review",
+                estimated_duties_egp=grand_duties_egp,
+                is_active=True,
+            )
+            db.add(consultation)
+            db.flush()
+
+            checklist_items = []
+            acid_needed = any(l.requires_acid for l in breakdown.lines)
+            if acid_needed:
+                checklist_items.append(
+                    CustomsChecklistItem(
+                        consultation_id=consultation.consultation_id,
+                        document_type="Advance ACID Filing (Nafeza / CargoX)",
+                        is_required=True,
+                        is_blocking_shipment=True,
+                        responsible_party="Importer Team",
+                        regulatory_agency="Nafeza / CargoX",
+                        status="Pending",
+                        remarks="رقم القيد الجمركي المبدئي إلزامي لإصدار بوليصة الشحن.",
+                    )
+                )
+
+            coo_needed = any(l.requires_coo for l in breakdown.lines)
+            if coo_needed:
+                checklist_items.append(
+                    CustomsChecklistItem(
+                        consultation_id=consultation.consultation_id,
+                        document_type="Certificate of Origin (COO / EUR.1)",
+                        is_required=True,
+                        is_blocking_shipment=True,
+                        responsible_party="Supplier / Exporter",
+                        regulatory_agency="Chamber of Commerce / Customs",
+                        status="Pending",
+                        remarks="شهادة المنشأ الرسمية لتطبيق الإعفاءات الجمركية.",
+                    )
+                )
+
+            insp_needed = any(l.requires_inspection for l in breakdown.lines)
+            if insp_needed:
+                checklist_items.append(
+                    CustomsChecklistItem(
+                        consultation_id=consultation.consultation_id,
+                        document_type="GOEIC Inspection",
+                        is_required=True,
+                        is_blocking_shipment=True,
+                        responsible_party="Customs Broker",
+                        regulatory_agency="GOEIC",
+                        status="Pending",
+                        remarks="فحص ظاهري وسحب عينات معملية لهيئة الرقابة على الصادرات والواردات.",
+                    )
+                )
+
+            if checklist_items:
+                db.add_all(checklist_items)
+        else:
+            consultation.estimated_duties_egp = grand_duties_egp
+
+        db.commit()
+        db.refresh(consultation)
+        consultation_id = consultation.consultation_id
+
+    summary = (
+        f"تمت المحاكاة الجمركية لملف {import_file.import_file_code}: "
+        f"إجمالي سيف {breakdown.grand_total_payable_egp:.2f} ج.م، "
+        f"ضريبة الوارد {breakdown.total_duty_egp:.2f} ج.م، "
+        f"ضريبة القيمة المضافة {breakdown.total_vat_egp:.2f} ج.م، "
+        f"إجمالي الضرائب والرسوم المقدرة {breakdown.grand_total_payable_egp:.2f} ج.م."
+    )
+
+    return ImportFileCustomsSimulationResponse(
+        import_file_id=import_file_id,
+        import_file_code=import_file.import_file_code,
+        po_numbers=po_numbers,
+        currency=currency,
+        breakdown=breakdown,
+        consultation_id=consultation_id,
+        summary_ar=summary,
+    )
 
 
 

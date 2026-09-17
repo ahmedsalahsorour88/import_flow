@@ -258,7 +258,7 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
                                                 child: Text(
                                                   r.blReviewCode,
                                                   style: TextStyle(
-                                                    fontSize: 10.5,
+                                                    fontSize: 11.0,
                                                     fontWeight: FontWeight.w600,
                                                     color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
                                                   ),
@@ -281,7 +281,7 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
                                                 child: Text(
                                                   r.status,
                                                   style: TextStyle(
-                                                    fontSize: 10.5,
+                                                    fontSize: 11.0,
                                                     fontWeight: FontWeight.bold,
                                                     color: isApproved
                                                         ? (isDark ? const Color(0xFF6EE7B7) : Colors.green.shade800)

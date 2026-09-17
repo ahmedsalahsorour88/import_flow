@@ -34,6 +34,54 @@ class ExternalServiceProviderRepository:
             stmt = stmt.where(ExternalServiceProvider.provider_id != exclude_id)
         return self.db.query(stmt).scalar()
 
+    def exists_by_scac_code(self, scac_code: str, exclude_id: Optional[int] = None) -> bool:
+        if not scac_code or not scac_code.strip():
+            return False
+        stmt = exists().where(func.lower(ExternalServiceProvider.scac_code) == scac_code.strip().lower())
+        if exclude_id:
+            stmt = stmt.where(ExternalServiceProvider.provider_id != exclude_id)
+        return self.db.query(stmt).scalar()
+
+    def exists_by_fiata_id(self, fiata_id: str, exclude_id: Optional[int] = None) -> bool:
+        if not fiata_id or not fiata_id.strip():
+            return False
+        stmt = exists().where(func.lower(ExternalServiceProvider.fiata_id) == fiata_id.strip().lower())
+        if exclude_id:
+            stmt = stmt.where(ExternalServiceProvider.provider_id != exclude_id)
+        return self.db.query(stmt).scalar()
+
+    def exists_by_accreditation_number(self, accreditation_number: str, exclude_id: Optional[int] = None) -> bool:
+        if not accreditation_number or not accreditation_number.strip():
+            return False
+        stmt = exists().where(func.lower(ExternalServiceProvider.inspection_accreditation_number) == accreditation_number.strip().lower())
+        if exclude_id:
+            stmt = stmt.where(ExternalServiceProvider.provider_id != exclude_id)
+        return self.db.query(stmt).scalar()
+
+    def exists_by_clearance_license_number(self, clearance_license_number: str, exclude_id: Optional[int] = None) -> bool:
+        if not clearance_license_number or not clearance_license_number.strip():
+            return False
+        stmt = exists().where(func.lower(ExternalServiceProvider.clearance_license_number) == clearance_license_number.strip().lower())
+        if exclude_id:
+            stmt = stmt.where(ExternalServiceProvider.provider_id != exclude_id)
+        return self.db.query(stmt).scalar()
+
+    def exists_by_transport_license_number(self, transport_license_number: str, exclude_id: Optional[int] = None) -> bool:
+        if not transport_license_number or not transport_license_number.strip():
+            return False
+        stmt = exists().where(func.lower(ExternalServiceProvider.transport_license_number) == transport_license_number.strip().lower())
+        if exclude_id:
+            stmt = stmt.where(ExternalServiceProvider.provider_id != exclude_id)
+        return self.db.query(stmt).scalar()
+
+    def exists_by_insurance_license_number(self, insurance_license_number: str, exclude_id: Optional[int] = None) -> bool:
+        if not insurance_license_number or not insurance_license_number.strip():
+            return False
+        stmt = exists().where(func.lower(ExternalServiceProvider.insurance_license_number) == insurance_license_number.strip().lower())
+        if exclude_id:
+            stmt = stmt.where(ExternalServiceProvider.provider_id != exclude_id)
+        return self.db.query(stmt).scalar()
+
     def get_last_partner_id(self) -> int:
         last = self.db.query(ExternalServiceProvider.provider_id).order_by(ExternalServiceProvider.provider_id.desc()).first()
         return last[0] if last else 0

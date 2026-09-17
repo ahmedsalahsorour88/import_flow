@@ -17,6 +17,8 @@ from .schemas import (
     PreferentialAgreementCreate,
     PreferentialAgreementResponse,
     TariffVerificationRequest,
+    ImportFileCustomsSimulationRequest,
+    ImportFileCustomsSimulationResponse,
 )
 from .service import (
     bulk_import_tariffs_service,
@@ -25,6 +27,7 @@ from .service import (
     delete_tariff_service,
     estimate_customs_duty_service,
     estimate_multi_item_customs_duty_service,
+    simulate_import_file_customs_duty_service,
     get_agreements_by_hs_code_service,
     get_all_tariffs_service,
     get_tariff_by_hs_code_service,
@@ -260,5 +263,18 @@ def get_tariff_version_history(hs_code: str, db: Session = Depends(get_db)):
     استعلام سجل تاريخ السريان والإصدارات السابقة والحالية للبند الجمركي (HS Code Tariff History).
     """
     return get_tariff_version_history_service(db, hs_code)
+
+
+@customs_tariff_router.post("/simulate-file/{import_file_id}", response_model=ImportFileCustomsSimulationResponse)
+def simulate_import_file_customs_duties(
+    import_file_id: int,
+    payload: Optional[ImportFileCustomsSimulationRequest] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    محاكاة واحتساب الرسوم والضرائب التقديرية لملف استيرادي (PL-07: Customs Duty Simulation)
+    تستخرج بنود أمر الشراء أو الفواتير والنولون المعتمد وأسعار الصرف، وتحسب الرسوم وتحدث دراسة الاستشارة.
+    """
+    return simulate_import_file_customs_duty_service(db, import_file_id, payload)
 
 

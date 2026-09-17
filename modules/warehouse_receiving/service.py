@@ -54,10 +54,27 @@ def create_warehouse_receiving_service(db: Session, schema: WarehouseReceivingCr
     else:
         imp_file.current_stage = f"Goods Received at {schema.warehouse_name} (GRN: {code})"
         imp_file.next_action = "Landed Cost Settlement & Invoice Clearance"
-    imp_file.progress_percent = 85.0
+    if (imp_file.progress_percent or 0.0) < 85.0:
+        imp_file.progress_percent = 85.0
     db.commit()
 
+    # Lifecycle advance: STEP_18 → STEP_19 (Demurrage closed → GRN Warehouse Receiving)
+    try:
+        from modules.lifecycle_board.service import advance_lifecycle_step_service
+        advance_lifecycle_step_service(
+            db=db,
+            import_file_id=schema.import_file_id,
+            completed_step_code="STEP_18",
+            target_step_codes=["STEP_19"],
+            notes=f"تم استلام البضاعة في المخزن ({schema.warehouse_name}) وإصدار إذن الإضافة ({code}).",
+            assigned_user="Warehouse Manager",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Lifecycle advance STEP_18→STEP_19 failed: %s", e)
+
     return record
+
 
 
 def get_warehouse_receiving_service(db: Session, record_id: int) -> WarehouseReceivingRecord:

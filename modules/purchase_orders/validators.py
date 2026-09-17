@@ -14,7 +14,15 @@ class PurchaseOrderValidator:
     def __init__(self, db: Session):
         self.db = db
 
-    def validate_foreign_keys(self, project_id: int, company_id: int, supplier_id: int, incoterm_id: int, currency_id: int):
+    def validate_foreign_keys(
+        self,
+        project_id: int,
+        company_id: int,
+        supplier_id: int,
+        incoterm_id: int,
+        currency_id: int,
+        import_file_id: int = None,
+    ):
         project = self.db.query(Project).filter(Project.project_id == project_id, Project.is_active.is_(True)).first()
         if not project:
             raise HTTPException(
@@ -49,6 +57,42 @@ class PurchaseOrderValidator:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Currency with ID {currency_id} not found or inactive.",
             )
+
+        if import_file_id is not None:
+            from modules.import_files.model import ImportFile
+            import_file = self.db.query(ImportFile).filter(
+                ImportFile.import_file_id == import_file_id,
+                ImportFile.is_active.is_(True),
+            ).first()
+            if not import_file:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Import File with ID {import_file_id} not found or inactive.",
+                )
+
+    def validate_line_items(self, items):
+        for idx, item in enumerate(items, start=1):
+            if item.quantity is not None and item.quantity <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Item #{idx}: Quantity must be greater than zero.",
+                )
+            if item.unit_price is not None and item.unit_price < 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Item #{idx}: Unit price cannot be negative.",
+                )
+            if getattr(item, "tariff_id", None) is not None:
+                from modules.customs_tariff.model import CustomsTariff
+                tariff = self.db.query(CustomsTariff).filter(
+                    CustomsTariff.tariff_id == item.tariff_id,
+                    CustomsTariff.is_active.is_(True),
+                ).first()
+                if not tariff:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Item #{idx}: Tariff with ID {item.tariff_id} not found or inactive.",
+                    )
 
     def validate_po_number_unique(self, po_number: str, exclude_id: int = None):
         pattern = po_number.upper().strip()

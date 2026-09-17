@@ -39,6 +39,7 @@ class ProjectModel {
   final bool allowMultiShipment;
   final bool allowMultiCompany;
   final double? totalBudgetUsd;
+  final String? targetEndDate;
   final String status;
   final String? notes;
   final bool isActive;
@@ -47,6 +48,9 @@ class ProjectModel {
   final String? companyName;
   final String? supplierName;
   final String? incotermCode;
+  final double? totalCommittedUsd;
+  final int? poCount;
+  final double? remainingBudgetUsd;
 
   ProjectModel({
     this.projectId,
@@ -63,6 +67,7 @@ class ProjectModel {
     this.allowMultiShipment = true,
     this.allowMultiCompany = true,
     this.totalBudgetUsd,
+    this.targetEndDate,
     this.status = 'Open',
     this.notes,
     this.isActive = true,
@@ -71,6 +76,9 @@ class ProjectModel {
     this.companyName,
     this.supplierName,
     this.incotermCode,
+    this.totalCommittedUsd,
+    this.poCount,
+    this.remainingBudgetUsd,
   });
 
   factory ProjectModel.fromJson(Map<String, dynamic> json) {
@@ -96,6 +104,7 @@ class ProjectModel {
       allowMultiShipment: _parseBool(json['allow_multi_shipment'], defaultValue: true),
       allowMultiCompany: _parseBool(json['allow_multi_company'], defaultValue: true),
       totalBudgetUsd: _numToNullableDouble(json['total_budget_usd']),
+      targetEndDate: json['target_end_date']?.toString(),
       status: json['status']?.toString() ?? 'Open',
       notes: json['notes']?.toString(),
       isActive: _parseBool(json['is_active'], defaultValue: true),
@@ -104,6 +113,9 @@ class ProjectModel {
       companyName: json['company_name']?.toString(),
       supplierName: json['supplier_name']?.toString(),
       incotermCode: json['incoterm_code']?.toString(),
+      totalCommittedUsd: _numToNullableDouble(json['total_committed_usd']),
+      poCount: json['po_count'] != null ? _numToInt(json['po_count']) : null,
+      remainingBudgetUsd: _numToNullableDouble(json['remaining_budget_usd']),
     );
   }
 
@@ -123,6 +135,7 @@ class ProjectModel {
       'allow_multi_shipment': allowMultiShipment,
       'allow_multi_company': allowMultiCompany,
       'total_budget_usd': totalBudgetUsd,
+      if (targetEndDate != null) 'target_end_date': targetEndDate,
       'status': status,
       'notes': notes,
       'is_active': isActive,

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/financial_settlement_model.dart';
+import '../models/estimated_landed_cost_model.dart';
 import '../../../core/network/api_client.dart';
 
 
@@ -139,6 +140,22 @@ class FinancialSettlementNotifier extends StateNotifier<AsyncValue<List<LandedCo
       rethrow;
     }
   }
+
+  Future<EstimatedLandedCostSimulationModel> simulateEstimatedLandedCost(
+    int importFileId, [
+    Map<String, dynamic>? overrides,
+  ]) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/financial-settlement/simulate-file/$importFileId',
+        data: overrides ?? {},
+      );
+      return EstimatedLandedCostSimulationModel.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
+
 
 

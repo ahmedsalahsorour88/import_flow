@@ -82,6 +82,7 @@ class ProjectRepository:
             allow_multi_shipment=data.allow_multi_shipment,
             allow_multi_company=data.allow_multi_company,
             total_budget_usd=data.total_budget_usd,
+            target_end_date=data.target_end_date.strip() if data.target_end_date else None,
             status="Open",
             notes=data.notes.strip() if data.notes else None,
             is_active=True,

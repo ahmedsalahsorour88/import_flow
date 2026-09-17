@@ -254,7 +254,7 @@ class _SearchAndCloneCustomsApprovalDialogState extends State<SearchAndCloneCust
                                                       child: Text(
                                                         item.documentReferenceNo!,
                                                         style: TextStyle(
-                                                          fontSize: 10.5,
+                                                          fontSize: 11.0,
                                                           fontWeight: FontWeight.w600,
                                                           color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
                                                         ),
@@ -269,7 +269,7 @@ class _SearchAndCloneCustomsApprovalDialogState extends State<SearchAndCloneCust
                                                     child: Text(
                                                       item.approvalCode,
                                                       style: TextStyle(
-                                                        fontSize: 10.5,
+                                                        fontSize: 11.0,
                                                         color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
                                                       ),
                                                     ),
@@ -286,7 +286,7 @@ class _SearchAndCloneCustomsApprovalDialogState extends State<SearchAndCloneCust
                                                 child: Text(
                                                   item.overallStatus,
                                                   style: TextStyle(
-                                                    fontSize: 10.5,
+                                                    fontSize: 11.0,
                                                     fontWeight: FontWeight.bold,
                                                     color: statusColor,
                                                   ),

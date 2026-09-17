@@ -1375,7 +1375,7 @@ class _SmartInvoiceBLExtractorDialogState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          Text(label, style: const TextStyle(fontSize: 11.0, color: Colors.grey)),
           const SizedBox(height: 2),
           CopyableText(
             value,

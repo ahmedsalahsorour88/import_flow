@@ -32,6 +32,21 @@ def create_customs_clearance_service(db: Session, schema: CustomsClearanceCreate
     if not imp_file:
         raise HTTPException(status_code=404, detail="ملف الشحنة الاستيرادية المرتكز عليه غير موجود أو محذوف.")
 
+    # ACID Expiry Guard: Prevent clearance with expired ACID
+    from datetime import date
+    if imp_file.acid_expiry_date:
+        try:
+            exp_date = imp_file.acid_expiry_date if isinstance(imp_file.acid_expiry_date, date) else date.fromisoformat(str(imp_file.acid_expiry_date))
+            if exp_date < date.today():
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"لا يمكن فتح بيان تخليص جمركي — رقم ACID الخاص بهذا الملف منتهي الصلاحية في {exp_date}. يجب تجديد ACID أولاً."
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass  # If date parse fails, allow through
+
     code = generate_customs_clearance_code(db)
     record = create_customs_clearance(db, schema, code)
 
@@ -40,7 +55,24 @@ def create_customs_clearance_service(db: Session, schema: CustomsClearanceCreate
         imp_file.form46_no = schema.declaration_46_no
         db.commit()
 
+    # Lifecycle advance: STEP_12 → STEP_13 (Customs Declaration 46 opened)
+    try:
+        from modules.lifecycle_board.service import advance_lifecycle_step_service
+        advance_lifecycle_step_service(
+            db=db,
+            import_file_id=schema.import_file_id,
+            completed_step_code="STEP_12",
+            target_step_codes=["STEP_13"],
+            notes=f"تم فتح سجل التخليص الجمركي ({code}) وانتقال الملف إلى مرحلة قيد ومطابقة الإقرار الجمركي 46.",
+            assigned_user="Customs Broker",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Lifecycle advance STEP_12→STEP_13 failed: %s", e)
+
     return record
+
+
 
 def get_customs_clearance_service(db: Session, record_id: int) -> CustomsClearanceRecord:
     record = get_customs_clearance_by_id(db, record_id)
@@ -91,7 +123,24 @@ def submit_duty_payment_service(db: Session, record_id: int, payload: DutyPaymen
 
     db.commit()
     db.refresh(record)
+
+    # Lifecycle advance: Advance to STEP_17 upon duty payment confirmation
+    try:
+        from modules.lifecycle_board.service import advance_lifecycle_step_service
+        advance_lifecycle_step_service(
+            db=db,
+            import_file_id=record.import_file_id,
+            completed_step_code="STEP_16",
+            target_step_codes=["STEP_17"],
+            notes=f"تم سداد الرسوم الجمركية برقم إيصال ({payload.bank_receipt_no}) لدى {payload.paying_bank_name or 'البنك التجاري'}. بانتظار صدور إذن الإفراج النهائي.",
+            assigned_user="Customs Broker",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Lifecycle advance STEP_16->STEP_17 failed: %s", e)
+
     return record
+
 
 def complete_customs_release_service(db: Session, record_id: int, payload: CompleteReleaseSubmit) -> CustomsClearanceRecord:
     """BP-032 Complete Final Customs Release Order."""
@@ -115,14 +164,32 @@ def complete_customs_release_service(db: Session, record_id: int, payload: Compl
     if imp_file:
         imp_file.current_module = "Phase 7 - Customs Clearance & Inspection"
         imp_file.current_stage = "Customs Release Permit Issued"
-        imp_file.progress_percent = 75.0
-        imp_file.next_action = "Warehouse Receiving & Dispatch"
+        if (imp_file.progress_percent or 0.0) < 75.0:
+            imp_file.progress_percent = 75.0
+        imp_file.next_action = "Demurrage & Detention Tracking → Warehouse Receiving & Dispatch"
         imp_file.is_customs_released = True
         imp_file.customs_released_at = payload.release_date or datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(record)
+
+    # Lifecycle advance: STEP_17 → STEP_18 (Final customs release → Demurrage & Detention)
+    try:
+        from modules.lifecycle_board.service import advance_lifecycle_step_service
+        advance_lifecycle_step_service(
+            db=db,
+            import_file_id=record.import_file_id,
+            completed_step_code="STEP_17",
+            target_step_codes=["STEP_18"],
+            notes=f"صدر أمر الإفراج النهائي برقم ({payload.release_permit_no}). تم نقل الملف إلى مرحلة إدارة الغرامات وفترات السماح.",
+            assigned_user="Customs Broker",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Lifecycle advance STEP_17→STEP_18 failed: %s", e)
+
     return record
+
 
 def update_customs_clearance_service(db: Session, record_id: int, schema: CustomsClearanceUpdate) -> CustomsClearanceRecord:
     get_customs_clearance_service(db, record_id)

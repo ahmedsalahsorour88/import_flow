@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../models/import_documentation_model.dart';
 
@@ -230,7 +231,7 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
                                             child: Text(
                                               doc.status == 'Received' ? l.endorsedStatusBadge : l.bankProcessingStatusBadge,
                                               style: TextStyle(
-                                                fontSize: 10,
+                                                fontSize: DisplayDensityMode.clampFontSize(11.0),
                                                 fontWeight: FontWeight.bold,
                                                 color: doc.status == 'Received'
                                                     ? (isDark ? const Color(0xFF6EE7B7) : Colors.green.shade800)

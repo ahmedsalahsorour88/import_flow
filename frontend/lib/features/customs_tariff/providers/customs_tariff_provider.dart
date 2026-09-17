@@ -189,6 +189,23 @@ class CustomsTariffNotifier
     }
   }
 
+  Future<Map<String, dynamic>?> simulateImportFileDuties(
+    int importFileId, [
+    Map<String, dynamic>? requestData,
+  ]) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/customs-tariff/simulate-file/$importFileId',
+        data: requestData ?? {},
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw Exception(_formatDioError(e, 'فشل في محاكاة واحتساب الرسوم الجمركية لملف الاستيراد.'));
+    } catch (e) {
+      throw Exception('حدث خطأ أثناء محاكاة الرسوم لملف الاستيراد: $e');
+    }
+  }
+
   Future<Map<String, dynamic>?> uploadExcelTariffs(List<int> bytes, String filename) async {
     try {
       final formData = FormData.fromMap({

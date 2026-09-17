@@ -358,6 +358,150 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     return null;
   }
 
+  void _applyExtractedData(Map<String, dynamic> ext) {
+    setState(() {
+      final tariffs = ref.read(customsTariffProvider).valueOrNull ?? [];
+      final companies = ref.read(importCompaniesProvider).valueOrNull ?? [];
+      final suppliers = ref.read(suppliersProvider).valueOrNull ?? [];
+      final incoterms = ref.read(incotermsProvider).valueOrNull ?? [];
+      final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
+
+      if (ext['order_date'] != null || ext['po_date'] != null || ext['date'] != null) {
+        _selectedOrderDate = _parseFlexDate((ext['order_date'] ?? ext['po_date'] ?? ext['date'])?.toString());
+      }
+      final piNum = (ext['po_number'] ?? ext['proforma_invoice_number'] ?? ext['pi_number'] ?? ext['invoice_number'])?.toString();
+      if (piNum != null && piNum.trim().isNotEmpty) {
+        _piCtrl.text = piNum.trim();
+      }
+      final poRef = (ext['po_reference'] ?? ext['reference'] ?? ext['order_title'] ?? ext['subject'] ?? ext['po_title'])?.toString();
+      if (poRef != null && poRef.trim().isNotEmpty) {
+        _poReferenceCtrl.text = poRef.trim();
+      }
+
+      final rawCty = _getExt(ext, ['country_of_origin', 'origin_country', 'supplier_country', 'country'])?.toString().trim();
+      if (rawCty != null && rawCty.isNotEmpty) {
+        _selectedCountryOfOrigin = normalizeCountryName(rawCty);
+      }
+
+      final compId = _matchCompanyId(ext, companies);
+      if (compId != null) _selectedCompanyId = compId;
+
+      final suppId = _matchSupplierId(ext, suppliers);
+      if (suppId != null) _selectedSupplierId = suppId;
+
+      final incoId = _matchIncotermId(ext, incoterms);
+      if (incoId != null) _selectedIncotermId = incoId;
+
+      final currId = _matchCurrencyId(ext, currencies);
+      if (currId != null) {
+        _selectedCurrencyId = currId;
+        _updateExchangeRateFromCurrency(_selectedCurrencyId, currencies);
+      }
+
+      if (ext['pallet_count'] != null) {
+        _palletCount = _numToInt(ext['pallet_count']);
+        if (_palletCount > 0) _isDirectVolumeMode = true;
+      }
+      if (ext['pallet_type'] != null) {
+        _selectedPalletType = ext['pallet_type'].toString();
+      }
+      if (ext['is_pallet_stackable'] != null) {
+        _isPalletStackable = ext['is_pallet_stackable'] as bool? ?? false;
+      }
+
+      // Line items
+      if ((ext['items'] is List && (ext['items'] as List).isNotEmpty) || (ext['line_items'] is List && (ext['line_items'] as List).isNotEmpty)) {
+        final extTopHs = (ext['hs_code'] ?? ext['customs_tariff'] ?? ext['hsCode'])?.toString().trim();
+        final itemList = (ext['items'] is List && (ext['items'] as List).isNotEmpty) ? (ext['items'] as List) : (ext['line_items'] as List);
+        _dialogItems = itemList.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final i = Map<String, dynamic>.from(entry.value as Map);
+          final qty = (i['quantity'] as num?)?.toDouble() ?? 100.0;
+          final price = (i['unit_price'] as num?)?.toDouble() ?? 10.0;
+          final desc = i['commercial_name']?.toString() ?? i['description']?.toString() ?? i['item_name']?.toString() ?? i['name']?.toString() ?? 'بند استيرادي رئيسي';
+          final codeRaw = i['item_code'] ?? i['item_number'] ?? i['item_no'] ?? i['code'];
+          final code = (codeRaw != null && codeRaw.toString().trim().isNotEmpty)
+              ? codeRaw.toString().trim()
+              : 'ITEM-${(idx + 1).toString().padLeft(3, '0')}';
+          final rawHs = (i['hs_code'] != null && i['hs_code'].toString().trim().isNotEmpty)
+              ? i['hs_code'].toString().trim()
+              : extTopHs;
+
+          int? matchedTariffId;
+          String? matchedHsCode = rawHs;
+          if (rawHs != null && rawHs.trim().isNotEmpty && tariffs.isNotEmpty) {
+            final cleanHs = rawHs.replaceAll(RegExp(r'[^\d]'), '');
+            final matched = tariffs.where((t) {
+              final tClean = t.hsCode.replaceAll(RegExp(r'[^\d]'), '');
+              return tClean == cleanHs || (cleanHs.length >= 4 && (tClean.startsWith(cleanHs) || cleanHs.startsWith(tClean)));
+            }).firstOrNull;
+            if (matched != null) {
+              matchedTariffId = matched.tariffId;
+              matchedHsCode = matched.hsCode;
+            }
+          }
+
+          return POLineItemModel(
+            itemCode: code,
+            mainDescription: i['main_description']?.toString(),
+            descriptionAr: desc,
+            descriptionEn: desc,
+            countryOfOrigin: _selectedCountryOfOrigin,
+            tariffId: matchedTariffId,
+            hsCode: matchedHsCode,
+            quantity: qty > 0 ? qty : 100.0,
+            unitPrice: price > 0 ? price : 10.0,
+            cbmPerUnit: (i['cbm_per_unit'] as num?)?.toDouble() ?? 0.1,
+            grossWeightKg: (i['gross_weight_kg'] as num?)?.toDouble() ?? 5.0,
+            netWeightKg: (i['net_weight_kg'] as num?)?.toDouble() ?? 4.5,
+          );
+        }).toList();
+      }
+
+      // Packing list items
+      if ((ext['packing_list_items'] is List && (ext['packing_list_items'] as List).isNotEmpty) || (ext['packing_list'] is List && (ext['packing_list'] as List).isNotEmpty)) {
+        final packingList = (ext['packing_list_items'] is List && (ext['packing_list_items'] as List).isNotEmpty) ? (ext['packing_list_items'] as List) : (ext['packing_list'] as List);
+        _dialogPackingItems = packingList.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final p = Map<String, dynamic>.from(entry.value as Map);
+          String? pDesc = p['description']?.toString() ?? p['item_name']?.toString();
+          if ((pDesc == null || pDesc.trim().isEmpty) && idx < _dialogItems.length) {
+            pDesc = _dialogItems[idx].descriptionAr;
+          }
+          final hsCode = p['hs_code']?.toString() ?? (idx < _dialogItems.length ? _dialogItems[idx].hsCode ?? '' : '');
+          final itemCode = p['item_code']?.toString() ?? (idx < _dialogItems.length ? _dialogItems[idx].itemCode ?? '' : '');
+          return PackingListItemModel(
+            hsCode: hsCode,
+            itemCode: itemCode,
+            mainDescription: p['main_description']?.toString(),
+            description: pDesc,
+            qtyPcs: (p['qty_pcs'] ?? p['quantity'] as num?)?.toDouble() ?? 1.0,
+            qtyPkg: (p['qty_pkg'] ?? p['package_count'] ?? p['quantity'] as num?)?.toDouble() ?? 1.0,
+            packageType: p['package_type']?.toString() ?? 'Carton',
+            unit: p['unit']?.toString() ?? 'PCS',
+            lengthCm: (p['length_cm'] as num?)?.toDouble() ?? 100.0,
+            widthCm: (p['width_cm'] as num?)?.toDouble() ?? 80.0,
+            heightCm: (p['height_cm'] as num?)?.toDouble() ?? 60.0,
+            netWeightUnitKg: (p['net_weight_unit_kg'] as num?)?.toDouble() ?? 10.0,
+            grossWeightUnitKg: (p['gross_weight_unit_kg'] as num?)?.toDouble() ?? 12.0,
+            totalGrossWeightKg: (p['total_gross_weight_kg'] ?? p['gross_weight_kg'] as num?)?.toDouble() ?? 12.0,
+            totalNetWeightKg: (p['total_net_weight_kg'] ?? p['net_weight_kg'] as num?)?.toDouble() ?? 10.0,
+            totalCbm: (p['total_cbm'] ?? p['cbm'] as num?)?.toDouble() ?? 0.48,
+            isStackable: p['is_stackable'] as bool? ?? true,
+          );
+        }).toList();
+      }
+    });
+
+    final docNum = ext['po_number'] ?? ext['proforma_invoice_number'] ?? '';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('تم استخلاص وتغذية بيانات الفاتورة المبدئية ($docNum) وقائمة التعبئة بنجاح'),
+        backgroundColor: AppTheme.emerald,
+      ),
+    );
+  }
+
   int? _matchCompanyId(Map<String, dynamic> ext, List<ImportCompanyModel> companies) {
     final rawComp = _getExt(ext, ['importer_name', 'importer name', 'company_name', 'company name', 'importer', 'company', 'consignee', 'client_name'])?.toString().trim().toLowerCase();
     final rawCompTax = _getExt(ext, ['importer_tax_id', 'importer tax id', 'tax_id', 'vat_id'])?.toString().trim();
@@ -780,9 +924,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         (ext != null ? _parseFlexDate((ext['order_date'] ?? ext['po_date'] ?? ext['date'])?.toString()) : DateTime.now());
 
     final defaultPiNumber = po?.proformaInvoiceNumber ??
-        (ext != null ? (ext['po_number'] ?? ext['proforma_invoice_number'])?.toString() : null) ?? '';
+        (ext != null ? (ext['po_number'] ?? ext['proforma_invoice_number'] ?? ext['pi_number'] ?? ext['invoice_number'])?.toString() : null) ?? '';
     final defaultPoRef = po?.poReference ??
-        (ext != null ? (ext['po_reference'] ?? ext['reference'] ?? ext['order_title'] ?? ext['subject'])?.toString() : null) ?? '';
+        (ext != null ? (ext['po_reference'] ?? ext['reference'] ?? ext['order_title'] ?? ext['subject'] ?? ext['po_title'])?.toString() : null) ?? '';
     _piCtrl = TextEditingController(text: defaultPiNumber);
     _poReferenceCtrl = TextEditingController(text: defaultPoRef);
     _rateCtrl = TextEditingController(text: (po?.exchangeRate ?? 1.0).toString());
@@ -847,16 +991,16 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             grossWeightKg: i.grossWeightKg,
             netWeightKg: i.netWeightKg,
           )).toList();
-    } else if (ext != null && ext['items'] is List && (ext['items'] as List).isNotEmpty) {
+    } else if (ext != null && ((ext['items'] is List && (ext['items'] as List).isNotEmpty) || (ext['line_items'] is List && (ext['line_items'] as List).isNotEmpty))) {
       final extTopHs = (ext['hs_code'] ?? ext['customs_tariff'] ?? ext['hsCode'])?.toString().trim();
-      final itemList = ext['items'] as List;
+      final itemList = (ext['items'] is List && (ext['items'] as List).isNotEmpty) ? (ext['items'] as List) : (ext['line_items'] as List);
       _dialogItems = itemList.asMap().entries.map((entry) {
         final idx = entry.key;
         final raw = entry.value;
         final i = Map<String, dynamic>.from(raw as Map);
         final qty = (i['quantity'] as num?)?.toDouble() ?? 100.0;
         final price = (i['unit_price'] as num?)?.toDouble() ?? 10.0;
-        final desc = i['description']?.toString() ?? i['item_name']?.toString() ?? i['name']?.toString() ?? i['description_ar']?.toString() ?? i['description_en']?.toString() ?? 'بند استيرادي رئيسي';
+        final desc = i['commercial_name']?.toString() ?? i['description']?.toString() ?? i['item_name']?.toString() ?? i['name']?.toString() ?? i['description_ar']?.toString() ?? i['description_en']?.toString() ?? 'بند استيرادي رئيسي';
         final mainDesc = i['main_description']?.toString() ?? i['mainDescription']?.toString();
         final codeRaw = i['item_code'] ?? i['item_number'] ?? i['item_no'] ?? i['product_code'] ?? i['code'] ?? i['item'];
         final code = (codeRaw != null && codeRaw.toString().trim().isNotEmpty)
@@ -940,8 +1084,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             totalCbm: p.totalCbm,
             isStackable: p.isStackable,
           )).toList();
-    } else if (ext != null && ext['packing_list_items'] is List && (ext['packing_list_items'] as List).isNotEmpty) {
-      final packingList = ext['packing_list_items'] as List;
+    } else if (ext != null && ((ext['packing_list_items'] is List && (ext['packing_list_items'] as List).isNotEmpty) || (ext['packing_list'] is List && (ext['packing_list'] as List).isNotEmpty))) {
+      final packingList = (ext['packing_list_items'] is List && (ext['packing_list_items'] as List).isNotEmpty) ? (ext['packing_list_items'] as List) : (ext['packing_list'] as List);
       _dialogPackingItems = packingList.asMap().entries.map((entry) {
         final idx = entry.key;
         final raw = entry.value;
@@ -974,8 +1118,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           itemCode: pCode,
           mainDescription: pMainDesc,
           description: pDesc,
-          qtyPcs: (p['qty_pcs'] as num?)?.toDouble() ?? 1.0,
-          qtyPkg: (p['qty_pkg'] as num?)?.toDouble() ?? 1.0,
+          qtyPcs: (p['qty_pcs'] ?? p['quantity'] as num?)?.toDouble() ?? 1.0,
+          qtyPkg: (p['qty_pkg'] ?? p['package_count'] ?? p['quantity'] as num?)?.toDouble() ?? 1.0,
           packageType: p['package_type']?.toString() ?? 'Carton',
           unit: p['unit']?.toString() ?? 'cm',
           weightUnit: p['weight_unit']?.toString() ?? 'KGM',
@@ -984,8 +1128,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           heightCm: (p['height_cm'] as num?)?.toDouble() ?? 0.0,
           grossWeightUnitKg: (p['gross_weight_unit_kg'] as num?)?.toDouble() ?? 0.0,
           netWeightUnitKg: (p['net_weight_unit_kg'] as num?)?.toDouble() ?? 0.0,
-          totalGrossWeightKg: (p['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
-          totalNetWeightKg: (p['total_net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+          totalGrossWeightKg: (p['total_gross_weight_kg'] ?? p['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+          totalNetWeightKg: (p['total_net_weight_kg'] ?? p['net_weight_kg'] as num?)?.toDouble() ?? 0.0,
           totalCbm: pTotCbm,
           isStackable: p['is_stackable'] as bool? ?? true,
         );
@@ -1043,7 +1187,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     final tariffs = tariffsAsync.valueOrNull ?? [];
     final importFiles = importFilesAsync.valueOrNull ?? [];
 
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final isArabic = context.l10n.isArabic;
 
     final cachedCountryItems = [
       SearchableDropdownItem<String?>(value: null, label: isArabic ? '-- الافتراضي --' : '-- Default --'),
@@ -1232,6 +1376,15 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    SmartUploadButton(
+                      module: SmartUploadModule.purchaseOrder,
+                      label: isArabic ? '🚀 استخلاص ذكي (PI / PL)' : '🚀 Smart Extract (PI / PL)',
+                      compact: false,
+                      onDataExtracted: (result) {
+                        _applyExtractedData(result.extractedFields);
+                      },
                     ),
                     const SizedBox(width: 8),
                     IconButton(

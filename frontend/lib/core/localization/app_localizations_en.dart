@@ -2472,8 +2472,30 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get customsDeclMetricExemptions => 'Preferential Exemptions';
   @override String get customsDeclFxRateLabel => 'Customs USD Exchange Rate';
   @override String get customsDeclVatBaseLabel => 'VAT Taxable Base';
+  @override String get searchAndCloneCustomsDeclBtn => 'Clone Customs Declaration 46';
+  @override String get cloneCustomsDeclDialogTitle => 'Search & Clone Previous Customs Declaration (Form 46)';
+  @override String get cloneCustomsDeclDialogSubtitle => 'Select a customs declaration or shipment file to clone customs valuation & tariff assessment into an editable draft';
+  @override String get cloneCustomsDeclSuccess => 'Customs Declaration 46 data successfully cloned into an editable draft';
+  @override String get cloneCustomsDeclRowTooltip => 'Clone this declaration into a new draft';
+  @override String get copyApprovalRowSuccess => 'Regulatory approval row copied as TSV successfully';
+  @override String get copyApprovalTableSuccess => 'Regulatory approvals table copied as TSV successfully';
+  @override String get exportExcelApprovalsTooltip => 'Export Approvals to Excel';
+  @override String get exportPdfApprovalsTooltip => 'Print / Export PDF';
+  @override String get exportRegistryExcelTooltip => 'Export Declarations Registry to Excel';
+  @override String get exportRegistryPdfTooltip => 'Print / Export Declarations Registry PDF';
+  @override String get copyRegistryRowSuccess => 'Declaration row copied as TSV successfully';
+  @override String get copyRegistryTableSuccess => 'Customs declarations registry copied as TSV successfully';
+  @override String get cloneFromAssessmentBtn => 'Clone as New Draft';
 
-  // ── Screen 24: Customs Clearance Management ────────────────────────────────
+  // ── Screen 24/27: Customs Clearance Management ────────────────────────────────
+  @override String get searchAndCloneCustomsClearanceBtn => 'Search & Clone Clearance';
+  @override String get cloneCustomsClearanceDialogTitle => 'Clone Customs Clearance Record';
+  @override String get cloneCustomsClearanceDialogSubtitle => 'Select a previous record to clone clearance details into a new draft';
+  @override String get cloneCustomsClearanceTooltip => 'Clone this clearance record';
+  @override String get copyCustomsClearanceRowSuccess => 'Clearance row copied as TSV successfully';
+  @override String get copyCustomsClearanceTableSuccess => 'Customs clearance registry copied as TSV successfully';
+  @override String get exportCustomsClearanceExcelTooltip => 'Export Clearance Registry to Excel';
+  @override String get exportCustomsClearancePdfTooltip => 'Export Clearance Registry to PDF';
   @override String get customsClearanceStageTitle => 'Port Operations & Customs Clearance Hub';
   @override String get customsClearanceTabFollowUp => 'Customs Clearance Follow-up';
   @override String get customsClearanceTabSamples => 'Drawing Samples & Shortage Tracking';
@@ -2954,8 +2976,25 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get freightBookingBreakdownHeader => '📊 Savings breakdown (unit price diff × quantity):';
   @override String freightBookingBreakdownSavingsUnit(String name, String orig, String exec, String unitDiff, String qty, String unitType, String savings) => '• $name: (\$$orig - \$$exec = \$$unitDiff) × $qty $unitType = \$$savings USD saved';
   @override String get freightBookingPrintSystemHeader => 'SOROUR LOGISTICS ERP - CARRIER BOOKING CONFIRMATION';
+  @override String get searchAndCloneFreightBookingBtn => 'Search & Clone Booking';
+  @override String get cloneFreightBookingDialogTitle => 'Clone Freight Booking';
+  @override String get cloneFreightBookingDialogSubtitle => 'Select a previous freight booking and clone into a new draft with confirmation and B/L numbers reset';
+  @override String get cloneBookingRowTooltip => 'Clone freight booking as new draft';
+  @override String get copyBookingRowSuccess => 'Freight booking row copied to clipboard as TSV';
+  @override String get copyBookingsTableSuccess => 'Freight bookings table copied to clipboard as TSV';
+  @override String get exportBookingsExcelTooltip => 'Export freight bookings to Excel';
+  @override String get exportBookingsPdfTooltip => 'Export freight bookings to PDF';
 
   // ── Screen 26 & 52: Cargo Shipping Tracking & Freight Allocations (VGM) ───
+  @override String get searchAndCloneCargoShippingBtn => 'Search & Clone Shipping';
+  @override String get cloneCargoShippingDialogTitle => 'Clone Cargo Shipping Record';
+  @override String get cloneCargoShippingDialogSubtitle => 'Select a previous shipping record and duplicate container allocation into a new editable draft';
+  @override String get cloneCargoShippingTooltip => 'Clone shipping and container allocation as new draft';
+  @override String get cargoShippingDuplicateContainerTooltip => 'Duplicate Container (Ctrl + D)';
+  @override String get copyCargoShippingRowSuccess => 'Cargo shipping row copied to clipboard as TSV';
+  @override String get copyCargoShippingTableSuccess => 'Cargo shipping registry table copied to clipboard as TSV';
+  @override String get exportCargoShippingExcelTooltip => 'Export cargo shipping registry to Excel';
+  @override String get exportCargoShippingPdfTooltip => 'Export cargo shipping registry to PDF';
   @override String get cargoShippingAllocationsTitle => 'Freight Allocations & Cargo Shipping (VGM)';
   @override String get cargoShippingTrackingTitle => 'Cargo Shipping Tracking (48h SLA)';
   @override String get cargoShippingFormTab => 'Loading & Tracking Form';
@@ -3139,6 +3178,14 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get cargoShippingSlaCopyMilestoneSuccess => 'Milestone timestamp copied to clipboard';
 
   // Screen 28: Warehouse Receiving & Inspection (GRN)
+  @override String get searchAndCloneWarehouseReceivingBtn => 'Search & Clone GRN';
+  @override String get cloneWarehouseReceivingDialogTitle => 'Clone Goods Receiving Note (GRN)';
+  @override String get cloneWarehouseReceivingDialogSubtitle => 'Select a previous receiving note to clone line items and inspection counts into a new draft';
+  @override String get cloneWarehouseReceivingTooltip => 'Clone this GRN record into editable draft';
+  @override String get copyWarehouseReceivingRowSuccess => 'Goods Receiving Note data copied to clipboard (TSV)';
+  @override String get copyWarehouseReceivingTableSuccess => 'Warehouse receiving registry table copied to clipboard (TSV)';
+  @override String get exportWarehouseReceivingExcelTooltip => 'Export GRN registry to Excel';
+  @override String get exportWarehouseReceivingPdfTooltip => 'Export GRN registry to PDF';
   @override String get warehouseReceivingStageTitle => 'Warehouse Receiving & Inspection (GRN)';
   @override String get warehouseReceivingTabRegistry => 'Goods Receiving Notes (GRN)';
   @override String get warehouseReceivingTabNewEntry => 'New GRN Entry';
@@ -3240,6 +3287,14 @@ class AppLocalizationsEn extends AppLocalizations {
   // ==========================================
   // Screen 29: Landed Cost Settlement (FinancialSettlementScreen & OdooJournalEntryDialog)
   // ==========================================
+  @override String get searchAndCloneFinancialSettlementBtn => 'Search & Clone Cost Settlement';
+  @override String get cloneFinancialSettlementDialogTitle => 'Clone Landed Cost Settlement';
+  @override String get cloneFinancialSettlementDialogSubtitle => 'Create a new cloned settlement draft with cleared IDs and reset parameters';
+  @override String get cloneFinancialSettlementTooltip => 'Clone this settlement as a new draft';
+  @override String get copyFinancialSettlementRowSuccess => 'Selected settlement row copied to clipboard (TSV)';
+  @override String get copyFinancialSettlementTableSuccess => 'Cost settlements table copied to clipboard (TSV)';
+  @override String get exportFinancialSettlementExcelTooltip => 'Export settlements registry to Excel';
+  @override String get exportFinancialSettlementPdfTooltip => 'Export settlements registry to PDF';
   @override String get financialSettlementStageTitle => 'Financial Settlement & Unit Landed Cost Engine';
   @override String get financialSettlementTabRegistry => 'Landed Cost Registry';
   @override String get financialSettlementTabNewEntry => 'New Landed Cost Calculation';
@@ -3361,6 +3416,14 @@ class AppLocalizationsEn extends AppLocalizations {
   // ---------------------------------------------------------------------------
   // Screen 30: File Closure & Archival
   // ---------------------------------------------------------------------------
+  @override String get searchAndCloneFileClosureBtn => 'Search & Clone Archival Record';
+  @override String get cloneFileClosureDialogTitle => 'Clone Archival & File Closure (Draft)';
+  @override String get cloneFileClosureDialogSubtitle => 'Duplicate previous file closure record into a new editable draft with reset invariants.';
+  @override String get cloneFileClosureTooltip => 'Clone this closure certificate into a new draft';
+  @override String get copyFileClosureRowSuccess => 'File closure certificate copied to clipboard as TSV';
+  @override String get copyFileClosureTableSuccess => 'Archived shipments registry copied to clipboard as TSV';
+  @override String get exportFileClosureExcelTooltip => 'Export archived shipments registry to Excel';
+  @override String get exportFileClosurePdfTooltip => 'Export archived shipments registry to PDF';
   @override String get fileClosureStageTitle => 'Import File Final Closure & Archival';
   @override String get fileClosureTabArchivedRegistry => 'Archived Files Registry';
   @override String get fileClosureTabCloseFile => 'Close Import File';
@@ -3497,6 +3560,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get allowedShipmentCategoriesLabel => 'Allowed Shipment Categories *';
   @override String get estTotalBudgetUsdLabel => 'Est. Total Budget (USD)';
   @override String get estTotalBudgetUsdHint => 'e.g. 500000';
+  @override String get targetEndDateLabel => 'Target End Date';
+  @override String get targetEndDateHint => 'YYYY-MM-DD';
+  @override String get targetEndDateCol => 'Target End Date';
   @override String get allowMultiShipmentTitle => 'Allow Multi-Shipment';
   @override String get allowMultiShipmentSubtitle => 'Allows project procurement across multiple shipments and customs declarations';
   @override String get allowMultiCompanyTitle => 'Allow Multi-Company';
@@ -3938,11 +4004,46 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get shippingLineDetailsHeader => 'Shipping Line Details';
   @override String get scacCarrierCodeLabel => 'SCAC / Carrier Code *';
   @override String get scacCarrierCodeHint => 'MAEU / MSKU';
+  @override String get defaultFreeDaysLabel => 'Default Free Days (Days) *';
+  @override String get defaultFreeDaysHint => 'e.g. 14 or 21 days';
+  @override String partnerFreeDaysBadge(int days) => '$days Free Days';
   @override String get trackingWebUrlLabel => 'Tracking Web URL';
   @override String get trackingWebUrlHint => 'https://www.maersk.com/tracking/';
-  @override String get customsBrokerLicenseHeader => 'Customs Broker License';
+  @override String get freightForwarderDetailsHeader => 'Freight Forwarder & Quotations Details';
+  @override String get fiataLicenseLabel => 'FIATA License / Forwarder ID';
+  @override String get fiataLicenseHint => 'e.g. FIATA-EG-7721';
+  @override String get shippingModesLabel => 'Supported Shipping Modes';
+  @override String get shippingModesHint => 'e.g. Sea FCL, Sea LCL, Air Freight, Land';
+  @override String get supportedCurrenciesLabel => 'Supported Quotation Currencies';
+  @override String get supportedCurrenciesHint => 'e.g. USD, EUR, EGP';
+  @override String partnerFiataBadge(String fiata) => 'FIATA: $fiata';
+  @override String get inspectionAgencyDetailsHeader => 'Inspection Agency & Accreditation Details';
+  @override String get inspectionAccreditationNumLabel => 'GOIEC / ISO Accreditation Number *';
+  @override String get inspectionAccreditationNumHint => 'e.g. GOIEC-EG-9001 or ISO-17020';
+  @override String get inspectionScopeLabel => 'Inspection Scope & CoC/VOC Tests';
+  @override String get inspectionScopeHint => 'e.g. Pre-shipment Inspection, CoC/VOC, Food, Machinery';
+  @override String partnerAccreditationBadge(String num) => 'Accredited: $num';
+  @override String get customsBrokerLicenseHeader => 'Customs Broker License & Authorized Ports';
   @override String get customsClearanceLicenseNumLabel => 'Customs Clearance License # *';
   @override String get customsClearanceLicenseNumHint => 'LIC-CAI-9988';
+  @override String get authorizedPortsLabel => 'Authorized Clearance Ports & Terminals';
+  @override String get authorizedPortsHint => 'e.g. Alexandria Port, Sokhna, Port Said, Damietta, Cairo Cargo';
+  @override String partnerPortsBadge(String ports) => 'Ports: $ports';
+  @override String get inlandTransportDetailsHeader => 'Inland Transport Fleet & License Details';
+  @override String get transportLicenseNumLabel => 'Inland Transport License # *';
+  @override String get transportLicenseNumHint => 'e.g. MOT-EG-8844 / Ministry of Transport';
+  @override String get fleetTypesLabel => 'Fleet & Truck Types *';
+  @override String get fleetTypesHint => 'e.g. 20/40ft Container Chassis, Lowbed, Reefer, Flatbed Jumbo';
+  @override String get coverageAreasLabel => 'Coverage Scope & Operating Areas';
+  @override String get coverageAreasHint => 'e.g. Alexandria, Sokhna, Port Said, Damietta, Greater Cairo';
+  @override String partnerFleetBadge(String fleet) => 'Fleet: $fleet';
+  @override String partnerCoverageBadge(String areas) => 'Coverage: $areas';
+  @override String get insuranceDetailsHeader => 'Marine Cargo Insurance & License Details';
+  @override String get insuranceLicenseNumLabel => 'FRA Insurance License # *';
+  @override String get insuranceLicenseNumHint => 'e.g. FRA-INS-302 / Financial Regulatory Authority';
+  @override String get insuranceCoverageTypesLabel => 'Approved Insurance Coverage Types *';
+  @override String get insuranceCoverageTypesHint => 'e.g. Institute Cargo Clauses (A/B/C), All Risks, War & Strikes';
+  @override String partnerInsuranceCoverageBadge(String cov) => 'Coverage: $cov';
   @override String get partnerTaxIdLabel => 'Tax Registration ID';
   @override String get partnerTaxIdHint => 'TAX-100200';
   @override String get partnerCommercialRegLabel => 'Commercial Reg #';

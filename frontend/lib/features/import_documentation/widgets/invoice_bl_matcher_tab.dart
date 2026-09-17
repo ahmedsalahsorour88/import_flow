@@ -594,13 +594,14 @@ Total Items: 31 Total: 20,030.000 kgs.
 
   Widget _buildHeaderControlBar(List<dynamic> importFiles) {
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
@@ -609,74 +610,99 @@ Total Items: 31 Total: 20,030.000 kgs.
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppTheme.cobalt.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 28),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l.invoiceBlMatcherTitle,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 750;
+          final titleWidget = Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.cobalt.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  l.invoiceBlMatcherSubtitle,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                child: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 28),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l.invoiceBlMatcherTitle,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : AppTheme.charcoal,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      l.invoiceBlMatcherSubtitle,
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    if (_activeSessionCode != null) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cobalt.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
+                        ),
+                        child: Text(
+                          'جلسة نشطة قيد الفحص: $_activeSessionCode',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                if (_activeSessionCode != null) ...[
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
-                    ),
-                    child: Text(
-                      'جلسة نشطة قيد الفحص: $_activeSessionCode',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                    ),
+              ),
+            ],
+          );
+
+          final fileDropdown = SearchableDropdownField<int>(
+            labelText: l.invoiceBlMatcherLinkImportFile,
+            hintText: l.invoiceBlMatcherSelectFileHint,
+            value: _activeFileId,
+            items: importFiles
+                .map(
+                  (f) => SearchableDropdownItem<int>(
+                    value: f.importFileId,
+                    label: '${f.primaryNameWithCode} - ${f.supplierName} (${f.status})',
                   ),
-                ],
+                )
+                .toList(),
+            onChanged: (val) {
+              setState(() {
+                _activeFileId = val;
+              });
+              if (widget.onImportFileChanged != null && val != null) {
+                widget.onImportFileChanged!(val);
+              }
+            },
+          );
+
+          if (isNarrow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                titleWidget,
+                const SizedBox(height: 12),
+                fileDropdown,
               ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          SizedBox(
-            width: 320,
-            child: SearchableDropdownField<int>(
-              labelText: l.invoiceBlMatcherLinkImportFile,
-              hintText: l.invoiceBlMatcherSelectFileHint,
-              value: _activeFileId,
-              items: importFiles
-                  .map(
-                    (f) => SearchableDropdownItem<int>(
-                      value: f.importFileId,
-                      label: '${f.primaryNameWithCode} - ${f.supplierName} (${f.status})',
-                    ),
-                  )
-                  .toList(),
-              onChanged: (val) {
-                setState(() {
-                  _activeFileId = val;
-                });
-                if (widget.onImportFileChanged != null && val != null) {
-                  widget.onImportFileChanged!(val);
-                }
-              },
-            ),
-          ),
-        ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: titleWidget),
+              const SizedBox(width: 16),
+              SizedBox(width: 320, child: fileDropdown),
+            ],
+          );
+        },
       ),
     );
   }
@@ -829,13 +855,14 @@ Total Items: 31 Total: 20,030.000 kgs.
     VoidCallback? onRemove,
   }) {
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: isDark ? color.withOpacity(0.5) : color.withOpacity(0.4)),
         boxShadow: [
           BoxShadow(
             color: color.withOpacity(0.04),
@@ -1111,49 +1138,127 @@ Total Items: 31 Total: 20,030.000 kgs.
     );
   }
 
+  bool _isArabic(BuildContext context) =>
+      Directionality.of(context) == TextDirection.rtl ||
+      (Localizations.maybeLocaleOf(context)?.languageCode ?? 'ar') == 'ar';
+
   Widget _buildComparisonMatrixTable() {
     final l = context.l10n;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final isArabic = _isArabic(context);
     final matrix = ((_matchResult?['comparison_matrix']) as List<dynamic>?) ?? [];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade100,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.table_chart_outlined, size: 18, color: AppTheme.charcoal),
-                const SizedBox(width: 8),
-                Text(
-                  l.invoiceBlMatcherMatrixTitle,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 750;
+                final titleWidget = Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.table_chart_outlined, size: 18, color: isDark ? Colors.white70 : AppTheme.charcoal),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        l.invoiceBlMatcherMatrixTitle,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: isDark ? Colors.white : AppTheme.charcoal,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                );
+
+                final buttonsWidget = Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    OutlinedButton.icon(
+                      key: const Key('copyComparisonMatrixTsvBtn'),
+                      onPressed: matrix.isEmpty ? null : () => _copyComparisonMatrixTsv(matrix),
+                      icon: const Icon(Icons.copy_all, size: 14, color: AppTheme.cobalt),
+                      label: const Text('نسخ كـ TSV', style: TextStyle(fontSize: 11, color: AppTheme.cobalt)),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      key: const Key('exportComparisonMatrixExcelBtn'),
+                      onPressed: matrix.isEmpty ? null : () => _exportComparisonMatrixExcel(matrix),
+                      icon: const Icon(Icons.table_view, size: 14, color: AppTheme.emerald),
+                      label: const Text('تصدير إكسل', style: TextStyle(fontSize: 11, color: AppTheme.emerald)),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      key: const Key('exportComparisonMatrixPdfBtn'),
+                      onPressed: matrix.isEmpty ? null : () => _exportComparisonMatrixPdf(matrix),
+                      icon: const Icon(Icons.picture_as_pdf, size: 14, color: AppTheme.crimson),
+                      label: const Text('طباعة PDF', style: TextStyle(fontSize: 11, color: AppTheme.crimson)),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      ),
+                    ),
+                  ],
+                );
+
+                if (isNarrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      titleWidget,
+                      const SizedBox(height: 8),
+                      buttonsWidget,
+                    ],
+                  );
+                }
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(child: titleWidget),
+                    const SizedBox(width: 8),
+                    buttonsWidget,
+                  ],
+                );
+              },
             ),
           ),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: DataTable(
-              headingRowColor: WidgetStateProperty.all(Colors.grey.shade50),
+              headingRowColor: WidgetStateProperty.all(isDark ? const Color(0xFF0F172A) : Colors.grey.shade50),
               horizontalMargin: 16,
               columnSpacing: 24,
               columns: [
-                DataColumn(label: Text(l.invoiceBlMatcherColCheckItem, style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(l.invoiceBlMatcherColInvoiceValue, style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(l.invoiceBlMatcherColBlValue, style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(l.invoiceBlMatcherColMatchStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text(l.invoiceBlMatcherColActionRequired, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(l.invoiceBlMatcherColCheckItem, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.charcoal))),
+                DataColumn(label: Text(l.invoiceBlMatcherColInvoiceValue, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.charcoal))),
+                DataColumn(label: Text(l.invoiceBlMatcherColBlValue, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.charcoal))),
+                DataColumn(label: Text(l.invoiceBlMatcherColMatchStatus, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.charcoal))),
+                DataColumn(label: Text(l.invoiceBlMatcherColActionRequired, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.charcoal))),
+                DataColumn(label: Text('إجراءات السطر', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.charcoal))),
               ],
               rows: matrix.map((item) {
                 final status = item['match_status'] ?? 'MATCH';
@@ -1220,7 +1325,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                           ),
                           child: Text(
                             statusTxt,
-                            style: TextStyle(color: statusCol, fontWeight: FontWeight.bold, fontSize: 10),
+                            style: TextStyle(color: statusCol, fontWeight: FontWeight.bold, fontSize: 11),
                           ),
                         ),
                       ),
@@ -1231,8 +1336,24 @@ Total Items: 31 Total: 20,030.000 kgs.
                         rowSummary: rowSummary,
                         child: Text(
                           detailsTxt,
-                          style: TextStyle(fontSize: 11, color: isMatch ? Colors.grey.shade800 : statusCol),
+                          style: TextStyle(fontSize: 11, color: isMatch ? (isDark ? Colors.grey.shade300 : Colors.grey.shade800) : statusCol),
                         ),
+                      ),
+                    ),
+                    DataCell(
+                      IconButton(
+                        icon: const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
+                        tooltip: 'نسخ بيانات السطر كـ TSV',
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: rowSummary));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('تم نسخ بيانات البند ($checkItemName) كـ TSV'),
+                              duration: const Duration(seconds: 2),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -1247,8 +1368,12 @@ Total Items: 31 Total: 20,030.000 kgs.
 
   Widget _buildExtractedFieldsCards() {
     final l = context.l10n;
-    final inv = _matchResult?['invoice_data'] ?? {};
-    final bl = _matchResult?['bl_data'] ?? {};
+    final Map<String, dynamic> inv = _matchResult?['invoice_data'] is Map
+        ? Map<String, dynamic>.from(_matchResult!['invoice_data'] as Map)
+        : <String, dynamic>{};
+    final Map<String, dynamic> bl = _matchResult?['bl_data'] is Map
+        ? Map<String, dynamic>.from(_matchResult!['bl_data'] as Map)
+        : <String, dynamic>{};
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1340,12 +1465,13 @@ Total Items: 31 Total: 20,030.000 kgs.
   }) {
     final l = context.l10n;
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: isDark ? color.withOpacity(0.5) : color.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1437,9 +1563,9 @@ Total Items: 31 Total: 20,030.000 kgs.
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.amber.shade200),
+              border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.amber.shade700 : Colors.amber.shade200),
             ),
             child: SelectableText(
               letter,
@@ -1453,102 +1579,135 @@ Total Items: 31 Total: 20,030.000 kgs.
 
   Widget _buildSyncActionFooter() {
     final l = context.l10n;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 1150;
+        final infoWidget = Row(
+          children: [
+            const Icon(Icons.sync_alt, color: AppTheme.cobalt, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l.invoiceBlMatcherSyncFooterTitle,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: isDark ? Colors.white : AppTheme.charcoal,
+                    ),
+                  ),
+                  Text(
+                    _activeFileId != null
+                        ? l.invoiceBlMatcherSyncFooterDesc
+                        : l.invoiceBlMatcherSyncFooterNoFile,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+
+        final actionButtons = Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            // Export / Copy Match Report Button
+            OutlinedButton.icon(
+              onPressed: _matchResult == null ? null : _showExportReportDialog,
+              icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+              label: Text(l.invoiceBlMatcherExportReportButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: isDark ? Colors.white70 : AppTheme.charcoal,
+                side: const BorderSide(color: Colors.grey),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              ),
+            ),
+            // Save Draft Session Button (حفظ مؤقت)
+            OutlinedButton.icon(
+              onPressed: (_activeFileId == null || _isSavingDraft || _isSyncing)
+                  ? null
+                  : () => _saveSession(isDraft: true),
+              icon: _isSavingDraft
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(color: AppTheme.cobalt, strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_as_outlined, size: 16),
+              label: const Text(
+                '💾 حفظ مؤقت للجلسة',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.cobalt,
+                side: const BorderSide(color: AppTheme.cobalt, width: 1.5),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+            ),
+            // Certify & Final Save Button (اعتماد وحفظ نهائي وتحديث الموافقة الجمركية)
+            ElevatedButton.icon(
+              onPressed: (_activeFileId == null || _isSavingDraft || _isSyncing)
+                  ? null
+                  : () => _saveSession(isDraft: false),
+              icon: _isSyncing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Icon(Icons.verified_rounded, size: 18),
+              label: const Text(
+                '✅ اعتماد وحفظ نهائي وتحديث الموافقة الجمركية',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.emerald,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                elevation: 2,
+              ),
+            ),
+          ],
+        );
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.sync_alt, color: AppTheme.cobalt, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l.invoiceBlMatcherSyncFooterTitle,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+          child: isNarrow
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    infoWidget,
+                    const SizedBox(height: 14),
+                    actionButtons,
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: infoWidget),
+                    const SizedBox(width: 12),
+                    Flexible(child: actionButtons),
+                  ],
                 ),
-                Text(
-                  _activeFileId != null
-                      ? l.invoiceBlMatcherSyncFooterDesc
-                      : l.invoiceBlMatcherSyncFooterNoFile,
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Export / Copy Match Report Button
-          OutlinedButton.icon(
-            onPressed: _matchResult == null ? null : _showExportReportDialog,
-            icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-            label: Text(l.invoiceBlMatcherExportReportButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.charcoal,
-              side: const BorderSide(color: Colors.grey),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            ),
-          ),
-          const SizedBox(width: 10),
-          // Save Draft Session Button (حفظ مؤقت)
-          OutlinedButton.icon(
-            onPressed: (_activeFileId == null || _isSavingDraft || _isSyncing)
-                ? null
-                : () => _saveSession(isDraft: true),
-            icon: _isSavingDraft
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(color: AppTheme.cobalt, strokeWidth: 2),
-                  )
-                : const Icon(Icons.save_as_outlined, size: 16),
-            label: const Text(
-              '💾 حفظ مؤقت للجلسة',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.cobalt,
-              side: const BorderSide(color: AppTheme.cobalt, width: 1.5),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            ),
-          ),
-          const SizedBox(width: 10),
-          // Certify & Final Save Button (اعتماد وحفظ نهائي وتحديث الموافقة الجمركية)
-          ElevatedButton.icon(
-            onPressed: (_activeFileId == null || _isSavingDraft || _isSyncing)
-                ? null
-                : () => _saveSession(isDraft: false),
-            icon: _isSyncing
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                  )
-                : const Icon(Icons.verified_rounded, size: 18),
-            label: const Text(
-              '✅ اعتماد وحفظ نهائي وتحديث الموافقة الجمركية',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emerald,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              elevation: 2,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1679,12 +1838,15 @@ Total Items: 31 Total: 20,030.000 kgs.
         children: [
           Expanded(
             child: InkWell(
+              key: const Key('matcherTabToggleBtn'),
               borderRadius: BorderRadius.circular(8),
               onTap: () => setState(() => _activeViewMode = 0),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: _activeViewMode == 0 ? Colors.white : Colors.transparent,
+                  color: _activeViewMode == 0
+                      ? (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF334155) : Colors.white)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: _activeViewMode == 0
                       ? [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4, offset: const Offset(0, 2))]
@@ -1695,12 +1857,16 @@ Total Items: 31 Total: 20,030.000 kgs.
                   children: [
                     Icon(Icons.compare_arrows, size: 18, color: _activeViewMode == 0 ? AppTheme.cobalt : Colors.grey.shade700),
                     const SizedBox(width: 8),
-                    Text(
-                      '⚡ فحص ومطابقة الفاتورة والبوليصة',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: _activeViewMode == 0 ? AppTheme.cobalt : Colors.grey.shade700,
-                        fontSize: 13,
+                    Flexible(
+                      child: Text(
+                        '⚡ فحص ومطابقة الفاتورة والبوليصة',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: _activeViewMode == 0 ? AppTheme.cobalt : (Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade300 : Colors.grey.shade700),
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   ],
@@ -1710,6 +1876,7 @@ Total Items: 31 Total: 20,030.000 kgs.
           ),
           Expanded(
             child: InkWell(
+              key: const Key('sessionsTabToggleBtn'),
               borderRadius: BorderRadius.circular(8),
               onTap: () {
                 setState(() => _activeViewMode = 1);
@@ -1718,7 +1885,9 @@ Total Items: 31 Total: 20,030.000 kgs.
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: _activeViewMode == 1 ? Colors.white : Colors.transparent,
+                  color: _activeViewMode == 1
+                      ? (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF334155) : Colors.white)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: _activeViewMode == 1
                       ? [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4, offset: const Offset(0, 2))]
@@ -1729,12 +1898,16 @@ Total Items: 31 Total: 20,030.000 kgs.
                   children: [
                     Icon(Icons.history_edu_rounded, size: 18, color: _activeViewMode == 1 ? AppTheme.cobalt : Colors.grey.shade700),
                     const SizedBox(width: 8),
-                    Text(
-                      '📋 سجل جلسات المطابقة السابقة',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: _activeViewMode == 1 ? AppTheme.cobalt : Colors.grey.shade700,
-                        fontSize: 13,
+                    Flexible(
+                      child: Text(
+                        '📋 سجل جلسات المطابقة السابقة',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: _activeViewMode == 1 ? AppTheme.cobalt : Colors.grey.shade700,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1890,95 +2063,117 @@ Total Items: 31 Total: 20,030.000 kgs.
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade700 : Colors.grey.shade300),
                 boxShadow: [
                   BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2)),
                 ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      // Search field
-                      Expanded(
-                        child: TextField(
-                          controller: _searchSessionsCtrl,
-                          decoration: InputDecoration(
-                            hintText: 'بحث بكود الجلسة، ملف الشحنة، أو الملاحظات...',
-                            prefixIcon: const Icon(Icons.search, size: 20),
-                            suffixIcon: _searchSessionsCtrl.text.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear, size: 18),
-                                    onPressed: () => setState(() => _searchSessionsCtrl.clear()),
-                                  )
-                                : null,
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          onChanged: (_) => setState(() {}),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isNarrow = constraints.maxWidth < 650;
+                  final searchField = TextField(
+                    controller: _searchSessionsCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'بحث بكود الجلسة، ملف الشحنة، أو الملاحظات...',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: _searchSessionsCtrl.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () => setState(() => _searchSessionsCtrl.clear()),
+                            )
+                          : null,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  );
+
+                  final filterDropdown = SearchableDropdownField<int?>(
+                    labelText: 'تصفية حسب ملف الشحنة',
+                    hintText: 'جميع ملفات الشحن',
+                    value: _filterImportFileId,
+                    items: [
+                      const SearchableDropdownItem<int?>(value: null, label: 'جميع ملفات الشحن'),
+                      ...importFiles.map(
+                        (f) => SearchableDropdownItem<int?>(
+                          value: f.importFileId,
+                          label: '${f.primaryNameWithCode} - ${f.supplierName}',
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      // Filter by file
-                      SizedBox(
-                        width: 260,
-                        child: SearchableDropdownField<int?>(
-                          labelText: 'تصفية حسب ملف الشحنة',
-                          hintText: 'جميع ملفات الشحن',
-                          value: _filterImportFileId,
-                          items: [
-                            const SearchableDropdownItem<int?>(value: null, label: 'جميع ملفات الشحن'),
-                            ...importFiles.map(
-                              (f) => SearchableDropdownItem<int?>(
-                                value: f.importFileId,
-                                label: '${f.primaryNameWithCode} - ${f.supplierName}',
-                              ),
-                            ),
+                    ],
+                    onChanged: (val) {
+                      setState(() => _filterImportFileId = val);
+                    },
+                  );
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (isNarrow) ...[
+                        searchField,
+                        const SizedBox(height: 10),
+                        filterDropdown,
+                      ] else ...[
+                        Row(
+                          children: [
+                            Expanded(child: searchField),
+                            const SizedBox(width: 12),
+                            SizedBox(width: 260, child: filterDropdown),
                           ],
-                          onChanged: (val) {
-                            setState(() => _filterImportFileId = val);
-                          },
                         ),
+                      ],
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              _buildStatusFilterChip('ALL', 'الكل ($totalCount)'),
+                              _buildStatusFilterChip('CERTIFIED', 'معتمدة ($certifiedCount)'),
+                              _buildStatusFilterChip('DRAFT', 'مسودة مؤقتة ($draftCount)'),
+                            ],
+                          ),
+                          Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.copy_all, color: AppTheme.cobalt),
+                                tooltip: 'نسخ الجدول (TSV)',
+                                onPressed: filtered.isEmpty ? null : () => _copySessionsTable(filtered),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.table_view_outlined, color: AppTheme.emerald),
+                                tooltip: 'تصدير إكسيل (Excel)',
+                                onPressed: filtered.isEmpty ? null : () => _exportSessionsToExcel(filtered),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.picture_as_pdf_outlined, color: AppTheme.crimson),
+                                tooltip: 'طباعة تقرير PDF',
+                                onPressed: filtered.isEmpty ? null : () => _exportSessionsToPdf(filtered),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.refresh_rounded, color: AppTheme.charcoal),
+                                tooltip: 'تحديث البيانات',
+                                onPressed: () => ref.read(invoiceBLMatchSessionsProvider.notifier).fetchSessions(importFileId: _activeFileId),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      _buildStatusFilterChip('ALL', 'الكل ($totalCount)'),
-                      const SizedBox(width: 8),
-                      _buildStatusFilterChip('CERTIFIED', 'معتمدة ($certifiedCount)'),
-                      const SizedBox(width: 8),
-                      _buildStatusFilterChip('DRAFT', 'مسودة مؤقتة ($draftCount)'),
-                      const Spacer(),
-                      // Table actions: Copy TSV, Export Excel, Export PDF, Refresh
-                      IconButton(
-                        icon: const Icon(Icons.copy_all, color: AppTheme.cobalt),
-                        tooltip: 'نسخ الجدول (TSV)',
-                        onPressed: filtered.isEmpty ? null : () => _copySessionsTable(filtered),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.table_view_outlined, color: AppTheme.emerald),
-                        tooltip: 'تصدير إكسيل (Excel)',
-                        onPressed: filtered.isEmpty ? null : () => _exportSessionsToExcel(filtered),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.picture_as_pdf_outlined, color: AppTheme.crimson),
-                        tooltip: 'طباعة تقرير PDF',
-                        onPressed: filtered.isEmpty ? null : () => _exportSessionsToPdf(filtered),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.refresh_rounded, color: AppTheme.charcoal),
-                        tooltip: 'تحديث البيانات',
-                        onPressed: () => ref.read(invoiceBLMatchSessionsProvider.notifier).fetchSessions(importFileId: _activeFileId),
-                      ),
-                    ],
-                  ),
-                ],
+                  );
+                },
               ),
             ),
             const SizedBox(height: 16),
@@ -1988,9 +2183,9 @@ Total Items: 31 Total: 20,030.000 kgs.
               Container(
                 padding: const EdgeInsets.all(40),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade700 : Colors.grey.shade300),
                 ),
                 child: Center(
                   child: Column(
@@ -2042,7 +2237,7 @@ Total Items: 31 Total: 20,030.000 kgs.
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
               Text(value, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.bold)),
             ],
           ),
@@ -2067,11 +2262,12 @@ Total Items: 31 Total: 20,030.000 kgs.
   }
 
   Widget _buildSessionsTable(List<InvoiceBLMatchSessionModel> sessions) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2)),
         ],
@@ -2081,7 +2277,7 @@ Total Items: 31 Total: 20,030.000 kgs.
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: DataTable(
-            headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
+            headingRowColor: WidgetStateProperty.all(isDark ? const Color(0xFF0F172A) : AppTheme.charcoal),
             headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
             dataRowMinHeight: 52,
             dataRowMaxHeight: 64,
@@ -2238,6 +2434,12 @@ Total Items: 31 Total: 20,030.000 kgs.
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        IconButton(
+                          key: Key('cloneSessionBtn_${session.sessionId}'),
+                          icon: const Icon(Icons.copy_rounded, size: 18, color: AppTheme.cobalt),
+                          tooltip: 'استنساخ الجلسة كمسودة جديدة',
+                          onPressed: () => _cloneSession(session),
+                        ),
                         IconButton(
                           icon: const Icon(Icons.visibility_outlined, size: 18, color: AppTheme.cobalt),
                           tooltip: 'عرض تفاصيل ومصفوفة الجلسة',
@@ -2398,7 +2600,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                                                 child: Text(
                                                   isMatch ? 'متطابق' : 'فارق يتطلب مراجعة',
                                                   style: TextStyle(
-                                                    fontSize: 10,
+                                                    fontSize: 11,
                                                     fontWeight: FontWeight.bold,
                                                     color: isMatch ? AppTheme.emerald : AppTheme.crimson,
                                                   ),
@@ -2406,7 +2608,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                                               ),
                                             ),
                                             DataCell(Text(row['details']?.toString() ?? '—',
-                                                style: const TextStyle(fontSize: 10, color: Colors.grey))),
+                                                style: const TextStyle(fontSize: 11, color: Colors.grey))),
                                           ],
                                         );
                                       }).toList(),
@@ -2516,7 +2718,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                               ),
                               child: SelectableText(
                                 session.invoiceRawText ?? '—',
-                                style: const TextStyle(fontFamily: 'monospace', fontSize: 10),
+                                style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -2532,7 +2734,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                               ),
                               child: SelectableText(
                                 session.blRawText ?? '—',
-                                style: const TextStyle(fontFamily: 'monospace', fontSize: 10),
+                                style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
                               ),
                             ),
                           ],
@@ -2546,6 +2748,21 @@ Total Items: 31 Total: 20,030.000 kgs.
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.copy_all, color: AppTheme.cobalt),
+            tooltip: 'نسخ مصفوفة الجلسة (TSV)',
+            onPressed: matrix.isEmpty ? null : () => _copyComparisonMatrixTsv(matrix),
+          ),
+          OutlinedButton.icon(
+            key: const Key('dialogCloneSessionBtn'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _cloneSession(session);
+            },
+            icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
+            label: const Text('استنساخ كمسودة جديدة',
+                style: TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+          ),
           TextButton.icon(
             onPressed: () {
               Navigator.pop(ctx);
@@ -2556,7 +2773,10 @@ Total Items: 31 Total: 20,030.000 kgs.
                 style: TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF334155) : AppTheme.charcoal,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.pop(ctx),
             child: const Text('إغلاق'),
           ),
@@ -2598,6 +2818,53 @@ Total Items: 31 Total: 20,030.000 kgs.
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('تم استرجاع وتحميل بيانات الجلسة ${session.sessionCode} إلى شاشة الفحص بنجاح'),
+        backgroundColor: AppTheme.cobalt,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _cloneSession(InvoiceBLMatchSessionModel session) {
+    setState(() {
+      _activeFileId = session.importFileId;
+      _invoiceTextCtrl.text = session.invoiceRawText ?? '';
+      _blTextCtrl.text = session.blRawText ?? '';
+      _packingTextCtrl.text = session.packingListRawText ?? '';
+      _invoiceFileName = session.invoiceFileName;
+      _blFileName = session.blFileName;
+      _packingFileName = session.packingFileName;
+      _showPackingList = session.packingListRawText != null || session.packingFileName != null;
+      _activeSessionId = null; // Cleared to create a new editable draft
+      _activeSessionCode = null;
+
+      if (session.comparisonMatrix != null && session.comparisonMatrix!.isNotEmpty) {
+        _matchResult = {
+          'import_file_id': session.importFileId,
+          'match_score_percentage': session.matchScore,
+          'is_safe_for_certification': session.isSafeForCertification,
+          'critical_discrepancies_count': session.hasCriticalDiscrepancies ? 1 : 0,
+          'warning_discrepancies_count': session.discrepancyCount,
+          'comparison_matrix': List<Map<String, dynamic>>.from(
+            session.comparisonMatrix!.map((e) => Map<String, dynamic>.from(e)),
+          ),
+          'invoice_data': session.invoiceExtractedData != null
+              ? Map<String, dynamic>.from(session.invoiceExtractedData!)
+              : <String, dynamic>{},
+          'bl_data': session.blExtractedData != null
+              ? Map<String, dynamic>.from(session.blExtractedData!)
+              : <String, dynamic>{},
+          'packing_list_data': session.packingExtractedData != null
+              ? Map<String, dynamic>.from(session.packingExtractedData!)
+              : <String, dynamic>{},
+          'overall_status': 'DRAFT_SAVED',
+        };
+      }
+      _activeViewMode = 0; // Switch to Matcher view
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('تم استنساخ بيانات الجلسة (${session.sessionCode}) كمسودة جديدة في شاشة الفحص'),
         backgroundColor: AppTheme.cobalt,
         behavior: SnackBarBehavior.floating,
       ),
@@ -2726,6 +2993,105 @@ Total Items: 31 Total: 20,030.000 kgs.
       headerContext: const TableExportHeaderContext(
         title: 'سجل جلسات مطابقة الفاتورة التجارية وبوليصة الشحن',
         subtitle: 'Sorour Logistics ERP — إدارة الوثائق والمطابقة المستندية الجمركية',
+      ),
+    );
+  }
+
+  void _copyComparisonMatrixTsv(List<dynamic> matrix) {
+    final isArabic = _isArabic(context);
+    final headers = [
+      'بند الفحص / Check Item',
+      'القيمة بالفاتورة / Invoice Value',
+      'القيمة بالبوليصة / B/L Value',
+      'حالة التطابق / Match Status',
+      'التفاصيل والإجراء / Action & Details',
+    ];
+    final rows = matrix.map((item) {
+      final checkItemName = isArabic
+          ? (item['field_name_ar'] ?? item['field_name_en'] ?? '')
+          : (item['field_name_en'] ?? item['field_name_ar'] ?? '');
+      final invoiceVal = '${item['invoice_value'] ?? '—'}';
+      final blVal = '${item['bl_value'] ?? '—'}';
+      final status = item['match_status'] ?? 'MATCH';
+      final statusTxt = status == 'MATCH'
+          ? 'متطابق'
+          : (status == 'MISMATCH_MINOR' ? 'فارق طفيف' : 'غير متطابق');
+      final detailsTxt = '${item['details'] ?? ''}';
+      return [checkItemName, invoiceVal, blVal, statusTxt, detailsTxt];
+    }).toList();
+
+    TableCopyHelper.copyTable(
+      context,
+      headers,
+      rows,
+      customMessage: 'تم نسخ مصفوفة المطابقة كـ TSV إلى الحافظة بنجاح',
+    );
+  }
+
+  Future<void> _exportComparisonMatrixExcel(List<dynamic> matrix) async {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final headers = [
+      'بند الفحص',
+      'القيمة بالفاتورة',
+      'القيمة بالبوليصة',
+      'حالة التطابق',
+      'التفاصيل والإجراء المطلوب',
+    ];
+    final rows = matrix.map((item) {
+      final checkItemName = isArabic
+          ? (item['field_name_ar'] ?? item['field_name_en'] ?? '')
+          : (item['field_name_en'] ?? item['field_name_ar'] ?? '');
+      final invoiceVal = '${item['invoice_value'] ?? '—'}';
+      final blVal = '${item['bl_value'] ?? '—'}';
+      final status = item['match_status'] ?? 'MATCH';
+      final statusTxt = status == 'MATCH'
+          ? 'متطابق'
+          : (status == 'MISMATCH_MINOR' ? 'فارق طفيف' : 'غير متطابق');
+      final detailsTxt = '${item['details'] ?? ''}';
+      return [checkItemName, invoiceVal, blVal, statusTxt, detailsTxt];
+    }).toList();
+
+    await TableExportService.exportTableToExcel(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: 'Invoice BL Comparison Matrix',
+      importFileNameOrCode: _activeFileId != null ? 'IMP-$_activeFileId' : 'All-Files',
+    );
+  }
+
+  Future<void> _exportComparisonMatrixPdf(List<dynamic> matrix) async {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final headers = [
+      'بند الفحص',
+      'القيمة بالفاتورة',
+      'القيمة بالبوليصة',
+      'حالة التطابق',
+      'التفاصيل والإجراء المطلوب',
+    ];
+    final rows = matrix.map((item) {
+      final checkItemName = isArabic
+          ? (item['field_name_ar'] ?? item['field_name_en'] ?? '')
+          : (item['field_name_en'] ?? item['field_name_ar'] ?? '');
+      final invoiceVal = '${item['invoice_value'] ?? '—'}';
+      final blVal = '${item['bl_value'] ?? '—'}';
+      final status = item['match_status'] ?? 'MATCH';
+      final statusTxt = status == 'MATCH'
+          ? 'متطابق'
+          : (status == 'MISMATCH_MINOR' ? 'فارق طفيف' : 'غير متطابق');
+      final detailsTxt = '${item['details'] ?? ''}';
+      return [checkItemName, invoiceVal, blVal, statusTxt, detailsTxt];
+    }).toList();
+
+    await TableExportService.exportTableToPdf(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: 'مصفوفة مطابقة الفاتورة التجارية وبوليصة الشحن',
+      importFileNameOrCode: _activeFileId != null ? 'IMP-$_activeFileId' : 'All-Files',
+      headerContext: const TableExportHeaderContext(
+        title: 'مصفوفة مطابقة الفاتورة التجارية وبوليصة الشحن',
+        subtitle: 'Sorour Logistics ERP — نظام فحص ومطابقة الوثائق الجمركية',
       ),
     );
   }

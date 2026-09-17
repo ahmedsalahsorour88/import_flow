@@ -339,6 +339,28 @@ class PurchaseOrderService:
             )
         return self._to_response(po)
 
+    def _sync_import_file_po_link(self, import_file_id: int, po: PurchaseOrder):
+        from modules.import_files.model import ImportFile
+        import_file = self.db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+        if import_file:
+            po_ids = list(import_file.po_ids or [])
+            if po.po_id not in po_ids:
+                po_ids.append(po.po_id)
+                import_file.po_ids = po_ids
+            if not import_file.po_number:
+                import_file.po_number = po.po_number
+            if not import_file.pi_number and po.proforma_invoice_number:
+                import_file.pi_number = po.proforma_invoice_number
+            self.db.commit()
+
+    def _remove_import_file_po_link(self, import_file_id: int, po_id: int):
+        from modules.import_files.model import ImportFile
+        import_file = self.db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+        if import_file and import_file.po_ids:
+            po_ids = [pid for pid in import_file.po_ids if pid != po_id]
+            import_file.po_ids = po_ids
+            self.db.commit()
+
     def create(self, data: PurchaseOrderCreate) -> PurchaseOrderResponse:
         self.validator.validate_foreign_keys(
             project_id=data.project_id,
@@ -346,11 +368,17 @@ class PurchaseOrderService:
             supplier_id=data.supplier_id,
             incoterm_id=data.incoterm_id,
             currency_id=data.currency_id,
+            import_file_id=data.import_file_id,
         )
+        if data.items:
+            self.validator.validate_line_items(data.items)
         if data.po_number:
             self.validator.validate_po_number_unique(data.po_number)
 
         po = self.repo.create(data)
+        if po.import_file_id:
+            self._sync_import_file_po_link(po.import_file_id, po)
+
         return self._to_response(po)
 
     def update(self, po_id: int, data: PurchaseOrderUpdate) -> PurchaseOrderResponse:
@@ -366,6 +394,7 @@ class PurchaseOrderService:
         s_id = data.supplier_id or po.supplier_id
         i_id = data.incoterm_id or po.incoterm_id
         cur_id = data.currency_id or po.currency_id
+        f_id = data.import_file_id if data.import_file_id is not None else po.import_file_id
 
         self.validator.validate_foreign_keys(
             project_id=p_id,
@@ -373,9 +402,19 @@ class PurchaseOrderService:
             supplier_id=s_id,
             incoterm_id=i_id,
             currency_id=cur_id,
+            import_file_id=f_id,
         )
+        if data.items:
+            self.validator.validate_line_items(data.items)
 
+        old_file_id = po.import_file_id
         updated_po = self.repo.update(po, data)
+
+        if updated_po.import_file_id:
+            self._sync_import_file_po_link(updated_po.import_file_id, updated_po)
+        if old_file_id and old_file_id != updated_po.import_file_id:
+            self._remove_import_file_po_link(old_file_id, po_id)
+
         return self._to_response(updated_po)
 
     def soft_delete(self, po_id: int) -> PurchaseOrderResponse:
@@ -385,7 +424,10 @@ class PurchaseOrderService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Purchase Order with ID {po_id} not found.",
             )
+        file_id = po.import_file_id
         deleted_po = self.repo.soft_delete(po)
+        if file_id:
+            self._remove_import_file_po_link(file_id, po_id)
         return self._to_response(deleted_po)
 
     def restore(self, po_id: int) -> PurchaseOrderResponse:
@@ -396,6 +438,8 @@ class PurchaseOrderService:
                 detail=f"Purchase Order with ID {po_id} not found.",
             )
         restored_po = self.repo.restore(po)
+        if restored_po.import_file_id:
+            self._sync_import_file_po_link(restored_po.import_file_id, restored_po)
         return self._to_response(restored_po)
 
     # =========================================================================

@@ -2591,8 +2591,30 @@ abstract class AppLocalizations {
   String get customsDeclMetricExemptions;
   String get customsDeclFxRateLabel;
   String get customsDeclVatBaseLabel;
+  String get searchAndCloneCustomsDeclBtn;
+  String get cloneCustomsDeclDialogTitle;
+  String get cloneCustomsDeclDialogSubtitle;
+  String get cloneCustomsDeclSuccess;
+  String get cloneCustomsDeclRowTooltip;
+  String get copyApprovalRowSuccess;
+  String get copyApprovalTableSuccess;
+  String get exportExcelApprovalsTooltip;
+  String get exportPdfApprovalsTooltip;
+  String get exportRegistryExcelTooltip;
+  String get exportRegistryPdfTooltip;
+  String get copyRegistryRowSuccess;
+  String get copyRegistryTableSuccess;
+  String get cloneFromAssessmentBtn;
 
-  // ── Screen 24: Customs Clearance Management ────────────────────────────────
+  // ── Screen 24/27: Customs Clearance Management ────────────────────────────────
+  String get searchAndCloneCustomsClearanceBtn;
+  String get cloneCustomsClearanceDialogTitle;
+  String get cloneCustomsClearanceDialogSubtitle;
+  String get cloneCustomsClearanceTooltip;
+  String get copyCustomsClearanceRowSuccess;
+  String get copyCustomsClearanceTableSuccess;
+  String get exportCustomsClearanceExcelTooltip;
+  String get exportCustomsClearancePdfTooltip;
   String get customsClearanceStageTitle;
   String get customsClearanceTabFollowUp;
   String get customsClearanceTabSamples;
@@ -3075,7 +3097,24 @@ abstract class AppLocalizations {
   String get freightBookingBreakdownHeader;
   String freightBookingBreakdownSavingsUnit(String name, String orig, String exec, String unitDiff, String qty, String unitType, String savings);
   String get freightBookingPrintSystemHeader;
+  String get searchAndCloneFreightBookingBtn;
+  String get cloneFreightBookingDialogTitle;
+  String get cloneFreightBookingDialogSubtitle;
+  String get cloneBookingRowTooltip;
+  String get copyBookingRowSuccess;
+  String get copyBookingsTableSuccess;
+  String get exportBookingsExcelTooltip;
+  String get exportBookingsPdfTooltip;
   // ── Screen 26 & 52: Cargo Shipping Tracking & Freight Allocations (VGM) ───
+  String get searchAndCloneCargoShippingBtn;
+  String get cloneCargoShippingDialogTitle;
+  String get cloneCargoShippingDialogSubtitle;
+  String get cloneCargoShippingTooltip;
+  String get cargoShippingDuplicateContainerTooltip;
+  String get copyCargoShippingRowSuccess;
+  String get copyCargoShippingTableSuccess;
+  String get exportCargoShippingExcelTooltip;
+  String get exportCargoShippingPdfTooltip;
   String get cargoShippingAllocationsTitle;
 
 
@@ -3261,6 +3300,14 @@ abstract class AppLocalizations {
   String get cargoShippingSlaCopyMilestoneSuccess;
 
   // Screen 28: Warehouse Receiving & Inspection (GRN)
+  String get searchAndCloneWarehouseReceivingBtn;
+  String get cloneWarehouseReceivingDialogTitle;
+  String get cloneWarehouseReceivingDialogSubtitle;
+  String get cloneWarehouseReceivingTooltip;
+  String get copyWarehouseReceivingRowSuccess;
+  String get copyWarehouseReceivingTableSuccess;
+  String get exportWarehouseReceivingExcelTooltip;
+  String get exportWarehouseReceivingPdfTooltip;
   String get warehouseReceivingStageTitle;
   String get warehouseReceivingTabRegistry;
   String get warehouseReceivingTabNewEntry;
@@ -3362,6 +3409,14 @@ abstract class AppLocalizations {
   // ==========================================
   // Screen 29: Landed Cost Settlement (FinancialSettlementScreen & OdooJournalEntryDialog)
   // ==========================================
+  String get searchAndCloneFinancialSettlementBtn;
+  String get cloneFinancialSettlementDialogTitle;
+  String get cloneFinancialSettlementDialogSubtitle;
+  String get cloneFinancialSettlementTooltip;
+  String get copyFinancialSettlementRowSuccess;
+  String get copyFinancialSettlementTableSuccess;
+  String get exportFinancialSettlementExcelTooltip;
+  String get exportFinancialSettlementPdfTooltip;
   String get financialSettlementStageTitle;
   String get financialSettlementTabRegistry;
   String get financialSettlementTabNewEntry;
@@ -3483,6 +3538,14 @@ abstract class AppLocalizations {
   // ---------------------------------------------------------------------------
   // Screen 30: File Closure & Archival
   // ---------------------------------------------------------------------------
+  String get searchAndCloneFileClosureBtn;
+  String get cloneFileClosureDialogTitle;
+  String get cloneFileClosureDialogSubtitle;
+  String get cloneFileClosureTooltip;
+  String get copyFileClosureRowSuccess;
+  String get copyFileClosureTableSuccess;
+  String get exportFileClosureExcelTooltip;
+  String get exportFileClosurePdfTooltip;
   String get fileClosureStageTitle;
   String get fileClosureTabArchivedRegistry;
   String get fileClosureTabCloseFile;
@@ -3619,6 +3682,9 @@ abstract class AppLocalizations {
   String get allowedShipmentCategoriesLabel;
   String get estTotalBudgetUsdLabel;
   String get estTotalBudgetUsdHint;
+  String get targetEndDateLabel;
+  String get targetEndDateHint;
+  String get targetEndDateCol;
   String get allowMultiShipmentTitle;
   String get allowMultiShipmentSubtitle;
   String get allowMultiCompanyTitle;
@@ -4056,11 +4122,46 @@ abstract class AppLocalizations {
   String get shippingLineDetailsHeader;
   String get scacCarrierCodeLabel;
   String get scacCarrierCodeHint;
+  String get defaultFreeDaysLabel;
+  String get defaultFreeDaysHint;
+  String partnerFreeDaysBadge(int days);
   String get trackingWebUrlLabel;
   String get trackingWebUrlHint;
+  String get freightForwarderDetailsHeader;
+  String get fiataLicenseLabel;
+  String get fiataLicenseHint;
+  String get shippingModesLabel;
+  String get shippingModesHint;
+  String get supportedCurrenciesLabel;
+  String get supportedCurrenciesHint;
+  String partnerFiataBadge(String fiata);
+  String get inspectionAgencyDetailsHeader;
+  String get inspectionAccreditationNumLabel;
+  String get inspectionAccreditationNumHint;
+  String get inspectionScopeLabel;
+  String get inspectionScopeHint;
+  String partnerAccreditationBadge(String num);
   String get customsBrokerLicenseHeader;
   String get customsClearanceLicenseNumLabel;
   String get customsClearanceLicenseNumHint;
+  String get authorizedPortsLabel;
+  String get authorizedPortsHint;
+  String partnerPortsBadge(String ports);
+  String get inlandTransportDetailsHeader;
+  String get transportLicenseNumLabel;
+  String get transportLicenseNumHint;
+  String get fleetTypesLabel;
+  String get fleetTypesHint;
+  String get coverageAreasLabel;
+  String get coverageAreasHint;
+  String partnerFleetBadge(String fleet);
+  String partnerCoverageBadge(String areas);
+  String get insuranceDetailsHeader;
+  String get insuranceLicenseNumLabel;
+  String get insuranceLicenseNumHint;
+  String get insuranceCoverageTypesLabel;
+  String get insuranceCoverageTypesHint;
+  String partnerInsuranceCoverageBadge(String cov);
   String get partnerTaxIdLabel;
   String get partnerTaxIdHint;
   String get partnerCommercialRegLabel;

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/error_details_dialog.dart';
@@ -224,6 +225,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
 
   @override
   Widget build(BuildContext context) {
+    final density = ref.watch(displayDensityProvider);
     final bankingDocs = ref.watch(bankingDocumentsProvider).valueOrNull ?? [];
 
     final tabs = [
@@ -245,7 +247,11 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                 ),
                 child: Text(
                   '${bankingDocs.length}',
-                  style: const TextStyle(color: AppTheme.wcagCobalt, fontSize: 10, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: AppTheme.wcagCobalt,
+                    fontSize: DisplayDensityMode.clampFontSize(11.0),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               )
             : null,
@@ -259,7 +265,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
       child: Focus(
         autofocus: true,
         child: VerticalStageScaffold(
-          stageCode: '',
+          stageCode: 'PHASE-4: STEP_12',
           titleEn: 'Bank Form 4 & Financial Endorsement',
           titleAr: 'المستندات والتوثيق البنكي ونموذج 4',
           headerIcon: Icons.account_balance_outlined,
@@ -275,18 +281,18 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
           headerActions: [
             IconButton(
               key: const Key('searchAndCloneBankForm4Btn'),
-              icon: const Icon(Icons.copy_all, color: Colors.white70),
+              icon: Icon(Icons.copy_all, color: Colors.white70, size: density.buttonIconSize),
               tooltip: context.l10n.searchAndCloneBankForm4Btn,
               onPressed: _openSearchAndCloneBankForm4Dialog,
             ),
             IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.white70),
+              icon: Icon(Icons.refresh, color: Colors.white70, size: density.buttonIconSize),
               tooltip: context.l10n.refresh,
               onPressed: _refreshData,
             ),
           ],
           body: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 92),
             child: _selectedSubTab == 0 ? _buildForm4RequestTab() : _buildForm4HistoryRegistryTab(),
           ),
         ),
@@ -1031,7 +1037,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                                       child: Text(
                                         rawCode,
                                         style: TextStyle(
-                                          fontSize: 10,
+                                          fontSize: DisplayDensityMode.clampFontSize(11.0),
                                           color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
                                           fontWeight: FontWeight.w600,
                                         ),

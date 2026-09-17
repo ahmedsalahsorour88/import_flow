@@ -109,3 +109,78 @@ class OdooExportConfig(BaseModel):
     other_expenses_account_code: str = "210800"
     journal_code: str = "MISC"
 
+
+# ==============================================================================
+# PL-08: Estimated Landed Cost Simulation Schemas
+# ==============================================================================
+from datetime import date
+
+class EstimatedLandedCostItemBreakdown(BaseModel):
+    line_no: int
+    item_code: str
+    item_name: str
+    hs_code: str
+    qty: float
+    unit_price_fc: float
+    fob_total_fc: float
+    fob_unit_egp: float
+    fob_total_egp: float
+    allocated_freight_egp: float = 0.0
+    allocated_insurance_egp: float = 0.0
+    allocated_customs_duty_egp: float = 0.0
+    allocated_vat_egp: float = 0.0
+    allocated_clearance_and_port_egp: float = 0.0
+    allocated_inland_transport_egp: float = 0.0
+    allocated_other_egp: float = 0.0
+    total_expenses_allocated_egp: float = 0.0
+    total_landed_cost_egp: float = 0.0
+    unit_landed_cost_egp: float = 0.0
+    unit_landed_cost_fc: float = 0.0
+    markup_factor: float = 1.0
+    markup_percent: float = 0.0
+
+class EstimatedLandedCostExpenseItem(BaseModel):
+    category: str
+    description: str
+    amount_fc: float = 0.0
+    currency: str = "EGP"
+    amount_egp: float = 0.0
+    is_estimated: bool = True
+    source: str = "Standard Estimate"
+    allocation_rule: str = "Value-Based"
+
+class EstimatedLandedCostSimulationRequest(BaseModel):
+    exchange_rate_override: Optional[float] = None
+    freight_amount_egp_override: Optional[float] = None
+    insurance_amount_egp_override: Optional[float] = None
+    clearance_fees_egp_override: Optional[float] = None
+    inland_transport_egp_override: Optional[float] = None
+    port_handling_egp_override: Optional[float] = None
+    bank_fees_egp_override: Optional[float] = None
+    other_expenses_egp_override: Optional[float] = None
+    allocation_preference: str = Field("Value-Based", description="Value-Based, Weight-Based, Volume-Based")
+    estimate_date: Optional[date] = None
+
+class EstimatedLandedCostSimulationResponse(BaseModel):
+    import_file_id: int
+    import_file_code: str
+    currency: str = "USD"
+    exchange_rate: float
+    incoterm: str = "FOB"
+    total_fob_fc: float
+    total_fob_egp: float
+    total_freight_egp: float
+    total_insurance_egp: float
+    total_customs_and_taxes_egp: float
+    total_clearance_and_port_egp: float
+    total_inland_transport_egp: float
+    total_other_expenses_egp: float
+    total_expenses_egp: float
+    total_landed_cost_egp: float
+    total_landed_cost_fc: float
+    average_markup_factor: float
+    average_markup_percent: float
+    expenses_breakdown: List[EstimatedLandedCostExpenseItem] = []
+    items_breakdown: List[EstimatedLandedCostItemBreakdown] = []
+    executive_summary_ar: str
+

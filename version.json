@@ -1,17 +1,17 @@
 {
   "major": 1,
   "minor": 0,
-  "patch": 180,
-  "version": "1.0.180",
-  "build_number": 181,
-  "updated_at": "2026-09-16 16:48:56",
+  "patch": 183,
+  "version": "1.0.183",
+  "build_number": 184,
+  "updated_at": "2026-09-17 10:03:45",
   "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v1.0.151/Sorour_Logistics_Setup_v1.0.151.exe",
   "installer_filename": "Sorour_Logistics_Setup_v1.0.151.exe",
   "installer_size_mb": 198.02,
   "release_notes": [
-    "AGENTS.md — Modified (Added ⚡ قاعدة التسميات المختصرة لشريط المؤشرات وعدم قص القيم and ⚡ قاعدة حظر التداخل الشامل للعناصر العائمة والدك الجانبي in Section 16)",
-    "AGENTS.md — Modified (Added ⚡ قاعدة مصفوفة التدرج الطباعي حسب الكثافة وقاعدة الحد الأدنى 11 بكسل (Mandatory Typography Scale & 11px Floor Rule))",
-    "AGENTS.md — Modified (Documented ⚡ قاعدة شريط المؤشرات المدمج الموحد (Mandatory Compact Metric Strip Rule))",
-    "AGENTS.md — Modified (Documented ⚡ قاعدة توحيد المكونات المشتركة والربط الشامل للكثافة (Mandatory Component Consolidation & Global Density Wiring Rule))"
+    "Integrated top toolbar \"بحث واستنساخ أرشفة سابقة\" button and card-level clone action button.",
+    "Integrated top toolbar \"بحث واستنساخ تسوية تكلفة سابقة\" button and card-level clone action button.",
+    "Integrated top toolbar \"بحث واستنساخ إذن إضافة سابق\" button and card-level clone action button.",
+    "Integrated top toolbar \"بحث واستنساخ بيان تخليص سابق\" button and card-level clone action button."
   ]
 }

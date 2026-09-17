@@ -220,6 +220,22 @@ class CargoXService:
 
         CargoXRepository.update(db, envelope)
 
+        # Lifecycle advance: STEP_10 → STEP_11 (CargoX sealed and transferred → Originals Collection)
+        if envelope.import_file_id:
+            try:
+                from modules.lifecycle_board.service import advance_lifecycle_step_service
+                advance_lifecycle_step_service(
+                    db=db,
+                    import_file_id=envelope.import_file_id,
+                    completed_step_code="STEP_10",
+                    target_step_codes=["STEP_11"],
+                    notes=f"تم إغلاق مظروف CargoX ({envelope.envelope_code}) وتحويله رسمياً لمصلحة الجمارك المصرية. الانتقال إلى مرحلة تحصيل أصول المستندات.",
+                    assigned_user=updated_by,
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning("Lifecycle advance STEP_10→STEP_11 failed: %s", e)
+
         return CargoXSealAndTransferResponse(
             success=True,
             envelope_id=envelope.envelope_id,
@@ -233,6 +249,7 @@ class CargoXService:
             customs_confirmation_receipt=envelope.customs_confirmation_receipt,
             message="تم إغلاق وتوثيق مظروف CargoX والتوقيع الإلكتروني بنجاح وتحويل المستندات لمصلحة الجمارك المصرية (Nafeza).",
         )
+
 
     @staticmethod
     def verify_acid_consistency(db: Session, envelope_id: int) -> CargoXAcidVerificationReport:

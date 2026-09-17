@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/financial_settlement_model.dart';
 import '../providers/financial_settlement_provider.dart';
@@ -115,12 +116,17 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
   @override
   Widget build(BuildContext context) {
     final isArabic = Directionality.of(context) == TextDirection.rtl;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final dialogWidth = (screenWidth - 32).clamp(320.0, 1100.0);
+    final dialogHeight = (screenHeight * 0.85).clamp(420.0, 750.0);
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SelectionArea(
         child: Container(
-          width: 1100,
-          height: 750,
+          width: dialogWidth,
+          height: dialogHeight,
           padding: const EdgeInsets.all(24),
           child: _isLoading
               ? Center(
@@ -523,7 +529,7 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(title, style: TextStyle(color: Colors.grey.shade600, fontSize: 10)),
+                Text(title, style: TextStyle(color: Colors.grey.shade600, fontSize: DisplayDensityMode.clampFontSize(11.0))),
                 CopyableText(
                   value,
                   style: TextStyle(
@@ -610,7 +616,7 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
       ),
       child: Text(
         label,
-        style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10),
+        style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: DisplayDensityMode.clampFontSize(11.0)),
       ),
     );
   }

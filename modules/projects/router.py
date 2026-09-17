@@ -38,6 +38,15 @@ def get_project_by_id(
     return service.get_by_id(project_id)
 
 
+@router.get("/{project_id}/financial-commitments")
+def get_project_financial_commitments(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    service = ProjectService(db)
+    return service.get_financial_commitments(project_id)
+
+
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 def create_project(
     data: ProjectCreate,

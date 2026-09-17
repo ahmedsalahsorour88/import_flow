@@ -2,7 +2,7 @@
 Service Layer & Business Engine for Financial Approval (BP-012 & BP-013)
 """
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -76,7 +76,94 @@ def create_payment_request_service(
                 detail=f"يوجد بالفعل طلب سداد مالي قيد الإجراء من نوع '{schema.payment_type}' محفوظ لهذا الملف ({active_same_type[0].payment_code}). يرجى الذهاب لتعديله أو استخدام نوع سداد آخر.",
             )
 
-    return repo.create_payment_request(db, schema)
+    db_item = repo.create_payment_request(db, schema)
+
+    # 1. Resolve Import File Code for notifications and tasks
+    file_code = f"IMP-{schema.import_file_id}" if schema.import_file_id else "No File"
+    if schema.import_file_id:
+        from modules.import_files.model import ImportFile
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id).first()
+        if imp:
+            file_code = imp.import_file_code or imp.custom_file_number or f"IMP-{schema.import_file_id}"
+
+    # 2. Automated Notification for Finance Department (Dashboard & In-App Alert)
+    notif_title = (
+        f"💳 طلب سداد دفعة مقدمة للمورد: {db_item.payment_code}"
+        if db_item.payment_type == "Advance Payment"
+        else f"💳 طلب سداد مالي جديد: {db_item.payment_code}"
+    )
+    notif_msg = (
+        f"تم إصدار طلب سداد دفعة مقدمة للمورد ({db_item.supplier_name}) بمبلغ {db_item.requested_amount:,.2f} {db_item.currency_code} ({db_item.requested_amount_egp:,.2f} ج.م) للشحنة ({file_code}). يستحق في {db_item.due_date}. يتطلب المراجعة والاعتماد وسداد السويفت البنكي."
+        if db_item.payment_type == "Advance Payment"
+        else f"تم إصدار طلب سداد مالي للمورد ({db_item.supplier_name}) بمبلغ {db_item.requested_amount:,.2f} {db_item.currency_code} ({db_item.requested_amount_egp:,.2f} ج.م). يستحق في {db_item.due_date}."
+    )
+    notif = SystemNotification(
+        title=notif_title,
+        message=notif_msg,
+        severity="WARNING" if db_item.payment_type == "Advance Payment" else "INFO",
+        category="PAYMENT_REQUEST",
+        entity_type="PaymentRequest",
+        entity_id=db_item.payment_id,
+        target_role="FINANCE_OFFICER",
+    )
+    db.add(notif)
+
+    # 3. Automated Smart Task for Finance Department
+    try:
+        from modules.smart_tasks.repository import create_task as create_smart_task
+        from modules.smart_tasks.schemas import SmartTaskCreate
+
+        smart_task_title = (
+            f"سداد الدفعة المقدمة للمورد وحساب السويفت: {db_item.supplier_name} ({db_item.payment_code})"
+            if db_item.payment_type == "Advance Payment"
+            else f"سداد مستحقات المورد: {db_item.supplier_name} ({db_item.payment_code})"
+        )
+        smart_task_desc = (
+            f"سداد دفعة المورد بمبلغ {db_item.requested_amount:,.2f} {db_item.currency_code} ({db_item.requested_amount_egp:,.2f} ج.م) المستحقة في {db_item.due_date} للشحنة ({file_code}) ومطابقة إشعار التحويل البنكي MT103/SWIFT."
+        )
+        task_schema = SmartTaskCreate(
+            title=smart_task_title,
+            description=smart_task_desc,
+            task_type="System Generated",
+            import_file_id=db_item.import_file_id,
+            import_file_code=file_code if schema.import_file_id else None,
+            phase_name="المرحلة الثانية: بداية الشحنة والمالية",
+            assigned_user="Finance Officer",
+            priority="High",
+            reminder_type="Advance Payment" if db_item.payment_type == "Advance Payment" else "Payment Request",
+            due_date=str(db_item.due_date),
+            status="Pending",
+            notes=f"REQ_TYPE:ADVANCE_PAYMENT | Code: {db_item.payment_code} | PayId: {db_item.payment_id}",
+        )
+        created_task = create_smart_task(db, task_schema, created_by="Financial Approval Engine")
+        setattr(db_item, "smart_task_code", created_task.task_code)
+    except Exception:
+        pass
+
+    # 4. Lifecycle Board Auto-Advancement to STEP_04 (Phase 2: Approvals & ACID)
+    if schema.import_file_id:
+        try:
+            from modules.lifecycle_board.service import advance_lifecycle_step_service
+            advance_lifecycle_step_service(
+                db=db,
+                completed_step_code="STEP_03",
+                import_file_id=db_item.import_file_id,
+                target_step_codes=["STEP_04"],
+                auto_complete_prior=True,
+                assigned_user="Finance Officer",
+                notes=f"تم إصدار طلب سداد الدفعة المقدمة للمورد ({db_item.payment_code}) بمبلغ {db_item.requested_amount:,.2f} {db_item.currency_code}",
+                source_module="Financial Approval Lifecycle",
+                custom_stage_title="المرحلة الثانية: بداية الشحنة",
+                custom_module_name="STEP_04 اعتمادات الميزانية وسداد الموردين",
+                custom_next_action="STEP_04 مراجعة واعتماد سداد الدفعة المقدمة للمورد وتجهيز السويفت البنكي",
+                min_progress_percent=30.0,
+            )
+        except Exception:
+            pass
+
+    db.commit()
+    db.refresh(db_item)
+    return db_item
 
 
 def update_payment_request_service(
@@ -95,10 +182,136 @@ def update_payment_request_service(
     return repo.update_payment_request(db, db_item, schema)
 
 
+def _handle_swift_payment_completion_workflow(
+    db: Session,
+    db_item: PaymentRequestSession,
+    swift_reference_no: Optional[str] = None,
+    transferred_amount: Optional[float] = None,
+    currency_code: Optional[str] = None,
+) -> None:
+    """
+    Central business engine workflow triggered whenever a Payment Request is marked Paid
+    or reconciled with SWIFT MT103 confirmation:
+    1. Ensures db_item status is 'Paid' and captures SWIFT reference.
+    2. Synchronizes swift_no to linked ImportFile.
+    3. Auto-advances ImportFile lifecycle from STEP_04 to STEP_05 (ACID Operations & Nafeza).
+    4. Auto-completes prior pending payment SmartTasks.
+    5. Dispatches SmartTask for Logistics Officer to obtain ACID number on Nafeza.
+    6. Emits SystemNotification for LOGISTICS_OFFICER.
+    """
+    swift_ref = swift_reference_no or db_item.swift_reference_no or f"SWF-{db_item.payment_id}"
+    amt = float(transferred_amount or db_item.swift_transferred_amount or db_item.requested_amount or 0.0)
+    curr = currency_code or db_item.swift_transferred_currency or db_item.currency_code or "USD"
+
+    db_item.status = "Paid"
+    db_item.swift_reference_no = swift_ref
+
+    if not db_item.import_file_id:
+        return
+
+    from modules.import_files.model import ImportFile
+    imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
+    if not imp:
+        return
+
+    # Update swift_no on ImportFile
+    imp.swift_no = swift_ref
+    file_code = imp.import_file_code or f"IMP-{imp.import_file_id}"
+
+    # Auto-complete pending advance payment SmartTasks
+    try:
+        from modules.smart_tasks.model import SmartTask
+        open_tasks = db.query(SmartTask).filter(
+            SmartTask.import_file_id == imp.import_file_id,
+            SmartTask.status.in_(["Pending", "In Progress"]),
+            SmartTask.is_active == True,
+        ).all()
+        for t in open_tasks:
+            t_notes = t.notes or ""
+            t_title = t.title or ""
+            if (
+                (db_item.payment_code and db_item.payment_code in (t_notes + t_title))
+                or (f"PayId: {db_item.payment_id}" in t_notes)
+                or ("سداد الدفعة" in t_title)
+                or (t.reminder_type in ["Advance Payment", "Payment Request"])
+            ):
+                t.status = "Completed"
+                t.is_auto_closed = True
+    except Exception:
+        pass
+
+    # Auto-advance lifecycle from STEP_04 to STEP_05
+    try:
+        from modules.lifecycle_board.service import advance_lifecycle_step_service
+        advance_lifecycle_step_service(
+            db=db,
+            completed_step_code="STEP_04",
+            import_file_id=imp.import_file_id,
+            target_step_codes=["STEP_05"],
+            auto_complete_prior=True,
+            assigned_user="Logistics Officer",
+            notes=f"تم سداد الحوالة البنكية وسويفت MT103 رقم {swift_ref} بمبلغ {amt:,.2f} {curr}",
+            source_module="Financial SWIFT Engine",
+            custom_stage_title="Phase 2: Approvals & ACID",
+            custom_module_name="STEP_05 إصدار رقم ACID نافذة",
+            custom_next_action="STEP_05 طلب واستخراج رقم القيد الجمركي المبدئي (ACID) عبر منظومة نافذة",
+            min_progress_percent=35.0,
+        )
+    except Exception:
+        pass
+
+    # Emit SystemNotification to LOGISTICS_OFFICER
+    try:
+        notif = SystemNotification(
+            title=f"تم سداد الدفعة وحوالة السويفت - جاهز لطلب ACID ({file_code})",
+            message=f"تم تأكيد سداد التحويل البنكي وحوالة السويفت رقم ({swift_ref}) بمبلغ ({amt:,.2f} {curr}) للملف الاستيرادي ({file_code}). تم فتح مرحلة استخراج ACID عبر نافذة.",
+            severity="INFO",
+            category="DUTY_PAYMENT",
+            entity_type="PaymentRequest",
+            entity_id=db_item.payment_id,
+            target_role="LOGISTICS_OFFICER",
+        )
+        db.add(notif)
+    except Exception:
+        pass
+
+    # Create explicit SmartTask for Logistics Officer to obtain ACID if not already present
+    try:
+        from modules.smart_tasks.model import SmartTask
+        from modules.smart_tasks.schemas import SmartTaskCreate
+        from modules.smart_tasks.repository import create_task as create_smart_task
+
+        acid_task_exists = db.query(SmartTask).filter(
+            SmartTask.import_file_id == imp.import_file_id,
+            SmartTask.title.ilike("%ACID%"),
+            SmartTask.status.in_(["Pending", "In Progress"]),
+            SmartTask.is_active == True,
+        ).first()
+
+        if not acid_task_exists:
+            task_schema = SmartTaskCreate(
+                title=f"[{file_code}] — استخراج الرقم التعريفي المبدئي للشحنة ACID عبر نافذة",
+                description=f"تم تحويل السويفت البنكي بنجاح برقم {swift_ref}. المطلوب الآن استخراج الرقم المبدئي ACID للشحنة ({file_code}) عبر منصة نافذة ورفع المستندات الأولية.",
+                task_type="System Generated",
+                import_file_id=imp.import_file_id,
+                import_file_code=file_code,
+                phase_name="Phase 2: Approvals & ACID",
+                assigned_user="Logistics Officer",
+                priority="High",
+                reminder_type="ACID Operations",
+                due_date=str(date.today() + timedelta(days=3)),
+                status="Pending",
+                notes=f"ACTION:ISSUE_ACID | SwiftRef: {swift_ref} | PayId: {db_item.payment_id}",
+            )
+            create_smart_task(db, task_schema, created_by="Financial SWIFT Engine")
+    except Exception:
+        pass
+
+
 def approve_payment_request_service(
     db: Session, payment_id: int
 ) -> PaymentRequestSession:
-    """Approves a payment request."""
+    """Approves a payment request and emits notification to Finance Officer."""
     db_item = repo.get_payment_request_by_id(db, payment_id)
     if not db_item:
         raise HTTPException(
@@ -107,6 +320,29 @@ def approve_payment_request_service(
         )
 
     db_item.status = "Approved"
+
+    # Emit SystemNotification for Finance Officer
+    try:
+        from modules.import_files.model import ImportFile
+        file_code = None
+        if db_item.import_file_id:
+            imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
+            if imp:
+                file_code = imp.import_file_code
+        ref_text = f" للملف ({file_code})" if file_code else ""
+        notif = SystemNotification(
+            title=f"تمت الموافقة على طلب الصرف: {db_item.payment_code}",
+            message=f"تمت الموافقة على طلب الصرف رقم ({db_item.payment_code}){ref_text} بمبلغ {db_item.requested_amount:,.2f} {db_item.currency_code} لصالح المورد ({db_item.supplier_name}). الطلب جاهز للتنفيذ والتحويل البنكي.",
+            severity="INFO",
+            category="DUTY_PAYMENT",
+            entity_type="PaymentRequest",
+            entity_id=db_item.payment_id,
+            target_role="FINANCE_OFFICER",
+        )
+        db.add(notif)
+    except Exception:
+        pass
+
     db.commit()
     db.refresh(db_item)
     return db_item
@@ -126,11 +362,14 @@ def execute_payment_service(
     db_item.status = "Paid"
     if swift_reference_no:
         db_item.swift_reference_no = swift_reference_no
-        if db_item.import_file_id:
-            from modules.import_files.model import ImportFile
-            imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
-            if imp:
-                imp.swift_no = swift_reference_no
+
+    _handle_swift_payment_completion_workflow(
+        db=db,
+        db_item=db_item,
+        swift_reference_no=swift_reference_no or db_item.swift_reference_no,
+        transferred_amount=float(db_item.swift_transferred_amount or db_item.requested_amount or 0.0),
+        currency_code=db_item.swift_transferred_currency or db_item.currency_code,
+    )
 
     db.commit()
     db.refresh(db_item)
@@ -147,10 +386,9 @@ def reconcile_swift_service(
     - Calculates variance (swift_transferred_amount - requested_amount).
     - Determines variance status: 'Matched' (diff == 0), 'Deficit' (diff < 0), 'Surplus' (diff > 0).
     - Automatically updates linked Import File's `swift_no` in import_files table.
+    - Advances lifecycle stage to STEP_05 and creates ACID tasks for Logistics Officer.
     - Sets Payment Request status to 'Paid'.
     """
-    from modules.import_files.model import ImportFile
-
     db_item = repo.get_payment_request_by_id(db, payment_id)
     if not db_item:
         raise HTTPException(
@@ -183,11 +421,14 @@ def reconcile_swift_service(
     db_item.swift_reconciliation_notes = payload.swift_reconciliation_notes
     db_item.status = "Paid"
 
-    # 4. Automatically sync swift_no to linked Import File
-    if db_item.import_file_id:
-        imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
-        if imp:
-            imp.swift_no = payload.swift_reference_no
+    # 4. Handle SWIFT payment completion workflow (Lifecycle sync, SmartTask, SystemNotification)
+    _handle_swift_payment_completion_workflow(
+        db=db,
+        db_item=db_item,
+        swift_reference_no=payload.swift_reference_no,
+        transferred_amount=payload.swift_transferred_amount,
+        currency_code=payload.swift_transferred_currency,
+    )
 
     db.commit()
     db.refresh(db_item)
@@ -325,6 +566,52 @@ def approve_import_budget_service(
     db_item.budget_status = "Budget Approved"
     db_item.approved_by = approved_by
     db_item.approved_date = date.today()
+
+    file_code = None
+    if db_item.import_file_id:
+        from modules.import_files.model import ImportFile
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
+        if imp:
+            file_code = imp.import_file_code
+
+    # Emit System Notification
+    try:
+        ref_text = f" للملف ({file_code})" if file_code else ""
+        notif = SystemNotification(
+            title=f"تم اعتماد الميزانية التقديرية: {db_item.budget_code}",
+            message=f"تم اعتماد الميزانية التقديرية ({db_item.budget_code}){ref_text} بإجمالي {db_item.total_budget_egp:,.2f} ج.م من قبل {approved_by}.",
+            severity="INFO",
+            category="DUTY_PAYMENT",
+            entity_type="ImportBudget",
+            entity_id=db_item.budget_id,
+            target_role="FINANCE_OFFICER",
+        )
+        db.add(notif)
+    except Exception:
+        pass
+
+    # Auto-complete pending budget review/approval SmartTasks
+    if db_item.import_file_id:
+        try:
+            from modules.smart_tasks.model import SmartTask
+            tasks = db.query(SmartTask).filter(
+                SmartTask.import_file_id == db_item.import_file_id,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+                SmartTask.is_active == True,
+            ).all()
+            for t in tasks:
+                t_title = t.title or ""
+                t_notes = t.notes or ""
+                if (
+                    "الميزانية" in t_title
+                    or "BUDGET" in t_notes
+                    or (db_item.budget_code and db_item.budget_code in (t_notes + t_title))
+                ):
+                    t.status = "Completed"
+                    t.is_auto_closed = True
+        except Exception:
+            pass
+
     db.commit()
     db.refresh(db_item)
 
@@ -1598,9 +1885,15 @@ def reconcile_reviewed_batch_service(
         db_item.swift_reconciliation_notes = " | ".join(recon_notes)
 
     if payload.auto_execute:
-        db_item.status = "Paid"
-
-    if db_item.import_file_id:
+        _handle_swift_payment_completion_workflow(
+            db=db,
+            db_item=db_item,
+            swift_reference_no=swift_ref,
+            transferred_amount=amt,
+            currency_code=curr,
+        )
+    elif db_item.import_file_id:
+        from modules.import_files.model import ImportFile
         imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
         if imp:
             imp.swift_no = swift_ref
@@ -1809,10 +2102,15 @@ def smart_reconcile_swift_service(
         db_item.swift_reconciliation_notes = payload.swift_reconciliation_notes
 
     if payload.auto_execute:
-        db_item.status = "Paid"
-
-    # 4. Sync swift_no to linked Import File
-    if db_item.import_file_id:
+        _handle_swift_payment_completion_workflow(
+            db=db,
+            db_item=db_item,
+            swift_reference_no=payload.swift_reference_no,
+            transferred_amount=payload.swift_transferred_amount,
+            currency_code=payload.swift_transferred_currency,
+        )
+    elif db_item.import_file_id:
+        from modules.import_files.model import ImportFile
         imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
         if imp:
             imp.swift_no = payload.swift_reference_no

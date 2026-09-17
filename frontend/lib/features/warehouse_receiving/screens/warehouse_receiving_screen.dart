@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
@@ -14,6 +15,10 @@ import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/warehouse_receiving_model.dart';
 import '../providers/goods_in_transit_provider.dart';
 import '../providers/warehouse_receiving_provider.dart';
+import '../../../core/helpers/table_copy_helper.dart';
+import '../../../core/services/table_export_service.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
+import '../widgets/search_and_clone_warehouse_receiving_dialog.dart';
 
 class WarehouseReceivingScreen extends ConsumerStatefulWidget {
   final bool isEmbedded;
@@ -52,11 +57,133 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
     super.dispose();
   }
 
-  void _showAddEditDialog([WarehouseReceivingModel? recordToEdit]) {
+  void _showAddEditDialog([WarehouseReceivingModel? recordToEdit, bool isCloneDraft = false]) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => _WarehouseReceivingFormDialog(recordToEdit: recordToEdit),
+      builder: (context) => _WarehouseReceivingFormDialog(
+        recordToEdit: recordToEdit,
+        isCloneDraft: isCloneDraft,
+      ),
+    );
+  }
+
+  void _openSearchAndCloneDialog(List<WarehouseReceivingModel> records) {
+    showDialog(
+      context: context,
+      builder: (ctx) => SearchAndCloneWarehouseReceivingDialog(
+        records: records,
+        onSelectRecord: (selectedRec) {
+          Navigator.of(ctx).pop();
+          _onCloneGrnRecord(selectedRec);
+        },
+      ),
+    );
+  }
+
+  void _onCloneGrnRecord(WarehouseReceivingModel rec) {
+    final l = context.l10n;
+    final isAr = l.isArabic;
+    final newDraftCode = 'GRN-DRAFT-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: isAr ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+          child: CloneEntityReviewDialog(
+            entityType: isAr ? 'إذن إضافة واستلام مخزني (GRN)' : 'Warehouse Receiving Note (GRN)',
+            sourceCode: rec.grnCode,
+            suggestedNewCode: newDraftCode,
+            sourceTitle: '${rec.warehouseName} (${rec.grnCode})',
+            copiedFieldsSummary: {
+              isAr ? 'المخزن المستلم' : 'Warehouse': rec.warehouseName,
+              isAr ? 'الشاحنة والسائق' : 'Driver & Truck': '${rec.driverName ?? "-"} (${rec.truckPlateNumber ?? "-"})',
+              isAr ? 'رقم السيل الجمركي' : 'Seal Number': rec.sealNumber ?? '-',
+              isAr ? 'حالة السيل' : 'Seal Intact': rec.sealIntact ? (isAr ? 'سليم' : 'Intact') : (isAr ? 'تالف' : 'Broken'),
+              isAr ? 'عدد الأصناف' : 'Item Count': '${rec.grnItems.length}',
+              isAr ? 'إجمالي الكمية بالفاتورة' : 'Total Invoiced Qty': '${rec.totalInvoicedQty}',
+            },
+            mandatorilyResetFields: isAr
+                ? const [
+                    'معرف الاستلام: يتم تفريغه لتوليد إذن استلام جديد',
+                    'كود الإذن: يعاد تعيينه كمسودة (GRN-DRAFT)',
+                    'تاريخ ووقت الوصول: يعاد ضبطه على الوقت والتاريخ الحالي',
+                    'الحالة التشغيلية: تعاد إلى مسودة وقيد العد المخزني',
+                    'منطقة الحجر الصحي: يعاد ضبطها إلى لا (غير محجور)',
+                    'حالة الفروقات: تعاد إلى لا توجد فروقات ومسح الملاحظات',
+                    'مطالبة التأمين: يتم فك الربط ومسح رقم المطالبة',
+                  ]
+                : const [
+                    'Receiving ID: Cleared for new record generation',
+                    'GRN Code: Re-assigned as new DRAFT',
+                    'Arrival Datetime: Reset to current timestamp',
+                    'Operational Status: Reset to Draft / Pending Warehouse Count',
+                    'Quarantine Zone: Reset to False (Unblocked)',
+                    'Discrepancy Status: Reset to None and notes wiped',
+                    'Insurance Claim: Unlinked and claim ref wiped',
+                  ],
+            allowCopyLineItems: true,
+            allowCopyAttachments: false,
+            onConfirm: ({
+              required String newCode,
+              required String newTitle,
+              required bool copyLineItems,
+              required bool copyAttachments,
+              String? notes,
+            }) async {
+              final clonedItems = copyLineItems
+                  ? rec.grnItems
+                      .map((item) => GrnItemModel(
+                            itemCode: item.itemCode,
+                            itemName: item.itemName,
+                            invoicedQty: item.invoicedQty,
+                            acceptedQty: item.invoicedQty,
+                            shortageQty: 0,
+                            damagedQty: 0,
+                            quarantineFlag: false,
+                          ))
+                      .toList()
+                  : <GrnItemModel>[];
+
+              final clonedDraft = WarehouseReceivingModel(
+                receivingId: 0,
+                grnCode: newCode,
+                importFileId: rec.importFileId,
+                warehouseName: rec.warehouseName,
+                arrivalDatetime: DateTime.now().toIso8601String(),
+                truckPlateNumber: rec.truckPlateNumber,
+                driverName: rec.driverName,
+                driverPhone: rec.driverPhone,
+                sealNumber: rec.sealNumber,
+                sealIntact: rec.sealIntact,
+                grnItems: clonedItems,
+                totalInvoicedQty: copyLineItems ? rec.totalInvoicedQty : 0,
+                totalAcceptedQty: copyLineItems ? rec.totalInvoicedQty : 0,
+                totalShortageQty: 0,
+                totalDamagedQty: 0,
+                discrepancyType: 'None',
+                discrepancyNotes: null,
+                quarantineZoneAssigned: false,
+                insuranceClaimFiled: false,
+                insuranceClaimRef: null,
+                status: 'Draft / Pending Warehouse Count',
+                inspectorName: rec.inspectorName,
+                notes: notes,
+                createdAt: DateTime.now().toIso8601String(),
+                updatedAt: DateTime.now().toIso8601String(),
+              );
+
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _showAddEditDialog(clonedDraft, true);
+                }
+              });
+            },
+          ),
+        ),
+      ),
     );
   }
 
@@ -68,40 +195,78 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
     );
   }
 
-  void _copyGrnRecordsTsv(List<WarehouseReceivingModel> records, AppLocalizations l10n) {
+  void _copyGrnRowTsv(WarehouseReceivingModel r, AppLocalizations l) {
+    final quarantineText = r.quarantineZoneAssigned ? l.warehouseReceivingQuarantineStatusBlocked : '-';
+    final driverTruck = '${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})';
+    final arrival = r.arrivalDatetime.replaceFirst('T', ' ').split('.').first;
+
+    final rowData = [
+      r.grnCode,
+      r.warehouseName,
+      r.status,
+      quarantineText,
+      driverTruck,
+      arrival,
+      r.inspectorName,
+      r.discrepancyType,
+      r.totalInvoicedQty.toString(),
+      r.totalAcceptedQty.toString(),
+      r.totalShortageQty.toString(),
+      r.totalDamagedQty.toString(),
+    ];
+
+    final headers = [
+      l.warehouseReceivingColGrnCode,
+      l.warehouseReceivingColWarehouse,
+      l.warehouseReceivingColStatus,
+      l.warehouseReceivingColQuarantine,
+      l.warehouseReceivingColTruckDriver,
+      l.warehouseReceivingColArrivalDate,
+      l.warehouseReceivingColInspector,
+      l.warehouseReceivingColDiscrepancy,
+      l.warehouseReceivingColInvoicedQty,
+      l.warehouseReceivingColAcceptedQty,
+      l.warehouseReceivingColShortageQty,
+      l.warehouseReceivingColDamagedQty,
+    ];
+
+    TableCopyHelper.copyRow(
+      context,
+      rowData,
+      headers: headers,
+      includeHeaders: true,
+      customMessage: l.copyWarehouseReceivingRowSuccess,
+    );
+  }
+
+  void _copyGrnTableTsv(List<WarehouseReceivingModel> records, AppLocalizations l) {
     if (records.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.warehouseReceivingEmptyRecords), backgroundColor: AppTheme.orange),
+        SnackBar(content: Text(l.warehouseReceivingEmptyRecords), backgroundColor: AppTheme.orange),
       );
       return;
     }
 
     final headers = [
-      l10n.warehouseReceivingColGrnCode,
-      l10n.warehouseReceivingColWarehouse,
-      l10n.warehouseReceivingColStatus,
-      l10n.warehouseReceivingColQuarantine,
-      l10n.warehouseReceivingColTruckDriver,
-      l10n.warehouseReceivingColArrivalDate,
-      l10n.warehouseReceivingColInspector,
-      l10n.warehouseReceivingColDiscrepancy,
-      l10n.warehouseReceivingColInvoicedQty,
-      l10n.warehouseReceivingColAcceptedQty,
-      l10n.warehouseReceivingColShortageQty,
-      l10n.warehouseReceivingColDamagedQty,
+      l.warehouseReceivingColGrnCode,
+      l.warehouseReceivingColWarehouse,
+      l.warehouseReceivingColStatus,
+      l.warehouseReceivingColQuarantine,
+      l.warehouseReceivingColTruckDriver,
+      l.warehouseReceivingColArrivalDate,
+      l.warehouseReceivingColInspector,
+      l.warehouseReceivingColDiscrepancy,
+      l.warehouseReceivingColInvoicedQty,
+      l.warehouseReceivingColAcceptedQty,
+      l.warehouseReceivingColShortageQty,
+      l.warehouseReceivingColDamagedQty,
     ];
 
-    final buffer = StringBuffer();
-    buffer.writeln(headers.join('\t'));
-
-    for (final r in records) {
-      final quarantineText = r.quarantineZoneAssigned
-          ? l10n.warehouseReceivingQuarantineStatusBlocked
-          : '-';
+    final rows = records.map((r) {
+      final quarantineText = r.quarantineZoneAssigned ? l.warehouseReceivingQuarantineStatusBlocked : '-';
       final driverTruck = '${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})';
       final arrival = r.arrivalDatetime.replaceFirst('T', ' ').split('.').first;
-
-      final row = [
+      return [
         r.grnCode,
         r.warehouseName,
         r.status,
@@ -115,13 +280,102 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
         r.totalShortageQty.toString(),
         r.totalDamagedQty.toString(),
       ];
-      buffer.writeln(row.join('\t'));
-    }
+    }).toList();
 
-    CopyHelper.copy(
+    TableCopyHelper.copyTable(
       context,
-      buffer.toString(),
-      customMessage: l10n.warehouseReceivingExportTsvSuccess,
+      headers,
+      rows,
+      customMessage: l.copyWarehouseReceivingTableSuccess,
+    );
+  }
+
+  Future<void> _exportGrnExcel(List<WarehouseReceivingModel> records, AppLocalizations l) async {
+    if (records.isEmpty) return;
+    final headers = [
+      'رقم إذن الإضافة (GRN)',
+      'المخزن المستلم',
+      'الحالة',
+      'حالة الحجر',
+      'بيانات الشاحنة والسائق',
+      'تاريخ ووقت الوصول',
+      'مسؤول الفحص والمطابقة',
+      'نوع الفروقات',
+      'الكمية بالفاتورة',
+      'الكمية المقبولة',
+      'كمية العجز',
+      'كمية التالف',
+    ];
+
+    final rows = records.map((r) {
+      final quarantineText = r.quarantineZoneAssigned ? 'محجور مؤقتاً' : 'سليم';
+      final driverTruck = '${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})';
+      final arrival = r.arrivalDatetime.replaceFirst('T', ' ').split('.').first;
+      return [
+        r.grnCode,
+        r.warehouseName,
+        r.status,
+        quarantineText,
+        driverTruck,
+        arrival,
+        r.inspectorName,
+        r.discrepancyType,
+        r.totalInvoicedQty.toString(),
+        r.totalAcceptedQty.toString(),
+        r.totalShortageQty.toString(),
+        r.totalDamagedQty.toString(),
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToExcel(
+      context: context,
+      stageName: 'Warehouse Receiving',
+      importFileNameOrCode: 'GRN_Registry',
+      headers: headers,
+      rows: rows,
+    );
+  }
+
+  Future<void> _exportGrnPdf(List<WarehouseReceivingModel> records, AppLocalizations l) async {
+    if (records.isEmpty) return;
+    final headers = [
+      'كود الإذن',
+      'المخزن',
+      'الحالة',
+      'الشاحنة والسائق',
+      'تاريخ الوصول',
+      'الفاحص',
+      'المقبول',
+      'العجز',
+      'التالف',
+    ];
+
+    final rows = records.map((r) {
+      final driverTruck = '${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})';
+      final arrival = r.arrivalDatetime.replaceFirst('T', ' ').split('.').first;
+      return [
+        r.grnCode,
+        r.warehouseName,
+        r.status,
+        driverTruck,
+        arrival,
+        r.inspectorName,
+        r.totalAcceptedQty.toString(),
+        r.totalShortageQty.toString(),
+        r.totalDamagedQty.toString(),
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToPdf(
+      context: context,
+      stageName: 'Warehouse Receiving',
+      importFileNameOrCode: 'GRN_Registry',
+      headers: headers,
+      rows: rows,
+      headerContext: const TableExportHeaderContext(
+        title: 'سجل أذون الإضافة والاستلام المخزني (GRN)',
+        subtitle: 'Goods Receiving Notes & Warehouse Inspection Registry',
+      ),
     );
   }
 
@@ -182,6 +436,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
 
   @override
   Widget build(BuildContext context) {
+    final density = ref.watch(displayDensityProvider);
     final recordsState = ref.watch(warehouseReceivingProvider);
 
     final tabs = [
@@ -199,122 +454,177 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
 
     final bodyContent = SelectionArea(
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Master Data Toolbar
-            MasterDataToolbarWidget(
-              moduleEndpoint: 'warehouse-receiving',
-              title: 'Warehouse_Receiving',
-              onRefreshNeeded: () => ref.read(warehouseReceivingProvider.notifier).fetchRecords(),
-            ),
-            const SizedBox(height: 12),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        child: CustomScrollView(
+          slivers: [
+            // Master Data Toolbar and Actions Card
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Master Data Toolbar
+                  MasterDataToolbarWidget(
+                    moduleEndpoint: 'warehouse-receiving',
+                    title: 'Warehouse_Receiving',
+                    onRefreshNeeded: () => ref.read(warehouseReceivingProvider.notifier).fetchRecords(),
+                  ),
+                  const SizedBox(height: 12),
 
-            // Toolbar Bar
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
-                        onPressed: () => _showAddEditDialog(),
-                        icon: const Icon(Icons.local_shipping, color: Colors.white),
-                        label: Text(context.l10n.warehouseReceivingNewGrnBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      ),
-                      const SizedBox(width: 16),
-                      SizedBox(
-                        width: 250,
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText: context.l10n.warehouseReceivingSearchHint,
-                            prefixIcon: const Icon(Icons.search),
-                            suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                              valueListenable: _searchController,
-                              builder: (context, value, _) {
-                                return value.text.isNotEmpty
-                                    ? IconButton(
-                                        icon: const Icon(Icons.clear, size: 18),
-                                        onPressed: () {
-                                          _searchController.clear();
-                                          ref.read(warehouseReceivingProvider.notifier).fetchRecords(
-                                                search: '',
-                                                status: _selectedStatusFilter,
-                                              );
-                                        },
-                                      )
-                                    : const SizedBox.shrink();
+                  // Toolbar Bar
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          ElevatedButton.icon(
+                            key: const Key('createGrnBtn'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.cobalt,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                            onPressed: () => _showAddEditDialog(),
+                            icon: const Icon(Icons.local_shipping, color: Colors.white, size: 18),
+                            label: Text(
+                              context.l10n.warehouseReceivingNewGrnBtn,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            key: const Key('searchAndCloneGrnBtn'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              side: const BorderSide(color: AppTheme.cobalt),
+                            ),
+                            onPressed: () {
+                              final records = recordsState.valueOrNull ?? [];
+                              _openSearchAndCloneDialog(records);
+                            },
+                            icon: const Icon(Icons.difference_outlined, color: AppTheme.cobalt, size: 18),
+                            label: Text(
+                              context.l10n.searchAndCloneWarehouseReceivingBtn,
+                              style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 220,
+                            child: TextField(
+                              controller: _searchController,
+                              decoration: InputDecoration(
+                                hintText: context.l10n.warehouseReceivingSearchHint,
+                                prefixIcon: const Icon(Icons.search, size: 20),
+                                suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                                  valueListenable: _searchController,
+                                  builder: (context, value, _) {
+                                    return value.text.isNotEmpty
+                                        ? IconButton(
+                                            icon: const Icon(Icons.clear, size: 18),
+                                            onPressed: () {
+                                              _searchController.clear();
+                                              ref.read(warehouseReceivingProvider.notifier).fetchRecords(
+                                                    search: '',
+                                                    status: _selectedStatusFilter,
+                                                  );
+                                            },
+                                          )
+                                        : const SizedBox.shrink();
+                                  },
+                                ),
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                border: const OutlineInputBorder(),
+                              ),
+                              onChanged: (val) {
+                                ref.read(warehouseReceivingProvider.notifier).fetchRecords(search: val, status: _selectedStatusFilter);
                               },
                             ),
-                            isDense: true,
-                            border: const OutlineInputBorder(),
                           ),
-                          onChanged: (val) {
-                            ref.read(warehouseReceivingProvider.notifier).fetchRecords(search: val, status: _selectedStatusFilter);
-                          },
-                        ),
+                          SizedBox(
+                            width: 220,
+                            child: SearchableDropdownField<String>(
+                              value: _selectedStatusFilter,
+                              items: [
+                                SearchableDropdownItem(value: 'All', label: context.l10n.warehouseReceivingStatusAll),
+                                SearchableDropdownItem(value: 'Draft / Pending Warehouse Count', label: context.l10n.warehouseReceivingStatusDraft),
+                                SearchableDropdownItem(value: 'Goods Received', label: context.l10n.warehouseReceivingStatusGoodsReceived),
+                                SearchableDropdownItem(value: 'Discrepancy Reported', label: context.l10n.warehouseReceivingStatusDiscrepancy),
+                              ],
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setState(() => _selectedStatusFilter = val);
+                                  ref.read(warehouseReceivingProvider.notifier).fetchRecords(search: _searchController.text, status: val);
+                                }
+                              },
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            key: const Key('copyGrnTableTsvBtn'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              side: BorderSide(color: Colors.grey.shade400),
+                            ),
+                            icon: const Icon(Icons.table_chart_outlined, size: 16, color: AppTheme.cobalt),
+                            label: Text(
+                              context.l10n.warehouseReceivingExportTsvBtn,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt),
+                            ),
+                            onPressed: () {
+                              final records = recordsState.valueOrNull ?? [];
+                              _copyGrnTableTsv(records, context.l10n);
+                            },
+                          ),
+                          IconButton(
+                            key: const Key('exportGrnExcelBtn'),
+                            icon: const Icon(Icons.description_outlined, color: AppTheme.emerald, size: 20),
+                            tooltip: context.l10n.exportWarehouseReceivingExcelTooltip,
+                            onPressed: () {
+                              final records = recordsState.valueOrNull ?? [];
+                              _exportGrnExcel(records, context.l10n);
+                            },
+                          ),
+                          IconButton(
+                            key: const Key('exportGrnPdfBtn'),
+                            icon: const Icon(Icons.picture_as_pdf_outlined, color: AppTheme.crimson, size: 20),
+                            tooltip: context.l10n.exportWarehouseReceivingPdfTooltip,
+                            onPressed: () {
+                              final records = recordsState.valueOrNull ?? [];
+                              _exportGrnPdf(records, context.l10n);
+                            },
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        width: 250,
-                        child: SearchableDropdownField<String>(
-                          value: _selectedStatusFilter,
-                          items: [
-                            SearchableDropdownItem(value: 'All', label: context.l10n.warehouseReceivingStatusAll),
-                            SearchableDropdownItem(value: 'Draft / Pending Warehouse Count', label: context.l10n.warehouseReceivingStatusDraft),
-                            SearchableDropdownItem(value: 'Goods Received', label: context.l10n.warehouseReceivingStatusGoodsReceived),
-                            SearchableDropdownItem(value: 'Discrepancy Reported', label: context.l10n.warehouseReceivingStatusDiscrepancy),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() => _selectedStatusFilter = val);
-                              ref.read(warehouseReceivingProvider.notifier).fetchRecords(search: _searchController.text, status: val);
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                          side: BorderSide(color: Colors.grey.shade400),
-                        ),
-                        icon: const Icon(Icons.table_chart_outlined, size: 18, color: AppTheme.cobalt),
-                        label: Text(
-                          context.l10n.warehouseReceivingExportTsvBtn,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt),
-                        ),
-                        onPressed: () {
-                          final records = recordsState.valueOrNull ?? [];
-                          _copyGrnRecordsTsv(records, context.l10n);
-                        },
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
 
             // Content List Area
-            Expanded(
-              child: recordsState.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, _) => Center(child: Text('${context.l10n.error}: $err', style: const TextStyle(color: AppTheme.crimson))),
-                data: (records) {
-                  if (records.isEmpty) {
-                    return Center(child: Text(context.l10n.warehouseReceivingEmptyRecords));
-                  }
+            recordsState.when(
+              loading: () => const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (err, _) => SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: Text('${context.l10n.error}: $err', style: const TextStyle(color: AppTheme.crimson))),
+              ),
+              data: (records) {
+                if (records.isEmpty) {
+                  return SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: Text(context.l10n.warehouseReceivingEmptyRecords)),
+                  );
+                }
 
-                  return ListView.builder(
-                    itemCount: records.length,
-                    itemBuilder: (context, idx) {
+                return SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, idx) {
                       final r = records[idx];
                       final isDraft = r.status.contains('Draft') || r.status.contains('Pending');
 
@@ -350,49 +660,6 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                    RowActionsPill(
-                                      onView: () => _showAddEditDialog(r),
-                                      onEdit: () => _showAddEditDialog(r),
-                                      onPrint: () {
-                                        final buffer = StringBuffer();
-                                        buffer.writeln('${context.l10n.warehouseReceivingColGrnCode}: ${r.grnCode}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingColWarehouse}: ${r.warehouseName}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingColStatus}: ${r.status}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingTruckAndDriver}: ${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})');
-                                        buffer.writeln('${context.l10n.warehouseReceivingArrivalDatetime}: ${r.arrivalDatetime.replaceFirst("T", " ").split(".")[0]}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingInspector}: ${r.inspectorName}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingDiscrepancyStatus}: ${r.discrepancyType}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingMetricInvoiced}: ${r.totalInvoicedQty}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingMetricAccepted}: ${r.totalAcceptedQty}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingMetricShortage}: ${r.totalShortageQty}');
-                                        buffer.writeln('${context.l10n.warehouseReceivingMetricDamaged}: ${r.totalDamagedQty}');
-                                        CopyHelper.copy(
-                                          context,
-                                          buffer.toString(),
-                                          customMessage: context.l10n.warehouseReceivingPrintReceiptSuccess(r.grnCode),
-                                        );
-                                      },
-                                      onDelete: () async {
-                                        final confirm = await showDialog<bool>(
-                                          context: context,
-                                          builder: (c) => AlertDialog(
-                                            title: Text(context.l10n.warehouseReceivingDeleteTitle),
-                                            content: Text(context.l10n.warehouseReceivingDeleteConfirmMessage),
-                                            actions: [
-                                              TextButton(onPressed: () => Navigator.pop(c, false), child: Text(context.l10n.cancel)),
-                                              TextButton(onPressed: () => Navigator.pop(c, true), child: Text(context.l10n.delete, style: const TextStyle(color: AppTheme.crimson))),
-                                            ],
-                                          ),
-                                        );
-                                        if (confirm == true) {
-                                          ref.read(warehouseReceivingProvider.notifier).softDeleteRecord(r.receivingId);
-                                        }
-                                      },
-                                      viewTooltip: context.l10n.warehouseReceivingViewTooltip,
-                                      editTooltip: context.l10n.warehouseReceivingEditTooltip,
-                                      printTooltip: context.l10n.warehouseReceivingPrintTooltip,
-                                      deleteTooltip: context.l10n.warehouseReceivingDeleteTooltip,
-                                    ),
                                           const Icon(Icons.lock, size: 13, color: AppTheme.crimson),
                                           const SizedBox(width: 4),
                                           Text(
@@ -402,6 +669,49 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                         ],
                                       ),
                                     ),
+                                  RowActionsPill(
+                                    onView: () => _showAddEditDialog(r),
+                                    onEdit: () => _showAddEditDialog(r),
+                                    onPrint: () {
+                                      final buffer = StringBuffer();
+                                      buffer.writeln('${context.l10n.warehouseReceivingColGrnCode}: ${r.grnCode}');
+                                      buffer.writeln('${context.l10n.warehouseReceivingColWarehouse}: ${r.warehouseName}');
+                                      buffer.writeln('${context.l10n.warehouseReceivingColStatus}: ${r.status}');
+                                      buffer.writeln('${context.l10n.warehouseReceivingTruckAndDriver}: ${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})');
+                                      buffer.writeln('${context.l10n.warehouseReceivingArrivalDatetime}: ${r.arrivalDatetime.replaceFirst("T", " ").split(".")[0]}');
+                                      buffer.writeln('${context.l10n.warehouseReceivingInspector}: ${r.inspectorName}');
+                                      buffer.writeln('${context.l10n.warehouseReceivingDiscrepancyStatus}: ${r.discrepancyType}');
+                                      buffer.writeln('${context.l10n.warehouseReceivingMetricInvoiced}: ${r.totalInvoicedQty}');
+                                      buffer.writeln('${context.l10n.warehouseReceivingMetricAccepted}: ${r.totalAcceptedQty}');
+                                      buffer.writeln('${context.l10n.warehouseReceivingMetricShortage}: ${r.totalShortageQty}');
+                                      buffer.writeln('${context.l10n.warehouseReceivingMetricDamaged}: ${r.totalDamagedQty}');
+                                      CopyHelper.copy(
+                                        context,
+                                        buffer.toString(),
+                                        customMessage: context.l10n.warehouseReceivingPrintReceiptSuccess(r.grnCode),
+                                      );
+                                    },
+                                    onDelete: () async {
+                                      final confirm = await showDialog<bool>(
+                                        context: context,
+                                        builder: (c) => AlertDialog(
+                                          title: Text(context.l10n.warehouseReceivingDeleteTitle),
+                                          content: Text(context.l10n.warehouseReceivingDeleteConfirmMessage),
+                                          actions: [
+                                            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(context.l10n.cancel)),
+                                            TextButton(onPressed: () => Navigator.pop(c, true), child: Text(context.l10n.delete, style: const TextStyle(color: AppTheme.crimson))),
+                                          ],
+                                        ),
+                                      );
+                                      if (confirm == true) {
+                                        ref.read(warehouseReceivingProvider.notifier).softDeleteRecord(r.receivingId);
+                                      }
+                                    },
+                                    viewTooltip: context.l10n.warehouseReceivingViewTooltip,
+                                    editTooltip: context.l10n.warehouseReceivingEditTooltip,
+                                    printTooltip: context.l10n.warehouseReceivingPrintTooltip,
+                                    deleteTooltip: context.l10n.warehouseReceivingDeleteTooltip,
+                                  ),
                                 ],
                               ),
                               const Divider(height: 20),
@@ -521,7 +831,25 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                         }
                                       },
                                     ),
-
+                                    IconButton(
+                                      key: Key('copyGrnRowBtn_${r.grnCode}'),
+                                      icon: const Icon(Icons.copy_all, size: 18, color: AppTheme.cobalt),
+                                      tooltip: context.l10n.copyWarehouseReceivingRowSuccess,
+                                      onPressed: () => _copyGrnRowTsv(r, context.l10n),
+                                    ),
+                                    OutlinedButton.icon(
+                                      key: Key('cloneGrnBtn_${r.grnCode}'),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                        side: const BorderSide(color: AppTheme.cobalt),
+                                      ),
+                                      icon: const Icon(Icons.difference_outlined, size: 15, color: AppTheme.cobalt),
+                                      label: Text(
+                                        context.l10n.cloneWarehouseReceivingTooltip,
+                                        style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                                      ),
+                                      onPressed: () => _onCloneGrnRecord(r),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -530,9 +858,10 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                         ),
                       );
                     },
-                  );
-                },
-              ),
+                    childCount: records.length,
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -544,7 +873,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
     }
 
     return VerticalStageScaffold(
-      stageCode: 'GRN-01',
+      stageCode: 'PHASE-6: STEP_19',
       titleEn: 'Warehouse Receiving & Inspection (GRN)',
       titleAr: 'استلام البضائع بالمخازن وفحص الجودة',
       headerIcon: Icons.inventory,
@@ -558,7 +887,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
       },
       headerActions: [
         IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white70),
+          icon: Icon(Icons.refresh, color: Colors.white70, size: density.buttonIconSize),
           tooltip: context.l10n.warehouseReceivingRefreshTooltip,
           onPressed: () => ref.read(warehouseReceivingProvider.notifier).fetchRecords(),
         ),
@@ -568,11 +897,20 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
   }
 
   Widget _buildQtyMetric(String label, String val, Color color) {
-    return Column(
-      children: [
-        CopyableText(val, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color)),
-        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
-      ],
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CopyableText(val, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: color)),
+          Text(
+            label,
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 
@@ -614,7 +952,11 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
 
 class _WarehouseReceivingFormDialog extends ConsumerStatefulWidget {
   final WarehouseReceivingModel? recordToEdit;
-  const _WarehouseReceivingFormDialog({this.recordToEdit});
+  final bool isCloneDraft;
+  const _WarehouseReceivingFormDialog({
+    this.recordToEdit,
+    this.isCloneDraft = false,
+  });
 
   @override
   ConsumerState<_WarehouseReceivingFormDialog> createState() => _WarehouseReceivingFormDialogState();
@@ -787,7 +1129,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
         'grn_items': grnItemsPayload,
       };
 
-      if (widget.recordToEdit != null) {
+      if (widget.recordToEdit != null && !widget.isCloneDraft) {
         await ref.read(warehouseReceivingProvider.notifier).updateRecord(widget.recordToEdit!.receivingId, payload);
       } else {
         await ref.read(warehouseReceivingProvider.notifier).createRecord(payload);
@@ -816,18 +1158,30 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
   @override
   Widget build(BuildContext context) {
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final isClone = widget.isCloneDraft;
+    final dialogTitle = isClone
+        ? context.l10n.cloneWarehouseReceivingDialogTitle
+        : (widget.recordToEdit == null
+            ? context.l10n.warehouseReceivingNewDialogTitle
+            : context.l10n.warehouseReceivingEditDialogTitle);
+    final dialogWidth = (MediaQuery.of(context).size.width - 32).clamp(320.0, 880.0);
 
     return AlertDialog(
       title: Row(
         children: [
           const Icon(Icons.warehouse, color: AppTheme.cobalt),
           const SizedBox(width: 8),
-          Text(widget.recordToEdit == null ? context.l10n.warehouseReceivingNewDialogTitle : context.l10n.warehouseReceivingEditDialogTitle),
+          Flexible(
+            child: Text(
+              dialogTitle,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
       content: SelectionArea(
         child: SizedBox(
-          width: 850,
+          width: dialogWidth,
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
@@ -1175,17 +1529,23 @@ class _DiscrepancyReportDialogState extends ConsumerState<_DiscrepancyReportDial
 
   @override
   Widget build(BuildContext context) {
+    final dialogWidth = (MediaQuery.of(context).size.width - 32).clamp(320.0, 560.0);
     return AlertDialog(
       title: Row(
         children: [
           const Icon(Icons.warning, color: AppTheme.orange),
           const SizedBox(width: 8),
-          Text(context.l10n.warehouseReceivingDiscrepancyDialogTitle(widget.record.grnCode)),
+          Flexible(
+            child: Text(
+              context.l10n.warehouseReceivingDiscrepancyDialogTitle(widget.record.grnCode),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
       content: SelectionArea(
         child: SizedBox(
-          width: 500,
+          width: dialogWidth,
           child: Form(
             key: _formKey,
             child: Column(

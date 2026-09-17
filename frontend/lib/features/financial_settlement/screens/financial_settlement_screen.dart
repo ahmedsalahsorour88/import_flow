@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
@@ -11,7 +13,10 @@ import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/financial_settlement_model.dart';
 import '../providers/financial_settlement_provider.dart';
+import '../../../core/services/table_export_service.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../../../core/widgets/recalculate_button.dart';
+import '../widgets/search_and_clone_financial_settlement_dialog.dart';
 import 'landed_cost_comparison_screen.dart';
 import 'odoo_journal_entry_dialog.dart';
 
@@ -61,11 +66,324 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
     super.dispose();
   }
 
-  void _showAddDialog() {
+  void _showAddDialog({LandedCostSettlementModel? initialRecord, bool isCloneDraft = false}) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const _FinancialSettlementFormDialog(),
+      builder: (context) => _FinancialSettlementFormDialog(
+        initialRecord: initialRecord,
+        isCloneDraft: isCloneDraft,
+      ),
+    );
+  }
+
+  void _openSearchAndCloneDialog(List<LandedCostSettlementModel> records) {
+    showDialog(
+      context: context,
+      builder: (c) => SearchAndCloneFinancialSettlementDialog(
+        records: records,
+        onSelectRecord: (selected) => _onCloneSettlement(selected),
+      ),
+    );
+  }
+
+  void _onCloneSettlement(LandedCostSettlementModel source) {
+    final l = context.l10n;
+    final isAr = l.isArabic;
+    final newDraftCode = 'SETTLE-DRAFT-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: isAr ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+          child: CloneEntityReviewDialog(
+            entityType: isAr ? 'تسوية تكلفة وصول نهائية (Landed Cost Settlement)' : 'Landed Cost Settlement',
+            sourceCode: source.settlementCode,
+            suggestedNewCode: newDraftCode,
+            sourceTitle: '${source.settlementCode} (${source.status})',
+            copiedFieldsSummary: {
+              isAr ? 'ملف الاستيراد' : 'Import File ID': '${source.importFileId}',
+              isAr ? 'عدد فواتير المصاريف' : 'Expense Invoices': '${source.expenseInvoices.length}',
+              isAr ? 'عدد بنود الأصناف' : 'Item Count': '${source.itemLandedCosts.length}',
+              isAr ? 'إجمالي تكلفة البضاعة FOB' : 'Total FOB (EGP)': source.totalFobEgp.toStringAsFixed(2),
+              isAr ? 'إجمالي المصاريف الموزعة' : 'Total Expenses (EGP)': source.totalExpensesEgp.toStringAsFixed(2),
+              isAr ? 'تكلفة الوصول الإجمالية' : 'Total Landed Cost (EGP)': source.totalLandedCostEgp.toStringAsFixed(2),
+            },
+            mandatorilyResetFields: isAr
+                ? const [
+                    'معرف التسوية: يتم تصفيره لإنشاء سجل تسوية جديد',
+                    'كود التسوية: يعاد تعيينه كمسودة تسوية (SETTLE-DRAFT-)',
+                    'حالة التسوية: يعاد ضبطها إلى مسودة (Draft)',
+                    'قيد اليومية بنظام Odoo: فك الربط وإلغاء الترحيل السابق',
+                    'تاريخ التسوية والتحديث: يعاد ضبطه على اللحظة الحالية',
+                  ]
+                : const [
+                    'Settlement ID: Cleared for new record generation',
+                    'Settlement Code: Re-assigned as new DRAFT',
+                    'Settlement Status: Reset to Draft',
+                    'Odoo Journal Entry: Unlinked and unposted',
+                    'Timestamps: Reset to current instant',
+                  ],
+            allowCopyLineItems: true,
+            allowCopyAttachments: false,
+            onConfirm: ({
+              required String newCode,
+              required String newTitle,
+              required bool copyLineItems,
+              required bool copyAttachments,
+              String? notes,
+            }) async {
+              final clonedExpenses = copyLineItems
+                  ? source.expenseInvoices
+                      .map((e) => ExpenseInvoiceModel(
+                            invoiceNo: '${e.invoiceNo}-DRAFT',
+                            category: e.category,
+                            providerName: e.providerName,
+                            currency: e.currency,
+                            amountFx: e.amountFx,
+                            exchangeRate: e.exchangeRate,
+                            amountEgp: e.amountEgp,
+                            allocationRule: e.allocationRule,
+                          ))
+                      .toList()
+                  : <ExpenseInvoiceModel>[];
+
+              final clonedItems = copyLineItems
+                  ? source.itemLandedCosts
+                      .map((i) => ItemLandedCostModel(
+                            itemCode: i.itemCode,
+                            itemName: '${i.itemName} (نسخة)',
+                            qty: i.qty,
+                            grossWeightKg: i.grossWeightKg,
+                            cbm: i.cbm,
+                            fobUnitEgp: i.fobUnitEgp,
+                            fobTotalEgp: i.fobTotalEgp,
+                            allocatedFreightEgp: i.allocatedFreightEgp,
+                            allocatedCustomsEgp: i.allocatedCustomsEgp,
+                            allocatedClearanceEgp: i.allocatedClearanceEgp,
+                            allocatedTransportEgp: i.allocatedTransportEgp,
+                            totalLandedCostEgp: i.totalLandedCostEgp,
+                            unitLandedCostEgp: i.unitLandedCostEgp,
+                            markupFactor: i.markupFactor,
+                          ))
+                      .toList()
+                  : <ItemLandedCostModel>[];
+
+              final cloned = LandedCostSettlementModel(
+                settlementId: 0,
+                settlementCode: newCode,
+                importFileId: source.importFileId,
+                expenseInvoices: clonedExpenses,
+                itemLandedCosts: clonedItems,
+                totalFobEgp: copyLineItems ? source.totalFobEgp : 0.0,
+                totalExpensesEgp: copyLineItems ? source.totalExpensesEgp : 0.0,
+                totalLandedCostEgp: copyLineItems ? source.totalLandedCostEgp : 0.0,
+                averageMarkupFactor: copyLineItems ? source.averageMarkupFactor : 1.0,
+                status: 'Draft',
+                accountantName: source.accountantName,
+                createdAt: DateTime.now().toIso8601String(),
+                updatedAt: DateTime.now().toIso8601String(),
+              );
+
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _showAddDialog(initialRecord: cloned, isCloneDraft: true);
+                }
+              });
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _copySettlementRowTsv(
+    LandedCostSettlementModel r,
+    AppLocalizations l10n,
+    Map<int, dynamic> importFilesMap,
+  ) {
+    final matchingFile = importFilesMap[r.importFileId];
+    final fileCode = matchingFile?.primaryNameWithCode ?? 'IMP-${r.importFileId}';
+    final compName = matchingFile?.companyName ?? '';
+    final fileTitle = compName.isNotEmpty ? '$fileCode - $compName' : fileCode;
+    final currencyStr = l10n.financialSettlementCurrencyEgp;
+
+    String statusLabel = r.status;
+    if (r.status == 'Calculated') {
+      statusLabel = l10n.financialSettlementStatusCalculated;
+    } else if (r.status == 'Approved') {
+      statusLabel = l10n.financialSettlementStatusApproved;
+    } else if (r.status == 'Draft') {
+      statusLabel = l10n.financialSettlementStatusDraft;
+    }
+
+    final headers = [
+      'Settlement Code',
+      'Import File',
+      'Accountant',
+      'Status',
+      'Total FOB ($currencyStr)',
+      'Total Expenses ($currencyStr)',
+      'Total Landed Cost ($currencyStr)',
+      'Markup Factor',
+    ];
+    final values = [
+      r.settlementCode,
+      fileTitle,
+      r.accountantName,
+      statusLabel,
+      r.totalFobEgp.toStringAsFixed(2),
+      r.totalExpensesEgp.toStringAsFixed(2),
+      r.totalLandedCostEgp.toStringAsFixed(2),
+      '${r.averageMarkupFactor.toStringAsFixed(3)}x',
+    ];
+
+    TableCopyHelper.copyRow(
+      context,
+      values,
+      headers: headers,
+      customMessage: l10n.copyFinancialSettlementRowSuccess,
+    );
+  }
+
+  Future<void> _exportSettlementsExcel(
+    List<LandedCostSettlementModel> records,
+    AppLocalizations l10n,
+    Map<int, dynamic> importFilesMap,
+  ) async {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
+    final currencyStr = l10n.financialSettlementCurrencyEgp;
+    final headers = isArabic
+        ? [
+            'كود التسوية',
+            'ملف الشحنة',
+            'المحاسب المسؤول',
+            'الحالة',
+            'إجمالي الفاتورة ($currencyStr)',
+            'إجمالي المصاريف ($currencyStr)',
+            'تكلفة الوصول الشاملة ($currencyStr)',
+            'معامل التكلفة',
+          ]
+        : [
+            'Settlement Code',
+            'Import File',
+            'Accountant',
+            'Status',
+            'Total FOB ($currencyStr)',
+            'Total Expenses ($currencyStr)',
+            'Total Landed Cost ($currencyStr)',
+            'Markup Factor',
+          ];
+
+    final rows = records.map((r) {
+      final matchingFile = importFilesMap[r.importFileId];
+      final fileCode = matchingFile?.primaryNameWithCode ?? 'IMP-${r.importFileId}';
+      final compName = matchingFile?.companyName ?? '';
+      final fileTitle = compName.isNotEmpty ? '$fileCode - $compName' : fileCode;
+
+      String statusLabel = r.status;
+      if (r.status == 'Calculated') {
+        statusLabel = l10n.financialSettlementStatusCalculated;
+      } else if (r.status == 'Approved') {
+        statusLabel = l10n.financialSettlementStatusApproved;
+      } else if (r.status == 'Draft') {
+        statusLabel = l10n.financialSettlementStatusDraft;
+      }
+
+      return [
+        r.settlementCode,
+        fileTitle,
+        r.accountantName,
+        statusLabel,
+        r.totalFobEgp.toStringAsFixed(2),
+        r.totalExpensesEgp.toStringAsFixed(2),
+        r.totalLandedCostEgp.toStringAsFixed(2),
+        '${r.averageMarkupFactor.toStringAsFixed(3)}x',
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToExcel(
+      context: context,
+      stageName: 'Financial Settlement',
+      importFileNameOrCode: 'Registry',
+      headers: headers,
+      rows: rows,
+    );
+  }
+
+  Future<void> _exportSettlementsPdf(
+    List<LandedCostSettlementModel> records,
+    AppLocalizations l10n,
+    Map<int, dynamic> importFilesMap,
+  ) async {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
+    final currencyStr = l10n.financialSettlementCurrencyEgp;
+    final headers = isArabic
+        ? [
+            'كود التسوية',
+            'ملف الشحنة',
+            'المحاسب المسؤول',
+            'الحالة',
+            'إجمالي الفاتورة',
+            'إجمالي المصاريف',
+            'تكلفة الوصول',
+            'معامل التكلفة',
+          ]
+        : [
+            'Settlement Code',
+            'Import File',
+            'Accountant',
+            'Status',
+            'Total FOB',
+            'Total Expenses',
+            'Total Landed Cost',
+            'Markup Factor',
+          ];
+
+    final rows = records.map((r) {
+      final matchingFile = importFilesMap[r.importFileId];
+      final fileCode = matchingFile?.primaryNameWithCode ?? 'IMP-${r.importFileId}';
+      final compName = matchingFile?.companyName ?? '';
+      final fileTitle = compName.isNotEmpty ? '$fileCode - $compName' : fileCode;
+
+      String statusLabel = r.status;
+      if (r.status == 'Calculated') {
+        statusLabel = l10n.financialSettlementStatusCalculated;
+      } else if (r.status == 'Approved') {
+        statusLabel = l10n.financialSettlementStatusApproved;
+      } else if (r.status == 'Draft') {
+        statusLabel = l10n.financialSettlementStatusDraft;
+      }
+
+      return [
+        r.settlementCode,
+        fileTitle,
+        r.accountantName,
+        statusLabel,
+        '${r.totalFobEgp.toStringAsFixed(2)} $currencyStr',
+        '${r.totalExpensesEgp.toStringAsFixed(2)} $currencyStr',
+        '${r.totalLandedCostEgp.toStringAsFixed(2)} $currencyStr',
+        '${r.averageMarkupFactor.toStringAsFixed(3)}x',
+      ];
+    }).toList();
+
+    await TableExportService.exportTableToPdf(
+      context: context,
+      stageName: 'Financial Settlement',
+      importFileNameOrCode: 'Registry',
+      headers: headers,
+      rows: rows,
+      headerContext: TableExportHeaderContext(
+        title: 'Landed Cost Settlement & Allocation Registry',
+        subtitle: 'Sorour Logistics ERP — سجل تسويات تكلفة الوصول وتوزيع المصاريف',
+        metadata: {
+          'Total Settlements': records.length.toString(),
+          'Calculated': records.where((r) => r.status == 'Calculated').length.toString(),
+          'Approved': records.where((r) => r.status == 'Approved').length.toString(),
+        },
+      ),
     );
   }
 
@@ -282,6 +600,7 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
 
   @override
   Widget build(BuildContext context) {
+    final density = ref.watch(displayDensityProvider);
     final recordsState = ref.watch(financialSettlementProvider);
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final importFilesMap = {for (final f in importFiles) f.importFileId: f};
@@ -305,7 +624,7 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
     ];
 
     return VerticalStageScaffold(
-      stageCode: 'LCS-01',
+      stageCode: 'PHASE-6: STEP_20',
       titleEn: 'Comprehensive Landed Cost Engine',
       titleAr: 'التسوية المالية وتكلفة البند النهائي',
       headerIcon: Icons.calculate,
@@ -324,7 +643,7 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
       },
       headerActions: [
         IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white70),
+          icon: Icon(Icons.refresh, color: Colors.white70, size: density.buttonIconSize),
           tooltip: context.l10n.financialSettlementRefreshTooltip,
           onPressed: () {
             if (!ref.read(financialSettlementProvider).isLoading) {
@@ -354,112 +673,165 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
 
     return SelectionArea(
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Data Actions Toolbar
-            MasterDataToolbarWidget(
-              moduleEndpoint: 'financial-settlement',
-              title: 'Financial_Settlement',
-              onRefreshNeeded: () {
-                if (!ref.read(financialSettlementProvider).isLoading) {
-                  ref.read(financialSettlementProvider.notifier).fetchSettlements();
-                }
-              },
-            ),
-            const SizedBox(height: 12),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Data Actions Toolbar
+                  MasterDataToolbarWidget(
+                    moduleEndpoint: 'financial-settlement',
+                    title: 'Financial_Settlement',
+                    onRefreshNeeded: () {
+                      if (!ref.read(financialSettlementProvider).isLoading) {
+                        ref.read(financialSettlementProvider.notifier).fetchSettlements();
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
 
-            // Top Action Toolbar
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                      ),
-                      onPressed: () => _showAddDialog(),
-                      icon: const Icon(Icons.add_chart, color: Colors.white),
-                      label: Text(
-                        context.l10n.financialSettlementNewSettlementBtn,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.cobalt,
-                        side: const BorderSide(color: AppTheme.cobalt),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      ),
-                      icon: const Icon(Icons.table_view, size: 18, color: AppTheme.cobalt),
-                      label: Text(
-                        context.l10n.financialSettlementExportTsvBtn,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                      ),
-                      onPressed: () {
-                        final records = recordsState.valueOrNull ?? [];
-                        if (records.isNotEmpty) {
-                          _copySettlementRecordsTsv(context, records, importFilesMap);
-                        }
-                      },
-                    ),
-                    const Spacer(),
-                    SizedBox(
-                      width: 300,
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: context.l10n.financialSettlementSearchHint,
-                          prefixIcon: const Icon(Icons.search),
-                          suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                            valueListenable: _searchController,
-                            builder: (context, value, _) {
-                              return value.text.isNotEmpty
-                                  ? IconButton(
-                                      icon: const Icon(Icons.clear, size: 18),
-                                      onPressed: () {
-                                        _searchController.clear();
-                                        ref
-                                            .read(financialSettlementProvider.notifier)
-                                            .fetchSettlements(search: '');
-                                      },
-                                    )
-                                  : const SizedBox.shrink();
+                  // Top Action Toolbar
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          ElevatedButton.icon(
+                            key: const Key('createSettlementBtn'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.cobalt,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                            onPressed: () => _showAddDialog(),
+                            icon: const Icon(Icons.add_chart, color: Colors.white, size: 18),
+                            label: Text(
+                              context.l10n.financialSettlementNewSettlementBtn,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            key: const Key('searchAndCloneSettlementBtn'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              side: const BorderSide(color: AppTheme.cobalt),
+                            ),
+                            onPressed: () {
+                              final records = recordsState.valueOrNull ?? [];
+                              _openSearchAndCloneDialog(records);
+                            },
+                            icon: const Icon(Icons.difference_outlined, color: AppTheme.cobalt, size: 18),
+                            label: Text(
+                              context.l10n.searchAndCloneFinancialSettlementBtn,
+                              style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 240,
+                            child: TextField(
+                              controller: _searchController,
+                              decoration: InputDecoration(
+                                hintText: context.l10n.financialSettlementSearchHint,
+                                prefixIcon: const Icon(Icons.search, size: 20),
+                                suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                                  valueListenable: _searchController,
+                                  builder: (context, value, _) {
+                                    return value.text.isNotEmpty
+                                        ? IconButton(
+                                            icon: const Icon(Icons.clear, size: 18),
+                                            onPressed: () {
+                                              _searchController.clear();
+                                              ref.read(financialSettlementProvider.notifier).fetchSettlements(search: '');
+                                            },
+                                          )
+                                        : const SizedBox.shrink();
+                                  },
+                                ),
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                border: const OutlineInputBorder(),
+                              ),
+                              onChanged: (val) {
+                                ref.read(financialSettlementProvider.notifier).fetchSettlements(search: val);
+                              },
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            key: const Key('copySettlementTableTsvBtn'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              side: BorderSide(color: Colors.grey.shade400),
+                            ),
+                            icon: const Icon(Icons.table_chart_outlined, size: 16, color: AppTheme.cobalt),
+                            label: Text(
+                              context.l10n.financialSettlementExportTsvBtn,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt),
+                            ),
+                            onPressed: () {
+                              final records = recordsState.valueOrNull ?? [];
+                              if (records.isNotEmpty) {
+                                _copySettlementRecordsTsv(context, records, importFilesMap);
+                              }
                             },
                           ),
-                          isDense: true,
-                          border: const OutlineInputBorder(),
-                        ),
-                        onChanged: (val) {
-                          ref.read(financialSettlementProvider.notifier).fetchSettlements(search: val);
-                        },
+                          IconButton(
+                            key: const Key('exportSettlementExcelBtn'),
+                            icon: const Icon(Icons.description_outlined, color: AppTheme.emerald, size: 20),
+                            tooltip: context.l10n.exportFinancialSettlementExcelTooltip,
+                            onPressed: () {
+                              final records = recordsState.valueOrNull ?? [];
+                              if (records.isNotEmpty) {
+                                _exportSettlementsExcel(records, context.l10n, importFilesMap);
+                              }
+                            },
+                          ),
+                          IconButton(
+                            key: const Key('exportSettlementPdfBtn'),
+                            icon: const Icon(Icons.picture_as_pdf_outlined, color: AppTheme.crimson, size: 20),
+                            tooltip: context.l10n.exportFinancialSettlementPdfTooltip,
+                            onPressed: () {
+                              final records = recordsState.valueOrNull ?? [];
+                              if (records.isNotEmpty) {
+                                _exportSettlementsPdf(records, context.l10n, importFilesMap);
+                              }
+                            },
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
 
             // Settlement List Area
-            Expanded(
-              child: recordsState.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, _) => Center(child: Text('${context.l10n.financialSettlementFetchError} $err', style: const TextStyle(color: AppTheme.crimson))),
-                data: (records) {
-                  if (records.isEmpty) {
-                    return Center(child: Text(context.l10n.financialSettlementEmptyRecords));
-                  }
+            recordsState.when(
+              loading: () => const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (err, _) => SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: Text('${context.l10n.financialSettlementFetchError} $err', style: const TextStyle(color: AppTheme.crimson))),
+              ),
+              data: (records) {
+                if (records.isEmpty) {
+                  return SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: Text(context.l10n.financialSettlementEmptyRecords)),
+                  );
+                }
 
-                  return ListView.builder(
-                    itemCount: records.length,
-                    itemBuilder: (context, idx) {
+                return SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, idx) {
                       final r = records[idx];
                       return Card(
                         margin: const EdgeInsets.only(bottom: 16),
@@ -469,7 +841,10 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -479,7 +854,6 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                                       style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
                                   () {
                                     final matchingFile = importFilesMap[r.importFileId];
                                     final fileCode = matchingFile?.primaryNameWithCode ?? 'IMP-${r.importFileId}';
@@ -490,9 +864,7 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                                     );
                                   }(),
-                                  const SizedBox(width: 12),
                                   Text(context.l10n.financialSettlementAccountantLabel(r.accountantName), style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
-                                  const Spacer(),
                                   _buildStatusBadge(context, r.status),
                                 ],
                               ),
@@ -538,7 +910,7 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                                       DataCell(CopyableTableCell(value: '${exp.amountFx.toStringAsFixed(2)} ${exp.currency}', rowSummary: rowSummary, child: Text('${exp.amountFx.toStringAsFixed(2)} ${exp.currency}'))),
                                       DataCell(CopyableTableCell(value: '${exp.exchangeRate}', rowSummary: rowSummary, child: Text('${exp.exchangeRate}'))),
                                       DataCell(CopyableTableCell(value: '${exp.amountEgp.toStringAsFixed(2)} $currencyStr', rowSummary: rowSummary, child: Text('${exp.amountEgp.toStringAsFixed(2)} $currencyStr', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
-                                      DataCell(CopyableTableCell(value: _getLocalizedRule(context, exp.allocationRule), rowSummary: rowSummary, child: Chip(label: Text(_getLocalizedRule(context, exp.allocationRule), style: const TextStyle(fontSize: 10)), backgroundColor: Colors.grey.shade200))),
+                                      DataCell(CopyableTableCell(value: _getLocalizedRule(context, exp.allocationRule), rowSummary: rowSummary, child: Chip(label: Text(_getLocalizedRule(context, exp.allocationRule), style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(11.0))), backgroundColor: Colors.grey.shade200))),
                                     ]);
                                   }).toList(),
                                 ),
@@ -586,8 +958,11 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                               ),
 
                               const SizedBox(height: 12),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.start,
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                alignment: WrapAlignment.start,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   RowActionsPill(
                                     onView: () => _showOdooDialog(r.settlementId, r.settlementCode),
@@ -620,7 +995,6 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                                     printTooltip: context.l10n.financialSettlementPrintTooltip,
                                     deleteTooltip: context.l10n.financialSettlementDeleteTooltip,
                                   ),
-                                  const SizedBox(width: 8),
                                   RecalculateButton(
                                     entityType: 'financial_settlement',
                                     entityId: r.settlementId,
@@ -630,7 +1004,25 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                                       ref.invalidate(financialSettlementProvider);
                                     },
                                   ),
-                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    key: Key('copySettlementRowBtn_${r.settlementCode}'),
+                                    icon: const Icon(Icons.copy_all, size: 18, color: AppTheme.cobalt),
+                                    tooltip: context.l10n.copyFinancialSettlementRowSuccess,
+                                    onPressed: () => _copySettlementRowTsv(r, context.l10n, importFilesMap),
+                                  ),
+                                  OutlinedButton.icon(
+                                    key: Key('cloneSettlementBtn_${r.settlementCode}'),
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      side: const BorderSide(color: AppTheme.cobalt),
+                                    ),
+                                    icon: const Icon(Icons.difference_outlined, size: 15, color: AppTheme.cobalt),
+                                    label: Text(
+                                      context.l10n.cloneFinancialSettlementTooltip,
+                                      style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                                    ),
+                                    onPressed: () => _onCloneSettlement(r),
+                                  ),
                                   OutlinedButton.icon(
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: AppTheme.emerald,
@@ -641,7 +1033,6 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                                     label: Text(context.l10n.financialSettlementCopyBreakdownTsvBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                     onPressed: () => _copySettlementBreakdownTsv(context, r, importFilesMap),
                                   ),
-                                  const SizedBox(width: 8),
                                   ElevatedButton.icon(
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: AppTheme.charcoal,
@@ -659,9 +1050,10 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                         ),
                       );
                     },
-                  );
-                },
-              ),
+                    childCount: records.length,
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -670,14 +1062,23 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
   }
 
   Widget _buildMetricTile(String title, String val, Color color) {
-    return Column(
-      children: [
-        CopyableText(
-          val,
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: color),
-        ),
-        Text(title, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
-      ],
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CopyableText(
+            val,
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: color),
+          ),
+          Text(
+            title,
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 
@@ -708,7 +1109,13 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
 // -----------------------------------------------------------------------------
 
 class _FinancialSettlementFormDialog extends ConsumerStatefulWidget {
-  const _FinancialSettlementFormDialog();
+  final LandedCostSettlementModel? initialRecord;
+  final bool isCloneDraft;
+
+  const _FinancialSettlementFormDialog({
+    this.initialRecord,
+    this.isCloneDraft = false,
+  });
 
   @override
   ConsumerState<_FinancialSettlementFormDialog> createState() => _FinancialSettlementFormDialogState();
@@ -719,20 +1126,57 @@ class _FinancialSettlementFormDialogState extends ConsumerState<_FinancialSettle
   int? _selectedImportFileId;
 
   // Expense invoice fields
-  final TextEditingController _invNoCtrl = TextEditingController(text: 'INV-LOG-01');
-  String _category = 'Freight';
-  final TextEditingController _providerCtrl = TextEditingController(text: 'Maersk Shipping Line');
-  final TextEditingController _amountFxCtrl = TextEditingController(text: '1000');
-  final TextEditingController _rateCtrl = TextEditingController(text: '50.0');
-  String _allocationRule = 'Volume-Based';
+  late final TextEditingController _invNoCtrl;
+  late String _category;
+  late final TextEditingController _providerCtrl;
+  late final TextEditingController _amountFxCtrl;
+  late final TextEditingController _rateCtrl;
+  late String _allocationRule;
 
   // Item fields
-  final TextEditingController _itemCodeCtrl = TextEditingController(text: 'ITM-001');
-  final TextEditingController _itemNameCtrl = TextEditingController(text: 'Imported Cargo Valves');
-  final TextEditingController _qtyCtrl = TextEditingController(text: '100');
-  final TextEditingController _fobUnitCtrl = TextEditingController(text: '500');
+  late final TextEditingController _itemCodeCtrl;
+  late final TextEditingController _itemNameCtrl;
+  late final TextEditingController _qtyCtrl;
+  late final TextEditingController _fobUnitCtrl;
 
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final rec = widget.initialRecord;
+    _selectedImportFileId = rec?.importFileId;
+
+    if (rec != null && rec.expenseInvoices.isNotEmpty) {
+      final exp = rec.expenseInvoices.first;
+      _invNoCtrl = TextEditingController(text: exp.invoiceNo);
+      _category = exp.category;
+      _providerCtrl = TextEditingController(text: exp.providerName);
+      _amountFxCtrl = TextEditingController(text: exp.amountFx.toString());
+      _rateCtrl = TextEditingController(text: exp.exchangeRate.toString());
+      _allocationRule = exp.allocationRule;
+    } else {
+      _invNoCtrl = TextEditingController(text: 'INV-LOG-01');
+      _category = 'Freight';
+      _providerCtrl = TextEditingController(text: 'Maersk Shipping Line');
+      _amountFxCtrl = TextEditingController(text: '1000');
+      _rateCtrl = TextEditingController(text: '50.0');
+      _allocationRule = 'Volume-Based';
+    }
+
+    if (rec != null && rec.itemLandedCosts.isNotEmpty) {
+      final itm = rec.itemLandedCosts.first;
+      _itemCodeCtrl = TextEditingController(text: itm.itemCode);
+      _itemNameCtrl = TextEditingController(text: itm.itemName);
+      _qtyCtrl = TextEditingController(text: itm.qty.toString());
+      _fobUnitCtrl = TextEditingController(text: itm.fobUnitEgp.toString());
+    } else {
+      _itemCodeCtrl = TextEditingController(text: 'ITM-001');
+      _itemNameCtrl = TextEditingController(text: 'Imported Cargo Valves');
+      _qtyCtrl = TextEditingController(text: '100');
+      _fobUnitCtrl = TextEditingController(text: '500');
+    }
+  }
 
   @override
   void dispose() {
@@ -770,11 +1214,20 @@ class _FinancialSettlementFormDialogState extends ConsumerState<_FinancialSettle
   @override
   Widget build(BuildContext context) {
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final screenWidth = MediaQuery.of(context).size.width;
+    final dialogWidth = (screenWidth - 32).clamp(320.0, 750.0);
+    final isCompact = dialogWidth < 500;
 
     return AlertDialog(
-      title: Text(context.l10n.financialSettlementDialogTitle),
+      actionsOverflowButtonSpacing: 8,
+      actionsOverflowDirection: VerticalDirection.down,
+      title: Text(
+        widget.isCloneDraft
+            ? '${context.l10n.financialSettlementDialogTitle} — ${context.l10n.cloneFinancialSettlementDialogTitle}'
+            : context.l10n.financialSettlementDialogTitle,
+      ),
       content: SizedBox(
-        width: 650,
+        width: dialogWidth,
         child: SelectionArea(
           child: Form(
             key: _formKey,
@@ -800,66 +1253,117 @@ class _FinancialSettlementFormDialogState extends ConsumerState<_FinancialSettle
 
                   // Expense Invoice Setup
                   Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(context.l10n.financialSettlementExpenseSectionHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      context.l10n.financialSettlementExpenseSectionHeader,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _invNoCtrl,
-                          decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementInvoiceNoLabel, _invNoCtrl),
+                  if (isCompact) ...[
+                    TextFormField(
+                      controller: _invNoCtrl,
+                      decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementInvoiceNoLabel, _invNoCtrl),
+                    ),
+                    const SizedBox(height: 8),
+                    SearchableDropdownField<String>(
+                      value: _category,
+                      labelText: context.l10n.financialSettlementCategoryLabel,
+                      searchHintText: context.l10n.financialSettlementCategorySearchHint,
+                      items: [
+                        SearchableDropdownItem(value: 'Freight', label: context.l10n.financialSettlementCategoryFreight),
+                        SearchableDropdownItem(value: 'Customs Duty', label: context.l10n.financialSettlementCategoryCustomsDuty),
+                        SearchableDropdownItem(value: 'Brokerage', label: context.l10n.financialSettlementCategoryBrokerage),
+                        SearchableDropdownItem(value: 'Local Transport', label: context.l10n.financialSettlementCategoryLocalTransport),
+                        SearchableDropdownItem(value: 'Storage', label: context.l10n.financialSettlementCategoryStorage),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) setState(() => _category = v);
+                      },
+                    ),
+                  ] else
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _invNoCtrl,
+                            decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementInvoiceNoLabel, _invNoCtrl),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: SearchableDropdownField<String>(
-                          value: _category,
-                          labelText: context.l10n.financialSettlementCategoryLabel,
-                          searchHintText: context.l10n.financialSettlementCategorySearchHint,
-                          items: [
-                            SearchableDropdownItem(value: 'Freight', label: context.l10n.financialSettlementCategoryFreight),
-                            SearchableDropdownItem(value: 'Customs Duty', label: context.l10n.financialSettlementCategoryCustomsDuty),
-                            SearchableDropdownItem(value: 'Brokerage', label: context.l10n.financialSettlementCategoryBrokerage),
-                            SearchableDropdownItem(value: 'Local Transport', label: context.l10n.financialSettlementCategoryLocalTransport),
-                            SearchableDropdownItem(value: 'Storage', label: context.l10n.financialSettlementCategoryStorage),
-                          ],
-                          onChanged: (v) {
-                            if (v != null) setState(() => _category = v);
-                          },
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: SearchableDropdownField<String>(
+                            value: _category,
+                            labelText: context.l10n.financialSettlementCategoryLabel,
+                            searchHintText: context.l10n.financialSettlementCategorySearchHint,
+                            items: [
+                              SearchableDropdownItem(value: 'Freight', label: context.l10n.financialSettlementCategoryFreight),
+                              SearchableDropdownItem(value: 'Customs Duty', label: context.l10n.financialSettlementCategoryCustomsDuty),
+                              SearchableDropdownItem(value: 'Brokerage', label: context.l10n.financialSettlementCategoryBrokerage),
+                              SearchableDropdownItem(value: 'Local Transport', label: context.l10n.financialSettlementCategoryLocalTransport),
+                              SearchableDropdownItem(value: 'Storage', label: context.l10n.financialSettlementCategoryStorage),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) setState(() => _category = v);
+                            },
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: TextFormField(
-                          controller: _providerCtrl,
-                          decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementProviderNameLabel, _providerCtrl),
+                  if (isCompact) ...[
+                    TextFormField(
+                      controller: _providerCtrl,
+                      decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementProviderNameLabel, _providerCtrl),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _amountFxCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementAmountFxLabel, _amountFxCtrl),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _amountFxCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementAmountFxLabel, _amountFxCtrl),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _rateCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementExchangeRateLabel, _rateCtrl),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _rateCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementExchangeRateLabel, _rateCtrl),
+                      ],
+                    ),
+                  ] else
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: TextFormField(
+                            controller: _providerCtrl,
+                            decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementProviderNameLabel, _providerCtrl),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _amountFxCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementAmountFxLabel, _amountFxCtrl),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _rateCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementExchangeRateLabel, _rateCtrl),
+                          ),
+                        ),
+                      ],
+                    ),
                   const SizedBox(height: 8),
                   SearchableDropdownField<String>(
                     value: _allocationRule,
@@ -879,28 +1383,42 @@ class _FinancialSettlementFormDialogState extends ConsumerState<_FinancialSettle
                   const SizedBox(height: 16),
                   // Item Setup
                   Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(context.l10n.financialSettlementItemSectionHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.emerald)),
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      context.l10n.financialSettlementItemSectionHeader,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.emerald),
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _itemCodeCtrl,
-                          decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementItemCodeLabel, _itemCodeCtrl),
+                  if (isCompact) ...[
+                    TextFormField(
+                      controller: _itemCodeCtrl,
+                      decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementItemCodeLabel, _itemCodeCtrl),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _itemNameCtrl,
+                      decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementItemNameLabel, _itemNameCtrl),
+                    ),
+                  ] else
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _itemCodeCtrl,
+                            decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementItemCodeLabel, _itemCodeCtrl),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        flex: 2,
-                        child: TextFormField(
-                          controller: _itemNameCtrl,
-                          decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementItemNameLabel, _itemNameCtrl),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: TextFormField(
+                            controller: _itemNameCtrl,
+                            decoration: _buildCopyableInputDecoration(context, context.l10n.financialSettlementItemNameLabel, _itemNameCtrl),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                   const SizedBox(height: 8),
                   Row(
                     children: [

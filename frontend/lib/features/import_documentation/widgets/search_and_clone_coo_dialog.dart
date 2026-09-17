@@ -303,7 +303,7 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
                                                     child: Text(
                                                       r.certificateType,
                                                       style: TextStyle(
-                                                        fontSize: 10.5,
+                                                        fontSize: 11.0,
                                                         fontWeight: FontWeight.w600,
                                                         color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
                                                       ),
@@ -318,7 +318,7 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
                                                     child: Text(
                                                       r.cooReviewCode,
                                                       style: TextStyle(
-                                                        fontSize: 10.5,
+                                                        fontSize: 11.0,
                                                         color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
                                                       ),
                                                     ),
@@ -341,7 +341,7 @@ class _SearchAndCloneCooDialogState extends State<SearchAndCloneCooDialog> {
                                                 child: Text(
                                                   r.status,
                                                   style: TextStyle(
-                                                    fontSize: 10.5,
+                                                    fontSize: 11.0,
                                                     fontWeight: FontWeight.bold,
                                                     color: isVerified
                                                         ? (isDark ? const Color(0xFF6EE7B7) : Colors.green.shade800)

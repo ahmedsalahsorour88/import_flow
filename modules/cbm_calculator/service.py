@@ -175,6 +175,16 @@ class CBMService:
         }
 
         calc = CBMRepository.create(db, calc_data, computed_items)
+
+        # Sync measurements back to linked Purchase Order if po_id is set
+        if calc.po_id:
+            po = db.query(PurchaseOrder).filter(PurchaseOrder.po_id == calc.po_id).first()
+            if po:
+                po.total_cbm = calc.total_cbm
+                po.total_gross_weight_kg = calc.total_gross_weight_kg
+                po.total_packages_count = calc.total_qty
+                db.commit()
+
         return CBMService._to_response(db, calc)
 
     @staticmethod
@@ -293,8 +303,14 @@ class CBMService:
         if po_id is not None:
             calc_data["po_id"] = po_id
             po = db.query(PurchaseOrder).filter(PurchaseOrder.po_id == po_id).first()
-            if po and po.project_id:
-                calc_data["project_id"] = po.project_id
+            if po:
+                if po.project_id:
+                    calc_data["project_id"] = po.project_id
+                # Push measurements to PO
+                po.total_cbm = calc.total_cbm
+                po.total_gross_weight_kg = calc.total_gross_weight_kg
+                po.total_packages_count = calc.total_qty
+                db.commit()
 
         if project_id is not None:
             calc_data["project_id"] = project_id

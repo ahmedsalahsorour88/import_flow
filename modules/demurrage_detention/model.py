@@ -16,6 +16,8 @@ from database.database import Base
 
 # Referenced models for SQLAlchemy registry
 from modules.import_files.model import ImportFile
+from modules.financial_settlement.model import LandedCostSettlementRecord
+
 
 
 class DemurragePolicy(Base):
@@ -93,7 +95,7 @@ class DemurrageTracking(Base):
 
     status = Column(String(50), default="Free Time Active", index=True)  # Free Time Active, Warning, Demurrage Incurred, Detention Incurred, Closed, Pushed to Settlement
     is_pushed_to_settlement = Column(Boolean, default=False, index=True)
-    settlement_record_id = Column(Integer, nullable=True)
+    settlement_record_id = Column(Integer, ForeignKey("financial_settlement_records.settlement_id"), nullable=True)
 
     notes = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True, index=True)
@@ -106,3 +108,4 @@ class DemurrageTracking(Base):
     # Relationship
     import_file = relationship("ImportFile", backref="demurrage_trackings", foreign_keys=[import_file_id])
     policy = relationship("DemurragePolicy", backref="trackings", foreign_keys=[policy_id])
+    settlement_record = relationship("LandedCostSettlementRecord", backref="demurrage_trackings", foreign_keys=[settlement_record_id])

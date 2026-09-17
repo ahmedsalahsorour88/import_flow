@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../providers/warehouse_receiving_provider.dart';
@@ -43,6 +44,7 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final density = ref.watch(displayDensityProvider);
     final recordsAsync = ref.watch(warehouseReceivingProvider);
 
     final tabs = [
@@ -80,7 +82,7 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
           final totalVariance = filtered.fold<int>(0, (s, i) => s + i.varianceQty);
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -500,13 +502,13 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
                                                     Text(
                                                       rawCode,
                                                       style: TextStyle(
-                                                        fontSize: 10,
+                                                        fontSize: DisplayDensityMode.clampFontSize(11.0),
                                                         fontWeight: FontWeight.w600,
                                                         color: Colors.grey.shade700,
                                                       ),
                                                     ),
                                                     const SizedBox(width: 3),
-                                                    const Icon(Icons.copy, size: 10, color: Colors.grey),
+                                                    const Icon(Icons.copy, size: 11, color: Colors.grey),
                                                   ],
                                                 ),
                                               ),
@@ -743,7 +745,7 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
     }
 
     return VerticalStageScaffold(
-      stageCode: 'GRN-REP',
+      stageCode: 'PHASE-6: STEP_19',
       titleEn: 'Warehouse Received Shipments & Audit Report',
       titleAr: l.whReportScaffoldTitle,
       headerIcon: Icons.inventory_2_outlined,
@@ -751,6 +753,16 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
       tabs: tabs,
       selectedIndex: 0,
       onTabSelected: (_) {},
+      headerActions: [
+        IconButton(
+          icon: Icon(Icons.refresh, color: Colors.white70, size: density.buttonIconSize),
+          tooltip: l.warehouseReceivingRefreshTooltip,
+          onPressed: () {
+            ref.read(warehouseReceivingProvider.notifier).fetchRecords();
+            ref.read(importFilesProvider.notifier).fetchImportFiles();
+          },
+        ),
+      ],
       body: bodyContent,
     );
   }
@@ -780,7 +792,7 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(val, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color), overflow: TextOverflow.ellipsis),
-                Text(title, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade700), overflow: TextOverflow.ellipsis),
+                Text(title, style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(11.0), color: Colors.grey.shade700), overflow: TextOverflow.ellipsis),
               ],
             ),
           ),

@@ -178,6 +178,8 @@ class PaymentRequestModel {
   final int? swiftProcessingDays;
   final String? swiftReconciliationNotes;
   final String? notes;
+  final double? advancePercentage;
+  final String? smartTaskCode;
   final bool isActive;
   final String createdAt;
   final String updatedAt;
@@ -214,6 +216,8 @@ class PaymentRequestModel {
     this.swiftProcessingDays,
     this.swiftReconciliationNotes,
     this.notes,
+    this.advancePercentage,
+    this.smartTaskCode,
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
@@ -252,6 +256,8 @@ class PaymentRequestModel {
       swiftProcessingDays: json['swift_processing_days'],
       swiftReconciliationNotes: json['swift_reconciliation_notes'],
       notes: json['notes'],
+      advancePercentage: (json['advance_percentage'] as num?)?.toDouble(),
+      smartTaskCode: json['smart_task_code'],
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
@@ -291,6 +297,8 @@ class PaymentRequestModel {
       'swift_processing_days': swiftProcessingDays,
       'swift_reconciliation_notes': swiftReconciliationNotes,
       'notes': notes,
+      'advance_percentage': advancePercentage,
+      'smart_task_code': smartTaskCode,
       'is_active': isActive,
     };
   }

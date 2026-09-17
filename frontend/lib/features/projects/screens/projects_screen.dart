@@ -140,6 +140,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       l10n.projectColShipmentCategories,
       l10n.defaultIncotermLabel.replaceAll('*', '').trim(),
       l10n.budgetUsdCol,
+      l10n.targetEndDateCol,
       l10n.capMultiShipment,
       l10n.capMultiCompany,
       l10n.statusCol,
@@ -156,6 +157,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       final budgetText = p.totalBudgetUsd != null
           ? '\$${p.totalBudgetUsd!.toStringAsFixed(2)}'
           : l10n.projectBudgetNotSet;
+      final targetDateText = p.targetEndDate ?? '';
       final activeText = p.isActive ? l10n.projectActiveYes : l10n.projectActiveNo;
       final multiShipmentText = p.allowMultiShipment ? l10n.projectMultiShipmentYes : l10n.projectMultiShipmentNo;
       final multiCompanyText = p.allowMultiCompany ? l10n.projectMultiCompanyYes : l10n.projectMultiCompanyNo;
@@ -171,6 +173,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         categoriesText,
         incotermText,
         budgetText,
+        targetDateText,
         multiShipmentText,
         multiCompanyText,
         _getStatusLabel(context, p.status),
@@ -193,6 +196,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final budgetText = p.totalBudgetUsd != null
         ? '\$${p.totalBudgetUsd!.toStringAsFixed(2)}'
         : l10n.projectBudgetNotSet;
+    final targetDateText = p.targetEndDate ?? '-';
     final activeText = p.isActive ? l10n.projectActiveYes : l10n.projectActiveNo;
     final multiShipmentText = p.allowMultiShipment ? l10n.projectMultiShipmentYes : l10n.projectMultiShipmentNo;
     final multiCompanyText = p.allowMultiCompany ? l10n.projectMultiCompanyYes : l10n.projectMultiCompanyNo;
@@ -207,6 +211,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 - ${l10n.projectColShipmentCategories}: $categoriesText
 - ${l10n.defaultIncotermLabel.replaceAll('*', '').trim()}: $incotermText
 - ${l10n.budgetUsdCol}: $budgetText
+- ${l10n.targetEndDateLabel}: $targetDateText
 - ${l10n.capMultiShipment}: $multiShipmentText
 - ${l10n.capMultiCompany}: $multiCompanyText
 - ${l10n.statusCol}: ${_getStatusLabel(context, p.status)}
@@ -225,6 +230,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final budgetText = p.totalBudgetUsd != null
         ? '\$${p.totalBudgetUsd!.toStringAsFixed(2)}'
         : l10n.projectBudgetNotSet;
+    final targetDateText = p.targetEndDate ?? '';
     final activeText = p.isActive ? l10n.projectActiveYes : l10n.projectActiveNo;
     final multiShipmentText = p.allowMultiShipment ? l10n.projectMultiShipmentYes : l10n.projectMultiShipmentNo;
     final multiCompanyText = p.allowMultiCompany ? l10n.projectMultiCompanyYes : l10n.projectMultiCompanyNo;
@@ -239,6 +245,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       categoriesText,
       incotermText,
       budgetText,
+      targetDateText,
       multiShipmentText,
       multiCompanyText,
       _getStatusLabel(context, p.status),
@@ -263,25 +270,29 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.projectsScreenTitle,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.charcoal,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.projectsScreenTitle,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.charcoal,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        l10n.projectsScreenSubtitle,
-                        style: const TextStyle(fontSize: 13, color: Colors.grey),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          l10n.projectsScreenSubtitle,
+                          style: const TextStyle(fontSize: 13, color: Colors.grey),
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 16),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       const BackToDashboardButton(),
                       const SizedBox(width: 10),
@@ -472,12 +483,12 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                             ),
                             child: Table(
                               columnWidths: const {
-                                0: FixedColumnWidth(140),
+                                0: FixedColumnWidth(170),
                                 1: FixedColumnWidth(120),
                                 2: FlexColumnWidth(3),
                                 3: FlexColumnWidth(2.5),
                                 4: FlexColumnWidth(2),
-                                5: FixedColumnWidth(110),
+                                5: FixedColumnWidth(160),
                                 6: FixedColumnWidth(130),
                                 7: FixedColumnWidth(95),
                               },
@@ -678,16 +689,52 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                         ),
                                       ),
 
-                                      // Budget USD
+                                      // Budget USD & Target End Date
                                       _cell(
-                                        value: budgetText,
+                                        value: '$budgetText ${p.targetEndDate ?? ""}'.trim(),
                                         rowSummary: rowSummary,
-                                        child: Text(
-                                          budgetText,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: p.totalBudgetUsd != null ? AppTheme.emerald : Colors.grey,
-                                          ),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              budgetText,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: p.totalBudgetUsd != null ? AppTheme.emerald : Colors.grey,
+                                              ),
+                                            ),
+                                            if (p.totalCommittedUsd != null && p.totalCommittedUsd! > 0) ...[
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                'الالتزامات: \$${p.totalCommittedUsd!.toStringAsFixed(2)}',
+                                                style: const TextStyle(fontSize: 10.5, color: AppTheme.cobalt, fontWeight: FontWeight.w600),
+                                              ),
+                                              if (p.remainingBudgetUsd != null)
+                                                Text(
+                                                  'المتبقي: \$${p.remainingBudgetUsd!.toStringAsFixed(2)}',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: p.remainingBudgetUsd! >= 0 ? AppTheme.emerald : AppTheme.crimson,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                            ],
+                                            if (p.targetEndDate != null && p.targetEndDate!.isNotEmpty) ...[
+                                              const SizedBox(height: 2),
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(Icons.event_outlined, size: 12, color: Colors.grey),
+                                                  const SizedBox(width: 3),
+                                                  Text(
+                                                    p.targetEndDate!,
+                                                    style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w500),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ],
                                         ),
                                       ),
 
@@ -805,6 +852,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final nameCtrl = TextEditingController(text: project?.projectName ?? '');
     final ownerCtrl = TextEditingController(text: project?.projectOwner ?? '');
     final budgetCtrl = TextEditingController(text: project?.totalBudgetUsd?.toString() ?? '');
+    final targetEndDateCtrl = TextEditingController(text: project?.targetEndDate ?? '');
     final notesCtrl = TextEditingController(text: project?.notes ?? '');
 
     final companies = ref.read(importCompaniesProvider).valueOrNull ?? [];
@@ -818,6 +866,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       nameCtrl.dispose();
       ownerCtrl.dispose();
       budgetCtrl.dispose();
+      targetEndDateCtrl.dispose();
       notesCtrl.dispose();
       return;
     }
@@ -1070,18 +1119,63 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    TextFormField(
-                      controller: budgetCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: InputDecoration(
-                        labelText: l10n.estTotalBudgetUsdLabel,
-                        hintText: l10n.estTotalBudgetUsdHint,
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.copy_rounded, size: 16),
-                          tooltip: l10n.projectsCopyFieldTooltip,
-                          onPressed: () => CopyHelper.copy(context, budgetCtrl.text),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: budgetCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: InputDecoration(
+                              labelText: l10n.estTotalBudgetUsdLabel,
+                              hintText: l10n.estTotalBudgetUsdHint,
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.copy_rounded, size: 16),
+                                tooltip: l10n.projectsCopyFieldTooltip,
+                                onPressed: () => CopyHelper.copy(context, budgetCtrl.text),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: targetEndDateCtrl,
+                            readOnly: true,
+                            decoration: InputDecoration(
+                              labelText: l10n.targetEndDateLabel,
+                              hintText: l10n.targetEndDateHint,
+                              suffixIcon: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (targetEndDateCtrl.text.isNotEmpty)
+                                    IconButton(
+                                      icon: const Icon(Icons.clear, size: 16),
+                                      onPressed: () => setDialogState(() => targetEndDateCtrl.clear()),
+                                    ),
+                                  IconButton(
+                                    icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                                    onPressed: () async {
+                                      final initial = DateTime.tryParse(targetEndDateCtrl.text) ??
+                                          DateTime.now().add(const Duration(days: 90));
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate: initial,
+                                        firstDate: DateTime(2020),
+                                        lastDate: DateTime(2040),
+                                      );
+                                      if (picked != null) {
+                                        final formatted =
+                                            "${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                                        setDialogState(() => targetEndDateCtrl.text = formatted);
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
 
@@ -1165,6 +1259,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               allowMultiShipment: allowMultiShipment,
                               allowMultiCompany: allowMultiCompany,
                               totalBudgetUsd: budget,
+                              targetEndDate: targetEndDateCtrl.text.trim().isEmpty ? null : targetEndDateCtrl.text.trim(),
                               notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
                             );
                             final ok = await ref.read(projectsProvider.notifier).createProject(newModel);
@@ -1183,6 +1278,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               'allow_multi_shipment': allowMultiShipment,
                               'allow_multi_company': allowMultiCompany,
                               'total_budget_usd': budget,
+                              'target_end_date': targetEndDateCtrl.text.trim().isEmpty ? null : targetEndDateCtrl.text.trim(),
                               'status': selectedStatus,
                               'notes': notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
                             };

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/goods_in_transit_provider.dart';
@@ -69,6 +70,7 @@ class _InboundWarehouseHubScreenState
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final density = ref.watch(displayDensityProvider);
 
     final tabs = [
       const VerticalNavTabItem(
@@ -89,7 +91,7 @@ class _InboundWarehouseHubScreenState
     ];
 
     return VerticalStageScaffold(
-      stageCode: 'INBOUND-01',
+      stageCode: 'PHASE-6: STEP_19',
       titleEn: 'Inbound Logistics & Warehouse Hub',
       titleAr: 'مركز الاستلام والمخازن والبضاعة بالطريق',
       headerIcon: Icons.warehouse_outlined,
@@ -102,12 +104,17 @@ class _InboundWarehouseHubScreenState
       }),
       headerActions: [
         IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white70),
+          icon: Icon(Icons.refresh, color: Colors.white70, size: density.buttonIconSize),
           tooltip: l.refreshDataTooltip,
           onPressed: _refreshData,
         ),
       ],
-      body: SelectionArea(child: _buildCurrentTab()),
+      body: SelectionArea(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 72.0),
+          child: _buildCurrentTab(),
+        ),
+      ),
     );
   }
 

@@ -1188,7 +1188,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                   ),
                   child: CopyableText(
                     localizedSeverity,
-                    style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                     isSelectable: false,
                   ),
                 ),

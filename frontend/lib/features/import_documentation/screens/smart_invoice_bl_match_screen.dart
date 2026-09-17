@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/dedicated_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../widgets/formal_letter_generator_dialog.dart';
@@ -56,6 +57,7 @@ class _SmartInvoiceBLMatchScreenState extends ConsumerState<SmartInvoiceBLMatchS
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final density = ref.watch(displayDensityProvider);
 
     return DedicatedStageScaffold(
       stageCode: 'STEP_08_MATCH',
@@ -66,19 +68,26 @@ class _SmartInvoiceBLMatchScreenState extends ConsumerState<SmartInvoiceBLMatchS
       selectedImportFileId: _selectedImportFileId,
       onShipmentStatusChanged: _refreshData,
       headerActions: [
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: AppTheme.charcoal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            side: const BorderSide(color: Colors.white60),
+            padding: EdgeInsets.symmetric(
+              horizontal: density.isUltraCompact ? 8 : (density.isCompact ? 10 : 12),
+              vertical: density.isUltraCompact ? 4 : (density.isCompact ? 6 : 8),
+            ),
+            textStyle: TextStyle(
+              fontSize: density.buttonFontSize,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           onPressed: () => FormalLetterGeneratorDialog.show(context, importFileId: _selectedImportFileId),
-          icon: const Icon(Icons.description, size: 16, color: AppTheme.cobalt),
+          icon: Icon(Icons.description, size: density.buttonIconSize, color: AppTheme.cobalt),
           label: Text(l.formalLetterDialogTitle),
         ),
         const SizedBox(width: 8),
         IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white70),
+          icon: Icon(Icons.refresh, color: Colors.white70, size: density.headerIconSize),
           tooltip: l.refresh,
           onPressed: _refreshData,
         ),

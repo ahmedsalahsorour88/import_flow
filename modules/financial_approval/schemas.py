@@ -20,10 +20,12 @@ class PaymentRequestBase(BaseModel):
         description="Advance Payment, Against B/L, Letter of Credit (L/C), Documentary Collection (CAD), Final Settlement",
     )
     requested_amount: float = Field(..., gt=0.0)
+    advance_percentage: Optional[float] = Field(None, ge=0.0, le=100.0, description="Percentage of PO requested as advance")
     currency_code: str = Field(default="USD", max_length=10)
     exchange_rate: float = Field(default=50.0, gt=0.0)
     due_date: date
     request_date: Optional[date] = None
+    status: Optional[str] = Field("Draft", description="Draft, Pending Approval, Approved, Paid, Rejected")
     beneficiary_name: Optional[str] = None
     bank_name: Optional[str] = None
     swift_code: Optional[str] = None
@@ -49,6 +51,7 @@ class PaymentRequestUpdate(BaseModel):
     import_file_id: Optional[int] = None
     payment_type: Optional[str] = None
     requested_amount: Optional[float] = None
+    advance_percentage: Optional[float] = None
     currency_code: Optional[str] = None
     exchange_rate: Optional[float] = None
     due_date: Optional[date] = None
@@ -93,6 +96,7 @@ class PaymentRequestResponse(PaymentRequestBase):
     swift_variance_status: Optional[str] = None
     swift_processing_days: Optional[int] = None
     swift_reconciliation_notes: Optional[str] = None
+    smart_task_code: Optional[str] = None
     is_active: bool
     created_at: datetime
     updated_at: datetime

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/adaptive_tab_scaffold.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
@@ -240,6 +241,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final density = ref.watch(displayDensityProvider);
     final state = ref.watch(demurrageProvider);
 
     return Scaffold(
@@ -251,7 +253,28 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
             const SizedBox(width: 10),
             Text(
               l10n.demurrageScreenTitle,
-              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: density.headerTitleFontSize,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFF8E44AD).withOpacity(0.3),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: const Color(0xFF8E44AD).withOpacity(0.6)),
+              ),
+              child: Text(
+                'PHASE-5: STEP_18',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: DisplayDensityMode.clampFontSize(11.0),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),
@@ -259,8 +282,16 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
         actions: [
           IconButton(
             tooltip: l10n.freightDataLaunchConnectorTooltip,
-            icon: const Icon(Icons.cloud_sync_outlined, color: Colors.white),
+            icon: Icon(Icons.cloud_sync_outlined, color: Colors.white, size: density.buttonIconSize),
             onPressed: () => showFreightDataMonitorDialog(context, ref),
+          ),
+          IconButton(
+            tooltip: l10n.refresh,
+            icon: Icon(Icons.refresh, color: Colors.white, size: density.buttonIconSize),
+            onPressed: () {
+              ref.invalidate(demurrageProvider);
+              ref.read(demurrageProvider.notifier).loadInitialData();
+            },
           ),
           const BackToDashboardButton(),
           const SizedBox(width: 12),
@@ -269,25 +300,28 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
       body: SelectionArea(
         child: state.isLoading && state.trackings.isEmpty
             ? const Center(child: CircularProgressIndicator())
-            : AdaptiveTabScaffold(
-                controller: _tabController,
-                tabs: [
-                  AdaptiveTabItem(
-                    icon: Icons.list_alt_rounded,
-                    label: l10n.containerTrackingsTab,
-                    content: _buildTrackingsTab(state),
-                  ),
-                  AdaptiveTabItem(
-                    icon: Icons.calculate_outlined,
-                    label: l10n.simulatorAndTierCalcTab,
-                    content: _buildSimulatorTab(state),
-                  ),
-                  AdaptiveTabItem(
-                    icon: Icons.policy_outlined,
-                    label: l10n.carrierTariffPoliciesTab,
-                    content: _buildPoliciesTab(state),
-                  ),
-                ],
+            : Padding(
+                padding: const EdgeInsets.only(bottom: 72.0),
+                child: AdaptiveTabScaffold(
+                  controller: _tabController,
+                  tabs: [
+                    AdaptiveTabItem(
+                      icon: Icons.list_alt_rounded,
+                      label: l10n.containerTrackingsTab,
+                      content: _buildTrackingsTab(state),
+                    ),
+                    AdaptiveTabItem(
+                      icon: Icons.calculate_outlined,
+                      label: l10n.simulatorAndTierCalcTab,
+                      content: _buildSimulatorTab(state),
+                    ),
+                    AdaptiveTabItem(
+                      icon: Icons.policy_outlined,
+                      label: l10n.carrierTariffPoliciesTab,
+                      content: _buildPoliciesTab(state),
+                    ),
+                  ],
+                ),
               ),
       ),
     );

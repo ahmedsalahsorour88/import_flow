@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../providers/freight_quotations_provider.dart';
 
 void showRFQBenchmarkDialog(BuildContext context, WidgetRef ref, {required int rfqId, String? rfqCode}) {
   showDialog(
@@ -92,8 +93,17 @@ class _RFQBenchmarkDialogState extends ConsumerState<RFQBenchmarkDialog> {
     );
   }
 
+  List<dynamic> _getRankedList() {
+    final allRanked = (_benchmarkData?['all_ranked_quotes'] as List<dynamic>?) ?? [];
+    if (allRanked.isNotEmpty) return allRanked;
+    final rankedQuotes = (_benchmarkData?['ranked_quotes'] as List<dynamic>?) ?? [];
+    if (rankedQuotes.isNotEmpty) return rankedQuotes;
+    final topThree = (_benchmarkData?['top_three_quotes'] as List<dynamic>?) ?? [];
+    return topThree;
+  }
+
   void _copyBenchmarkTSV(BuildContext context, bool isArabic) {
-    final ranked = ((_benchmarkData?['all_ranked_quotes'] ?? _benchmarkData?['ranked_quotes'] ?? _benchmarkData?['top_three_quotes']) as List<dynamic>?) ?? [];
+    final ranked = _getRankedList();
     final code = _benchmarkData?['rfq_code'] ?? widget.rfqCode ?? 'RFQ';
     final buffer = StringBuffer();
     if (isArabic) {
@@ -128,7 +138,7 @@ class _RFQBenchmarkDialogState extends ConsumerState<RFQBenchmarkDialog> {
   }
 
   Widget _buildContent(bool isArabic) {
-    final ranked = ((_benchmarkData?['all_ranked_quotes'] ?? _benchmarkData?['ranked_quotes'] ?? _benchmarkData?['top_three_quotes']) as List<dynamic>?) ?? [];
+    final ranked = _getRankedList();
     final recommendation = _benchmarkData?['executive_recommendation_ar'] ?? '';
     final code = _benchmarkData?['rfq_code'] ?? widget.rfqCode ?? 'RFQ';
 
@@ -403,6 +413,51 @@ class _RFQBenchmarkDialogState extends ConsumerState<RFQBenchmarkDialog> {
               child: Text(s.toString(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
             )).toList(),
           ),
+          if (isWinner) ...[
+            const SizedBox(height: 10),
+            ElevatedButton.icon(
+              key: const Key('awardWinnerBtn'),
+              icon: const Icon(Icons.check_circle, size: 14, color: Colors.white),
+              label: Text(
+                isArabic ? 'اعتماد هذا العرض الفائز 🎯' : 'Award Winning Quote 🎯',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.emerald,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                minimumSize: const Size.fromHeight(32),
+              ),
+              onPressed: () async {
+                final qId = q['quotation_id'];
+                if (qId != null) {
+                  final nav = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    await ref.read(freightQuotationsProvider.notifier).awardQuotation(widget.rfqId, qId);
+                    if (!mounted) return;
+                    nav.pop(true);
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(isArabic
+                            ? 'تم اعتماد العرض الفائز ومزامنته مع ملف الشحنة بنجاح!'
+                            : 'Winning quotation awarded and synced successfully!'),
+                        backgroundColor: AppTheme.emerald,
+                      ),
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: AppTheme.crimson,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
         ],
       ),
     );

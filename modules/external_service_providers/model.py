@@ -33,10 +33,30 @@ class ExternalServiceProvider(Base):
     # ==================================================
     # For Customs Brokers:
     clearance_license_number = Column(String(50))
+    authorized_ports = Column(String(300))  # e.g. Alexandria, Port Said, Ain Sokhna, Cairo Airport, Damietta
 
     # For Shipping Lines & Carriers:
     scac_code = Column(String(20))
     tracking_url = Column(String(300))
+    default_free_days = Column(Integer, default=14, nullable=True)
+
+    # For Freight Forwarders:
+    fiata_id = Column(String(50))
+    shipping_modes = Column(String(200))
+    supported_currencies = Column(String(100))
+
+    # For Inspection & Quality Agencies:
+    inspection_accreditation_number = Column(String(100))
+    inspection_scope = Column(String(300))
+
+    # For Inland Transport Carriers:
+    transport_license_number = Column(String(100))
+    fleet_types = Column(String(300))
+    coverage_areas = Column(String(300))
+
+    # For Marine Cargo Insurance Companies:
+    insurance_license_number = Column(String(100))
+    insurance_coverage_types = Column(String(300))
 
     # For Commercial Banks:
     swift_code = Column(String(20))

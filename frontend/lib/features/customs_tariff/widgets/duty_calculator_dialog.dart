@@ -8,7 +8,7 @@ import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
 
   void showDutyCalculatorDialog(BuildContext context, WidgetRef ref,
-      {String? initialHsCode}) {
+      {String? initialHsCode, int? initialImportFileId}) {
     final isArabic = Directionality.of(context) == TextDirection.rtl;
     String selectedCurrency = 'USD';
     String selectedFreightCurrency = 'USD';
@@ -141,10 +141,101 @@ import '../providers/customs_tariff_provider.dart';
     Map<String, dynamic>? multiResult;
     String? multiError;
     bool isMultiCalculating = false;
+    bool didAutoSimulate = false;
+
+    Future<void> runImportFileSimulation(
+        int fileId, StateSetter setState) async {
+      setState(() {
+        isMultiCalculating = true;
+        multiError = null;
+      });
+      try {
+        final res = await ref
+            .read(customsTariffProvider.notifier)
+            .simulateImportFileDuties(fileId);
+        if (res != null) {
+          setState(() {
+            multiResult = res;
+            if (res['currency_code'] != null) {
+              selectedCurrency = res['currency_code'].toString();
+            }
+            if (res['exchange_rate'] != null) {
+              exchangeRateCtrl.text =
+                  _numToDouble(res['exchange_rate']).toStringAsFixed(4);
+            }
+            if (res['insurance_egp'] != null) {
+              insuranceCtrl.text =
+                  _numToDouble(res['insurance_egp']).toStringAsFixed(2);
+            }
+            if (res['insurance_source'] == 'deemed_2.5_percent') {
+              insuranceType = 'deemed';
+              deemedInsuranceCtrl.text = insuranceCtrl.text;
+              insuranceCtrl.text = '0.00';
+            } else {
+              insuranceType = 'actual';
+            }
+            if (res['freight_egp'] != null) {
+              multiFreightCtrl.text =
+                  _numToDouble(res['freight_egp']).toStringAsFixed(2);
+            }
+            if (res['freight_source'] == 'deemed_2.0_percent') {
+              freightType = 'deemed';
+              deemedFreightCtrl.text = multiFreightCtrl.text;
+              multiFreightCtrl.text = '0.00';
+            } else {
+              freightType = 'actual';
+            }
+            if (res['cif_base_egp'] != null) {
+              declaredCifCtrl.text =
+                  _numToDouble(res['cif_base_egp']).toStringAsFixed(2);
+            }
+            if (res['total_other_fees_egp'] != null) {
+              additionalFeesCtrl.text =
+                  _numToDouble(res['total_other_fees_egp']).toStringAsFixed(2);
+            }
+
+            final resLines = (res['lines'] as List<dynamic>?) ?? [];
+            if (resLines.isNotEmpty) {
+              multiLines = resLines.map((l) {
+                final lineMap = l as Map<String, dynamic>;
+                return {
+                  'hs': TextEditingController(
+                      text: lineMap['hs_code']?.toString() ?? ''),
+                  'value': TextEditingController(
+                      text: _numToDouble(lineMap['item_total_fob_foreign'])
+                          .toStringAsFixed(2)),
+                  'inspection': TextEditingController(text: '0.00'),
+                  'origin': lineMap['origin_country']?.toString() ?? 'CN',
+                  'exemption':
+                      lineMap['preferential_agreement_applied']?.toString(),
+                };
+              }).toList();
+            }
+            syncCalculatedFields(setState, multiLines);
+            isMultiCalculating = false;
+          });
+        }
+      } catch (e) {
+        setState(() {
+          multiError = e.toString().replaceAll('Exception: ', '');
+          isMultiCalculating = false;
+          multiResult = null;
+        });
+      }
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setCalcState) => AlertDialog(
+        builder: (ctx, setCalcState) {
+          if (initialImportFileId != null && !didAutoSimulate) {
+            didAutoSimulate = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              runImportFileSimulation(initialImportFileId, setCalcState);
+            });
+          }
+
+          return AlertDialog(
           title: Row(
             children: [
               const Icon(Icons.calculate, color: AppTheme.emerald),
@@ -167,8 +258,11 @@ import '../providers/customs_tariff_provider.dart';
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         Text(
                           isArabic
@@ -176,61 +270,79 @@ import '../providers/customs_tariff_provider.dart';
                               : 'Multi-item customs calculation according to Nafeza statement model',
                           style: const TextStyle(fontSize: 11, color: Colors.grey),
                         ),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.orange,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 8),
+                        if (initialImportFileId != null)
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.emerald,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 8),
+                            ),
+                            icon: const Icon(Icons.sync_alt, size: 14),
+                            label: Text(
+                                isArabic
+                                    ? 'محاكاة ملف الاستيراد (#$initialImportFileId)'
+                                    : 'Simulate File (#$initialImportFileId)',
+                                style: const TextStyle(fontSize: 11)),
+                            onPressed: isMultiCalculating
+                                ? null
+                                : () => runImportFileSimulation(
+                                    initialImportFileId, setCalcState),
+                          ),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.orange,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.downloading, size: 14),
+                              label: const Text(
+                                  'تحميل مثال نافذة الفعلي (2026-612-1-94731)',
+                                  style: TextStyle(fontSize: 11)),
+                              onPressed: () {
+                                setCalcState(() {
+                                  selectedCurrency = 'USD';
+                                  selectedFreightCurrency = 'USD';
+                                  exchangeRateCtrl.text = '50.7917';
+                                  insuranceCtrl.text = '14902.793';
+                                  deemedInsuranceCtrl.text = '0.00';
+                                  insuranceType = 'actual';
+                                  freightForeignCtrl.text = '234.72';
+                                  multiFreightCtrl.text = '11922.234';
+                                  deemedFreightCtrl.text = '0.00';
+                                  freightType = 'actual';
+                                  additionalFeesCtrl.text = '1329.50';
+                                  multiLines = [
+                                    {
+                                      'hs': TextEditingController(text: '8536.41.00'),
+                                      'value': TextEditingController(text: '607.6'),
+                                      'inspection':
+                                          TextEditingController(text: '0.00'),
+                                      'origin': 'CN',
+                                      'exemption': null,
+                                    },
+                                    {
+                                      'hs': TextEditingController(text: '8537.10.90'),
+                                      'value': TextEditingController(text: '4371.2'),
+                                      'inspection':
+                                          TextEditingController(text: '8514.81'),
+                                      'origin': 'TR',
+                                      'exemption': null,
+                                    },
+                                    {
+                                      'hs': TextEditingController(text: '8537.10.90'),
+                                      'value': TextEditingController(text: '6757.6'),
+                                      'inspection':
+                                          TextEditingController(text: '69772.09'),
+                                      'origin': 'DE',
+                                      'exemption': null,
+                                    },
+                                  ];
+                                  syncCalculatedFields(setCalcState, multiLines);
+                                });
+                              },
+                            ),
+                          ],
                         ),
-                        icon: const Icon(Icons.downloading, size: 14),
-                        label: const Text(
-                            'تحميل مثال نافذة الفعلي (2026-612-1-94731)',
-                            style: TextStyle(fontSize: 11)),
-                        onPressed: () {
-                          setCalcState(() {
-                            selectedCurrency = 'USD';
-                            selectedFreightCurrency = 'USD';
-                            exchangeRateCtrl.text = '50.7917';
-                            insuranceCtrl.text = '14902.793';
-                            deemedInsuranceCtrl.text = '0.00';
-                            insuranceType = 'actual';
-                            freightForeignCtrl.text = '234.72';
-                            multiFreightCtrl.text = '11922.234';
-                            deemedFreightCtrl.text = '0.00';
-                            freightType = 'actual';
-                            additionalFeesCtrl.text = '1329.50';
-                            multiLines = [
-                              {
-                                'hs': TextEditingController(text: '8536.41.00'),
-                                'value': TextEditingController(text: '607.6'),
-                                'inspection':
-                                    TextEditingController(text: '0.00'),
-                                'origin': 'CN',
-                                'exemption': null,
-                              },
-                              {
-                                'hs': TextEditingController(text: '8537.10.90'),
-                                'value': TextEditingController(text: '4371.2'),
-                                'inspection':
-                                    TextEditingController(text: '8514.81'),
-                                'origin': 'TR',
-                                'exemption': null,
-                              },
-                              {
-                                'hs': TextEditingController(text: '8537.10.90'),
-                                'value': TextEditingController(text: '6757.6'),
-                                'inspection':
-                                    TextEditingController(text: '69772.09'),
-                                'origin': 'DE',
-                                'exemption': null,
-                              },
-                            ];
-                            syncCalculatedFields(setCalcState, multiLines);
-                          });
-                        },
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 12),
 
                   // Header Inputs Grid - Row 1: Invoice Currency + Exchange Rate + Total FC Auto-Calc
@@ -732,7 +844,7 @@ import '../providers/customs_tariff_provider.dart';
                     final idx = entry.key;
                     final m = entry.value;
                     final registeredTariffs =
-                        ref.watch(customsTariffProvider).value ?? [];
+                        ref.watch(customsTariffProvider).valueOrNull ?? [];
                     final hsDropdownItems = registeredTariffs
                         .map((t) => SearchableDropdownItem<String>(
                               value: t.hsCode,
@@ -1612,9 +1724,10 @@ import '../providers/customs_tariff_provider.dart';
               child: Text(isArabic ? 'إغلاق' : 'Close'),
             ),
           ],
-        ),
-      ),
-    ).then((_) {
+        );
+      },
+    ),
+  ).then((_) {
       exchangeRateCtrl.dispose();
       totalInvoiceFcCtrl.dispose();
       insuranceCtrl.dispose();
@@ -1672,15 +1785,15 @@ void _copyDutyCalculatorStatement(
     buffer.writeln('Line\tHS Code\tCIF Value (EGP)\tImport Duty (EGP)\tVAT (EGP)\tLine Total (EGP)');
   }
 
-  final items = (result['items'] as List<dynamic>?) ?? [];
+  final items = (result['lines'] as List<dynamic>?) ?? (result['items'] as List<dynamic>?) ?? [];
   for (int i = 0; i < items.length; i++) {
     final item = items[i] as Map<String, dynamic>;
-    final lineNum = i + 1;
+    final lineNum = item['line_no'] ?? (i + 1);
     final hs = item['hs_code'] ?? '';
-    final itemCif = _numToDouble(item['cif_egp']).toStringAsFixed(2);
-    final duty = _numToDouble(item['customs_duty_egp']).toStringAsFixed(2);
+    final itemCif = _numToDouble(item['cif_value_egp'] ?? item['cif_egp']).toStringAsFixed(2);
+    final duty = _numToDouble(item['duty_egp'] ?? item['customs_duty_egp']).toStringAsFixed(2);
     final vat = _numToDouble(item['vat_egp']).toStringAsFixed(2);
-    final total = _numToDouble(item['total_item_taxes_egp']).toStringAsFixed(2);
+    final total = _numToDouble(item['total_line_duties_egp'] ?? item['total_item_taxes_egp'] ?? item['total_duties_and_taxes_egp']).toStringAsFixed(2);
     buffer.writeln('$lineNum\t$hs\t$itemCif\t$duty\t$vat\t$total');
   }
 
@@ -1700,6 +1813,10 @@ void _copyDutyCalculatorStatement(
     }
     final grandTotal = _numToDouble(feeBreakdown['grand_total']).toStringAsFixed(2);
     buffer.writeln('${isArabic ? "الإجمالي الكلي" : "Grand Total"}\t\t$grandTotal');
+  } else if (result['total_duties_and_taxes_egp'] != null) {
+    buffer.writeln('');
+    final grandTotal = _numToDouble(result['total_duties_and_taxes_egp']).toStringAsFixed(2);
+    buffer.writeln('${isArabic ? "الإجمالي الكلي للرسوم والضرائب (ج.م)" : "Grand Total Duties & Taxes (EGP)"}\t\t$grandTotal');
   }
 
   CopyHelper.copy(

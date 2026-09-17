@@ -64,12 +64,12 @@ def list_settlements(
     return query.order_by(desc(LandedCostSettlementRecord.settlement_id)).all()
 
 def create_settlement(db: Session, schema: FinancialSettlementCreate, code: str) -> LandedCostSettlementRecord:
-    expenses = [e.model_dump() for e in schema.expense_invoices]
+    expenses = [e.model_dump() if hasattr(e, "model_dump") else e for e in schema.expense_invoices]
     for e in expenses:
         if not e.get("amount_egp") or e.get("amount_egp") == 0:
             e["amount_egp"] = e.get("amount_fx", 0.0) * e.get("exchange_rate", 1.0)
 
-    items = [i.model_dump() for i in schema.item_landed_costs]
+    items = [i.model_dump() if hasattr(i, "model_dump") else i for i in schema.item_landed_costs]
 
     db_obj = LandedCostSettlementRecord(
         settlement_code=code,

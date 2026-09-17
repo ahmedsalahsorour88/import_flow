@@ -7,8 +7,20 @@ class PartnerModel {
   final String? taxId;
   final String? commercialRegister;
   final String? clearanceLicenseNumber;
+  final String? authorizedPorts;
   final String? scacCode;
   final String? trackingUrl;
+  final int? defaultFreeDays;
+  final String? fiataId;
+  final String? shippingModes;
+  final String? supportedCurrencies;
+  final String? inspectionAccreditationNumber;
+  final String? inspectionScope;
+  final String? transportLicenseNumber;
+  final String? fleetTypes;
+  final String? coverageAreas;
+  final String? insuranceLicenseNumber;
+  final String? insuranceCoverageTypes;
   final String? swiftCode;
   final String? bankCode;
   final String? branchName;
@@ -43,8 +55,20 @@ class PartnerModel {
     this.taxId,
     this.commercialRegister,
     this.clearanceLicenseNumber,
+    this.authorizedPorts,
     this.scacCode,
     this.trackingUrl,
+    this.defaultFreeDays,
+    this.fiataId,
+    this.shippingModes,
+    this.supportedCurrencies,
+    this.inspectionAccreditationNumber,
+    this.inspectionScope,
+    this.transportLicenseNumber,
+    this.fleetTypes,
+    this.coverageAreas,
+    this.insuranceLicenseNumber,
+    this.insuranceCoverageTypes,
     this.swiftCode,
     this.bankCode,
     this.branchName,
@@ -84,8 +108,20 @@ class PartnerModel {
       taxId: json['tax_id']?.toString(),
       commercialRegister: json['commercial_register']?.toString(),
       clearanceLicenseNumber: json['clearance_license_number']?.toString(),
+      authorizedPorts: json['authorized_ports']?.toString(),
       scacCode: json['scac_code']?.toString(),
       trackingUrl: json['tracking_url']?.toString(),
+      defaultFreeDays: json['default_free_days'] != null ? int.tryParse(json['default_free_days'].toString()) : null,
+      fiataId: json['fiata_id']?.toString(),
+      shippingModes: json['shipping_modes']?.toString(),
+      supportedCurrencies: json['supported_currencies']?.toString(),
+      inspectionAccreditationNumber: json['inspection_accreditation_number']?.toString(),
+      inspectionScope: json['inspection_scope']?.toString(),
+      transportLicenseNumber: json['transport_license_number']?.toString(),
+      fleetTypes: json['fleet_types']?.toString(),
+      coverageAreas: json['coverage_areas']?.toString(),
+      insuranceLicenseNumber: json['insurance_license_number']?.toString(),
+      insuranceCoverageTypes: json['insurance_coverage_types']?.toString(),
       swiftCode: json['swift_code']?.toString(),
       bankCode: json['bank_code']?.toString(),
       branchName: json['branch_name']?.toString(),
@@ -115,8 +151,20 @@ class PartnerModel {
       'tax_id': taxId,
       'commercial_register': commercialRegister,
       'clearance_license_number': clearanceLicenseNumber,
+      'authorized_ports': authorizedPorts,
       'scac_code': scacCode,
       'tracking_url': trackingUrl,
+      'default_free_days': defaultFreeDays,
+      'fiata_id': fiataId,
+      'shipping_modes': shippingModes,
+      'supported_currencies': supportedCurrencies,
+      'inspection_accreditation_number': inspectionAccreditationNumber,
+      'inspection_scope': inspectionScope,
+      'transport_license_number': transportLicenseNumber,
+      'fleet_types': fleetTypes,
+      'coverage_areas': coverageAreas,
+      'insurance_license_number': insuranceLicenseNumber,
+      'insurance_coverage_types': insuranceCoverageTypes,
       'swift_code': swiftCode,
       'bank_code': bankCode,
       'branch_name': branchName,

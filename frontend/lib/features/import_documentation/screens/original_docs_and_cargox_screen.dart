@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../cargox/screens/cargox_hub_screen.dart';
 import '../../import_documentation/providers/import_documentation_provider.dart';
@@ -68,6 +69,7 @@ class _OriginalDocsAndCargoXScreenState
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final density = ref.watch(displayDensityProvider);
     final shipmentDocs = ref.watch(shipmentDocumentsProvider).valueOrNull ?? [];
 
     final tabs = [
@@ -90,9 +92,9 @@ class _OriginalDocsAndCargoXScreenState
                 ),
                 child: Text(
                   '${shipmentDocs.length}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppTheme.cobalt,
-                    fontSize: 10,
+                    fontSize: DisplayDensityMode.clampFontSize(11.0),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -124,12 +126,15 @@ class _OriginalDocsAndCargoXScreenState
         onShipmentStatusChanged: _refreshData,
         headerActions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white70),
+            icon: Icon(Icons.refresh, color: Colors.white70, size: density.buttonIconSize),
             tooltip: l.refreshDataTooltip,
             onPressed: _refreshData,
           ),
         ],
-        body: _buildCurrentTabContent(),
+        body: Padding(
+          padding: const EdgeInsets.only(bottom: 72.0),
+          child: _buildCurrentTabContent(),
+        ),
       ),
     );
   }

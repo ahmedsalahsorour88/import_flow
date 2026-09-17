@@ -489,3 +489,22 @@ class MultiItemCustomsBreakdown(BaseModel):
     fee_codes_breakdown: Optional[dict] = Field(None, description="تفاصيل جدول تحصيل رسوم نافذة والإقرارات الجمركية الرسمية")
 
 
+class ImportFileCustomsSimulationRequest(BaseModel):
+    exchange_rate: Optional[Decimal] = Field(None, ge=0, description="سعر الصرف الرسمي للجمارك (اختياري - يتم جلبه آلياً إن لم يحدد)")
+    freight_egp: Optional[Decimal] = Field(None, ge=0, description="قيمة النولون بالجنيه (اختياري - يتم جلبه من عروض الشحن المعتمدة أو حسابه حكمياً 2%)")
+    insurance_egp: Optional[Decimal] = Field(None, ge=0, description="قيمة التأمين بالجنيه (اختياري - يحسب حكمياً 2.5% إن لم يحدد)")
+    packaging_egp: Optional[Decimal] = Field(Decimal("0.00"), ge=0, description="قيمة التعبئة والتغليف بالجنيه")
+    estimate_date: Optional[date] = Field(None, description="تاريخ التقدير - الافتراضي اليوم")
+    save_to_consultation: bool = Field(True, description="تحديث أو حفظ التقدير في دراسة الاستشارة الجمركية وميزانية الملف")
+
+
+class ImportFileCustomsSimulationResponse(BaseModel):
+    import_file_id: int
+    import_file_code: str
+    po_numbers: List[str]
+    currency: str
+    breakdown: MultiItemCustomsBreakdown
+    consultation_id: Optional[int] = None
+    summary_ar: str
+
+

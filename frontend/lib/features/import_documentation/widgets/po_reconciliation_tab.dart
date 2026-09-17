@@ -2954,7 +2954,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                             child: Text(
                                               rawFileCode,
                                               style: const TextStyle(
-                                                fontSize: 10,
+                                                fontSize: 11,
                                                 fontWeight: FontWeight.bold,
                                                 color: AppTheme.cobalt,
                                               ),
@@ -3138,7 +3138,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 isSelectable: false,
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
               ),
-              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
             ],
           ),
         ],
@@ -4173,7 +4173,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(fontSize: 10, color: labelColor)),
+                Text(label, style: TextStyle(fontSize: 11, color: labelColor)),
                 Text(
                   value,
                   maxLines: 1,

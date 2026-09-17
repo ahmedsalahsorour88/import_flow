@@ -244,7 +244,25 @@ class OriginalDocumentsCollectionService:
                 updated_by=username,
             )
             saved = OriginalDocumentsCollectionRepository.create(db, new_session)
-            return OriginalDocumentsCollectionResponse.model_validate(saved)
+
+        # Lifecycle advance: STEP_11 → STEP_12 when originals are fully received or verified
+        if status_val in ("FULLY_RECEIVED", "FULLY_VERIFIED"):
+            try:
+                from modules.lifecycle_board.service import advance_lifecycle_step_service
+                advance_lifecycle_step_service(
+                    db=db,
+                    import_file_id=payload.import_file_id,
+                    completed_step_code="STEP_11",
+                    target_step_codes=["STEP_12"],
+                    notes=f"اكتمل استلام وتدقيق أصول المستندات (الحالة: {status_val}). الانتقال إلى مرحلة استخراج نموذج 4 البنكي.",
+                    assigned_user=username,
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning("Lifecycle advance STEP_11→STEP_12 failed: %s", e)
+
+        return OriginalDocumentsCollectionResponse.model_validate(saved)
+
 
     @staticmethod
     def get_session_by_id(db: Session, collection_id: int) -> OriginalDocumentsCollectionResponse:

@@ -521,6 +521,21 @@ def push_demurrage_to_financial_settlement_service(
     db.refresh(settlement)
     db.refresh(tracking)
 
+    # Lifecycle advance: STEP_18 → STEP_19 (Demurrage finalized & pushed → Warehouse Receiving)
+    try:
+        from modules.lifecycle_board.service import advance_lifecycle_step_service
+        advance_lifecycle_step_service(
+            db=db,
+            import_file_id=file_id,
+            completed_step_code="STEP_18",
+            target_step_codes=["STEP_19"],
+            notes=f"تم ترحيل غرامات وفترات سماح الحاويات ({tracking.tracking_code}) إلى التسوية المالية. الانتقال إلى مرحلة استلام المخزن.",
+            assigned_user=user,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Lifecycle advance STEP_18->STEP_19 failed: %s", e)
+
     return {
         "success": True,
         "message": f"تم ترحيل غرامات الحاويات بقيمة {tracking.total_cost_egp:,.2f} جنيه إلى التسوية المالية لملف الاستيراد بنجاح.",
@@ -528,6 +543,7 @@ def push_demurrage_to_financial_settlement_service(
         "settlement_code": settlement.settlement_code,
         "invoice_entry": invoice_entry,
     }
+
 
 
 # =========================================================================

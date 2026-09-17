@@ -2179,7 +2179,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
               Text(value, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.bold)),
             ],
           ),

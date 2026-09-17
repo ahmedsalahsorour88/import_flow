@@ -1167,7 +1167,7 @@ class PurchaseOrderExtractor(BaseExtractor):
                                 pkg_type = 'Crate'
 
                     # If format: [Qty] [NW] [GW] [CBM]
-                    if len(num_cells) >= 3 and not (len(num_cells) >= 6):
+                    if len(num_cells) in (3, 4, 5) and not (len(num_cells) >= 6):
                         qty = num_cells[0]
                         nw = num_cells[1]
                         gw = num_cells[2]
@@ -1185,6 +1185,46 @@ class PurchaseOrderExtractor(BaseExtractor):
                                 "total_net_weight_kg": nw,
                                 "total_gross_weight_kg": gw,
                                 "total_cbm": cbm,
+                                "is_stackable": True,
+                            })
+                    # If format: [Qty] [Length] [Width] [Height] [Net Wt] [Gross Wt]
+                    elif len(num_cells) >= 6:
+                        qty = num_cells[0]
+                        l_val = num_cells[1]
+                        w_val = num_cells[2]
+                        h_val = num_cells[3]
+                        nw = num_cells[4]
+                        gw = num_cells[5]
+                        is_mm = "(mm" in text.lower() or "mm." in text.lower() or "mm)" in text.lower() or l_val > 500
+                        l_cm = l_val / 10.0 if is_mm else l_val
+                        w_cm = w_val / 10.0 if is_mm else w_val
+                        h_cm = h_val / 10.0 if is_mm else h_val
+                        unit_cbm = (l_cm * w_cm * h_cm) / 1000000.0 if (l_cm > 0 and w_cm > 0 and h_cm > 0) else 0.0
+                        total_cbm = round(unit_cbm * qty, 3)
+
+                        if 'CRATE' in desc.upper():
+                            pkg_type = 'Crate'
+                        elif 'BOX' in desc.upper():
+                            pkg_type = 'Box'
+                        elif 'PALLET' in desc.upper():
+                            pkg_type = 'Pallet'
+
+                        if qty > 0 and (gw > 0 or nw > 0 or total_cbm > 0):
+                            packing.append({
+                                "item_code": code if code else f"ITEM-{len(packing)+1:03d}",
+                                "description": desc,
+                                "package_type": pkg_type,
+                                "qty_pkg": qty,
+                                "qty_pcs": qty,
+                                "length_cm": round(l_cm, 1),
+                                "width_cm": round(w_cm, 1),
+                                "height_cm": round(h_cm, 1),
+                                "weight_unit": "KGM",
+                                "net_weight_unit_kg": (nw / qty) if qty > 0 else nw,
+                                "gross_weight_unit_kg": (gw / qty) if qty > 0 else gw,
+                                "total_net_weight_kg": nw,
+                                "total_gross_weight_kg": gw,
+                                "total_cbm": total_cbm,
                                 "is_stackable": True,
                             })
 

@@ -96,7 +96,7 @@ def create_access_token(data: dict, expires_in_seconds: int = 86400) -> str:
     return f"{signature_input}.{signature}"
 
 
-def decode_access_token(token: str) -> Optional[dict]:
+def decode_access_token(token: str, check_revocation: bool = True) -> Optional[dict]:
     try:
         parts = token.split(".")
         if len(parts) != 3:
@@ -122,7 +122,77 @@ def decode_access_token(token: str) -> Optional[dict]:
         if payload.get("exp", 0) < int(time.time()):
             return None  # Expired
 
+        # Check token revocation
+        if check_revocation and token_revocation_manager.is_revoked(token):
+            return None  # Token revoked via logout
+
         return payload
     except Exception:
         return None
+
+
+# ─── Token Revocation & Server-Side Session Invalidation ─────────────────────
+
+import threading
+from datetime import datetime, timezone
+
+
+def hash_token(token: str) -> str:
+    """Returns SHA-256 hash of a JWT token string."""
+    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+
+class TokenRevocationManager:
+    """
+    Manages in-memory and database-backed revoked token blacklist.
+    Provides 0ms in-memory lookup for every incoming request.
+    """
+    def __init__(self):
+        self._revoked_hashes = set()
+        self._lock = threading.Lock()
+        self._initialized = False
+
+    def init_from_db(self, db):
+        with self._lock:
+            if self._initialized:
+                return
+            try:
+                from modules.auth.revoked_token_model import RevokedToken
+                now_utc = datetime.now(timezone.utc)
+                # Purge expired entries
+                db.query(RevokedToken).filter(RevokedToken.expires_at < now_utc).delete()
+                db.commit()
+                # Load active revoked tokens into fast memory set
+                rows = db.query(RevokedToken.token_hash).filter(RevokedToken.expires_at >= now_utc).all()
+                self._revoked_hashes = {r[0] for r in rows}
+                self._initialized = True
+            except Exception:
+                pass
+
+    def revoke(self, token: str, user_id: Optional[int], expires_at: datetime, db):
+        t_hash = hash_token(token)
+        with self._lock:
+            self._revoked_hashes.add(t_hash)
+
+        try:
+            from modules.auth.revoked_token_model import RevokedToken
+            rev = RevokedToken(
+                token_hash=t_hash,
+                user_id=user_id,
+                revoked_at=datetime.now(timezone.utc),
+                expires_at=expires_at,
+            )
+            db.add(rev)
+            db.commit()
+        except Exception:
+            db.rollback()
+
+    def is_revoked(self, token: str) -> bool:
+        t_hash = hash_token(token)
+        with self._lock:
+            return t_hash in self._revoked_hashes
+
+
+token_revocation_manager = TokenRevocationManager()
+
 

@@ -24,29 +24,88 @@ from sqlalchemy.orm import sessionmaker
 # Import all models to ensure complete SQLAlchemy registry
 from database.database import Base, convention
 
-# Import models
-import modules.users.model
-import modules.audit_logs.model
-import modules.import_companies.model
-import modules.suppliers.model
-import modules.external_service_providers.model
-import modules.projects.model
-import modules.transport_locations.model
-import modules.incoterms.model
-import modules.customs_tariff.model
-import modules.currencies.model
-import modules.import_files.model
-import modules.purchase_orders.model
-import modules.cargox.model
-import modules.import_documentation.model
-import modules.shipping_scenarios.model
-import modules.customs_consultation.model
-import modules.demurrage_detention.model
-import modules.warehouse_receiving.model
-import modules.financial_settlement.model
-import modules.file_closure.model
-import modules.cargo_insurance.model
-import modules.notifications.model
+# Import all models to ensure complete 106-table SQLAlchemy registry
+from modules.import_companies.model import ImportCompany
+from modules.suppliers.model import Supplier
+from modules.external_service_providers.model import ExternalServiceProvider
+from modules.users.model import User, Role, Permission, RolePermission, UserPermission
+from modules.auth.revoked_token_model import RevokedToken
+from modules.audit_logs.model import AuditLog
+from modules.incoterms.model import Incoterm, CostItem, IncotermResponsibility
+from modules.customs_tariff.model import CustomsTariff
+from modules.transport_locations.model import TransportLocation
+from modules.currencies.model import Currency, ExchangeRate
+from modules.projects.model import Project
+from modules.purchase_orders.model import POLineItem, PurchaseOrder
+from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
+from modules.shipping_scenarios.model import ShippingEvaluationSession, ShippingScenarioItem
+from modules.customs_consultation.model import CustomsConsultationSession, CustomsChecklistItem
+from modules.freight_quotations.model import FreightRFQRequest, FreightQuotationItem
+from modules.customs_clearance_quotations.model import (
+    CustomsClearanceRFQ,
+    CustomsClearanceQuotationItem,
+    ClearanceServicePriceListItem,
+)
+from modules.financial_approval.model import (
+    PaymentRequestSession,
+    ImportBudgetApproval,
+    SwiftExtractionBatch,
+    SwiftExtractionField,
+    OcrCorrectionsLog,
+)
+from modules.import_documentation.model import (
+    AcidRegistrationSession,
+    BankingDocumentSession,
+    ShipmentDocumentItem,
+    CustomsDeclarationDraft,
+    POPackingReconciliationSession,
+    InvoiceBLMatchSession,
+)
+from modules.import_files.model import ImportFile
+from modules.freight_booking.model import ShipmentBooking
+from modules.cargo_shipping.model import CargoShippingRecord
+from modules.customs_clearance.model import CustomsClearanceRecord
+from modules.warehouse_receiving.model import WarehouseReceivingRecord
+from modules.inland_transport.model import InlandTransportBooking
+from modules.financial_settlement.model import LandedCostSettlementRecord
+from modules.file_closure.model import ImportFileClosureRecord
+from modules.notifications.model import SystemNotification
+from modules.smart_tasks.model import SmartTask
+from modules.shipment_updates.model import ShipmentUpdateLog
+from modules.demurrage_detention.model import DemurragePolicy, DemurrageTracking
+from modules.smart_document_upload.model import UploadSession
+from modules.docs_customs_approval.model import (
+    CustomsDocumentApproval,
+    DiscrepancyRectificationTicket,
+    DocsCustomsApprovalSession,
+)
+from modules.cargox.model import CargoXEnvelope, CargoXEnvelopeDocument, CargoXStandardInvoiceReviewSession
+from modules.original_documents_collection.model import OriginalDocumentsCollectionSession
+from modules.cargo_insurance.model import CargoInsuranceCertificate
+from modules.route_intelligence.model import RouteOperationalNote
+from modules.simulation.model import SavedSimulationScenario
+from modules.lifecycle_board.model import (
+    ShipmentStageActivity,
+    StepConfig,
+    StepConfigAuditLog,
+    PendingReferenceRecord,
+)
+from modules.smart_email_listener.model import InboundEmailLog, EmailSettings
+from modules.formal_letters.model import FormalLetterRecord
+from modules.freight_data_connector.model import (
+    FreightIndexSnapshot,
+    DemurrageRule,
+    PortDemurrageTariff,
+    ExternalApiQuotaLog,
+)
+from modules.expense_catalog.model import ExpenseCatalog
+from modules.experience_guide.model import GuideEntry, GuideEntryScope
+from modules.smart_checklists.model import ImportFileChecklistItem
+from modules.recalculation.model import RecalculationDependencyMap, RecalculationLog
+from modules.import_requirements.model import ImportRequirementAssessment
+from modules.container_loader.model import ContainerSpecModel, ContainerLoaderSessionModel
+from modules.production_sync.model import ProductionSyncLog
+
 
 
 def migrate(source_sqlite_path: str, target_pg_url: str):

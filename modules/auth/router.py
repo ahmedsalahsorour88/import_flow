@@ -15,7 +15,8 @@ from .schemas import (
     UserEffectivePermissionsResponse,
     UserPermissionsUpdatePayload,
 )
-from .security import decode_access_token
+from datetime import datetime, timezone, timedelta
+from .security import decode_access_token, token_revocation_manager
 from .service import AuthService
 from .permissions import (
     require_permission,
@@ -87,6 +88,34 @@ def login(request: Request, credentials: LoginRequest, db: Session = Depends(get
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.post("/logout")
+def logout(
+    authorization: str = Header(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Terminates the user's active session and revokes the JWT token server-side.
+    Subsequent requests with this token will be immediately rejected with HTTP 401.
+    """
+    token_revocation_manager.init_from_db(db)
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:].strip()
+
+    if token:
+        payload = decode_access_token(token, check_revocation=False)
+        exp_ts = payload.get("exp") if payload else None
+        expires_at = datetime.fromtimestamp(exp_ts, tz=timezone.utc) if exp_ts else datetime.now(timezone.utc) + timedelta(days=1)
+        token_revocation_manager.revoke(token, current_user.user_id, expires_at, db)
+
+    return {
+        "status": "success",
+        "message": "تم تسجيل الخروج بنجاح وإلغاء صلاحية الجلسة.",
+        "username": current_user.username,
+    }
 
 
 @router.get("/me/permissions", response_model=UserEffectivePermissionsResponse)

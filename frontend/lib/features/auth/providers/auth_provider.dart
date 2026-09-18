@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/network/network_security.dart';
 import '../models/user_model.dart';
 
 class AuthState {
@@ -159,6 +160,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> logout() async {
     try {
+      if (state.token != null && state.token!.isNotEmpty) {
+        // Invalidate session on backend server (TokenRevocationManager)
+        await _dio.post(
+          '${ApiConstants.baseUrl}/auth/logout',
+          options: Options(headers: {
+            'Authorization': 'Bearer ${state.token}',
+          }),
+        );
+      }
+    } catch (_) {}
+    try {
       await _storage.delete(key: _tokenKey);
       await _storage.delete(key: _userKey);
     } catch (_) {}
@@ -172,5 +184,7 @@ final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final storage = ref.watch(secureStorageProvider);
-  return AuthNotifier(Dio(), storage);
+  final dio = Dio();
+  configureDioTls(dio);
+  return AuthNotifier(dio, storage);
 });

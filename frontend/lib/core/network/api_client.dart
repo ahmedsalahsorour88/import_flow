@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../constants/api_constants.dart';
 import '../performance/client_diagnostics_service.dart';
+import 'network_security.dart';
 
 /// Centralized Dio HTTP client provider for Sorour Logistics ERP.
 /// All features must use this provider instead of creating their own Dio().
@@ -27,6 +28,9 @@ final dioProvider = Provider<Dio>((ref) {
       },
     ),
   );
+
+  // Configure TLS certificate validation for LAN / local HTTPS
+  configureDioTls(dio);
 
   // ── Auth Token & Role Header & X-Request-ID Interceptor ───────
   dio.interceptors.add(
@@ -123,6 +127,9 @@ final uploadDioProvider = Provider<Dio>((ref) {
       sendTimeout: const Duration(seconds: 180),
     ),
   );
+
+  // Configure TLS certificate validation for LAN / local HTTPS
+  configureDioTls(dio);
 
   dio.interceptors.add(
     InterceptorsWrapper(

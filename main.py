@@ -23,6 +23,7 @@ from modules.import_companies.model import ImportCompany
 from modules.suppliers.model import Supplier
 from modules.external_service_providers.model import ExternalServiceProvider
 from modules.users.model import User, Role, Permission, RolePermission, UserPermission
+from modules.auth.revoked_token_model import RevokedToken
 from modules.audit_logs.model import AuditLog
 from modules.incoterms.model import Incoterm, CostItem, IncotermResponsibility
 from modules.customs_tariff.model import CustomsTariff

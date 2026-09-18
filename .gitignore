@@ -42,6 +42,9 @@ scratch*.txt
 
 # Secrets / Environment
 .env
+certs/
+*.key
+*.crt
 
 # Backups
 backups/

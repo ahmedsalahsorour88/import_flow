@@ -12,6 +12,7 @@ import '../../features/smart_tasks/widgets/smart_email_listener_dialog.dart';
 import '../../features/smart_tasks/widgets/email_settings_dialog.dart';
 import '../../features/production_sync/widgets/production_sync_hub_dialog.dart';
 import '../../features/import_files/providers/import_files_provider.dart';
+import '../widgets/system_settings_dialog.dart';
 
 enum CommandPaletteCategory {
   screens,
@@ -619,6 +620,19 @@ class CommandPaletteRegistry {
           context: ctx,
           builder: (_) => const ProductionSyncHubDialog(),
         ),
+      ),
+    );
+
+    items.add(
+      CommandPaletteItem(
+        id: 'action_system_settings',
+        title: isArabic ? 'الإعدادات الأساسية للنظام (اللغة، المظهر، الكثافة)' : 'Basic System Settings (Language, Theme, Density)',
+        subtitle: isArabic ? 'تخصيص لغة الواجهة، وضع المظهر، كثافة عرض الجداول، وتشخيص البيئة' : 'Configure interface language, appearance theme, display density, and diagnostics',
+        category: CommandPaletteCategory.actions,
+        icon: Icons.tune_rounded,
+        badge: isArabic ? 'إعدادات' : 'Config',
+        keywords: ['settings', 'preferences', 'language', 'theme', 'density', 'إعدادات', 'خيارات', 'لغة', 'مظهر', 'كثافة'],
+        onSelect: (ctx, r) => SystemSettingsDialog.show(ctx),
       ),
     );
 

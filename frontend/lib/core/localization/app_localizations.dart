@@ -8449,6 +8449,59 @@ abstract class AppLocalizations {
   String get multiPaneBackToList;
   String get multiPaneSidebarTitle;
   String get multiPaneDetailsTitle;
+
+  // ── PO Balance & Partial Shipments Ledger ──
+  String get poBalanceLedgerTitle;
+  String poBalanceSubTitle(String poCode, String fulfillment);
+  String get poBalanceFullyShipped;
+  String get poBalancePartialInProgress;
+  String get poBalanceTotalOrderedQty;
+  String get poBalanceActuallyShippedQty;
+  String get poBalanceRemainingQty;
+  String get poBalanceUnit;
+  String poBalanceValue(String val);
+  String get poBalanceLineItemsTitle;
+  String get poBalanceColItemCode;
+  String get poBalanceColDescription;
+  String get poBalanceColOrderedQty;
+  String get poBalanceColShippedQty;
+  String get poBalanceColRemaining;
+  String get poBalanceColStatus;
+  String get poBalanceStatusCompleted;
+  String get poBalanceStatusPartial;
+  String get poBalanceLoading;
+  String poBalanceLoadError(String err);
+
+  // ── Container Demurrage Radar (TR-02) ──
+  String get demurrageRadarCardTitle;
+  String get demurrageRadarCardSubtitle;
+  String get demurrageRadarRefreshTooltip;
+  String get demurrageRadarOpenScreenBtn;
+  String get demurrageRadarSafeBadge;
+  String get demurrageRadarWarningBadge;
+  String get demurrageRadarActiveFinesBadge;
+  String get demurrageRadarReturnedBadge;
+  String demurrageRadarExposureBanner(String usd, String egp, String total);
+  String get demurrageRadarEmptyState;
+  String get demurrageRadarCarrierFreeDays;
+  String demurrageRadarDaysCount(int consumed, int total);
+  String get demurrageRadarStatusSafe;
+  String get demurrageRadarStatusWarning;
+  String get demurrageRadarStatusCritical;
+  String get demurrageRadarStatusReturned;
+  String get demurrageRadarButtonLabel;
+
+  // Screen Photos Localization Fixes
+  String get smartEmailCheckInboxBtn;
+  String get smartEmailSettingsBtn;
+  String get invoiceBlMatchTabInspect;
+  String get invoiceBlMatchTabHistory;
+  String get invoiceBlMatchNewSessionBtn;
+  String get cooSaveDraftSessionBtn;
+  String get cooChinaRecommendationAlert;
+  String get cooChinaGeneralExemptionNote;
+  String get cooEuRecommendationAlert;
+  String get cooAgadirGaftaRecommendationAlert;
 }
 
 

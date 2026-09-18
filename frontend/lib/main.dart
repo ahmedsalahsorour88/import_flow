@@ -11,6 +11,7 @@ import 'core/localization/locale_provider.dart';
 import 'core/network/dio_client.dart';
 import 'core/performance/navigation_perf_tracker.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/density_provider.dart';
 import 'core/theme/theme_provider.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/login_screen.dart';
@@ -250,10 +251,12 @@ class _SorourLogisticsAppState extends ConsumerState<SorourLogisticsApp>
     final authState = ref.watch(authProvider);
     final locale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
+    final density = ref.watch(displayDensityProvider);
     final isRtl = locale.languageCode == 'ar';
 
     return KeyedSubtree(
-      key: ValueKey(reloadKey),
+      key: ValueKey(
+          '${reloadKey}_${authState.isAuthenticated}_${locale.languageCode}_${density.name}'),
       child: AppLocalizationsProvider(
         locale: locale,
         child: Directionality(
@@ -261,9 +264,9 @@ class _SorourLogisticsAppState extends ConsumerState<SorourLogisticsApp>
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
-            title: 'Sorour Logistics ERP (v1.0.193)',
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
+            title: 'Sorour Logistics ERP (v1.0.196)',
+            theme: AppTheme.lightTheme.copyWith(visualDensity: density.visualDensity),
+            darkTheme: AppTheme.darkTheme.copyWith(visualDensity: density.visualDensity),
             themeMode: themeMode,
             scrollBehavior: AppCustomScrollBehavior(),
             locale: locale,

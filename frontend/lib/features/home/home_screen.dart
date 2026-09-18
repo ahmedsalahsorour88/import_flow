@@ -73,6 +73,7 @@ import '../smart_tasks/widgets/email_settings_dialog.dart';
 import '../../core/widgets/ai_assistant_panel.dart';
 import '../../core/providers/ai_assistant_provider.dart';
 import '../../core/widgets/system_live_clock_widget.dart';
+import '../../core/widgets/system_settings_dialog.dart';
 
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -390,7 +391,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     children: [
                                       for (final tab in tabsState.tabs)
                                         KeyedSubtree(
-                                          key: ValueKey(tab.id),
+                                          key: ValueKey('${tab.id}_${ref.watch(localeProvider).languageCode}'),
                                           child: _screens[tab.routeIndex < _screens.length
                                               ? tab.routeIndex
                                               : 0],
@@ -545,6 +546,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         IconButton(
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
+          icon: const Icon(Icons.settings_outlined, color: Colors.white70, size: 16),
+          tooltip: isArabic ? 'الإعدادات الأساسية للنظام' : 'Basic System Settings',
+          onPressed: () => SystemSettingsDialog.show(context),
+        ),
+        const SizedBox(height: 6),
+        IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
           icon: const Icon(Icons.info_outline_rounded, color: Colors.white70, size: 16),
           tooltip: context.l10n.systemInfoTooltip,
           onPressed: () => _showSystemInfoDialog(context),
@@ -678,6 +687,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 icon: const Icon(Icons.mail_outline_rounded, color: Colors.white60, size: 14),
                 tooltip: isArabic ? 'إعدادات ومزامنة البريد الإلكتروني' : 'Email Integration & Settings',
                 onPressed: () => EmailSettingsDialog.show(context),
+              ),
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                icon: const Icon(Icons.settings_outlined, color: Colors.white60, size: 14),
+                tooltip: isArabic ? 'الإعدادات الأساسية للنظام' : 'Basic System Settings',
+                onPressed: () => SystemSettingsDialog.show(context),
               ),
             ],
           ),
@@ -998,7 +1014,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 final versionText = versionAsync.when(
                   data: (info) => 'v${info.version} (Build ${info.buildNumber})',
                   loading: () => 'v... (Loading)',
-                  error: (_, __) => 'v1.0.193 (Build 194)',
+                  error: (_, __) => 'v1.0.196 (Build 197)',
                 );
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

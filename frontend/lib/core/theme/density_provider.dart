@@ -6,7 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// Persisted via FlutterSecureStorage so user preference is remembered across sessions.
 enum DisplayDensityMode {
   comfortable(
-    nameAr: 'مريح (Comfortable)',
+    nameAr: 'مريح',
     nameEn: 'Comfortable',
     rowHeight: 56.0,
     headerHeight: 46.0,
@@ -38,7 +38,7 @@ enum DisplayDensityMode {
     sidebarNavFontSize: 13.0,
   ),
   compact(
-    nameAr: 'مدمج (Compact)',
+    nameAr: 'مدمج',
     nameEn: 'Compact',
     rowHeight: 48.0,
     headerHeight: 42.0,
@@ -70,7 +70,7 @@ enum DisplayDensityMode {
     sidebarNavFontSize: 13.0,
   ),
   ultraCompact(
-    nameAr: 'فائق الكثافة (Ultra-Compact)',
+    nameAr: 'فائق الكثافة',
     nameEn: 'Ultra-Compact',
     rowHeight: 40.0,
     headerHeight: 38.0,
@@ -133,6 +133,8 @@ enum DisplayDensityMode {
   bool get isComfortable => this == DisplayDensityMode.comfortable;
   bool get isCompact => this == DisplayDensityMode.compact;
   bool get isUltraCompact => this == DisplayDensityMode.ultraCompact;
+
+  String localizedName(bool isArabic) => isArabic ? nameAr : nameEn;
 
   VisualDensity get visualDensity {
     switch (this) {

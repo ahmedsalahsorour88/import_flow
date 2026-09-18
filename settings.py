@@ -28,4 +28,14 @@ SECRET_KEY: str = _secret
 ALLOW_DEV_AUTH_BYPASS = os.getenv("ALLOW_DEV_AUTH_BYPASS", "false").lower() in ("true", "1")
 DEBUG = os.getenv("DEBUG", "false").lower() in ("true", "1")
 DATABASE_PATH = os.getenv("DATABASE_PATH", str(BASE_DIR / "sorour_logistics.db"))
-ADMIN_INITIAL_PASSWORD = os.getenv("ADMIN_INITIAL_PASSWORD", "SorourAdmin@2026!")
+_admin_pass = os.getenv("ADMIN_INITIAL_PASSWORD", "")
+if not _admin_pass:
+    import secrets
+    _admin_pass = secrets.token_urlsafe(16) + "A1!"
+    try:
+        with open(ENV_PATH, "a", encoding="utf-8") as f:
+            f.write(f"\nADMIN_INITIAL_PASSWORD={_admin_pass}\n")
+    except Exception:
+        pass
+
+ADMIN_INITIAL_PASSWORD = _admin_pass

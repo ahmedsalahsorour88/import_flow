@@ -1859,7 +1859,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        '⚡ فحص ومطابقة الفاتورة والبوليصة',
+                        context.l10n.invoiceBlMatchTabInspect,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -1900,7 +1900,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        '📋 سجل جلسات المطابقة السابقة',
+                        context.l10n.invoiceBlMatchTabHistory,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -2200,7 +2200,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
                         icon: const Icon(Icons.add),
-                        label: const Text('بدء جلسة فحص ومطابقة جديدة'),
+                        label: Text(context.l10n.invoiceBlMatchNewSessionBtn),
                         onPressed: () => setState(() => _activeViewMode = 0),
                       ),
                     ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../demurrage_detention/models/demurrage_model.dart';
 import '../../demurrage_detention/providers/demurrage_provider.dart';
@@ -36,6 +37,7 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
     ContainerRadarOverviewModel radar,
     bool isDark,
   ) {
+    final l = context.l10n;
     return Container(
       key: const Key('containerDemurrageRadarCard'),
       decoration: BoxDecoration(
@@ -89,14 +91,14 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'رادار مراقبة فترات السماح وتفادي غرامات الحاويات (TR-02)',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    Text(
+                      l.demurrageRadarCardTitle,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'متابعة حية لفترات السماح المجانية للخطوط الملاحية وأرضيات الموانئ لمنع الغرامات',
+                      l.demurrageRadarCardSubtitle,
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal.withOpacity(0.7),
@@ -109,7 +111,7 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
               IconButton(
                 key: const Key('refreshDemurrageRadarBtn'),
                 icon: const Icon(Icons.refresh_rounded, size: 18),
-                tooltip: 'تحديث الرادار',
+                tooltip: l.demurrageRadarRefreshTooltip,
                 onPressed: () => ref.invalidate(containerRadarOverviewProvider),
               ),
               const SizedBox(width: 4),
@@ -122,7 +124,7 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                label: const Text('فتح شاشة الغرامات', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                label: Text(l.demurrageRadarOpenScreenBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -142,7 +144,7 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
             children: [
               _buildKpiBadge(
                 context,
-                title: 'آمن داخل السماح',
+                title: l.demurrageRadarSafeBadge,
                 count: radar.safeContainersCount,
                 color: const Color(0xFF27AE60),
                 icon: Icons.check_circle_rounded,
@@ -150,7 +152,7 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
               ),
               _buildKpiBadge(
                 context,
-                title: 'تحذير 72 ساعة',
+                title: l.demurrageRadarWarningBadge,
                 count: radar.warningContainersCount,
                 color: const Color(0xFFE67E22),
                 icon: Icons.warning_amber_rounded,
@@ -158,7 +160,7 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
               ),
               _buildKpiBadge(
                 context,
-                title: 'غرامات سارية',
+                title: l.demurrageRadarActiveFinesBadge,
                 count: radar.criticalOverdueCount,
                 color: const Color(0xFFC0392B),
                 icon: Icons.error_rounded,
@@ -166,7 +168,7 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
               ),
               _buildKpiBadge(
                 context,
-                title: 'تم الإرجاع',
+                title: l.demurrageRadarReturnedBadge,
                 count: radar.returnedContainersCount,
                 color: const Color(0xFF7F8C8D),
                 icon: Icons.assignment_turned_in_rounded,
@@ -191,7 +193,11 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'إجمالي الغرامات الجارية: \$${radar.totalAccruedDemurrageUsd.toStringAsFixed(2)} غرامات خطوط + ${radar.totalAccruedStorageEgp.toStringAsFixed(0)} ج.م أرضيات (التعرض التقديري: ${radar.totalEstimatedExposureEgp.toStringAsFixed(0)} ج.م)',
+                      l.demurrageRadarExposureBanner(
+                        radar.totalAccruedDemurrageUsd.toStringAsFixed(2),
+                        radar.totalAccruedStorageEgp.toStringAsFixed(0),
+                        radar.totalEstimatedExposureEgp.toStringAsFixed(0),
+                      ),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -218,7 +224,7 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
               ),
               child: Center(
                 child: Text(
-                  'لا توجد حاويات قيد التتبع حالياً — كافة الشحنات مستقرة داخل فترات السماح.',
+                  l.demurrageRadarEmptyState,
                   style: TextStyle(
                     fontSize: 13,
                     color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal.withOpacity(0.7),
@@ -290,7 +296,38 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
     ContainerRadarItemModel item,
     bool isDark,
   ) {
+    final l = context.l10n;
     final statusColor = _parseColor(item.colorCode);
+
+    final String statusLabel = l.isArabic
+        ? item.statusLabelAr
+        : (item.radarStatus.contains('SAFE') && !item.radarStatus.contains('RETURNED')
+            ? l.demurrageRadarStatusSafe
+            : (item.radarStatus.contains('WARNING')
+                ? l.demurrageRadarStatusWarning
+                : (item.radarStatus.contains('CRITICAL')
+                    ? l.demurrageRadarStatusCritical
+                    : (item.radarStatus.contains('RETURNED')
+                        ? l.demurrageRadarStatusReturned
+                        : item.statusLabelAr))));
+
+    final String alertMessage;
+    if (l.isArabic) {
+      alertMessage = item.alertMessageAr;
+    } else {
+      if (item.radarStatus.contains('CRITICAL')) {
+        final overdueDays = item.demurrageDaysConsumed > item.demurrageFreeDays
+            ? (item.demurrageDaysConsumed - item.demurrageFreeDays)
+            : 1;
+        alertMessage = 'Fine Risk: Exceeded by $overdueDays days! Expedite unstuffing & return.';
+      } else if (item.radarStatus.contains('WARNING')) {
+        alertMessage = 'Warning: Only ${item.demurrageDaysRemaining} free days left before fines apply.';
+      } else if (item.radarStatus.contains('RETURNED')) {
+        alertMessage = 'Container ${item.containerNumber} returned safely to shipping line.';
+      } else {
+        alertMessage = 'Safe: Container is within free time (${item.demurrageDaysRemaining} days remaining).';
+      }
+    }
 
     return Container(
       key: Key('radar_item_${item.containerNumber}'),
@@ -326,7 +363,7 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    item.statusLabelAr,
+                    statusLabel,
                     style: TextStyle(
                       color: statusColor,
                       fontSize: 10,
@@ -358,13 +395,13 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'سماح الخط الملاحي:',
+                      l.demurrageRadarCarrierFreeDays,
                       style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Text(
-                    '${item.demurrageDaysConsumed} / ${item.demurrageFreeDays} يوم',
+                    l.demurrageRadarDaysCount(item.demurrageDaysConsumed, item.demurrageFreeDays),
                     style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -386,7 +423,7 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
 
           // Alert Message snippet
           Text(
-            item.alertMessageAr,
+            alertMessage,
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,

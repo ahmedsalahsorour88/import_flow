@@ -235,6 +235,30 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
     }
   }
 
+  String _localizeAlert(BuildContext context, String? alert) {
+    if (alert == null || alert.isEmpty) return '';
+    if (context.l10n.isArabic) return alert;
+    if (alert.contains('الصين') || alert.contains('China')) {
+      return context.l10n.cooChinaRecommendationAlert;
+    }
+    if (alert.contains('الاتحاد الأوروبي') || alert.contains('EUR.1') || alert.contains('EU')) {
+      return context.l10n.cooEuRecommendationAlert;
+    }
+    if (alert.contains('أغادير') || alert.contains('Agadir')) {
+      return context.l10n.cooAgadirGaftaRecommendationAlert;
+    }
+    return alert;
+  }
+
+  String _localizeExemption(BuildContext context, String? notes) {
+    if (notes == null || notes.isEmpty) return '';
+    if (context.l10n.isArabic) return notes;
+    if (notes.contains('China') || notes.contains('الصين')) {
+      return context.l10n.cooChinaGeneralExemptionNote;
+    }
+    return notes;
+  }
+
   void _loadSnapshot(int fileId) {
     final files = ref.read(importFilesProvider).value ?? [];
     final file = files.where((f) => f.importFileId == fileId).firstOrNull;
@@ -799,7 +823,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
-                                _activeExemptionNotes!,
+                                _localizeExemption(context, _activeExemptionNotes),
                                 style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, fontSize: 11),
                               ),
                             ),
@@ -837,7 +861,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    _recommendationAlert!,
+                    _localizeAlert(context, _recommendationAlert),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 12.5,
@@ -1020,7 +1044,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: CopyableText(
-                                _recommendationAlert!,
+                                _localizeAlert(context, _recommendationAlert),
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
@@ -1082,7 +1106,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
             templateData: _activeDraftTemplate!,
             certificateType: _certType,
             acidNumber: _activeAcidNumber ?? '7595528271020210010',
-            exemptionNotes: _activeExemptionNotes,
+            exemptionNotes: _localizeExemption(context, _activeExemptionNotes),
             onRefresh: () {
               if (_selectedImportFileId != null) {
                 _fetchAndApplyDraft(_selectedImportFileId!);
@@ -1124,7 +1148,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                       icon: _isSavingDraft
                           ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.bookmark_added_outlined, size: 16),
-                      label: const Text('حفظ مسودة مؤقتة للجلسة', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text(context.l10n.cooSaveDraftSessionBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
                       onPressed: (_isLoading || _selectedImportFileId == null)
                           ? null
                           : () async {

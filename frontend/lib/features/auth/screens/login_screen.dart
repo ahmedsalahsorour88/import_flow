@@ -5,6 +5,7 @@ import '../../../core/localization/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../main.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -37,7 +38,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final ok = await ref.read(authProvider.notifier).login(username, password);
       if (!ok && mounted) {
-        final err = ref.read(authProvider).errorMessage ?? l.loginInvalidCredentials;
+        String err = ref.read(authProvider).errorMessage ?? l.loginInvalidCredentials;
+        if (err.contains('اسم المستخدم أو كلمة المرور') || err.contains('Invalid credentials') || err.contains('Incorrect username or password')) {
+          err = l.loginInvalidCredentials;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -51,6 +55,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
+      } else if (ok && mounted) {
+        ref.read(appReloadKeyProvider.notifier).state++;
       }
     } catch (e) {
       if (mounted) {

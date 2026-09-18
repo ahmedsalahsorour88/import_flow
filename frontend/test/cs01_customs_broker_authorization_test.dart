@@ -156,6 +156,68 @@ void main() {
       expect(find.byKey(const Key('authorizationNotesField')), findsOneWidget);
       expect(find.byKey(const Key('confirmBrokerAuthorizationBtn')), findsOneWidget);
     });
+
+    testWidgets('Renders CustomsBrokerAuthorizationDialog in English when locale is en', (tester) async {
+      final sampleFile = ImportFileModel(
+        importFileId: 55,
+        importFileCode: 'IMP-2026-0055',
+        customFileNumber: 'Medical Devices',
+        companyName: 'Al-Amal Medical Supplies',
+        supplierName: 'Siemens Healthineers',
+        brokerId: null,
+        brokerName: null,
+        portOfDischarge: 'Alexandria Port Customs',
+        currentModule: 'Phase 5 - Sailing & CargoX',
+        currentStage: 'Original Documents Collected',
+        progressPercent: 75.0,
+        nextAction: '(CS-01) Assign Customs Broker',
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T10:00:00Z',
+      );
+
+      final fakeBrokers = [
+        PartnerModel(
+          providerId: 10,
+          partnerCode: 'BRK-01',
+          partnerName: 'Nile Customs Clearance Co.',
+          partnerType: 'Customs Broker',
+          clearanceLicenseNumber: 'LIC-2026-99',
+          authorizedPorts: 'Alexandria',
+          country: 'Egypt',
+          paymentType: 'Cash',
+          creditLimit: 0,
+          rating: 4.5,
+          isActive: true,
+        ),
+      ];
+
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            allPartnersProvider.overrideWith((ref) => FakeAllPartnersNotifier(fakeBrokers)),
+          ],
+          child: AppLocalizationsProvider(
+            locale: const Locale('en'),
+            child: MaterialApp(
+              locale: const Locale('en'),
+              home: Scaffold(
+                body: CustomsBrokerAuthorizationDialog(file: sampleFile),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Verify Header & File details in English
+      expect(find.text('(CS-01) Assign Customs Broker & E-Authorization'), findsOneWidget);
+      expect(find.textContaining('Supplier: Siemens Healthineers'), findsOneWidget);
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('(CS-01) Approve & Authorize Broker'), findsOneWidget);
+    });
   });
 }
 

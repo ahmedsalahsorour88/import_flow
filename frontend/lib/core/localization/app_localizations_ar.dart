@@ -10901,6 +10901,61 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get multiPaneBackToList => 'العودة إلى القائمة';
   @override String get multiPaneSidebarTitle => 'قائمة العناصر';
   @override String get multiPaneDetailsTitle => 'لوحة التفاصيل المعمقة';
+
+  // ── PO Balance & Partial Shipments Ledger ──
+  @override String get poBalanceLedgerTitle => 'ميزان أمر الشراء والشحنات الجزئية (PO Balance & Partial Shipments Ledger)';
+  @override String poBalanceSubTitle(String poCode, String fulfillment) => 'أمر الشراء: $poCode  •  نسبة استيفاء التوريد: $fulfillment%';
+  @override String get poBalanceFullyShipped => '✅ تم استيفاء شحن كامل أمر الشراء (100%)';
+  @override String get poBalancePartialInProgress => '⏳ جاري استكمال شحن الدفعات الجزئية';
+  @override String get poBalanceTotalOrderedQty => 'إجمالي الكميات المطلوبة';
+  @override String get poBalanceActuallyShippedQty => 'الكميات المشحونة فعلياً';
+  @override String get poBalanceRemainingQty => 'الرصيد المتبقي للتوريد';
+  @override String get poBalanceUnit => 'وحدة';
+  @override String poBalanceValue(String val) => 'القيمة: $val';
+  @override String get poBalanceLineItemsTitle => '📋 تفصيل ميزان بنود أمر الشراء (Line Items Balance):';
+  @override String get poBalanceColItemCode => 'كود البند';
+  @override String get poBalanceColDescription => 'الوصف';
+  @override String get poBalanceColOrderedQty => 'الكمية المطلوبة';
+  @override String get poBalanceColShippedQty => 'المشحون';
+  @override String get poBalanceColRemaining => 'المتبقي';
+  @override String get poBalanceColStatus => 'الحالة';
+  @override String get poBalanceStatusCompleted => 'مكتمل ✅';
+  @override String get poBalanceStatusPartial => 'متبقي جزئي ⏳';
+  @override String get poBalanceLoading => 'جاري احتساب ميزان الشحن...';
+  @override String poBalanceLoadError(String err) => 'تعذر تحميل ميزان أمر الشراء: $err';
+
+  // ── Container Demurrage Radar (TR-02) ──
+  @override String get demurrageRadarCardTitle => 'رادار مراقبة فترات السماح وتفادي غرامات الحاويات (TR-02)';
+  @override String get demurrageRadarCardSubtitle => 'متابعة حية لفترات السماح المجانية للخطوط الملاحية وأرضيات الموانئ لمنع الغرامات';
+  @override String get demurrageRadarRefreshTooltip => 'تحديث الرادار';
+  @override String get demurrageRadarOpenScreenBtn => 'فتح شاشة الغرامات';
+  @override String get demurrageRadarSafeBadge => 'آمن داخل السماح';
+  @override String get demurrageRadarWarningBadge => 'تحذير 72 ساعة';
+  @override String get demurrageRadarActiveFinesBadge => 'غرامات سارية';
+  @override String get demurrageRadarReturnedBadge => 'تم الإرجاع';
+  @override String demurrageRadarExposureBanner(String usd, String egp, String total) =>
+      'إجمالي الغرامات الجارية: \$$usd غرامات خطوط + $egp ج.م أرضيات (التعرض التقديري: $total ج.م)';
+  @override String get demurrageRadarEmptyState =>
+      'لا توجد حاويات قيد التتبع حالياً — كافة الشحنات مستقرة داخل فترات السماح.';
+  @override String get demurrageRadarCarrierFreeDays => 'سماح الخط الملاحي:';
+  @override String demurrageRadarDaysCount(int consumed, int total) => '$consumed / $total يوم';
+  @override String get demurrageRadarStatusSafe => 'آمن';
+  @override String get demurrageRadarStatusWarning => 'تحذير';
+  @override String get demurrageRadarStatusCritical => 'متأخر';
+  @override String get demurrageRadarStatusReturned => 'مسترجع';
+  @override String get demurrageRadarButtonLabel => 'رادار الغرامات (TR-02)';
+
+  // Screen Photos Localization Fixes
+  @override String get smartEmailCheckInboxBtn => 'فحص الصندوق الآن';
+  @override String get smartEmailSettingsBtn => 'إعدادات البريد';
+  @override String get invoiceBlMatchTabInspect => '⚡ فحص ومطابقة الفاتورة والبوليصة';
+  @override String get invoiceBlMatchTabHistory => '📋 سجل جلسات المطابقة السابقة';
+  @override String get invoiceBlMatchNewSessionBtn => 'بدء جلسة فحص ومطابقة جديدة';
+  @override String get cooSaveDraftSessionBtn => 'حفظ مسودة مؤقتة للجلسة';
+  @override String get cooChinaRecommendationAlert => 'بلد المنشأ جمهورية الصين الشعبية — تم اختيار شهادة منشأ الصين (CCPIT) تلقائياً.';
+  @override String get cooChinaGeneralExemptionNote => 'المنشأ: China - تخضع الشحنة لضريبة الوارد العامة المقررة بجدول التعريفة الجمركية المصرية وضريبة القيمة المضافة 14%.';
+  @override String get cooEuRecommendationAlert => 'بلد المنشأ ضمن دول الاتحاد الأوروبي (27 دولة) — تم اختيار شهادة الحركة EUR.1 تلقائياً للاستفادة من الإعفاء الجمركي التفضيلى الكامل.';
+  @override String get cooAgadirGaftaRecommendationAlert => 'بلد المنشأ عضو في اتفاقية أغادير ومنطقة التجارة الحرة العربية (GAFTA) معاً — لا يتم الاختيار تلقائياً، يرجى اختيار نوع الشهادة يدوياً وقت الاستيراد.';
 }
 
 

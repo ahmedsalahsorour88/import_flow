@@ -12,9 +12,12 @@ import '../../../core/providers/workspace_tabs_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../smart_tasks/widgets/smart_email_listener_dialog.dart';
 import '../../smart_tasks/widgets/email_settings_dialog.dart';
+import '../../../core/localization/locale_provider.dart';
+import '../../../core/theme/theme_provider.dart';
 import '../../../core/widgets/command_palette_dialog.dart';
 import '../../../core/widgets/display_density_selector.dart';
 import '../../../core/widgets/keyboard_shortcuts_dialog.dart';
+import '../../../core/widgets/system_settings_dialog.dart';
 import '../../../core/widgets/unsaved_changes_dialog.dart';
 
 String _getLocalizedTabTitle(BuildContext context, int routeIndex, String fallbackTitle) {
@@ -314,6 +317,70 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
             constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
             splashRadius: 16,
             onPressed: () => EmailSettingsDialog.show(context),
+          ),
+          const SizedBox(width: 2),
+          // Language Switcher Pill (EN / عربي)
+          Tooltip(
+            message: isArabic
+                ? 'تبديل لغة الواجهة (English / العربية)'
+                : 'Toggle Interface Language (English / Arabic)',
+            child: InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => ref.read(localeProvider.notifier).toggleLocale(),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E2631) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                    width: 0.8,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.language_rounded, size: 14, color: AppTheme.cobalt),
+                    const SizedBox(width: 4),
+                    Text(
+                      isArabic ? 'EN' : 'عربي',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Theme Toggle Button (Light / Dark)
+          IconButton(
+            tooltip: l10n.themeToggleTooltip,
+            icon: Icon(
+              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+              size: 18,
+              color: isDark ? Colors.amber.shade300 : AppTheme.charcoal,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            splashRadius: 16,
+            onPressed: () => ref.read(themeModeProvider.notifier).toggleTheme(),
+          ),
+          // Basic System Settings Dialog Button
+          IconButton(
+            tooltip: isArabic ? 'الإعدادات الأساسية للنظام' : 'Basic System Settings',
+            icon: Icon(
+              Icons.settings_outlined,
+              size: 18,
+              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            splashRadius: 16,
+            onPressed: () => SystemSettingsDialog.show(context),
           ),
           const SizedBox(width: 2),
           // Global Display Density Selector

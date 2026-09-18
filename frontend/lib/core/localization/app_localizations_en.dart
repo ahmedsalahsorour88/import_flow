@@ -10900,6 +10900,61 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get multiPaneBackToList => 'Back to List';
   @override String get multiPaneSidebarTitle => 'Item List';
   @override String get multiPaneDetailsTitle => 'Detail View';
+
+  // ── PO Balance & Partial Shipments Ledger ──
+  @override String get poBalanceLedgerTitle => 'PO Balance & Partial Shipments Ledger';
+  @override String poBalanceSubTitle(String poCode, String fulfillment) => 'Purchase Order: $poCode  •  Fulfillment Rate: $fulfillment%';
+  @override String get poBalanceFullyShipped => '✅ Full PO shipment completed (100%)';
+  @override String get poBalancePartialInProgress => '⏳ Partial shipments in progress';
+  @override String get poBalanceTotalOrderedQty => 'Total Ordered Quantity';
+  @override String get poBalanceActuallyShippedQty => 'Actually Shipped Quantity';
+  @override String get poBalanceRemainingQty => 'Remaining Balance for Delivery';
+  @override String get poBalanceUnit => 'units';
+  @override String poBalanceValue(String val) => 'Value: $val';
+  @override String get poBalanceLineItemsTitle => '📋 Line Items Balance Breakdown:';
+  @override String get poBalanceColItemCode => 'Item Code';
+  @override String get poBalanceColDescription => 'Description';
+  @override String get poBalanceColOrderedQty => 'Ordered Qty';
+  @override String get poBalanceColShippedQty => 'Shipped';
+  @override String get poBalanceColRemaining => 'Remaining';
+  @override String get poBalanceColStatus => 'Status';
+  @override String get poBalanceStatusCompleted => 'Completed ✅';
+  @override String get poBalanceStatusPartial => 'Partial Remaining ⏳';
+  @override String get poBalanceLoading => 'Calculating shipment balance...';
+  @override String poBalanceLoadError(String err) => 'Failed to load PO balance: $err';
+
+  // ── Container Demurrage Radar (TR-02) ──
+  @override String get demurrageRadarCardTitle => 'Container Demurrage & Free Days Radar (TR-02)';
+  @override String get demurrageRadarCardSubtitle => 'Live tracking of free days for shipping lines and port storage to prevent detention fines';
+  @override String get demurrageRadarRefreshTooltip => 'Refresh Radar';
+  @override String get demurrageRadarOpenScreenBtn => 'Open Demurrage Screen';
+  @override String get demurrageRadarSafeBadge => 'Safe in Free Time';
+  @override String get demurrageRadarWarningBadge => '72-Hour Warning';
+  @override String get demurrageRadarActiveFinesBadge => 'Active Fines';
+  @override String get demurrageRadarReturnedBadge => 'Returned';
+  @override String demurrageRadarExposureBanner(String usd, String egp, String total) =>
+      'Total Accrued Fees: \$$usd Line Demurrage + $egp EGP Port Storage (Estimated Exposure: $total EGP)';
+  @override String get demurrageRadarEmptyState =>
+      'No containers currently tracked — all shipments are stable within free days.';
+  @override String get demurrageRadarCarrierFreeDays => 'Line Free Days:';
+  @override String demurrageRadarDaysCount(int consumed, int total) => '$consumed / $total days';
+  @override String get demurrageRadarStatusSafe => 'Safe';
+  @override String get demurrageRadarStatusWarning => 'Warning';
+  @override String get demurrageRadarStatusCritical => 'Overdue';
+  @override String get demurrageRadarStatusReturned => 'Returned';
+  @override String get demurrageRadarButtonLabel => 'Demurrage Radar (TR-02)';
+
+  // Screen Photos Localization Fixes
+  @override String get smartEmailCheckInboxBtn => 'Check Inbox Now';
+  @override String get smartEmailSettingsBtn => 'Email Settings';
+  @override String get invoiceBlMatchTabInspect => '⚡ Inspect & Match Invoice and B/L';
+  @override String get invoiceBlMatchTabHistory => '📋 Match Sessions History';
+  @override String get invoiceBlMatchNewSessionBtn => 'Start New Match Session';
+  @override String get cooSaveDraftSessionBtn => 'Save Session Draft';
+  @override String get cooChinaRecommendationAlert => 'Country of origin is PR China — China Certificate of Origin (CCPIT) selected automatically.';
+  @override String get cooChinaGeneralExemptionNote => 'Origin: China - Subject to standard Egyptian customs tariff import duty and 14% VAT.';
+  @override String get cooEuRecommendationAlert => 'Country of origin is within EU-27 — EUR.1 Movement Certificate selected automatically for full preferential customs exemption.';
+  @override String get cooAgadirGaftaRecommendationAlert => 'Country of origin is a member of both Agadir & GAFTA — Please select certificate type manually.';
 }
 
 

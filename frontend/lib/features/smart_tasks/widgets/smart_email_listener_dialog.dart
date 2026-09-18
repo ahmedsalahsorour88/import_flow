@@ -309,7 +309,7 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
                 OutlinedButton.icon(
                   onPressed: _isProcessing ? null : _fetchInboxLive,
                   icon: const Icon(Icons.sync_rounded, size: 16),
-                  label: const Text('فحص الصندوق الآن', style: TextStyle(fontSize: 12)),
+                  label: Text(l.smartEmailCheckInboxBtn, style: const TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.emerald,
                     side: const BorderSide(color: AppTheme.emerald),
@@ -320,7 +320,7 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
                 ElevatedButton.icon(
                   onPressed: () => EmailSettingsDialog.show(context),
                   icon: const Icon(Icons.settings_suggest_rounded, size: 16),
-                  label: const Text('إعدادات البريد', style: TextStyle(fontSize: 12)),
+                  label: Text(l.smartEmailSettingsBtn, style: const TextStyle(fontSize: 12)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.cobalt,
                     foregroundColor: Colors.white,

@@ -157,7 +157,7 @@ from modules.recalculation.router import router as recalculation_router
 
 app = FastAPI(
     title="Sorour Logistics ERP API",
-    version="1.0.193",
+    version="1.0.196",
 )
 
 # ==================================================
@@ -345,7 +345,7 @@ SchemaUpgradeService.execute_safe_startup_upgrade(
 def dashboard():
     return {
         "system": "Sorour Logistics ERP",
-        "version": "1.0.193",
+        "version": "1.0.196",
         "status": "running",
     }
 
@@ -376,7 +376,7 @@ def health_check():
     return {
         "status": "OK",
         "system": "Sorour Logistics ERP",
-        "version": "1.0.193",
+        "version": "1.0.196",
         "database": {
             "connected": db_exists,
             "size_kb": db_size_kb,

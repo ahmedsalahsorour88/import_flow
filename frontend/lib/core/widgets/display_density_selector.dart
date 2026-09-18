@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/density_provider.dart';
 
@@ -17,12 +18,13 @@ class DisplayDensitySelector extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentDensity = ref.watch(displayDensityProvider);
     final isDark = AppTheme.isDark(context);
+    final isArabic = context.l10n.isArabic;
 
     final isRtl = Directionality.of(context) == TextDirection.rtl;
     final xOffset = isRtl ? 40.0 : -70.0;
 
     return PopupMenuButton<DisplayDensityMode>(
-      tooltip: 'كثافة عرض الجدول (Display Density)',
+      tooltip: isArabic ? 'كثافة عرض الجدول' : 'Table Display Density',
       position: PopupMenuPosition.under,
       offset: Offset(xOffset, 6),
       constraints: const BoxConstraints(minWidth: 180, maxWidth: 220),
@@ -45,6 +47,7 @@ class DisplayDensitySelector extends ConsumerWidget {
           icon: Icons.table_rows_outlined,
           isSelected: currentDensity == DisplayDensityMode.comfortable,
           isDark: isDark,
+          isArabic: isArabic,
         ),
         _buildMenuItem(
           context,
@@ -52,6 +55,7 @@ class DisplayDensitySelector extends ConsumerWidget {
           icon: Icons.view_headline,
           isSelected: currentDensity == DisplayDensityMode.compact,
           isDark: isDark,
+          isArabic: isArabic,
         ),
         _buildMenuItem(
           context,
@@ -59,6 +63,7 @@ class DisplayDensitySelector extends ConsumerWidget {
           icon: Icons.density_small,
           isSelected: currentDensity == DisplayDensityMode.ultraCompact,
           isDark: isDark,
+          isArabic: isArabic,
         ),
       ],
       child: Container(
@@ -80,7 +85,7 @@ class DisplayDensitySelector extends ConsumerWidget {
             ),
             const SizedBox(width: 6),
             Text(
-              currentDensity.nameAr,
+              currentDensity.localizedName(isArabic),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -116,6 +121,7 @@ class DisplayDensitySelector extends ConsumerWidget {
     required IconData icon,
     required bool isSelected,
     required bool isDark,
+    required bool isArabic,
   }) {
     return PopupMenuItem<DisplayDensityMode>(
       value: mode,
@@ -130,7 +136,7 @@ class DisplayDensitySelector extends ConsumerWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              mode.nameAr,
+              mode.localizedName(isArabic),
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,

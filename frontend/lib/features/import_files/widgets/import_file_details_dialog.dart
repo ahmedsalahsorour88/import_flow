@@ -793,7 +793,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.radar_rounded, size: 18),
-            label: const Text('رادار الغرامات (TR-02)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(context.l10n.demurrageRadarButtonLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(

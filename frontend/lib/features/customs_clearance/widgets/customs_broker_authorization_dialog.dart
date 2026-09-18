@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -108,11 +109,12 @@ class _CustomsBrokerAuthorizationDialogState
   }
 
   Future<void> _submitAuthorization() async {
+    final isArabic = context.l10n.isArabic;
     if (!_formKey.currentState!.validate()) return;
     if (_selectedBrokerId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('يرجى اختيار المخلص الجمركي المعتمد'),
+        SnackBar(
+          content: Text(isArabic ? 'يرجى اختيار المخلص الجمركي المعتمد' : 'Please select an approved customs broker'),
           backgroundColor: AppTheme.crimson,
         ),
       );
@@ -147,7 +149,9 @@ class _CustomsBrokerAuthorizationDialogState
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'تم تعيين وتفويض المخلص الجمركي بنجاح برقم (${_delegationNoController.text.trim()})',
+                    isArabic
+                        ? 'تم تعيين وتفويض المخلص الجمركي بنجاح برقم (${_delegationNoController.text.trim()})'
+                        : 'Customs broker successfully assigned and authorized (#${_delegationNoController.text.trim()})',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -162,7 +166,7 @@ class _CustomsBrokerAuthorizationDialogState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppTheme.crimson,
-            content: Text('فشل تفويض المخلص الجمركي: $e'),
+            content: Text(isArabic ? 'فشل تفويض المخلص الجمركي: $e' : 'Failed to authorize customs broker: $e'),
           ),
         );
       }
@@ -172,6 +176,7 @@ class _CustomsBrokerAuthorizationDialogState
   @override
   Widget build(BuildContext context) {
     final allPartnersAsync = ref.watch(allPartnersProvider);
+    final isArabic = context.l10n.isArabic;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -204,9 +209,9 @@ class _CustomsBrokerAuthorizationDialogState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'تعيين المخلص الجمركي والتفويض الإلكتروني (CS-01)',
-                          style: TextStyle(
+                        Text(
+                          isArabic ? 'تعيين المخلص الجمركي والتفويض الإلكتروني (CS-01)' : '(CS-01) Assign Customs Broker & E-Authorization',
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF1E293B),
@@ -214,7 +219,7 @@ class _CustomsBrokerAuthorizationDialogState
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${widget.file.primaryNameWithCode} • المورد: ${widget.file.supplierName}',
+                          '${widget.file.primaryNameWithCode} • ${isArabic ? 'المورد:' : 'Supplier:'} ${widget.file.supplierName}',
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.grey[600],
@@ -245,14 +250,16 @@ class _CustomsBrokerAuthorizationDialogState
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: const Color(0xFFDDD6FE)),
                         ),
-                        child: const Row(
+                        child: Row(
                           children: [
-                            Icon(Icons.info_outline_rounded, color: Color(0xFF7C3AED), size: 22),
-                            SizedBox(width: 10),
+                            const Icon(Icons.info_outline_rounded, color: Color(0xFF7C3AED), size: 22),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'توليد تفويض المخلص إلكترونياً واعتماده عبر منصة نافذة، مع رفع تقدم الشحنة لـ 80% وجدولة مهمة سداد إذن التسليم الملاحي (CS-02).',
-                                style: TextStyle(
+                                isArabic
+                                    ? 'توليد تفويض المخلص إلكترونياً واعتماده عبر منصة نافذة، مع رفع تقدم الشحنة لـ 80% وجدولة مهمة سداد إذن التسليم الملاحي (CS-02).'
+                                    : 'Generate customs broker authorization electronically and approve via Nafeza, advancing shipment progress to 80% and scheduling delivery order payment task (CS-02).',
+                                style: const TextStyle(
                                   fontSize: 12.5,
                                   color: Color(0xFF5B21B6),
                                   height: 1.4,
@@ -277,10 +284,10 @@ class _CustomsBrokerAuthorizationDialogState
 
                           final items = brokers.map((b) {
                             final lic = b.clearanceLicenseNumber != null && b.clearanceLicenseNumber!.isNotEmpty
-                                ? 'رخصة: ${b.clearanceLicenseNumber}'
+                                ? '${isArabic ? 'رخصة:' : 'Lic:'} ${b.clearanceLicenseNumber}'
                                 : '';
                             final ports = b.authorizedPorts != null && b.authorizedPorts!.isNotEmpty
-                                ? ' | موانئ: ${b.authorizedPorts}'
+                                ? ' | ${isArabic ? 'موانئ:' : 'Ports:'} ${b.authorizedPorts}'
                                 : '';
                             return SearchableDropdownItem<int>(
                               value: b.providerId ?? 0,
@@ -295,16 +302,16 @@ class _CustomsBrokerAuthorizationDialogState
                             value: _selectedBrokerId,
                             items: items,
                             isRequired: true,
-                            labelText: 'المخلص الجمركي المعين *',
-                            hintText: 'اختر المخلص الجمركي المعتمد...',
-                            searchHintText: 'ابحث باسم المخلص أو رقم الرخصة أو الميناء...',
+                            labelText: isArabic ? 'المخلص الجمركي المعين *' : 'Assigned Customs Broker *',
+                            hintText: isArabic ? 'اختر المخلص الجمركي المعتمد...' : 'Select approved customs broker...',
+                            searchHintText: isArabic ? 'ابحث باسم المخلص أو رقم الرخصة أو الميناء...' : 'Search by broker name, license, or port...',
                             onChanged: (val) {
                               setState(() {
                                 _selectedBrokerId = val;
                               });
                             },
                             validator: (val) => val == null || val == 0
-                                ? 'يرجى اختيار المخلص الجمركي المعتمد'
+                                ? (isArabic ? 'يرجى اختيار المخلص الجمركي المعتمد' : 'Please select an approved customs broker')
                                 : null,
                           );
                         },
@@ -321,7 +328,7 @@ class _CustomsBrokerAuthorizationDialogState
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            'خطأ في تحميل قائمة المخلصين: $err',
+                            isArabic ? 'خطأ في تحميل قائمة المخلصين: $err' : 'Error loading customs brokers: $err',
                             style: const TextStyle(color: Colors.red),
                           ),
                         ),
@@ -337,8 +344,8 @@ class _CustomsBrokerAuthorizationDialogState
                               key: const Key('delegationNumberField'),
                               controller: _delegationNoController,
                               decoration: InputDecoration(
-                                labelText: 'رقم التفويض الإلكتروني (Nafeza / MTS Code) *',
-                                hintText: 'مثال: DEL-2026-ALEX-01 أو MTS-AUTH-...',
+                                labelText: isArabic ? 'رقم التفويض الإلكتروني (Nafeza / MTS Code) *' : 'Electronic Authorization No. (Nafeza / MTS Code) *',
+                                hintText: isArabic ? 'مثال: DEL-2026-ALEX-01 أو MTS-AUTH-...' : 'e.g., DEL-2026-ALEX-01 or MTS-AUTH-...',
                                 prefixIcon: const Icon(Icons.qr_code_rounded, size: 20),
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                 isDense: true,
@@ -347,19 +354,19 @@ class _CustomsBrokerAuthorizationDialogState
                                   children: [
                                     IconButton(
                                       icon: const Icon(Icons.copy_rounded, size: 18),
-                                      tooltip: 'نسخ رقم التفويض',
+                                      tooltip: isArabic ? 'نسخ رقم التفويض' : 'Copy authorization number',
                                       onPressed: () {
                                         if (_delegationNoController.text.trim().isNotEmpty) {
                                           Clipboard.setData(ClipboardData(text: _delegationNoController.text.trim()));
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('تم نسخ رقم التفويض إلى الحافظة')),
+                                            SnackBar(content: Text(isArabic ? 'تم نسخ رقم التفويض إلى الحافظة' : 'Authorization number copied to clipboard')),
                                           );
                                         }
                                       },
                                     ),
                                     IconButton(
                                       icon: const Icon(Icons.auto_fix_high_rounded, color: Color(0xFF7C3AED), size: 20),
-                                      tooltip: 'توليد رقم تفويض آلي جديد',
+                                      tooltip: isArabic ? 'توليد رقم تفويض آلي جديد' : 'Generate new auto authorization number',
                                       onPressed: _generateDelegationNumber,
                                     ),
                                   ],
@@ -367,10 +374,10 @@ class _CustomsBrokerAuthorizationDialogState
                               ),
                               validator: (val) {
                                 if (val == null || val.trim().isEmpty) {
-                                  return 'رقم التفويض الإلكتروني إلزامي';
+                                  return isArabic ? 'رقم التفويض الإلكتروني إلزامي' : 'Electronic authorization number is required';
                                 }
                                 if (val.trim().length < 3) {
-                                  return 'رقم التفويض يجب ألا يقل عن 3 أحرف';
+                                  return isArabic ? 'رقم التفويض يجب ألا يقل عن 3 أحرف' : 'Authorization number must be at least 3 characters';
                                 }
                                 return null;
                               },
@@ -399,7 +406,7 @@ class _CustomsBrokerAuthorizationDialogState
                               },
                               child: InputDecorator(
                                 decoration: InputDecoration(
-                                  labelText: 'تاريخ التفويض الإلكتروني',
+                                  labelText: isArabic ? 'تاريخ التفويض الإلكتروني' : 'Electronic Authorization Date',
                                   prefixIcon: const Icon(Icons.calendar_month_rounded, size: 20),
                                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                   isDense: true,
@@ -420,7 +427,7 @@ class _CustomsBrokerAuthorizationDialogState
                               value: _selectedCustomsOffice,
                               isExpanded: true,
                               decoration: InputDecoration(
-                                labelText: 'الميناء الجمركي المعني',
+                                labelText: isArabic ? 'الميناء الجمركي المعني' : 'Relevant Customs Port / Office',
                                 prefixIcon: const Icon(Icons.account_balance_rounded, size: 20),
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                 isDense: true,
@@ -459,13 +466,13 @@ class _CustomsBrokerAuthorizationDialogState
                           onChanged: (val) {
                             setState(() => _generateMandateLetter = val ?? true);
                           },
-                          title: const Text(
-                            'توليد خطاب تفويض جمركي رسمي (Customs Broker Mandate Letter)',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          title: Text(
+                            isArabic ? 'توليد خطاب تفويض جمركي رسمي (Customs Broker Mandate Letter)' : 'Generate Official Mandate Letter (Customs Broker Mandate Letter)',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                           ),
-                          subtitle: const Text(
-                            'إنشاء خطاب التوكيل والتفويض تلقائياً باسم مدير عام جمارك الميناء لحفظه في أرشيف الخطابات الرسمية.',
-                            style: TextStyle(fontSize: 11.5, color: Colors.grey),
+                          subtitle: Text(
+                            isArabic ? 'إنشاء خطاب التوكيل والتفويض تلقائياً باسم مدير عام جمارك الميناء لحفظه في أرشيف الخطابات الرسمية.' : 'Automatically generate mandate letter addressed to Port Customs Director General for official archive.',
+                            style: const TextStyle(fontSize: 11.5, color: Colors.grey),
                           ),
                           activeColor: const Color(0xFF7C3AED),
                           controlAffinity: ListTileControlAffinity.leading,
@@ -479,8 +486,8 @@ class _CustomsBrokerAuthorizationDialogState
                         controller: _notesController,
                         maxLines: 2,
                         decoration: InputDecoration(
-                          labelText: 'ملاحظات وتوجيهات للمستخلص (اختياري)',
-                          hintText: 'مثال: سداد إذن التسليم فور الوصول، متابعة لجنة الفحص المشترك GOEIC...',
+                          labelText: isArabic ? 'ملاحظات وتوجيهات للمستخلص (اختياري)' : 'Instructions & Notes for Broker (Optional)',
+                          hintText: isArabic ? 'مثال: سداد إذن التسليم فور الوصول، متابعة لجنة الفحص المشترك GOEIC...' : 'e.g. Pay delivery order upon arrival, follow up with GOEIC inspection...',
                           prefixIcon: const Icon(Icons.notes_rounded, size: 20),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           isDense: true,
@@ -501,7 +508,7 @@ class _CustomsBrokerAuthorizationDialogState
                 children: [
                   TextButton(
                     onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-                    child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+                    child: Text(isArabic ? 'إلغاء' : 'Cancel', style: const TextStyle(color: Colors.grey)),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
@@ -523,7 +530,9 @@ class _CustomsBrokerAuthorizationDialogState
                           )
                         : const Icon(Icons.verified_rounded, size: 18),
                     label: Text(
-                      _isSubmitting ? 'جاري الاعتماد والتفويض...' : 'اعتماد وتفويض المخلص (CS-01)',
+                      _isSubmitting
+                          ? (isArabic ? 'جاري الاعتماد والتفويض...' : 'Authorizing...')
+                          : (isArabic ? 'اعتماد وتفويض المخلص (CS-01)' : '(CS-01) Approve & Authorize Broker'),
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                     onPressed: _isSubmitting ? null : _submitAuthorization,

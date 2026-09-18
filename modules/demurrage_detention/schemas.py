@@ -216,3 +216,129 @@ class ContainerIndividualUpdate(BaseModel):
     status: Optional[str] = None
     notes: Optional[str] = None
 
+
+# =========================================================================
+# BK-02: Free Days Agreement Registration & Demurrage Radar Feed Schemas
+# =========================================================================
+
+class FreeDaysAgreementRegister(BaseModel):
+    import_file_id: int = Field(..., description="رقم ملف الاستيراد المطلوب تسجيل وتوثيق فترات السماح له")
+    carrier_name: Optional[str] = Field(None, description="اسم الخط الملاحي أو الناقل")
+    agreed_demurrage_free_days: int = Field(..., ge=0, description="أيام سماح بقاء الحاوية بالميناء المتفق عليها")
+    agreed_detention_free_days: int = Field(default=7, ge=0, description="أيام سماح إعادة الحاوية الفارغة")
+    port_storage_free_days: int = Field(default=5, ge=0, description="أيام سماح تخزين ساحات الميناء")
+    agreement_reference: Optional[str] = Field(None, description="رقم أو مرجع وثيقة الاتفاقية (e.g. Booking Confirmation Note Addendum)")
+    agreement_date: Optional[date] = Field(None, description="تاريخ توثيق الاتفاقية")
+    notes: Optional[str] = Field(None, description="ملاحظات وشروط الاتفاقية الخاصة")
+
+
+class FreeDaysAgreementResponse(BaseModel):
+    import_file_id: int
+    import_file_code: str
+    carrier_name: str
+    booking_code: Optional[str] = None
+    booking_confirmation_no: Optional[str] = None
+    standard_policy_demurrage_days: int = 14
+    agreed_demurrage_free_days: int
+    agreed_detention_free_days: int
+    port_storage_free_days: int
+    additional_free_days_gained: int
+    estimated_cost_avoidance_usd: float
+    agreement_reference: Optional[str] = None
+    agreement_date: Optional[date] = None
+    radar_status: str
+    notes: Optional[str] = None
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# =========================================================================
+# TR-02: Demurrage & Detention Radar Overview Schemas
+# رادار مراقبة فترات السماح وتفادي غرامات الحاويات والأرضيات (أخضر/أصفر/أحمر)
+# =========================================================================
+
+class ContainerRadarItem(BaseModel):
+    tracking_id: int
+    import_file_id: int
+    import_file_code: str
+    bill_of_lading_no: str
+    carrier_name: str
+    container_number: str
+    container_type: str = "40ft High Cube"
+    discharge_date: date
+    gate_out_date: Optional[date] = None
+    empty_return_date: Optional[date] = None
+    radar_status: str  # "SAFE", "WARNING", "CRITICAL_OVERDUE", "RETURNED_SAFE"
+    color_code: str  # "#27AE60" (green), "#E67E22" (yellow), "#C0392B" (red), "#7F8C8D" (grey)
+    status_label_ar: str
+    demurrage_days_consumed: int
+    demurrage_free_days: int
+    demurrage_days_remaining: int
+    storage_days_consumed: int
+    storage_free_days: int
+    storage_days_remaining: int
+    accrued_demurrage_usd: float = 0.0
+    accrued_storage_egp: float = 0.0
+    total_accrued_egp: float = 0.0
+    alert_message_ar: str
+
+
+class ContainerRadarOverviewResponse(BaseModel):
+    total_containers_tracked: int
+    safe_containers_count: int
+    warning_containers_count: int
+    critical_overdue_count: int
+    returned_containers_count: int
+    total_accrued_demurrage_usd: float
+    total_accrued_storage_egp: float
+    total_estimated_exposure_egp: float
+    radar_items: List[ContainerRadarItem]
+    generated_at: datetime
+
+
+# =========================================================================
+# TR-05: Empty Container Return (EIR) Schemas
+# تأكيد إرجاع الحاويات الفارغة للخط الملاحي وإيقاف عدادات الغرامات بالكامل
+# =========================================================================
+
+class EmptyContainerReturnSubmit(BaseModel):
+    import_file_id: int = Field(..., description="معرف ملف الاستيراد المراد إرجاع حاوياته")
+    eir_number: str = Field(..., min_length=3, description="رقم إيصال استلام الحاوية الفارغة EIR")
+    empty_return_date: date = Field(default_factory=date.today, description="تاريخ إعادة الحاوية الفارغة")
+    depot_name: Optional[str] = Field(None, description="اسم مستودع أو ساحة الإرجاع (e.g. Dekheila Yard)")
+    returned_containers: Optional[List[str]] = Field(None, description="قائمة أرقام الحاويات المرجعة (إن تركت فارغة يتم تطبيقها على كافة حاويات الشحنة)")
+    container_condition: str = Field("SOUND_CLEAN", description="حالة الحاوية: SOUND_CLEAN, MINOR_DAMAGE, REPAIR_REQUIRED")
+    damage_notes: Optional[str] = Field(None, description="ملاحظات وتفاصيل التلفيات إن وجدت")
+    damage_fee_estimated: Optional[float] = Field(0.0, ge=0.0, description="قيمة مصاريف الإصلاح أو التعويض المقدرة")
+    damage_currency: Optional[str] = Field("USD", description="عملة مصاريف التلفيات")
+    driver_name: Optional[str] = Field(None, description="اسم سائق شاحنة الإرجاع")
+    truck_plate_no: Optional[str] = Field(None, description="رقم لوحة شاحنة الإرجاع")
+    notes: Optional[str] = Field(None, description="ملاحظات إضافية")
+
+
+class EmptyContainerReturnResponse(BaseModel):
+    import_file_id: int
+    import_file_code: str
+    tracking_id: Optional[int] = None
+    tracking_code: Optional[str] = None
+    eir_number: str
+    empty_return_date: date
+    depot_name: Optional[str] = None
+    returned_containers: List[str]
+    containers_returned_count: int
+    total_containers_count: int
+    all_containers_returned: bool
+    container_condition: str
+    damage_fee_estimated: float = 0.0
+    demurrage_final_fx: float = 0.0
+    detention_final_fx: float = 0.0
+    storage_final_egp: float = 0.0
+    total_exposure_egp: float = 0.0
+    tracking_status: str
+    next_action: str
+    current_stage: str
+    progress_percent: float
+    message_ar: str
+    returned_at: datetime
+
+

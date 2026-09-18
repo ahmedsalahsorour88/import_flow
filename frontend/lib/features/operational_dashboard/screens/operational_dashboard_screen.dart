@@ -28,6 +28,7 @@ import '../../smart_tasks/models/smart_task_model.dart';
 import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../providers/operational_dashboard_provider.dart';
 import '../services/operational_dashboard_export_service.dart';
+import '../widgets/container_demurrage_radar_card.dart';
 import '../widgets/dashboard_card_drilldown_dialog.dart';
 
 class OperationalDashboardScreen extends ConsumerStatefulWidget {
@@ -217,6 +218,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       data: (data) => Column(
                         children: [
                           _buildKpiCardsBar(data, density),
+                          const SizedBox(height: 16),
+                          const ContainerDemurrageRadarCard(),
                           const SizedBox(height: 16),
                           _buildStreamlitLauncherBanner(),
                           const SizedBox(height: 16),

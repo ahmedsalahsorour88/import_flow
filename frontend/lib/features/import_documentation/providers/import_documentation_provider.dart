@@ -5,19 +5,21 @@ import '../models/import_documentation_model.dart';
 import '../models/po_reconciliation_session_model.dart';
 import '../models/invoice_bl_match_session_model.dart';
 import '../../../core/network/api_client.dart';
+import '../../import_files/providers/import_files_provider.dart';
 
 
 
 final acidSessionsProvider =
     StateNotifierProvider<AcidSessionsNotifier, AsyncValue<List<AcidRegistrationModel>>>((ref) {
-  return AcidSessionsNotifier(ref.read(dioProvider));
+  return AcidSessionsNotifier(ref.read(dioProvider), ref);
 });
 
 class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistrationModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
 
-  AcidSessionsNotifier(this._dio) : super(const AsyncValue.loading()) {
+  AcidSessionsNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchAcidSessions();
   }
 
@@ -65,6 +67,10 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
       );
       final created = AcidRegistrationModel.fromJson(response.data);
       await fetchAcidSessions();
+      if (_ref != null) {
+        _ref.invalidate(importFilesProvider);
+        _ref.invalidate(acidTrackerProvider);
+      }
       return created;
     } catch (e) {
       rethrow;
@@ -79,6 +85,10 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
       );
       final updated = AcidRegistrationModel.fromJson(response.data);
       await fetchAcidSessions();
+      if (_ref != null) {
+        _ref.invalidate(importFilesProvider);
+        _ref.invalidate(acidTrackerProvider);
+      }
       return updated;
     } catch (e) {
       rethrow;
@@ -135,6 +145,10 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
     try {
       await _dio.delete('${ApiConstants.baseUrl}/import-documentation/acid-sessions/$acidId');
       await fetchAcidSessions();
+      if (_ref != null) {
+        _ref.invalidate(importFilesProvider);
+        _ref.invalidate(acidTrackerProvider);
+      }
     } catch (e) {
       rethrow;
     }
@@ -144,6 +158,10 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
     try {
       await _dio.patch('${ApiConstants.baseUrl}/import-documentation/acid-sessions/$acidId/restore');
       await fetchAcidSessions();
+      if (_ref != null) {
+        _ref.invalidate(importFilesProvider);
+        _ref.invalidate(acidTrackerProvider);
+      }
     } catch (e) {
       rethrow;
     }
@@ -152,14 +170,15 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
 
 final bankingDocumentsProvider =
     StateNotifierProvider<BankingDocumentsNotifier, AsyncValue<List<BankingDocumentModel>>>((ref) {
-  return BankingDocumentsNotifier(ref.read(dioProvider));
+  return BankingDocumentsNotifier(ref.read(dioProvider), ref);
 });
 
 class BankingDocumentsNotifier extends StateNotifier<AsyncValue<List<BankingDocumentModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
 
-  BankingDocumentsNotifier(this._dio) : super(const AsyncValue.loading()) {
+  BankingDocumentsNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchBankingDocuments();
   }
 
@@ -197,6 +216,9 @@ class BankingDocumentsNotifier extends StateNotifier<AsyncValue<List<BankingDocu
       );
       final created = BankingDocumentModel.fromJson(response.data);
       await fetchBankingDocuments();
+      if (_ref != null) {
+        _ref.invalidate(importFilesProvider);
+      }
       return created;
     } catch (e) {
       rethrow;
@@ -211,6 +233,9 @@ class BankingDocumentsNotifier extends StateNotifier<AsyncValue<List<BankingDocu
       );
       final received = BankingDocumentModel.fromJson(response.data);
       await fetchBankingDocuments();
+      if (_ref != null) {
+        _ref.invalidate(importFilesProvider);
+      }
       return received;
     } catch (e) {
       rethrow;
@@ -225,6 +250,9 @@ class BankingDocumentsNotifier extends StateNotifier<AsyncValue<List<BankingDocu
       );
       final updated = BankingDocumentModel.fromJson(response.data);
       await fetchBankingDocuments();
+      if (_ref != null) {
+        _ref.invalidate(importFilesProvider);
+      }
       return updated;
     } catch (e) {
       rethrow;
@@ -235,6 +263,9 @@ class BankingDocumentsNotifier extends StateNotifier<AsyncValue<List<BankingDocu
     try {
       await _dio.delete('${ApiConstants.baseUrl}/import-documentation/banking-documents/$bankDocId');
       await fetchBankingDocuments();
+      if (_ref != null) {
+        _ref.invalidate(importFilesProvider);
+      }
       return true;
     } catch (e) {
       rethrow;

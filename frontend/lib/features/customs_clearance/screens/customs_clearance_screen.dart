@@ -22,6 +22,14 @@ import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../widgets/search_and_clone_customs_clearance_dialog.dart';
+import '../widgets/customs_broker_authorization_dialog.dart';
+import '../widgets/delivery_order_payment_dialog.dart';
+import '../widgets/customs_declaration_46_dialog.dart';
+import '../widgets/customs_inspection_sampling_dialog.dart';
+import '../widgets/final_duty_assessment_dialog.dart';
+import '../widgets/customs_duty_payment_dialog.dart';
+import '../widgets/customs_final_release_dialog.dart';
+import '../widgets/clearance_expenses_dialog.dart';
 
 
 class CustomsClearanceScreen extends ConsumerStatefulWidget {
@@ -410,19 +418,51 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   }
 
   void _showDutyPaymentDialog(CustomsClearanceModel record) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => _DutyPaymentDialog(record: record),
-    );
+    final allFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+    final matchingFile = allFiles.where((f) => f.importFileId == record.importFileId).firstOrNull;
+    if (matchingFile != null) {
+      CustomsDutyPaymentDialog.show(
+        context,
+        matchingFile,
+        clearanceRecord: record,
+      );
+    } else {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => _DutyPaymentDialog(record: record),
+      );
+    }
   }
 
   void _showFinalReleaseDialog(CustomsClearanceModel record) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => _FinalReleaseDialog(record: record),
-    );
+    final allFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+    final matchingFile = allFiles.where((f) => f.importFileId == record.importFileId).firstOrNull;
+    if (matchingFile != null) {
+      CustomsFinalReleaseDialog.show(
+        context,
+        matchingFile,
+        clearanceRecord: record,
+      );
+    } else {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => _FinalReleaseDialog(record: record),
+      );
+    }
+  }
+
+  void _showClearanceExpensesDialog(CustomsClearanceModel record) {
+    final allFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+    final matchingFile = allFiles.where((f) => f.importFileId == record.importFileId).firstOrNull;
+    if (matchingFile != null) {
+      ClearanceExpensesDialog.show(
+        context,
+        matchingFile,
+        clearanceRecord: record,
+      );
+    }
   }
 
   @override
@@ -447,6 +487,246 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.emerald,
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(
+              horizontal: density.isCompact ? 10 : 14,
+              vertical: density.isCompact ? 6 : 10,
+            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        ElevatedButton.icon(
+          key: const Key('authorizeCustomsBrokerHeaderBtn'),
+          icon: Icon(Icons.assignment_ind_rounded, size: density.buttonIconSize),
+          label: const Text('تفويض المخلص (CS-01)', style: TextStyle(fontWeight: FontWeight.bold)),
+          onPressed: () {
+            final files = ref.read(importFilesProvider).valueOrNull ?? [];
+            if (files.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('لا توجد ملفات شحنات مسجلة')),
+              );
+              return;
+            }
+            final targetFile = widget.initialImportFileId != null
+                ? files.firstWhere(
+                    (f) => f.importFileId == widget.initialImportFileId,
+                    orElse: () => files.first,
+                  )
+                : files.first;
+            CustomsBrokerAuthorizationDialog.show(context, targetFile);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF7C3AED),
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(
+              horizontal: density.isCompact ? 10 : 14,
+              vertical: density.isCompact ? 6 : 10,
+            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        ElevatedButton.icon(
+          key: const Key('deliveryOrderPaymentScreenBtn'),
+          icon: Icon(Icons.directions_boat_filled_rounded, size: density.buttonIconSize),
+          label: const Text('سداد إذن التسليم (CS-02)', style: TextStyle(fontWeight: FontWeight.bold)),
+          onPressed: () {
+            final files = ref.read(importFilesProvider).valueOrNull ?? [];
+            if (files.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('لا توجد ملفات شحنات مسجلة')),
+              );
+              return;
+            }
+            final targetFile = widget.initialImportFileId != null
+                ? files.firstWhere(
+                    (f) => f.importFileId == widget.initialImportFileId,
+                    orElse: () => files.first,
+                  )
+                : files.first;
+            DeliveryOrderPaymentDialog.show(context, targetFile);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF0284C7),
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(
+              horizontal: density.isCompact ? 10 : 14,
+              vertical: density.isCompact ? 6 : 10,
+            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        ElevatedButton.icon(
+          key: const Key('customsDeclaration46ScreenBtn'),
+          icon: Icon(Icons.description_rounded, size: density.buttonIconSize),
+          label: const Text('قيد إقرار 46 (CS-03)', style: TextStyle(fontWeight: FontWeight.bold)),
+          onPressed: () {
+            final files = ref.read(importFilesProvider).valueOrNull ?? [];
+            if (files.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('لا توجد ملفات شحنات مسجلة')),
+              );
+              return;
+            }
+            final targetFile = widget.initialImportFileId != null
+                ? files.firstWhere(
+                    (f) => f.importFileId == widget.initialImportFileId,
+                    orElse: () => files.first,
+                  )
+                : files.first;
+            CustomsDeclaration46Dialog.show(context, targetFile);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFD97706),
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(
+              horizontal: density.isCompact ? 10 : 14,
+              vertical: density.isCompact ? 6 : 10,
+            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        ElevatedButton.icon(
+          key: const Key('customsInspectionSamplingScreenBtn'),
+          icon: Icon(Icons.biotech_rounded, size: density.buttonIconSize),
+          label: const Text('الكشف والمعاينة (CL-01)', style: TextStyle(fontWeight: FontWeight.bold)),
+          onPressed: () {
+            final files = ref.read(importFilesProvider).valueOrNull ?? [];
+            if (files.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('لا توجد ملفات شحنات مسجلة')),
+              );
+              return;
+            }
+            final targetFile = widget.initialImportFileId != null
+                ? files.firstWhere(
+                    (f) => f.importFileId == widget.initialImportFileId,
+                    orElse: () => files.first,
+                  )
+                : files.first;
+            CustomsInspectionSamplingDialog.show(context, targetFile);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF0D9488), // Teal
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(
+              horizontal: density.isCompact ? 10 : 14,
+              vertical: density.isCompact ? 6 : 10,
+            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        ElevatedButton.icon(
+          key: const Key('finalDutyAssessmentScreenBtn'),
+          icon: Icon(Icons.calculate_rounded, size: density.buttonIconSize),
+          label: const Text('حساب الرسوم (CL-02)', style: TextStyle(fontWeight: FontWeight.bold)),
+          onPressed: () {
+            final files = ref.read(importFilesProvider).valueOrNull ?? [];
+            if (files.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('لا توجد ملفات شحنات مسجلة')),
+              );
+              return;
+            }
+            final targetFile = widget.initialImportFileId != null
+                ? files.firstWhere(
+                    (f) => f.importFileId == widget.initialImportFileId,
+                    orElse: () => files.first,
+                  )
+                : files.first;
+            FinalDutyAssessmentDialog.show(context, targetFile);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF7C3AED), // Purple
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(
+              horizontal: density.isCompact ? 10 : 14,
+              vertical: density.isCompact ? 6 : 10,
+            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        ElevatedButton.icon(
+          key: const Key('customsDutyPaymentScreenBtn'),
+          icon: Icon(Icons.receipt_long_rounded, size: density.buttonIconSize),
+          label: const Text('سداد الرسوم (CL-03)', style: TextStyle(fontWeight: FontWeight.bold)),
+          onPressed: () {
+            final files = ref.read(importFilesProvider).valueOrNull ?? [];
+            if (files.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('لا توجد ملفات شحنات مسجلة')),
+              );
+              return;
+            }
+            final targetFile = widget.initialImportFileId != null
+                ? files.firstWhere(
+                    (f) => f.importFileId == widget.initialImportFileId,
+                    orElse: () => files.first,
+                  )
+                : files.first;
+            CustomsDutyPaymentDialog.show(context, targetFile);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.emerald,
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(
+              horizontal: density.isCompact ? 10 : 14,
+              vertical: density.isCompact ? 6 : 10,
+            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        ElevatedButton.icon(
+          key: const Key('customsFinalReleaseScreenBtn'),
+          icon: Icon(Icons.verified_outlined, size: density.buttonIconSize),
+          label: const Text('إذن الإفراج (CL-04)', style: TextStyle(fontWeight: FontWeight.bold)),
+          onPressed: () {
+            final files = ref.read(importFilesProvider).valueOrNull ?? [];
+            if (files.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('لا توجد ملفات شحنات مسجلة')),
+              );
+              return;
+            }
+            final targetFile = widget.initialImportFileId != null
+                ? files.firstWhere(
+                    (f) => f.importFileId == widget.initialImportFileId,
+                    orElse: () => files.first,
+                  )
+                : files.first;
+            CustomsFinalReleaseDialog.show(context, targetFile);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.emerald,
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(
+              horizontal: density.isCompact ? 10 : 14,
+              vertical: density.isCompact ? 6 : 10,
+            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        ElevatedButton.icon(
+          key: const Key('customsClearanceInvoicesScreenBtn'),
+          icon: Icon(Icons.receipt_long_rounded, size: density.buttonIconSize),
+          label: const Text('فواتير التخليص (CL-05)', style: TextStyle(fontWeight: FontWeight.bold)),
+          onPressed: () {
+            final files = ref.read(importFilesProvider).valueOrNull ?? [];
+            if (files.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('لا توجد ملفات شحنات مسجلة')),
+              );
+              return;
+            }
+            final targetFile = widget.initialImportFileId != null
+                ? files.firstWhere(
+                    (f) => f.importFileId == widget.initialImportFileId,
+                    orElse: () => files.first,
+                  )
+                : files.first;
+            ClearanceExpensesDialog.show(context, targetFile);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF0284C7),
             foregroundColor: Colors.white,
             padding: EdgeInsets.symmetric(
               horizontal: density.isCompact ? 10 : 14,
@@ -823,6 +1103,12 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
         icon: const Icon(Icons.assignment_turned_in_outlined, color: Colors.indigo, size: 20),
         tooltip: l.customsClearanceReleaseTooltip,
         onPressed: () => _showFinalReleaseDialog(record),
+      ),
+      IconButton(
+        key: Key('clearanceExpensesBtn_${record.clearanceCode}'),
+        icon: const Icon(Icons.receipt_long_outlined, color: Color(0xFF0284C7), size: 20),
+        tooltip: 'فواتير ومصاريف التخليص (CL-05)',
+        onPressed: () => _showClearanceExpensesDialog(record),
       ),
     ];
 

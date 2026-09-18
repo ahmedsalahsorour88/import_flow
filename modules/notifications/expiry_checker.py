@@ -134,26 +134,58 @@ class ExpiryCheckerService:
 
         acid_sessions = self.db.query(AcidRegistrationSession).filter(
             AcidRegistrationSession.is_active == True,
-            AcidRegistrationSession.status == "ACID Issued"
+            AcidRegistrationSession.status.in_(["ACID Issued", "Issued", "Verified", "Generated", "Discrepancy_Accepted"])
         ).all()
+
+        processed_file_ids = set()
 
         for acid in acid_sessions:
             if acid.expiry_date:
                 days_left = (acid.expiry_date - today).days
                 if days_left <= 14:
                     severity = "CRITICAL" if days_left <= 3 else "WARNING"
-                    if not self.repo.exists_active_for_entity("AcidRegistrationSession", acid.acid_session_id, "ACID_EXPIRY"):
+                    if not self.repo.exists_active_for_entity("AcidRegistrationSession", acid.acid_id, "ACID_EXPIRY"):
                         schema = NotificationCreate(
                             title=f"تنبيه قرب انتهاء الرقم المبدئي ACID: {acid.acid_number}",
                             message=f"رقم الـ ACID ({acid.acid_number}) للشحنة متبقي عليه {days_left} أيام فقط قبل الشحن وتنتهي صلاحيته في {acid.expiry_date}.",
                             severity=severity,
                             category="ACID_EXPIRY",
                             entity_type="AcidRegistrationSession",
-                            entity_id=acid.acid_session_id,
+                            entity_id=acid.acid_id,
                             target_role="ALL",
                         )
                         created = self.repo.create(schema)
                         new_notifications.append(created)
+            if acid.import_file_id:
+                processed_file_ids.add(acid.import_file_id)
+
+        # Also inspect active import files with acid_number not yet released
+        files_with_acid = self.db.query(ImportFile).filter(
+            ImportFile.is_active == True,
+            ImportFile.is_customs_released == False,
+            ImportFile.acid_number != None,
+            ImportFile.acid_expiry_date != None,
+        ).all()
+
+        for imp in files_with_acid:
+            if imp.import_file_id in processed_file_ids:
+                continue
+            days_left = (imp.acid_expiry_date - today).days
+            if days_left <= 14:
+                severity = "CRITICAL" if days_left <= 3 else "WARNING"
+                if not self.repo.exists_active_for_entity("ImportFile", imp.import_file_id, "ACID_EXPIRY"):
+                    file_code = imp.import_file_code or imp.custom_file_number or f"IMP-{imp.import_file_id}"
+                    schema = NotificationCreate(
+                        title=f"تنبيه قرب انتهاء صلاحية ACID للشحنة: {file_code}",
+                        message=f"رقم القيد الجمركي ({imp.acid_number}) للشحنة ({file_code}) متبقي عليه {days_left} يوماً وينتهي في {imp.acid_expiry_date}. يرجى التمديد عبر نافذة لتفادي حظر الإفراج.",
+                        severity=severity,
+                        category="ACID_EXPIRY",
+                        entity_type="ImportFile",
+                        entity_id=imp.import_file_id,
+                        target_role="LOGISTICS_OFFICER",
+                    )
+                    created = self.repo.create(schema)
+                    new_notifications.append(created)
 
         return new_notifications
 

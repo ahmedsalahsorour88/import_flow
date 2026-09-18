@@ -17,6 +17,7 @@ import '../../customs_clearance/models/customs_clearance_model.dart';
 import '../../warehouse_receiving/providers/warehouse_receiving_provider.dart';
 import '../../warehouse_receiving/models/warehouse_receiving_model.dart';
 import '../services/comprehensive_report_export_service.dart';
+import '../widgets/comprehensive_dossier_export_dialog.dart';
 
 // ============================================================
 // Comprehensive Import File Report Screen
@@ -316,6 +317,20 @@ class _ImportFileComprehensiveReportScreenState
                         logs: updatesState.logs,
                         clearance: clr,
                         warehouse: wh,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      key: const Key('comprehensiveDossierModalBtn'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF7C3AED), // Royal Purple
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      ),
+                      icon: const Icon(Icons.inventory_2_outlined, size: 15, color: Colors.white),
+                      label: const Text('تصدير الملف الشامل (CLO-03)', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                      onPressed: () => ComprehensiveDossierExportDialog.show(
+                        context,
+                        file: _selectedFile!,
                       ),
                     ),
                   ],

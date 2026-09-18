@@ -58,6 +58,18 @@ class WarehouseReceivingRecord(Base):
     quarantine_lock_active = Column(Boolean, default=False, nullable=False)
     dispatch_blocked = Column(Boolean, default=False, nullable=False)
 
+    # TR-04 Technical Inspection & Discrepancy Protocol (محضر الفحص الفني والمطابقة)
+    inspection_date = Column(DateTime, nullable=True)
+    inspection_committee = Column(String(255), nullable=True)
+    inspection_protocol_number = Column(String(100), nullable=True, index=True) # e.g. INSP-2026-0001
+    inspection_verdict = Column(String(50), default="PENDING", index=True) # PENDING, ACCEPTED_FULL, ACCEPTED_WITH_DISCREPANCY, REJECTED_QUARANTINED
+    root_cause = Column(String(150), nullable=True) # e.g. Port Mishandling, Transit Vibration, Packaging Failure, Water Ingress
+    supplier_claim_filed = Column(Boolean, default=False)
+    supplier_claim_ref = Column(String(100), nullable=True)
+    claim_amount_estimated = Column(Float, default=0.0)
+    claim_currency = Column(String(10), default="EGP")
+    discrepancy_rate_percent = Column(Float, default=0.0)
+
     # Status & Audit
 
     status = Column(String(50), default="Goods Received", index=True) # Goods Received, GRN Audited, Discrepancy Reported, Closed

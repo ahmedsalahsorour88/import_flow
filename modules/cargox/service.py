@@ -220,21 +220,9 @@ class CargoXService:
 
         CargoXRepository.update(db, envelope)
 
-        # Lifecycle advance: STEP_10 → STEP_11 (CargoX sealed and transferred → Originals Collection)
+        # Full SH-03 Orchestration (ImportFile sync, SmartTasks, Notifications, Approvals, Lifecycle STEP_10->STEP_11)
         if envelope.import_file_id:
-            try:
-                from modules.lifecycle_board.service import advance_lifecycle_step_service
-                advance_lifecycle_step_service(
-                    db=db,
-                    import_file_id=envelope.import_file_id,
-                    completed_step_code="STEP_10",
-                    target_step_codes=["STEP_11"],
-                    notes=f"تم إغلاق مظروف CargoX ({envelope.envelope_code}) وتحويله رسمياً لمصلحة الجمارك المصرية. الانتقال إلى مرحلة تحصيل أصول المستندات.",
-                    assigned_user=updated_by,
-                )
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning("Lifecycle advance STEP_10→STEP_11 failed: %s", e)
+            CargoXService._handle_cargox_seal_transfer_workflow(db, envelope, updated_by=updated_by)
 
         return CargoXSealAndTransferResponse(
             success=True,
@@ -249,6 +237,157 @@ class CargoXService:
             customs_confirmation_receipt=envelope.customs_confirmation_receipt,
             message="تم إغلاق وتوثيق مظروف CargoX والتوقيع الإلكتروني بنجاح وتحويل المستندات لمصلحة الجمارك المصرية (Nafeza).",
         )
+
+    @staticmethod
+    def _handle_cargox_seal_transfer_workflow(
+        db: Session, envelope: CargoXEnvelope, updated_by: str = "SYSTEM"
+    ) -> None:
+        """
+        SH-03 Orchestration Workflow:
+        1. Two-way synchronizes ImportFile with CargoX envelope metadata and advances stage.
+        2. Auto-closes pending SH-03 / CargoX SmartTasks.
+        3. Dispatches downstream SH-04 SmartTask (Original Bank Documents Receipt).
+        4. Emits SystemNotification for operations and customs broker.
+        5. Updates CustomsDocumentApproval record for CargoX envelope.
+        6. Advances LifecycleBoard step STEP_10 -> STEP_11.
+        """
+        if not envelope.import_file_id:
+            return
+
+        import logging
+        from datetime import timedelta
+        logger = logging.getLogger(__name__)
+
+        try:
+            # 1. Update ImportFile
+            imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == envelope.import_file_id).first()
+            if imp_file:
+                imp_file.cargox_envelope_id = envelope.envelope_id
+                imp_file.cargox_envelope_code = envelope.envelope_code
+                imp_file.cargox_envelope_status = envelope.status
+                imp_file.cargox_transferred_at = envelope.transferred_to_customs_at
+                imp_file.current_module = "STEP_10 منصة النقل الرقمي CargoX / CargoX Sealed & Transferred"
+                imp_file.current_stage = "Phase 5 - Sailing & CargoX"
+                imp_file.next_action = "استلام وتوثيق أصول المستندات البنكية (SH-04)"
+                current_prog = imp_file.progress_percent or 0.0
+                if current_prog < 70.0:
+                    imp_file.progress_percent = 70.0
+
+            # 2. Complete pending SH-03 / CargoX SmartTasks
+            try:
+                from modules.smart_tasks.model import SmartTask
+                pending_tasks = (
+                    db.query(SmartTask)
+                    .filter(
+                        SmartTask.import_file_id == envelope.import_file_id,
+                        SmartTask.status.in_(["Pending", "In Progress"]),
+                        (
+                            SmartTask.task_type.in_(["CARGOX_TRANSFER", "CARGOX_SEAL", "CARGOX_UPLOAD", "SH-03"])
+                            | SmartTask.title.ilike("%CargoX%")
+                        ),
+                    )
+                    .all()
+                )
+                for t in pending_tasks:
+                    t.status = "Completed"
+                    t.completed_at = datetime.now(timezone.utc)
+            except Exception as ex_task:
+                logger.warning(f"Error completing CargoX smart tasks: {ex_task}")
+
+            # 3. Dispatch downstream SH-04 SmartTask (Original Bank Documents Receipt)
+            try:
+                from modules.smart_tasks.model import SmartTask
+                due_dt = (datetime.now(timezone.utc) + timedelta(days=5)).strftime("%Y-%m-%d")
+                file_label = imp_file.import_file_code if imp_file else (envelope.import_file_code or "")
+                task_code = f"TASK-{uuid.uuid4().hex[:8].upper()}"
+                downstream_task = SmartTask(
+                    task_code=task_code,
+                    import_file_id=envelope.import_file_id,
+                    import_file_code=file_label,
+                    title=f"استلام وتوثيق أصول المستندات البنكية للشحنة (SH-04) — {file_label}".strip(),
+                    description=f"تم إغلاق وختم مظروف CargoX ({envelope.envelope_code}) وإرساله للجمارك (إيصال: {envelope.customs_confirmation_receipt}). يرجى استلام وتوثيق أصول المستندات البنكية لتجهيز الإقرار 46 ك.م.",
+                    task_type="ORIGINAL_DOCS_RECEIPT",
+                    priority="High",
+                    status="Pending",
+                    assigned_user="Logistics Specialist",
+                    due_date=due_dt,
+                    created_by=updated_by,
+                )
+                db.add(downstream_task)
+            except Exception as ex_dispatch:
+                logger.warning(f"Error dispatching downstream SH-04 smart task: {ex_dispatch}")
+
+            # 4. Emit SystemNotification
+            try:
+                from modules.notifications.model import SystemNotification
+                notif = SystemNotification(
+                    title=f"تم اعتماد وختم مظروف CargoX وتحويله للجمارك — {envelope.envelope_code}",
+                    message=f"تم إغلاق وتوثيق مظروف CargoX رقم ({envelope.envelope_code}) بالرقم التعريفي ACID ({envelope.acid_number}) والتوقيع الإلكتروني بنجاح وتحويل المستندات لمصلحة الجمارك المصرية (إيصال: {envelope.customs_confirmation_receipt}).",
+                    category="STAGE_PROGRESSION",
+                    severity="INFO",
+                    entity_type="ImportFile",
+                    entity_id=envelope.import_file_id,
+                    target_role="ALL",
+                    is_read=False,
+                )
+                db.add(notif)
+            except Exception as ex_notif:
+                logger.warning(f"Error creating CargoX SystemNotification: {ex_notif}")
+
+            # 5. Update CustomsDocumentApproval for CargoX envelope
+            try:
+                from modules.docs_customs_approval.model import CustomsDocumentApproval
+                approval_rec = (
+                    db.query(CustomsDocumentApproval)
+                    .filter(
+                        CustomsDocumentApproval.import_file_id == envelope.import_file_id,
+                        CustomsDocumentApproval.document_type.in_(["CARGOX_ENVELOPE", "CARGOX_DOCUMENTS", "CargoX Transfer"]),
+                    )
+                    .first()
+                )
+                if not approval_rec:
+                    approval_rec = CustomsDocumentApproval(
+                        approval_code=f"DCA-{uuid.uuid4().hex[:8].upper()}",
+                        import_file_id=envelope.import_file_id,
+                        import_file_code=imp_file.import_file_code if imp_file else envelope.import_file_code,
+                        document_type="CARGOX_ENVELOPE",
+                        document_reference_no=envelope.envelope_code,
+                        commercial_status="Approved",
+                        commercial_reviewed_by=updated_by,
+                        commercial_reviewed_at=datetime.now(timezone.utc),
+                        customs_status="Approved",
+                        customs_reviewed_by=updated_by,
+                        customs_reviewed_at=datetime.now(timezone.utc),
+                        overall_status="Approved for Clearance",
+                        commercial_notes=f"تم ختم المظروف إلكترونياً برقم إيصال الجمارك {envelope.customs_confirmation_receipt}",
+                    )
+                    db.add(approval_rec)
+                else:
+                    approval_rec.commercial_status = "Approved"
+                    approval_rec.customs_status = "Approved"
+                    approval_rec.overall_status = "Approved for Clearance"
+                    approval_rec.document_reference_no = envelope.envelope_code
+                    approval_rec.commercial_notes = f"تم ختم المظروف إلكترونياً برقم إيصال الجمارك {envelope.customs_confirmation_receipt}"
+            except Exception as ex_appr:
+                logger.warning(f"Error updating CustomsDocumentApproval for CargoX: {ex_appr}")
+
+            # 6. Advance Lifecycle step STEP_10 -> STEP_11
+            try:
+                from modules.lifecycle_board.service import advance_lifecycle_step_service
+                advance_lifecycle_step_service(
+                    db=db,
+                    import_file_id=envelope.import_file_id,
+                    completed_step_code="STEP_10",
+                    target_step_codes=["STEP_11"],
+                    notes=f"تم إغلاق مظروف CargoX ({envelope.envelope_code}) وتحويله رسمياً لمصلحة الجمارك المصرية. الانتقال إلى مرحلة تحصيل أصول المستندات.",
+                    assigned_user=updated_by,
+                )
+            except Exception as ex_lc:
+                logger.warning(f"Lifecycle advance STEP_10→STEP_11 failed: {ex_lc}")
+
+            db.commit()
+        except Exception as e:
+            logger.error(f"Error executing _handle_cargox_seal_transfer_workflow: {e}")
 
 
     @staticmethod

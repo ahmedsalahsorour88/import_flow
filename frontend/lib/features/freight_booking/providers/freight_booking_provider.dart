@@ -5,17 +5,27 @@ import '../models/freight_booking_model.dart';
 import '../../../core/network/api_client.dart';
 
 
+import '../../import_files/providers/import_files_provider.dart';
+import '../../smart_tasks/providers/smart_tasks_provider.dart';
+
+
 final freightBookingProvider =
     StateNotifierProvider<FreightBookingNotifier, AsyncValue<List<ShipmentBookingModel>>>((ref) {
-  return FreightBookingNotifier(ref.read(dioProvider));
+  return FreightBookingNotifier(ref.read(dioProvider), ref);
 });
 
 class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBookingModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
 
-  FreightBookingNotifier(this._dio) : super(const AsyncValue.loading()) {
+  FreightBookingNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchBookings();
+  }
+
+  void _invalidateRelatedProviders() {
+    _ref?.invalidate(importFilesProvider);
+    _ref?.invalidate(smartTasksProvider);
   }
 
   @override
@@ -61,6 +71,7 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
         data: payload,
       );
       final created = ShipmentBookingModel.fromJson(response.data);
+      _invalidateRelatedProviders();
       await fetchBookings();
       return created;
     } catch (e) {
@@ -75,8 +86,39 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
         data: payload,
       );
       final updated = ShipmentBookingModel.fromJson(response.data);
+      _invalidateRelatedProviders();
       await fetchBookings();
       return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<ShipmentBookingModel?> confirmBooking(int bookingId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/freight-booking/$bookingId/confirm',
+        data: payload,
+      );
+      final confirmed = ShipmentBookingModel.fromJson(response.data);
+      _invalidateRelatedProviders();
+      await fetchBookings();
+      return confirmed;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<ShipmentBookingModel?> confirmDepartureAndBol(int bookingId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/freight-booking/$bookingId/depart',
+        data: payload,
+      );
+      final departed = ShipmentBookingModel.fromJson(response.data);
+      _invalidateRelatedProviders();
+      await fetchBookings();
+      return departed;
     } catch (e) {
       rethrow;
     }
@@ -85,6 +127,7 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
   Future<void> softDeleteBooking(int bookingId) async {
     try {
       await _dio.delete('${ApiConstants.baseUrl}/freight-booking/$bookingId');
+      _invalidateRelatedProviders();
       await fetchBookings();
     } catch (e) {
       rethrow;
@@ -94,6 +137,7 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
   Future<void> restoreBooking(int bookingId) async {
     try {
       await _dio.patch('${ApiConstants.baseUrl}/freight-booking/$bookingId/restore');
+      _invalidateRelatedProviders();
       await fetchBookings();
     } catch (e) {
       rethrow;

@@ -5,7 +5,7 @@ Service Layer & Business Engine for Import Documentation & ACI (Phase 3 - BP-014
 import io
 import logging
 import re
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Set, Tuple
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -192,6 +192,138 @@ def enrich_shipment_doc_response(db: Session, item: ShipmentDocumentItem, import
     return res
 
 
+def _handle_acid_verification_workflow(
+    db: Session,
+    db_item: AcidRegistrationSession,
+) -> None:
+    """
+    Central business engine workflow triggered whenever an ACID Registration Session
+    is saved or updated with an issued 19-digit ACID number and verified (DC-01 / BP-014):
+    1. Synchronizes ACID details into linked ImportFile (number, dates, execution days).
+    2. Advances ImportFile lifecycle step from STEP_05 to STEP_06 (Booking & Carrier Space Allocation).
+    3. Auto-completes prior pending SmartTasks for extracting ACID registration.
+    4. Dispatches new SmartTask for Logistics Officer to proceed with Freight Booking (BK-01 / STEP_06).
+    5. Emits SystemNotification for LOGISTICS_OFFICER & ALL.
+    """
+    if not db_item.import_file_id:
+        return
+
+    acid_num = (db_item.acid_number or "").strip()
+    is_issued_acid = len(acid_num) == 19 and acid_num.isdigit() and acid_num.upper() != "PENDING"
+
+    from modules.import_files.model import ImportFile
+    imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
+    if not imp:
+        return
+
+    # 1. Synchronize to ImportFile
+    if is_issued_acid:
+        imp.acid_number = acid_num
+        if db_item.requested_date:
+            imp.acid_request_date = db_item.requested_date
+        if db_item.generated_date:
+            imp.acid_issue_date = db_item.generated_date
+        elif db_item.requested_date and not imp.acid_issue_date:
+            imp.acid_issue_date = db_item.requested_date
+        if db_item.expiry_date:
+            imp.acid_expiry_date = db_item.expiry_date
+        if db_item.execution_days is not None:
+            imp.acid_execution_days = db_item.execution_days
+        db.commit()
+
+    # Only advance lifecycle and dispatch next tasks if it's verified/issued
+    if is_issued_acid and db_item.status in ["Verified", "Discrepancy_Accepted", "Generated", "Issued", "ACID Issued"]:
+        file_code = imp.import_file_code or imp.custom_file_number or f"IMP-{imp.import_file_id}"
+
+        # 2. Advance lifecycle from STEP_05 to STEP_06 (Phase 3: Booking & Doc Prep)
+        try:
+            from modules.lifecycle_board.service import advance_lifecycle_step_service
+            advance_lifecycle_step_service(
+                db=db,
+                completed_step_code="STEP_05",
+                import_file_id=imp.import_file_id,
+                target_step_codes=["STEP_06"],
+                auto_complete_prior=True,
+                assigned_user="Logistics Officer",
+                notes=f"تم قيد وتدقيق الرقم التعريفي المبدئي بنجاح (ACID: {acid_num}) للشحنة ({file_code}).",
+                source_module="ACID Verification Engine",
+                custom_stage_title="المرحلة الثالثة: حجز الشحن والتدقيق المستندي المبدئي",
+                custom_module_name="STEP_06 حجز النولون وتأكيد الخط الملاحي",
+                custom_next_action="STEP_06 تأكيد حجز الشحن مع الخط الملاحي أو وكيل الشحن الفائز",
+                min_progress_percent=40.0,
+            )
+        except Exception as e:
+            logger.warning("Failed to advance lifecycle step STEP_05->STEP_06: %s", e)
+
+        # 3. Auto-complete prior pending SmartTasks for ACID issuance
+        try:
+            from modules.smart_tasks.model import SmartTask
+            pending_acid_tasks = (
+                db.query(SmartTask)
+                .filter(
+                    SmartTask.import_file_id == imp.import_file_id,
+                    SmartTask.status.in_(["Pending", "In Progress"]),
+                )
+                .all()
+            )
+            for t in pending_acid_tasks:
+                if any(k in (t.title or "") + (t.description or "") for k in ["ACID", "نافذة", "STEP_05", "رقم القيد"]):
+                    t.status = "Completed"
+                    t.completion_notes = f"تم استخراج وتدقيق رقم ACID ({acid_num}) بنجاح عبر نافذة."
+            db.commit()
+        except Exception as e:
+            logger.warning("Failed to complete prior ACID smart tasks: %s", e)
+
+        # 4. Dispatch new SmartTask for Logistics Officer for Freight Booking (BK-01 / STEP_06)
+        try:
+            from modules.smart_tasks.repository import create_task as create_smart_task
+            from modules.smart_tasks.schemas import SmartTaskCreate
+
+            task_title = f"تأكيد حجز النولون وتحديد الخط الملاحي: {file_code} (BK-01)"
+            task_desc = (
+                f"تم إصدار وتدقيق رقم الـ ACID ({acid_num}). يجب تأكيد حجز النولون (Booking No) مع الخط الملاحي "
+                f"أو وكيل الشحن وتحديد مواعيد الإبحار المتوقعة (ETD) والوصول (ETA) وتثبيت فترات السماح (Free Days)."
+            )
+            booking_due = date.today() + timedelta(days=3)
+            task_schema = SmartTaskCreate(
+                title=task_title,
+                description=task_desc,
+                task_type="System Generated",
+                import_file_id=imp.import_file_id,
+                import_file_code=file_code,
+                phase_name="المرحلة الثالثة: حجز الشحن والتدقيق المستندي المبدئي",
+                assigned_user="Logistics Officer",
+                priority="High",
+                reminder_type="Freight Booking",
+                due_date=str(booking_due),
+                status="Pending",
+                notes=f"ACTION:FREIGHT_BOOKING | File: {file_code} | ACID: {acid_num}",
+            )
+            create_smart_task(db, task_schema, created_by="ACID Verification Engine")
+        except Exception as e:
+            logger.warning("Failed to create freight booking smart task: %s", e)
+
+        # 5. Emit SystemNotification
+        try:
+            from modules.notifications.model import SystemNotification
+            notif = SystemNotification(
+                title=f"🟢 تم قيد وتدقيق رقم ACID: {acid_num}",
+                message=(
+                    f"تم قيد وتدقيق الرقم التعريفي المبدئي (ACID: {acid_num}) بنجاح للشحنة ({file_code}). "
+                    f"صلاحية الرقم حتى {db_item.expiry_date}. تم نقل الشحنة إلى مرحلة حجز النولون (STEP_06)."
+                ),
+                severity="INFO",
+                category="ACID_VERIFICATION",
+                entity_type="AcidRegistrationSession",
+                entity_id=db_item.acid_id,
+                target_role="LOGISTICS_OFFICER",
+            )
+            db.add(notif)
+            db.commit()
+        except Exception as e:
+            logger.warning("Failed to create ACID system notification: %s", e)
+
+
 def create_acid_session_service(
     db: Session, schema: AcidRegistrationCreate
 ) -> AcidRegistrationResponse:
@@ -225,17 +357,8 @@ def create_acid_session_service(
             db.refresh(existing)
             db_item = existing
 
-            # Sync with import file if applicable
-            if db_item.import_file_id and db_item.acid_number and db_item.acid_number != "PENDING":
-                from modules.import_files.model import ImportFile
-                imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
-                if imp:
-                    imp.acid_number = db_item.acid_number
-                    imp.acid_request_date = db_item.requested_date
-                    imp.acid_issue_date = db_item.generated_date or db_item.requested_date
-                    imp.acid_expiry_date = db_item.expiry_date
-                    imp.acid_execution_days = db_item.execution_days
-                    db.commit()
+            # Trigger ACID verification and synchronization workflow
+            _handle_acid_verification_workflow(db, db_item)
 
             return enrich_acid_response(db, db_item)
 
@@ -246,17 +369,8 @@ def create_acid_session_service(
         db_item.execution_days = max(0, (db_item.generated_date - db_item.requested_date).days)
         db.commit()
 
-    # Sync with import file if applicable
-    if db_item.import_file_id and db_item.acid_number and db_item.acid_number != "PENDING":
-        from modules.import_files.model import ImportFile
-        imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
-        if imp:
-            imp.acid_number = db_item.acid_number
-            imp.acid_request_date = db_item.requested_date
-            imp.acid_issue_date = db_item.generated_date or db_item.requested_date
-            imp.acid_expiry_date = db_item.expiry_date
-            imp.acid_execution_days = db_item.execution_days
-            db.commit()
+    # Trigger ACID verification and synchronization workflow
+    _handle_acid_verification_workflow(db, db_item)
 
     return enrich_acid_response(db, db_item)
 
@@ -284,23 +398,8 @@ def update_acid_session_service(
         updated.execution_days = max(0, (updated.generated_date - updated.requested_date).days)
         db.commit()
 
-    # Sync with import file if applicable
-    if updated.import_file_id and updated.acid_number and updated.acid_number != "PENDING":
-        from modules.import_files.model import ImportFile
-        imp = db.query(ImportFile).filter(ImportFile.import_file_id == updated.import_file_id).first()
-        if imp:
-            imp.acid_number = updated.acid_number
-            if updated.requested_date:
-                imp.acid_request_date = updated.requested_date
-            if updated.generated_date:
-                imp.acid_issue_date = updated.generated_date
-            elif updated.requested_date and not imp.acid_issue_date:
-                imp.acid_issue_date = updated.requested_date
-            if updated.expiry_date:
-                imp.acid_expiry_date = updated.expiry_date
-            if updated.execution_days is not None:
-                imp.acid_execution_days = updated.execution_days
-            db.commit()
+    # Trigger ACID verification and synchronization workflow
+    _handle_acid_verification_workflow(db, updated)
 
     return enrich_acid_response(db, updated)
 
@@ -548,6 +647,135 @@ def restore_acid_session_service(db: Session, acid_id: int) -> AcidRegistrationR
 
 
 # --- BANKING DOCUMENTS SERVICE ---
+def _handle_banking_document_verification_workflow(
+    db: Session,
+    db_item: BankingDocumentSession,
+) -> None:
+    """
+    Central business engine workflow triggered whenever a Banking Document
+    (Form 4 / Form 9 / Letter of Credit L/C) is linked, updated, or received (DC-03 / BP-015):
+    1. Synchronizes document reference, request date, received date, and execution days into linked ImportFile.
+    2. If the document is approved/received/issued (has a non-pending reference number),
+       advances ImportFile lifecycle from STEP_12 to STEP_13 (Customs Declaration 46).
+    3. Auto-completes prior pending SmartTasks for Form 4 / LC bank approvals.
+    4. Dispatches new SmartTask for Customs Broker / Specialist to prepare Customs Declaration 46 (CS-03 / STEP_13).
+    5. Emits SystemNotification for CUSTOMS_BROKER & FINANCIAL_CONTROLLER & ALL.
+    """
+    if not db_item.import_file_id:
+        return
+
+    ref_num = (db_item.doc_reference_number or "").strip()
+    is_valid_ref = bool(ref_num and ref_num.upper() != "PENDING")
+
+    from modules.import_files.model import ImportFile
+    imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
+    if not imp:
+        return
+
+    # 1. Synchronize to ImportFile
+    if db_item.request_date:
+        imp.form4_request_date = db_item.request_date
+    if is_valid_ref:
+        imp.form4_no = ref_num
+    if db_item.received_date:
+        imp.form4_received_date = db_item.received_date
+        imp.form4_execution_days = db_item.execution_days
+    db.commit()
+
+    # Only advance lifecycle and dispatch next tasks if it's verified / received / approved by bank
+    if is_valid_ref and db_item.status in ["Received", "Approved by Bank", "Form Issued", "Verified", "Endorsed"]:
+        file_code = imp.import_file_code or imp.custom_file_number or f"IMP-{imp.import_file_id}"
+
+        # 2. Advance lifecycle from STEP_12 to STEP_13
+        try:
+            from modules.lifecycle_board.service import advance_lifecycle_step_service
+            advance_lifecycle_step_service(
+                db=db,
+                completed_step_code="STEP_12",
+                import_file_id=imp.import_file_id,
+                target_step_codes=["STEP_13"],
+                auto_complete_prior=True,
+                assigned_user="Customs Broker",
+                notes=f"تم استلام وتوثيق المستند البنكي ({db_item.doc_type}) برقم ({ref_num}) للشحنة ({file_code}).",
+                source_module="Banking Documents Engine",
+                custom_stage_title="المرحلة الرابعة: الإجراءات الجمركية والإقرار 46",
+                custom_module_name="STEP_13 فتح الإقرار الجمركي 46 ك.م",
+                custom_next_action="STEP_13 قيد الإقرار الجمركي ونموذج 46 ك.م الموحد (CS-03)",
+                min_progress_percent=65.0,
+            )
+        except Exception as e:
+            logger.warning("Failed to advance lifecycle step STEP_12->STEP_13: %s", e)
+
+        # 3. Auto-complete prior pending SmartTasks for Banking Document / Form 4
+        try:
+            from modules.smart_tasks.model import SmartTask
+            pending_tasks = (
+                db.query(SmartTask)
+                .filter(
+                    SmartTask.import_file_id == imp.import_file_id,
+                    SmartTask.status.in_(["Pending", "In Progress"]),
+                )
+                .all()
+            )
+            for t in pending_tasks:
+                combined_text = (t.title or "") + " " + (t.description or "") + " " + (t.reminder_type or "")
+                if any(k in combined_text for k in ["نموذج 4", "اعتماد", "Form 4", "L/C", "STEP_12", "مستند بنكي", "المصادقة البنكية"]):
+                    t.status = "Completed"
+                    t.completion_notes = f"تم استلام واعتماد {db_item.doc_type} برقم ({ref_num}) عبر {db_item.bank_name}."
+            db.commit()
+        except Exception as e:
+            logger.warning("Failed to complete prior banking smart tasks: %s", e)
+
+        # 4. Dispatch new SmartTask for Customs Broker / Specialist (CS-03 / STEP_13)
+        try:
+            from modules.smart_tasks.repository import create_task as create_smart_task
+            from modules.smart_tasks.schemas import SmartTaskCreate
+
+            task_title = f"قيد الإقرار الجمركي ونموذج 46 ك.م: {file_code} (CS-03)"
+            task_desc = (
+                f"تم اعتماد وتوثيق المستند البنكي ({db_item.doc_type}) برقم المرجع ({ref_num}) من بنك ({db_item.bank_name}). "
+                f"يرجى استكمال تقديم نموذج 46 ك.م وبدء إجراءات الكشف والمطابقة الجمركية عبر نافذة."
+            )
+            decl_due = date.today() + timedelta(days=2)
+            task_schema = SmartTaskCreate(
+                title=task_title,
+                description=task_desc,
+                task_type="System Generated",
+                import_file_id=imp.import_file_id,
+                import_file_code=file_code,
+                phase_name="المرحلة الرابعة: الإجراءات الجمركية والإقرار 46",
+                assigned_user="Customs Broker",
+                priority="High",
+                reminder_type="Customs Declaration 46",
+                due_date=str(decl_due),
+                status="Pending",
+                notes=f"ACTION:DECLARATION_46 | File: {file_code} | BankDoc: {ref_num}",
+            )
+            create_smart_task(db, task_schema, created_by="Banking Documents Engine")
+        except Exception as e:
+            logger.warning("Failed to create Customs Declaration 46 smart task: %s", e)
+
+        # 5. Emit SystemNotification
+        try:
+            from modules.notifications.model import SystemNotification
+            notif = SystemNotification(
+                title=f"🟢 اعتماد وتوثيق {db_item.doc_type}: {ref_num}",
+                message=(
+                    f"تم توثيق واعتماد {db_item.doc_type} برقم ({ref_num}) عبر بنك {db_item.bank_name} للشحنة ({file_code}). "
+                    f"تم نقل الشحنة إلى مرحلة الإجراءات الجمركية ونموذج 46 (STEP_13)."
+                ),
+                severity="INFO",
+                category="BANKING_DOCUMENT_VERIFICATION",
+                entity_type="BankingDocumentSession",
+                entity_id=db_item.bank_doc_id,
+                target_role="CUSTOMS_BROKER",
+            )
+            db.add(notif)
+            db.commit()
+        except Exception as e:
+            logger.warning("Failed to create banking system notification: %s", e)
+
+
 def create_banking_document_service(
     db: Session, schema: BankingDocumentCreate
 ):
@@ -556,18 +784,8 @@ def create_banking_document_service(
 
     item = repo.create_banking_document(db, schema)
     
-    # Sync with import file if applicable
-    if item.import_file_id:
-        from modules.import_files.model import ImportFile
-        imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
-        if imp:
-            imp.form4_request_date = item.request_date
-            if item.doc_reference_number and item.doc_reference_number != "PENDING":
-                imp.form4_no = item.doc_reference_number
-            if item.received_date:
-                imp.form4_received_date = item.received_date
-                imp.form4_execution_days = item.execution_days
-            db.commit()
+    # Sync and trigger workflow
+    _handle_banking_document_verification_workflow(db, item)
 
     return enrich_banking_response(db, item)
 
@@ -587,19 +805,8 @@ def update_banking_document_service(
 
     updated = repo.update_banking_document(db, item, schema)
 
-    # Sync with import file if applicable
-    if updated.import_file_id:
-        from modules.import_files.model import ImportFile
-        imp = db.query(ImportFile).filter(ImportFile.import_file_id == updated.import_file_id).first()
-        if imp:
-            if updated.doc_reference_number and updated.doc_reference_number != "PENDING":
-                imp.form4_no = updated.doc_reference_number
-            if updated.request_date:
-                imp.form4_request_date = updated.request_date
-            if updated.received_date:
-                imp.form4_received_date = updated.received_date
-                imp.form4_execution_days = updated.execution_days
-            db.commit()
+    # Sync and trigger workflow
+    _handle_banking_document_verification_workflow(db, updated)
 
     return enrich_banking_response(db, updated)
 
@@ -628,32 +835,8 @@ def receive_banking_document_service(
     db.commit()
     db.refresh(item)
 
-    # Sync with import file
-    if item.import_file_id:
-        from modules.import_files.model import ImportFile
-        imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
-        if imp:
-            imp.form4_no = item.doc_reference_number
-            imp.form4_request_date = item.request_date
-            imp.form4_received_date = item.received_date
-            imp.form4_execution_days = item.execution_days
-            db.commit()
-
-        # Advance Central Lifecycle (STEP_12 -> STEP_13)
-        if item.doc_type == "Form 4":
-            try:
-                from modules.lifecycle_board.service import advance_lifecycle_step_service
-                advance_lifecycle_step_service(
-                    db=db,
-                    import_file_id=item.import_file_id,
-                    completed_step_code="STEP_12",
-                    target_step_codes=["STEP_13"],
-                    notes=f"تم استلام وتوثيق نموذج 4 البنكي برقم ({item.doc_reference_number}). الانتقال إلى مرحلة فتح الإقرار الجمركي 46.",
-                    assigned_user="Bank / Financial Controller",
-                )
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning("Lifecycle advance STEP_12->STEP_13 failed: %s", e)
+    # Sync and trigger workflow
+    _handle_banking_document_verification_workflow(db, item)
 
     return enrich_banking_response(db, item)
 
@@ -1453,6 +1636,170 @@ Please be advised that upon verification of the Draft Bill of Lading received fo
     }
 
 
+def _complete_draft_bl_review_workflow(
+    db: Session, session: DraftBLReviewSession, approved_by: Optional[str] = None
+) -> None:
+    """
+    Handles end-to-end operational sync upon final approval / certification of Draft B/L (SH-02):
+    1. Updates ImportFile (bl_number, booking_no, vessel_name, stage progression to CargoX, progress >= 65%).
+    2. Updates CargoShippingRecord & CustomsDocumentApproval.
+    3. Advances Lifecycle Board to STEP_08_COO & STEP_09_CARGOX.
+    4. Auto-completes pending SH-02 SmartTasks.
+    5. Dispatches downstream SH-03 SmartTask (CargoX Digital Transfer & Sealing).
+    6. Emits SystemNotification.
+    """
+    try:
+        from modules.import_files.model import ImportFile
+        imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == session.import_file_id).first()
+        file_code = imp_file.import_file_code if imp_file else f"FILE-{session.import_file_id}"
+        approver = approved_by or session.approved_by or "Compliance Officer"
+
+        if imp_file:
+            if hasattr(imp_file, "bl_number") and session.draft_bl_number and session.draft_bl_number != "DRAFT-BL":
+                imp_file.bl_number = session.draft_bl_number
+            if hasattr(imp_file, "booking_no") and session.booking_no:
+                imp_file.booking_no = session.booking_no
+            if hasattr(imp_file, "vessel_name") and session.vessel_name:
+                imp_file.vessel_name = session.vessel_name
+            imp_file.current_module = "STEP_09 منصة النقل الرقمي CargoX واعتماد الملفات (SH-03)"
+            imp_file.next_action = "STEP_09 رفع واعتماد المظروف الرقمي وختم الوثائق عبر CargoX (SH-03)"
+            if (imp_file.progress_percent or 0.0) < 65.0:
+                imp_file.progress_percent = 65.0
+            db.commit()
+
+        # Sync to CargoShippingRecord
+        try:
+            from modules.cargo_shipping.model import CargoShippingRecord
+            cargo_shp = db.query(CargoShippingRecord).filter(
+                CargoShippingRecord.import_file_id == session.import_file_id,
+                CargoShippingRecord.is_active == True,
+            ).first()
+            if cargo_shp:
+                if session.draft_bl_number and session.draft_bl_number != "DRAFT-BL":
+                    cargo_shp.bl_number = session.draft_bl_number
+                if session.vessel_name:
+                    cargo_shp.vessel_name = session.vessel_name
+                db.commit()
+        except Exception as e_cs:
+            logger.warning("CargoShippingRecord sync failed for certified draft B/L review: %s", e_cs)
+
+        # Sync to CustomsDocumentApproval (Bill of Lading)
+        try:
+            from modules.docs_customs_approval.model import CustomsDocumentApproval
+            bl_app = db.query(CustomsDocumentApproval).filter(
+                CustomsDocumentApproval.import_file_id == session.import_file_id,
+                CustomsDocumentApproval.document_type == "Bill of Lading",
+                CustomsDocumentApproval.is_active == True,
+            ).first()
+            if bl_app:
+                bl_app.document_reference_no = session.draft_bl_number or bl_app.document_reference_no
+                bl_app.commercial_status = "Approved"
+                bl_app.commercial_reviewed_by = approver
+                bl_app.commercial_reviewed_at = datetime.now(timezone.utc)
+                bl_app.commercial_notes = f"تم اعتماد مسودة بوليصة الشحن ({session.draft_bl_number}) بنجاح (SH-02 / STEP_08_BL)."
+                if bl_app.customs_status == "Approved":
+                    bl_app.overall_status = "Approved for Clearance"
+                else:
+                    bl_app.overall_status = "Under Review"
+                db.commit()
+        except Exception as e_cda:
+            logger.warning("CustomsDocumentApproval sync failed for certified draft B/L review: %s", e_cda)
+
+        # Transition lifecycle
+        try:
+            from modules.lifecycle_board.service import advance_lifecycle_step_service
+            advance_lifecycle_step_service(
+                db=db,
+                import_file_id=session.import_file_id,
+                completed_step_code="STEP_08_BL",
+                target_step_codes=["STEP_08_COO"],
+                notes=f"اكتمال واعتماد مراجعة مسودة بوليصة الشحن ({session.draft_bl_number}) وتحديث الموافقة الجمركية بنجاح (SH-02).",
+                assigned_user=approver,
+            )
+        except Exception as e_lc:
+            logger.warning("Lifecycle step advancement failed for SH-02: %s", e_lc)
+
+        # Auto-close prior SH-02 smart tasks
+        try:
+            from modules.smart_tasks.model import SmartTask
+            prior_tasks = db.query(SmartTask).filter(
+                SmartTask.import_file_id == session.import_file_id,
+                SmartTask.status != "Completed",
+                SmartTask.is_active == True,
+            ).all()
+            for pt in prior_tasks:
+                notes_str = pt.notes or ""
+                title_str = pt.title or ""
+                if "SH-02" in notes_str or "SH-02" in title_str or pt.reminder_type == "Draft B/L Dual Review" or "DRAFT_BL" in notes_str:
+                    pt.status = "Completed"
+                    pt.is_auto_closed = True
+                    pt.completion_date = date.today()
+            db.commit()
+        except Exception as e_st:
+            logger.warning("Failed to auto-close prior SH-02 smart tasks: %s", e_st)
+
+        # Dispatch downstream SmartTask: SH-03 (CargoX Digital Transfer & Sealing)
+        try:
+            from modules.smart_tasks.model import SmartTask
+            from modules.smart_tasks.service import create_task_service
+            from modules.smart_tasks.schemas import SmartTaskCreate
+            existing_sh03 = db.query(SmartTask).filter(
+                SmartTask.import_file_id == session.import_file_id,
+                SmartTask.status != "Completed",
+                SmartTask.is_active == True,
+            ).all()
+            has_sh03 = any("SH-03" in (t.notes or "") or "SH-03" in (t.title or "") for t in existing_sh03)
+            if not has_sh03:
+                task_title = f"منصة النقل الرقمي CargoX واعتماد الملفات: {file_code} (SH-03)"
+                task_desc = (
+                    f"تمت المراجعة المزدوجة واعتماد مسودة بوليصة الشحن ({session.draft_bl_number}) بنجاح "
+                    f"والتأكد من مطابقتها التامة مع أمر الشراء والفاتورة لمنع غرامات التعديل الجمركي. "
+                    f"يجب الآن قيام المصدر برفع حزمة المستندات واعتماد المظروف الرقمي (Envelope ID) عبر منصة CargoX لربطه بنافذة."
+                )
+                due_dt = date.today() + timedelta(days=3)
+                task_schema = SmartTaskCreate(
+                    title=task_title,
+                    description=task_desc,
+                    task_type="System Generated",
+                    import_file_id=session.import_file_id,
+                    import_file_code=file_code,
+                    phase_name="المرحلة الخامسة: الإبحار و CargoX",
+                    assigned_user="Logistics Officer",
+                    priority="High",
+                    reminder_type="CargoX Digital Transfer",
+                    due_date=str(due_dt),
+                    status="Pending",
+                    notes=f"ACTION:CARGOX_SEAL | File: {file_code} | BL: {session.draft_bl_number}",
+                )
+                create_task_service(db, task_schema, user_name="Draft B/L Dual Review Engine")
+        except Exception as e_sh03:
+            logger.warning("Failed to dispatch SH-03 smart task: %s", e_sh03)
+
+        # Dispatch SystemNotification
+        try:
+            from modules.notifications.model import SystemNotification
+            db.add(SystemNotification(
+                title=f"اكتمال المراجعة المزدوجة لمسودة بوليصة الشحن: {file_code} (SH-02)",
+                message=(
+                    f"تمت مطابقة واعتماد مسودة بوليصة الشحن ({session.draft_bl_number}) لملف الشحنة ({file_code}) "
+                    f"بنجاح والتأكد من تطابقها الكامل مع أمر الشراء والفاتورة التجارية لمنع أخطاء التعديل الجمركي. "
+                    f"تم تجهيز الملف لمرحلة CargoX (SH-03)."
+                ),
+                severity="INFO",
+                category="STAGE_PROGRESSION",
+                entity_type="ImportFile",
+                entity_id=session.import_file_id,
+                target_role="ALL",
+                is_read=False,
+            ))
+            db.commit()
+        except Exception as e_notif:
+            logger.warning("Failed to emit notification for certified draft B/L review: %s", e_notif)
+
+    except Exception as e:
+        logger.warning("Sync failed for certified draft B/L review: %s", e)
+
+
 def create_draft_bl_review_service(db: Session, schema: DraftBLReviewCreate) -> DraftBLReviewSession:
     if schema.checklist_data:
         # Convert any Pydantic models to dicts
@@ -1526,68 +1873,9 @@ def create_draft_bl_review_service(db: Session, schema: DraftBLReviewCreate) -> 
     else:
         saved_session = repo.create_draft_bl_review(db, schema)
 
-    # If certified and approved (not draft, not revision required), sync to ImportFile, CargoShipping, and Customs Document Approvals
+    # If certified and approved (not draft, not revision required), trigger complete workflow
     if not getattr(schema, "is_draft", False) and saved_session.status == "APPROVED":
-        try:
-            from modules.import_files.model import ImportFile
-            imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id).first()
-            if imp_file:
-                if schema.draft_bl_number and schema.draft_bl_number != "DRAFT-BL":
-                    imp_file.bl_number = schema.draft_bl_number
-                if schema.booking_no:
-                    imp_file.booking_no = schema.booking_no
-                if schema.vessel_name:
-                    imp_file.vessel_name = schema.vessel_name
-                imp_file.current_module = "STEP_08_COO مسودة شهادة المنشأ و EUR.1"
-                imp_file.next_action = "STEP_08_COO مراجعة مسودة شهادة المنشأ والاتفاقيات التفضيلية"
-                if (imp_file.progress_percent or 0.0) < 54.0:
-                    imp_file.progress_percent = 54.0
-                db.commit()
-
-            # Sync to CargoShippingRecord
-            from modules.cargo_shipping.model import CargoShippingRecord
-            cargo_shp = db.query(CargoShippingRecord).filter(
-                CargoShippingRecord.import_file_id == schema.import_file_id,
-                CargoShippingRecord.is_active == True,
-            ).first()
-            if cargo_shp:
-                if schema.draft_bl_number and schema.draft_bl_number != "DRAFT-BL":
-                    cargo_shp.bl_number = schema.draft_bl_number
-                if schema.vessel_name:
-                    cargo_shp.vessel_name = schema.vessel_name
-                db.commit()
-
-            # Sync to CustomsDocumentApproval (Bill of Lading)
-            from modules.docs_customs_approval.model import CustomsDocumentApproval
-            bl_app = db.query(CustomsDocumentApproval).filter(
-                CustomsDocumentApproval.import_file_id == schema.import_file_id,
-                CustomsDocumentApproval.document_type == "Bill of Lading",
-                CustomsDocumentApproval.is_active == True,
-            ).first()
-            if bl_app:
-                bl_app.document_reference_no = schema.draft_bl_number or bl_app.document_reference_no
-                bl_app.commercial_status = "Approved"
-                bl_app.commercial_reviewed_by = schema.approved_by or "Draft B/L Review Engine"
-                bl_app.commercial_reviewed_at = datetime.now(timezone.utc)
-                bl_app.commercial_notes = f"تم اعتماد مسودة بوليصة الشحن ({schema.draft_bl_number}) بنجاح (STEP_08_BL)."
-                if bl_app.customs_status == "Approved":
-                    bl_app.overall_status = "Approved for Clearance"
-                else:
-                    bl_app.overall_status = "Under Review"
-                db.commit()
-
-            # Transition lifecycle
-            from modules.lifecycle_board.service import advance_lifecycle_step_service
-            advance_lifecycle_step_service(
-                db=db,
-                import_file_id=schema.import_file_id,
-                completed_step_code="STEP_08_BL",
-                target_step_codes=["STEP_08_COO"],
-                notes=f"اكتمال واعتماد مراجعة مسودة بوليصة الشحن ({schema.draft_bl_number}) وتحديث الموافقة الجمركية بنجاح.",
-                assigned_user=schema.approved_by or "Compliance Officer",
-            )
-        except Exception as e:
-            logger.warning("Sync failed for certified draft B/L review: %s", e)
+        _complete_draft_bl_review_workflow(db, saved_session, approved_by=schema.approved_by)
 
     return saved_session
 
@@ -1701,6 +1989,9 @@ def process_dual_approval_service(db: Session, request: DualApprovalRequest) -> 
         review.status = "FINAL"
         review.approved_by = f"{review.importer_approved_by} & {review.broker_approved_by}"
         review.approved_at = now
+        db.commit()
+        db.refresh(review)
+        _complete_draft_bl_review_workflow(db, review, approved_by=review.approved_by)
 
     db.commit()
     db.refresh(review)
@@ -1802,6 +2093,7 @@ def approve_draft_bl_service(db: Session, review_id: int, approved_by: str = "Ka
     review.approved_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(review)
+    _complete_draft_bl_review_workflow(db, review, approved_by=approved_by)
     return review
 
 

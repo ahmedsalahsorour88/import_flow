@@ -1,4 +1,5 @@
-from datetime import date, timedelta
+import logging
+from datetime import datetime, timezone, date, timedelta
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -17,9 +18,17 @@ from .schemas import (
     PortStorageClock,
     DualClockResponse,
     ContainerIndividualUpdate,
+    FreeDaysAgreementRegister,
+    FreeDaysAgreementResponse,
+    ContainerRadarItem,
+    ContainerRadarOverviewResponse,
+    EmptyContainerReturnSubmit,
+    EmptyContainerReturnResponse,
 )
 from .validators import validate_tier_rates, validate_demurrage_dates, validate_positive_amount
 from . import repository
+
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_DEMURRAGE_TIERS = [
@@ -265,6 +274,14 @@ def create_demurrage_tracking_service(
 
     dem_free = policy.demurrage_free_days if policy else 14
     det_free = policy.detention_free_days if policy else 7
+    if req.import_file_id:
+        from modules.freight_booking.model import ShipmentBooking
+        booking = db.query(ShipmentBooking).filter(
+            ShipmentBooking.import_file_id == req.import_file_id,
+            ShipmentBooking.is_active == True,
+        ).first()
+        if booking and booking.free_demurrage_days:
+            dem_free = booking.free_demurrage_days
     storage_free = policy.port_storage_free_days if policy else 5
     storage_rate = policy.port_storage_daily_rate_egp if policy else 250.0
     dem_tiers = policy.demurrage_tiers if policy else DEFAULT_DEMURRAGE_TIERS
@@ -769,4 +786,656 @@ def update_single_container_service(
     db.commit()
     db.refresh(tracking)
     return tracking
+
+
+# =========================================================================
+# BK-02: Free Days Agreement Registration & Demurrage Radar Integration
+# =========================================================================
+
+def register_free_days_agreement_service(
+    db: Session,
+    payload: FreeDaysAgreementRegister,
+    user: str = "Logistics Officer",
+) -> FreeDaysAgreementResponse:
+    """
+    Central operational engine for BK-02: Free Days Agreement Registration.
+    - Synchronizes agreed free days with ImportFile.target_free_days
+    - Updates linked ShipmentBooking.free_demurrage_days
+    - Recalculates any active DemurrageTracking sessions with newly agreed free days
+    - Calculates cost avoidance / savings achieved vs standard 14-day policy
+    - Completes pending BK-02 SmartTasks automatically
+    - Dispatches high-priority SystemNotification alerting operations
+    """
+    from modules.import_files.model import ImportFile
+    from modules.freight_booking.model import ShipmentBooking
+    from modules.smart_tasks.model import SmartTask
+    from modules.notifications.model import SystemNotification
+
+    file_rec = db.query(ImportFile).filter(
+        ImportFile.import_file_id == payload.import_file_id,
+        ImportFile.is_active == True,
+    ).first()
+    if not file_rec:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ملف الاستيراد رقم {payload.import_file_id} غير موجود.",
+        )
+
+    file_code = file_rec.custom_file_number or file_rec.import_file_code or f"IMP-{file_rec.import_file_id}"
+
+    # 1. Update ImportFile
+    file_rec.target_free_days = payload.agreed_demurrage_free_days
+    if payload.agreement_reference:
+        ref_note = f"اتفاقية فترات السماح: {payload.agreement_reference} ({payload.agreed_demurrage_free_days}D DEM / {payload.agreed_detention_free_days}D DET)"
+        if file_rec.shipping_instructions_notes:
+            if ref_note not in file_rec.shipping_instructions_notes:
+                file_rec.shipping_instructions_notes += f" | {ref_note}"
+        else:
+            file_rec.shipping_instructions_notes = ref_note
+    db.commit()
+    db.refresh(file_rec)
+
+    # 2. Update linked ShipmentBooking
+    booking = db.query(ShipmentBooking).filter(
+        ShipmentBooking.import_file_id == payload.import_file_id,
+        ShipmentBooking.is_active == True,
+    ).first()
+    if booking:
+        booking.free_demurrage_days = payload.agreed_demurrage_free_days
+        db.commit()
+        db.refresh(booking)
+
+    # 3. Synchronize existing tracking sessions if any
+    carrier = payload.carrier_name or (booking.shipping_line_name if booking else None) or "Carrier"
+    trackings = db.query(DemurrageTracking).filter(
+        DemurrageTracking.import_file_id == payload.import_file_id,
+        DemurrageTracking.is_active == True,
+    ).all()
+    for trk in trackings:
+        recalc_containers = []
+        total_dem_fx = 0.0
+        total_det_fx = 0.0
+        total_stor_egp = 0.0
+        for c in (trk.containers or []):
+            sim = simulate_demurrage_and_detention(DemurrageSimulationRequest(
+                carrier_name=trk.carrier_name,
+                container_type=c.get("container_type", "40ft High Cube"),
+                containers_count=1,
+                demurrage_free_days=payload.agreed_demurrage_free_days,
+                detention_free_days=payload.agreed_detention_free_days,
+                port_storage_free_days=payload.port_storage_free_days,
+                discharge_date=trk.discharge_date,
+                gate_out_date=trk.gate_out_date,
+                empty_return_date=trk.empty_return_date,
+                currency=trk.currency,
+                exchange_rate=trk.exchange_rate,
+            ))
+            c_data = {
+                "container_no": c.get("container_no"),
+                "container_type": c.get("container_type"),
+                "demurrage_days": sim.demurrage_days_overdue,
+                "detention_days": sim.detention_days_overdue,
+                "storage_days": sim.storage_days_overdue,
+                "demurrage_fx": sim.demurrage_fee_fx,
+                "detention_fx": sim.detention_fee_fx,
+                "storage_egp": sim.storage_fee_egp,
+                "total_egp": sim.total_cost_egp,
+                "status": sim.status_badge,
+            }
+            recalc_containers.append(c_data)
+            total_dem_fx += sim.demurrage_fee_fx
+            total_det_fx += sim.detention_fee_fx
+            total_stor_egp += sim.storage_fee_egp
+        trk.containers = recalc_containers
+        trk.total_demurrage_fx = round(total_dem_fx, 2)
+        trk.total_detention_fx = round(total_det_fx, 2)
+        trk.total_storage_egp = round(total_stor_egp, 2)
+        trk.total_cost_egp = round(((total_dem_fx + total_det_fx) * trk.exchange_rate) + total_stor_egp, 2)
+        db.commit()
+
+    # 4. Calculate cost avoidance
+    standard_free_days = 14
+    additional_days = max(0, payload.agreed_demurrage_free_days - standard_free_days)
+    containers_count = 1
+    if booking and booking.containers_data:
+        containers_count = sum(c.get("quantity", 1) if isinstance(c, dict) else getattr(c, "quantity", 1) for c in booking.containers_data)
+    estimated_cost_avoidance = round(additional_days * 70.0 * containers_count, 2)
+
+    # 5. Complete pending BK-02 smart tasks
+    try:
+        prior_tasks = db.query(SmartTask).filter(
+            SmartTask.import_file_id == payload.import_file_id,
+            SmartTask.status.in_(["Pending", "In Progress"]),
+            SmartTask.is_active == True,
+        ).all()
+        for pt in prior_tasks:
+            title_lower = (pt.title or "").lower()
+            if "bk-02" in title_lower or "سماح" in title_lower or "free days" in title_lower:
+                pt.status = "Completed"
+                pt.is_auto_closed = True
+        db.commit()
+    except Exception as e:
+        logger.warning("Failed to auto-complete BK-02 smart tasks: %s", e)
+
+    # 6. Dispatch SystemNotification
+    try:
+        notif = SystemNotification(
+            title=f"🟢 تم توثيق فترات السماح المجانية ({payload.agreed_demurrage_free_days} يوم) (BK-02)",
+            message=(
+                f"تم تسجيل وتثبيت فترات السماح المجانية للشحنة ({file_code}) بنجاح. "
+                f"أيام سماح الأرضيات: {payload.agreed_demurrage_free_days} يوم، "
+                f"أيام سماح الحاوية الفارغة: {payload.agreed_detention_free_days} يوم. "
+                f"المرجع: {payload.agreement_reference or 'N/A'}. "
+                f"تم تحديث رادار الغرامات تلقائياً وتوفير متوقع: ${estimated_cost_avoidance:,.2f} USD."
+            ),
+            severity="INFO",
+            category="FREE_DAYS_AGREEMENT_REGISTERED",
+            entity_type="ImportFile",
+            entity_id=payload.import_file_id,
+            target_role="LOGISTICS_OFFICER",
+        )
+        db.add(notif)
+        db.commit()
+    except Exception as e:
+        logger.warning("Failed to dispatch free days notification: %s", e)
+
+    radar_status = "Safe" if payload.agreed_demurrage_free_days >= 14 else "Warning"
+
+    return FreeDaysAgreementResponse(
+        import_file_id=payload.import_file_id,
+        import_file_code=file_code,
+        carrier_name=carrier,
+        booking_code=booking.booking_code if booking else None,
+        booking_confirmation_no=booking.booking_confirmation_no if booking else None,
+        standard_policy_demurrage_days=standard_free_days,
+        agreed_demurrage_free_days=payload.agreed_demurrage_free_days,
+        agreed_detention_free_days=payload.agreed_detention_free_days,
+        port_storage_free_days=payload.port_storage_free_days,
+        additional_free_days_gained=additional_days,
+        estimated_cost_avoidance_usd=estimated_cost_avoidance,
+        agreement_reference=payload.agreement_reference,
+        agreement_date=payload.agreement_date,
+        radar_status=radar_status,
+        notes=payload.notes,
+        updated_at=datetime.now(timezone.utc),
+    )
+
+
+def get_free_days_agreement_service(
+    db: Session,
+    import_file_id: int,
+) -> FreeDaysAgreementResponse:
+    from modules.import_files.model import ImportFile
+    from modules.freight_booking.model import ShipmentBooking
+
+    file_rec = db.query(ImportFile).filter(
+        ImportFile.import_file_id == import_file_id,
+        ImportFile.is_active == True,
+    ).first()
+    if not file_rec:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ملف الاستيراد رقم {import_file_id} غير موجود.",
+        )
+
+    booking = db.query(ShipmentBooking).filter(
+        ShipmentBooking.import_file_id == import_file_id,
+        ShipmentBooking.is_active == True,
+    ).first()
+
+    file_code = file_rec.custom_file_number or file_rec.import_file_code or f"IMP-{file_rec.import_file_id}"
+    carrier = (booking.shipping_line_name if booking else None) or "Carrier"
+    agreed_dem = file_rec.target_free_days or (booking.free_demurrage_days if booking else 14) or 14
+    standard_free_days = 14
+    additional_days = max(0, agreed_dem - standard_free_days)
+    containers_count = 1
+    if booking and booking.containers_data:
+        containers_count = sum(c.get("quantity", 1) if isinstance(c, dict) else getattr(c, "quantity", 1) for c in booking.containers_data)
+    estimated_cost_avoidance = round(additional_days * 70.0 * containers_count, 2)
+
+    agreement_reference = None
+    if file_rec.shipping_instructions_notes and "اتفاقية فترات السماح: " in file_rec.shipping_instructions_notes:
+        for part in file_rec.shipping_instructions_notes.split("|"):
+            part = part.strip()
+            if "اتفاقية فترات السماح: " in part:
+                after = part.split("اتفاقية فترات السماح: ")[1].strip()
+                if " (" in after:
+                    agreement_reference = after.split(" (")[0].strip()
+                else:
+                    agreement_reference = after
+
+    return FreeDaysAgreementResponse(
+        import_file_id=import_file_id,
+        import_file_code=file_code,
+        carrier_name=carrier,
+        booking_code=booking.booking_code if booking else None,
+        booking_confirmation_no=booking.booking_confirmation_no if booking else None,
+        standard_policy_demurrage_days=standard_free_days,
+        agreed_demurrage_free_days=agreed_dem,
+        agreed_detention_free_days=7,
+        port_storage_free_days=5,
+        additional_free_days_gained=additional_days,
+        estimated_cost_avoidance_usd=estimated_cost_avoidance,
+        agreement_reference=agreement_reference,
+        agreement_date=None,
+        radar_status="Safe" if agreed_dem >= 14 else "Warning",
+        notes=file_rec.shipping_instructions_notes,
+        updated_at=datetime.now(timezone.utc),
+    )
+
+
+# =========================================================================
+# TR-02: Demurrage & Detention Radar Overview Service
+# =========================================================================
+
+def get_containers_radar_overview_service(db: Session) -> ContainerRadarOverviewResponse:
+    """
+    TR-02: Aggregated Demurrage & Detention Radar across all active container shipments.
+    Categorizes containers into:
+      - SAFE (Green #27AE60): > 4 days remaining before penalties begin
+      - WARNING (Yellow #E67E22): 1 to 4 days remaining before penalties begin
+      - CRITICAL_OVERDUE (Red #C0392B): 0 or negative days remaining, penalty actively accruing
+      - RETURNED_SAFE (Grey #7F8C8D): Container already returned safely
+    """
+    trackings = db.query(DemurrageTracking).filter(
+        DemurrageTracking.is_active == True,
+        DemurrageTracking.status != "Completed",
+    ).all()
+
+    today = date.today()
+    radar_items: List[ContainerRadarItem] = []
+    safe_count = 0
+    warning_count = 0
+    critical_count = 0
+    returned_count = 0
+    total_accrued_demurrage_usd = 0.0
+    total_accrued_storage_egp = 0.0
+    total_estimated_exposure_egp = 0.0
+
+    for t in trackings:
+        policy = t.policy
+        dem_free = policy.demurrage_free_days if policy else 14
+        storage_free = policy.port_storage_free_days if policy else 5
+        exchange_rate = t.exchange_rate or 50.0
+
+        containers_list = t.containers or []
+        if not containers_list:
+            containers_list = [{
+                "container_no": t.bill_of_lading_no,
+                "container_type": "40ft High Cube",
+                "gate_out_date": t.gate_out_date.isoformat() if t.gate_out_date else None,
+                "empty_return_date": t.empty_return_date.isoformat() if t.empty_return_date else None,
+            }]
+
+        file_code = t.import_file.import_file_code if t.import_file else f"IMP-{t.import_file_id}"
+
+        for c in containers_list:
+            c_no = c.get("container_no") or t.bill_of_lading_no
+            c_type = c.get("container_type") or "40ft High Cube"
+
+            c_gate_out_raw = c.get("gate_out_date")
+            c_empty_ret_raw = c.get("empty_return_date")
+            c_gate_out = date.fromisoformat(c_gate_out_raw.split("T")[0]) if c_gate_out_raw else t.gate_out_date
+            c_empty_ret = date.fromisoformat(c_empty_ret_raw.split("T")[0]) if c_empty_ret_raw else t.empty_return_date
+
+            c_ref_gate_out = c_gate_out or today
+            c_dem_consumed = max(0, (c_ref_gate_out - t.discharge_date).days)
+            c_dem_remaining = max(0, dem_free - c_dem_consumed)
+
+            c_storage_consumed = max(0, (c_ref_gate_out - t.discharge_date).days)
+            c_storage_remaining = max(0, storage_free - c_storage_consumed)
+
+            if c_empty_ret:
+                radar_status = "RETURNED_SAFE"
+                color_code = "#7F8C8D"
+                status_label_ar = "تم إرجاع الحاوية فارغة"
+                returned_count += 1
+                alert_msg = f"تم إرجاع الحاوية {c_no} بسلام للخط الملاحي بدون غرامات جارية."
+                item_dem_usd = 0.0
+                item_stor_egp = 0.0
+                item_tot_egp = 0.0
+            elif (not c_gate_out and c_storage_remaining == 0) or c_dem_remaining == 0:
+                radar_status = "CRITICAL_OVERDUE"
+                color_code = "#C0392B"
+                status_label_ar = "حرج - سريان غرامات يومية"
+                critical_count += 1
+
+                overdue_dem = max(0, c_dem_consumed - dem_free)
+                overdue_stor = max(0, c_storage_consumed - storage_free) if not c_gate_out else 0
+                item_dem_usd = overdue_dem * 70.0
+                item_stor_egp = overdue_stor * 250.0
+                item_tot_egp = (item_dem_usd * exchange_rate) + item_stor_egp
+
+                alert_msg = f"خطر غرامات: تجاوز فترة السماح بـ {max(overdue_dem, overdue_stor)} أيام! مطلوب سرعة التعتيق والإرجاع."
+            elif (not c_gate_out and c_storage_remaining <= 2) or c_dem_remaining <= 4:
+                radar_status = "WARNING"
+                color_code = "#E67E22"
+                status_label_ar = "تحذير - اقتراب انتهاء السماح"
+                warning_count += 1
+                item_dem_usd = 0.0
+                item_stor_egp = 0.0
+                item_tot_egp = 0.0
+                alert_msg = f"تحذير: متبقي {min(c_dem_remaining, c_storage_remaining)} أيام فقط قبل بدء سريان غرامات التأخير والأرضيات."
+            else:
+                radar_status = "SAFE"
+                color_code = "#27AE60"
+                status_label_ar = "آمن - داخل فترة السماح"
+                safe_count += 1
+                item_dem_usd = 0.0
+                item_stor_egp = 0.0
+                item_tot_egp = 0.0
+                alert_msg = f"الحاوية داخل فترة السماح المعتمدة (متبقي {c_dem_remaining} يوماً للخط الملاحي)."
+
+            total_accrued_demurrage_usd += item_dem_usd
+            total_accrued_storage_egp += item_stor_egp
+            total_estimated_exposure_egp += item_tot_egp
+
+            radar_items.append(
+                ContainerRadarItem(
+                    tracking_id=t.tracking_id,
+                    import_file_id=t.import_file_id,
+                    import_file_code=file_code,
+                    bill_of_lading_no=t.bill_of_lading_no,
+                    carrier_name=t.carrier_name,
+                    container_number=c_no,
+                    container_type=c_type,
+                    discharge_date=t.discharge_date,
+                    gate_out_date=c_gate_out,
+                    empty_return_date=c_empty_ret,
+                    radar_status=radar_status,
+                    color_code=color_code,
+                    status_label_ar=status_label_ar,
+                    demurrage_days_consumed=c_dem_consumed,
+                    demurrage_free_days=dem_free,
+                    demurrage_days_remaining=c_dem_remaining,
+                    storage_days_consumed=c_storage_consumed,
+                    storage_free_days=storage_free,
+                    storage_days_remaining=c_storage_remaining,
+                    accrued_demurrage_usd=item_dem_usd,
+                    accrued_storage_egp=item_stor_egp,
+                    total_accrued_egp=item_tot_egp,
+                    alert_message_ar=alert_msg,
+                )
+            )
+
+    return ContainerRadarOverviewResponse(
+        total_containers_tracked=len(radar_items),
+        safe_containers_count=safe_count,
+        warning_containers_count=warning_count,
+        critical_overdue_count=critical_count,
+        returned_containers_count=returned_count,
+        total_accrued_demurrage_usd=round(total_accrued_demurrage_usd, 2),
+        total_accrued_storage_egp=round(total_accrued_storage_egp, 2),
+        total_estimated_exposure_egp=round(total_estimated_exposure_egp, 2),
+        radar_items=radar_items,
+        generated_at=datetime.now(timezone.utc),
+    )
+
+
+# =========================================================================
+# TR-05: Empty Container Return (EIR) & Demurrage Radar De-escalation
+# =========================================================================
+
+def record_empty_container_return_service(
+    db: Session,
+    payload: EmptyContainerReturnSubmit,
+    user: str = "Logistics Coordinator",
+) -> EmptyContainerReturnResponse:
+    """
+    Central operational engine for TR-05: Empty Container Return (EIR).
+    - Records EIR number and empty container return date.
+    - Halts detention penalties permanently for returned containers.
+    - Recalculates final accrued demurrage/detention and locks them.
+    - Transitions container radar status to 'RETURNED_SAFE' (grey).
+    - Synchronizes ImportFile with EIR receipt data, updates inland transport status to COMPLETED.
+    - Advances shipment to Phase 9 (Financial Settlement & Landed Cost Closure) with progress >= 98.0%.
+    - Synchronizes LifecycleBoard from STEP_19 to STEP_20.
+    - Closes pending TR-05 SmartTasks automatically.
+    - Dispatches downstream TSK-0901 SmartTask (CLO-01 Final Settlement) to Finance Specialist.
+    - Emits system-wide notification.
+    """
+    from modules.import_files.model import ImportFile
+    from modules.inland_transport.model import InlandTransportBooking
+    from modules.smart_tasks.model import SmartTask
+    from modules.notifications.model import SystemNotification
+
+    # 1. Validate Import File
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == payload.import_file_id, ImportFile.is_active == True).first()
+    if not imp_file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ملف الاستيراد برقم #{payload.import_file_id} غير موجود أو تم حذفه.",
+        )
+
+    # 2. Locate active DemurrageTracking session for this import file
+    tracking = db.query(DemurrageTracking).filter(
+        DemurrageTracking.import_file_id == payload.import_file_id,
+        DemurrageTracking.is_active == True,
+    ).first()
+
+    returned_container_numbers = []
+    total_containers_count = 0
+    all_returned = True
+    final_dem_fx = 0.0
+    final_det_fx = 0.0
+    final_stor_egp = 0.0
+    final_total_egp = 0.0
+    tracking_status = "All Containers Returned"
+
+    if tracking:
+        policy = tracking.policy
+        dem_free = policy.demurrage_free_days if policy else 14
+        det_free = policy.detention_free_days if policy else 7
+        storage_free = policy.port_storage_free_days if policy else 5
+        storage_rate = policy.port_storage_daily_rate_egp if policy else 250.0
+        dem_tiers = policy.demurrage_tiers if policy else DEFAULT_DEMURRAGE_TIERS
+        det_tiers = policy.detention_tiers if policy else DEFAULT_DETENTION_TIERS
+        rate = tracking.exchange_rate or 50.0
+
+        containers = list(tracking.containers or [])
+        total_containers_count = len(containers)
+        recalculated_containers = []
+
+        # Determine target container numbers
+        target_c_nos = [c.strip().upper() for c in payload.returned_containers] if payload.returned_containers else None
+
+        for c in containers:
+            c_no = c.get("container_no", "").strip().upper()
+            is_target = (target_c_nos is None) or (c_no in target_c_nos)
+
+            if is_target:
+                c["empty_return_date"] = payload.empty_return_date.isoformat()
+                c["eir_number"] = payload.eir_number
+                c["condition"] = payload.container_condition
+                if payload.damage_notes:
+                    c["damage_notes"] = payload.damage_notes
+                if payload.damage_fee_estimated:
+                    c["damage_fee"] = payload.damage_fee_estimated
+                if payload.depot_name:
+                    c["depot_name"] = payload.depot_name
+                returned_container_numbers.append(c_no)
+
+            c_gate_out = date.fromisoformat(c["gate_out_date"]) if c.get("gate_out_date") else tracking.gate_out_date
+            c_empty_ret = date.fromisoformat(c["empty_return_date"]) if c.get("empty_return_date") else (payload.empty_return_date if is_target else tracking.empty_return_date)
+            c_type = c.get("container_type", "40ft High Cube")
+
+            # Simulate exact final charges up to return date
+            sim = simulate_demurrage_and_detention(DemurrageSimulationRequest(
+                carrier_name=tracking.carrier_name,
+                container_type=c_type,
+                containers_count=1,
+                demurrage_free_days=dem_free,
+                detention_free_days=det_free,
+                port_storage_free_days=storage_free,
+                port_storage_daily_rate_egp=storage_rate,
+                demurrage_tiers=dem_tiers,
+                detention_tiers=det_tiers,
+                discharge_date=tracking.discharge_date,
+                gate_out_date=c_gate_out,
+                empty_return_date=c_empty_ret,
+                currency=tracking.currency,
+                exchange_rate=rate,
+            ))
+
+            c_status = "Empty-Returned" if c_empty_ret else ("Gated-Out" if c_gate_out else "On-Port")
+            if not c_empty_ret:
+                all_returned = False
+
+            c_data = {
+                "container_no": c_no,
+                "container_type": c_type,
+                "seal_no": c.get("seal_no"),
+                "gate_out_date": c.get("gate_out_date"),
+                "empty_return_date": c.get("empty_return_date"),
+                "eir_number": c.get("eir_number"),
+                "condition": c.get("condition", "SOUND_CLEAN"),
+                "damage_notes": c.get("damage_notes"),
+                "damage_fee": c.get("damage_fee", 0.0),
+                "depot_name": c.get("depot_name"),
+                "demurrage_days": sim.demurrage_days_overdue,
+                "detention_days": sim.detention_days_overdue,
+                "storage_days": sim.storage_days_overdue,
+                "demurrage_fx": sim.demurrage_fee_fx,
+                "detention_fx": sim.detention_fee_fx,
+                "storage_egp": sim.storage_fee_egp,
+                "total_egp": sim.total_cost_egp,
+                "status": c_status,
+                "notes": c.get("notes"),
+            }
+            recalculated_containers.append(c_data)
+            final_dem_fx += sim.demurrage_fee_fx
+            final_det_fx += sim.detention_fee_fx
+            final_stor_egp += sim.storage_fee_egp
+
+        final_total_egp = round(((final_dem_fx + final_det_fx) * rate) + final_stor_egp, 2)
+        tracking.containers = recalculated_containers
+        tracking.total_demurrage_fx = round(final_dem_fx, 2)
+        tracking.total_detention_fx = round(final_det_fx, 2)
+        tracking.total_storage_egp = round(final_stor_egp, 2)
+        tracking.total_cost_egp = final_total_egp
+        tracking.empty_return_date = payload.empty_return_date
+        tracking.status = "All Containers Returned" if all_returned else "Partially Returned"
+        tracking_status = tracking.status
+        tracking.updated_by = user
+    else:
+        returned_container_numbers = payload.returned_containers or ["CONTAINER-01"]
+        total_containers_count = len(returned_container_numbers)
+        all_returned = True
+        tracking_status = "All Containers Returned"
+
+    # 3. Update Inland Transport Booking if active
+    transport_bookings = db.query(InlandTransportBooking).filter(
+        InlandTransportBooking.import_file_id == payload.import_file_id,
+        InlandTransportBooking.is_active == True,
+    ).all()
+    for tb in transport_bookings:
+        tb.status = "Completed"
+        tb.tracking_notes = f"{tb.tracking_notes or ''}\n[TR-05] تم تسليم الحاويات الفارغة للخط بموجب EIR #{payload.eir_number}".strip()
+
+    # 4. Synchronize Import File
+    return_status_code = "ALL_RETURNED" if all_returned else "PARTIALLY_RETURNED"
+    imp_file.empty_containers_returned_at = datetime.now(timezone.utc)
+    imp_file.empty_containers_return_status = return_status_code
+    imp_file.empty_containers_eir_numbers = payload.eir_number
+    imp_file.empty_containers_depot_name = payload.depot_name or "Carrier Depot"
+    imp_file.inland_transport_status = "COMPLETED"
+
+    if all_returned:
+        imp_file.progress_percent = max(float(imp_file.progress_percent or 0.0), 98.0)
+        imp_file.current_stage = "Phase 9 - Financial Settlement & File Closure"
+        imp_file.current_module = "STEP_20 تسوية تكلفة الوصول وإغلاق الملف / Landed Cost & File Closure"
+        imp_file.next_action = "تجميع وتسوية الفواتير الختامية للملف (CLO-01) - المرحلة التاسعة والأخيرة"
+
+    # 5. Synchronize LifecycleBoard
+    try:
+        from modules.lifecycle_board.service import transition_stage_service
+        transition_stage_service(
+            db=db,
+            import_file_id=payload.import_file_id,
+            to_step="STEP_20_SETTLEMENT",
+            user=user,
+            notes=f"تم إرجاع الحاويات الفارغة بموجب إيصال EIR #{payload.eir_number} وإيقاف عدادات الغرامات بالكامل.",
+        )
+    except Exception as e:
+        logger.warning(f"LifecycleBoard transition skipped or already aligned: {e}")
+
+    # 6. Auto-close pending TR-05 SmartTasks
+    try:
+        pending_tasks = db.query(SmartTask).filter(
+            SmartTask.import_file_id == payload.import_file_id,
+            SmartTask.status.in_(["Pending", "In Progress"]),
+        ).all()
+        for tsk in pending_tasks:
+            title_lower = (tsk.title or "").lower()
+            code_lower = (tsk.task_code or "").lower()
+            if "tr-05" in title_lower or "tr-05" in code_lower or "eir" in title_lower or "إرجاع" in title_lower or "حاويات" in title_lower:
+                tsk.status = "Completed"
+                tsk.is_auto_closed = True
+                tsk.notes = f"{tsk.notes or ''}\n[TR-05] أغلقت آلياً بصدور إيصال EIR #{payload.eir_number}".strip()
+    except Exception as e:
+        logger.warning(f"SmartTasks auto-closure skipped: {e}")
+
+    # 7. Auto-generate downstream SmartTask for Phase 9 (CLO-01 Final Settlement)
+    try:
+        clo01_task = SmartTask(
+            task_code=f"TSK-0901-{payload.import_file_id}",
+            import_file_id=payload.import_file_id,
+            import_file_code=imp_file.import_file_code,
+            title="تجميع وتسوية الفواتير الختامية وتكلفة الوصول (CLO-01)",
+            description=f"تم استلام إيصال EIR #{payload.eir_number} وإغلاق ملف الخط الملاحي بسلام. يرجى تجميع فواتير المورد، النولون، المخلص، والنقل، واحتساب تكلفة الوصول النهائية للشحنة.",
+            task_type="FINANCIAL_SETTLEMENT",
+            phase_name="Phase 9 - Financial Settlement & File Closure",
+            assigned_user="Finance Team",
+            priority="High",
+            status="Pending",
+            due_date=(date.today() + timedelta(days=3)).isoformat(),
+            created_by=user,
+        )
+        db.add(clo01_task)
+    except Exception as e:
+        logger.warning(f"Downstream SmartTask creation skipped: {e}")
+
+    # 8. Dispatch Central SystemNotification
+    try:
+        notif = SystemNotification(
+            title=f"إرجاع الحاويات الفارغة بسلام — {imp_file.import_file_code}",
+            message=f"تم تأكيد إرجاع {len(returned_container_numbers)} حاوية بموجب إيصال EIR #{payload.eir_number} إلى {payload.depot_name or 'مستودع الخط'} وإيقاف عدادات الغرامات. الشحنة جاهزة للمرحلة التاسعة (التسوية الختامية).",
+            category="STAGE_PROGRESSION",
+            severity="SUCCESS",
+            entity_type="ImportFile",
+            entity_id=payload.import_file_id,
+            target_role="ALL",
+        )
+        db.add(notif)
+    except Exception as e:
+        logger.warning(f"SystemNotification dispatch skipped: {e}")
+
+    db.commit()
+
+    return EmptyContainerReturnResponse(
+        import_file_id=imp_file.import_file_id,
+        import_file_code=imp_file.import_file_code,
+        tracking_id=tracking.tracking_id if tracking else None,
+        tracking_code=tracking.tracking_code if tracking else None,
+        eir_number=payload.eir_number,
+        empty_return_date=payload.empty_return_date,
+        depot_name=payload.depot_name,
+        returned_containers=returned_container_numbers,
+        containers_returned_count=len(returned_container_numbers),
+        total_containers_count=total_containers_count,
+        all_containers_returned=all_returned,
+        container_condition=payload.container_condition,
+        damage_fee_estimated=payload.damage_fee_estimated or 0.0,
+        demurrage_final_fx=round(final_dem_fx, 2),
+        detention_final_fx=round(final_det_fx, 2),
+        storage_final_egp=round(final_stor_egp, 2),
+        total_exposure_egp=round(final_total_egp, 2),
+        tracking_status=tracking_status,
+        next_action=imp_file.next_action,
+        current_stage=imp_file.current_stage,
+        progress_percent=imp_file.progress_percent,
+        message_ar=f"تم توثيق إرجاع الحاويات بنجاح بموجب إيصال EIR #{payload.eir_number} وإيقاف عدادات الغرامات بالكامل.",
+        returned_at=datetime.now(timezone.utc),
+    )
+
 

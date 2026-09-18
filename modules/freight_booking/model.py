@@ -17,6 +17,7 @@ class ShipmentBooking(Base):
     # Business Reference Codes
     booking_code = Column(String(50), nullable=False, unique=True, index=True)
     booking_confirmation_no = Column(String(100), nullable=True, index=True)
+    bill_of_lading_no = Column(String(100), nullable=True, index=True)
 
     # Relationships & Linked Entities
     import_file_id = Column(Integer, ForeignKey("import_files.import_file_id"), nullable=True, index=True)

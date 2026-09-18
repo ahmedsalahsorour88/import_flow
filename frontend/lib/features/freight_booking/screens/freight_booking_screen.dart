@@ -25,10 +25,14 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../models/freight_booking_model.dart';
 import '../providers/freight_booking_provider.dart';
+import '../widgets/departure_confirmation_dialog.dart';
 import '../widgets/search_and_clone_freight_booking_dialog.dart';
+import '../../import_documentation/widgets/draft_bl_review_dialog.dart';
+import '../../import_files/models/import_file_model.dart';
 
 class FreightBookingScreen extends ConsumerStatefulWidget {
-  const FreightBookingScreen({super.key});
+  final int? initialImportFileId;
+  const FreightBookingScreen({super.key, this.initialImportFileId});
 
   @override
   ConsumerState<FreightBookingScreen> createState() => _FreightBookingScreenState();
@@ -37,13 +41,18 @@ class FreightBookingScreen extends ConsumerStatefulWidget {
 class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedStatusFilter = 'All';
+  int? _selectedImportFileId;
 
   @override
   void initState() {
     super.initState();
+    _selectedImportFileId = widget.initialImportFileId;
     Future.microtask(() {
       if (!ref.read(freightBookingProvider).isLoading) {
-        ref.read(freightBookingProvider.notifier).fetchBookings();
+        ref.read(freightBookingProvider.notifier).fetchBookings(
+          importFileId: _selectedImportFileId,
+          status: _selectedStatusFilter != 'All' ? _selectedStatusFilter : null,
+        );
       }
       if (!ref.read(importFilesProvider).isLoading) {
         ref.read(importFilesProvider.notifier).fetchImportFiles();
@@ -92,6 +101,36 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
       context: context,
       builder: (context) => _FreightBookingPrintDialog(booking: booking),
     );
+  }
+
+  void _showConfirmBookingDialog(ShipmentBookingModel booking) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _FreightBookingConfirmDialog(booking: booking),
+    );
+  }
+
+  void _showDepartureConfirmationDialog(ShipmentBookingModel booking) {
+    DepartureConfirmationDialog.show(context, booking);
+  }
+
+  void _showDraftBlReviewDialog(ShipmentBookingModel booking) {
+    final files = ref.read(importFilesProvider).valueOrNull ?? [];
+    final matchingFile = files.where((f) => f.importFileId == booking.importFileId).firstOrNull;
+    final file = matchingFile ??
+        ImportFileModel(
+          importFileId: booking.importFileId ?? 0,
+          importFileCode: booking.importFileCode ?? 'IMP-${booking.bookingCode}',
+          companyName: '',
+          supplierName: '',
+          currentModule: 'ImportFiles',
+          currentStage: 'Phase 5 - Sailing & CargoX',
+          nextAction: 'Review Draft BL',
+          createdAt: '',
+          updatedAt: '',
+        );
+    DraftBLReviewDialog.show(context, file);
   }
 
   void _openSearchAndCloneDialog(List<ShipmentBookingModel> bookings) {
@@ -600,6 +639,18 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                           },
                         ),
                       ),
+                      if (_selectedImportFileId != null)
+                        InputChip(
+                          avatar: const Icon(Icons.filter_alt, size: 16, color: AppTheme.cobalt),
+                          label: Text('تصفية: شحنة #$_selectedImportFileId'),
+                          onDeleted: () {
+                            setState(() => _selectedImportFileId = null);
+                            ref.read(freightBookingProvider.notifier).fetchBookings(
+                                  search: _searchController.text,
+                                  status: _selectedStatusFilter != 'All' ? _selectedStatusFilter : null,
+                                );
+                          },
+                        ),
                     ];
 
                     return Wrap(
@@ -709,6 +760,34 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                         tooltip: l.cloneBookingRowTooltip,
                                         onPressed: () => _onCloneBooking(bkg),
                                       ),
+                                      if (bkg.status != 'Confirmed' && bkg.status != 'Sailed')
+                                        IconButton(
+                                          key: Key('confirmBookingRowBtn_${bkg.bookingCode}'),
+                                          icon: const Icon(Icons.verified_outlined, size: 16, color: AppTheme.emerald),
+                                          tooltip: 'تأكيد الحجز ومواعيد الإبحار (BK-01)',
+                                          onPressed: () => _showConfirmBookingDialog(bkg),
+                                        ),
+                                      if (bkg.status == 'Confirmed')
+                                        IconButton(
+                                          key: Key('confirmDepartureRowBtn_${bkg.bookingCode}'),
+                                          icon: const Icon(Icons.sailing_rounded, size: 16, color: AppTheme.cobalt),
+                                          tooltip: 'تأكيد الإبحار الفعلي وإصدار بوليصة الشحن (SH-01)',
+                                          onPressed: () => _showDepartureConfirmationDialog(bkg),
+                                        ),
+                                      if (bkg.status == 'Sailed') ...[
+                                        IconButton(
+                                          key: Key('viewDepartureRowBtn_${bkg.bookingCode}'),
+                                          icon: const Icon(Icons.receipt_long, size: 16, color: AppTheme.emerald),
+                                          tooltip: 'تحديث بوليصة الشحن والإبحار (SH-01)',
+                                          onPressed: () => _showDepartureConfirmationDialog(bkg),
+                                        ),
+                                        IconButton(
+                                          key: Key('reviewDraftBlRowBtn_${bkg.bookingCode}'),
+                                          icon: const Icon(Icons.fact_check_rounded, size: 16, color: Color(0xFF059669)),
+                                          tooltip: 'مراجعة مسودة البوليصة والاعتماد المزدوج (SH-02)',
+                                          onPressed: () => _showDraftBlReviewDialog(bkg),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -794,12 +873,45 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                   ),
                                 ),
 
-                                // 4. Confirmation No
+                                // 4. Confirmation No & Bill of Lading
                                 DataCell(CopyableTableCell(
-                                  value: bkg.bookingConfirmationNo ?? l.freightBookingDraftPendingLabel,
-                                  child: Text(
-                                    bkg.bookingConfirmationNo ?? l.freightBookingDraftPendingLabel,
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                  value: bkg.billOfLadingNo != null
+                                      ? '${bkg.bookingConfirmationNo ?? "-"}\nB/L: ${bkg.billOfLadingNo}'
+                                      : (bkg.bookingConfirmationNo ?? l.freightBookingDraftPendingLabel),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        bkg.bookingConfirmationNo ?? l.freightBookingDraftPendingLabel,
+                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                      ),
+                                      if (bkg.billOfLadingNo != null)
+                                        Container(
+                                          margin: const EdgeInsets.only(top: 2),
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.emerald.withOpacity(0.12),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.receipt_long, size: 10, color: AppTheme.emerald),
+                                              const SizedBox(width: 3),
+                                              Text(
+                                                'B/L: ${bkg.billOfLadingNo}',
+                                                style: const TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppTheme.emerald,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 )),
 
@@ -921,27 +1033,50 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                 // 12. Status Pill
                                 DataCell(CopyableTableCell(
                                   value: bkg.status,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: bkg.status == 'Confirmed' || bkg.status == 'Sailed'
-                                          ? AppTheme.emerald.withOpacity(0.15)
-                                          : AppTheme.orange.withOpacity(0.15),
+                                  child: Tooltip(
+                                    message: bkg.status == 'Confirmed'
+                                        ? 'الحجز مؤكد — انقر لتأكيد الإبحار وبوليصة الشحن (SH-01)'
+                                        : (bkg.status == 'Sailed'
+                                            ? 'أبحرت الشحنة (B/L: ${bkg.billOfLadingNo ?? "-"}) — انقر لتحديث البيانات'
+                                            : 'انقر لتأكيد الحجز وتثبيت المواعيد (BK-01)'),
+                                    child: InkWell(
+                                      onTap: bkg.status == 'Confirmed' || bkg.status == 'Sailed'
+                                          ? () => _showDepartureConfirmationDialog(bkg)
+                                          : () => _showConfirmBookingDialog(bkg),
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: bkg.status == 'Confirmed' || bkg.status == 'Sailed'
-                                            ? AppTheme.emerald.withOpacity(0.4)
-                                            : AppTheme.orange.withOpacity(0.4),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      bkg.status,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: bkg.status == 'Confirmed' || bkg.status == 'Sailed'
-                                            ? AppTheme.emerald
-                                            : AppTheme.orange,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: bkg.status == 'Confirmed' || bkg.status == 'Sailed'
+                                              ? AppTheme.emerald.withOpacity(0.15)
+                                              : AppTheme.orange.withOpacity(0.15),
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: bkg.status == 'Confirmed' || bkg.status == 'Sailed'
+                                                ? AppTheme.emerald.withOpacity(0.4)
+                                                : AppTheme.orange.withOpacity(0.4),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (bkg.status != 'Confirmed')
+                                              const Padding(
+                                                padding: EdgeInsets.only(left: 3),
+                                                child: Icon(Icons.touch_app, size: 12, color: AppTheme.orange),
+                                              ),
+                                            Text(
+                                              bkg.status,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: bkg.status == 'Confirmed' || bkg.status == 'Sailed'
+                                                    ? AppTheme.emerald
+                                                    : AppTheme.orange,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -2972,6 +3107,338 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
           ),
         ],
       ),
+    );
+  }
+}
+
+// ================= CONFIRM BOOKING DIALOG (BK-01) =================
+class _FreightBookingConfirmDialog extends ConsumerStatefulWidget {
+  final ShipmentBookingModel booking;
+  const _FreightBookingConfirmDialog({required this.booking});
+
+  @override
+  ConsumerState<_FreightBookingConfirmDialog> createState() => _FreightBookingConfirmDialogState();
+}
+
+class _FreightBookingConfirmDialogState extends ConsumerState<_FreightBookingConfirmDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _bookingNoController;
+  late final TextEditingController _vesselNameController;
+  late final TextEditingController _voyageNumberController;
+  late final TextEditingController _freeDaysController;
+  late final TextEditingController _notesController;
+
+  DateTime? _selectedEtd;
+  DateTime? _selectedEta;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _bookingNoController = TextEditingController(text: widget.booking.bookingConfirmationNo ?? '');
+    _vesselNameController = TextEditingController(text: widget.booking.vesselName ?? '');
+    _voyageNumberController = TextEditingController(text: widget.booking.voyageNumber ?? '');
+    _freeDaysController = TextEditingController(text: widget.booking.freeDemurrageDays.toString());
+    _notesController = TextEditingController(text: widget.booking.notes ?? '');
+
+    if (widget.booking.etd != null) {
+      _selectedEtd = DateTime.tryParse(widget.booking.etd!);
+    }
+    if (widget.booking.eta != null) {
+      _selectedEta = DateTime.tryParse(widget.booking.eta!);
+    }
+  }
+
+  @override
+  void dispose() {
+    _bookingNoController.dispose();
+    _vesselNameController.dispose();
+    _voyageNumberController.dispose();
+    _freeDaysController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate(bool isEtd) async {
+    final initial = isEtd ? (_selectedEtd ?? DateTime.now()) : (_selectedEta ?? DateTime.now().add(const Duration(days: 20)));
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+    );
+    if (picked != null) {
+      setState(() {
+        if (isEtd) {
+          _selectedEtd = picked;
+        } else {
+          _selectedEta = picked;
+        }
+      });
+    }
+  }
+
+  Future<void> _submitConfirm() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSubmitting = true);
+
+    try {
+      final payload = <String, dynamic>{
+        'booking_confirmation_no': _bookingNoController.text.trim(),
+        'vessel_name': _vesselNameController.text.trim().isNotEmpty ? _vesselNameController.text.trim() : null,
+        'voyage_number': _voyageNumberController.text.trim().isNotEmpty ? _voyageNumberController.text.trim() : null,
+        if (_selectedEtd != null) 'etd': _selectedEtd!.toIso8601String(),
+        if (_selectedEta != null) 'eta': _selectedEta!.toIso8601String(),
+        'free_demurrage_days': int.tryParse(_freeDaysController.text.trim()) ?? 14,
+        'notes': _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
+      };
+
+      await ref.read(freightBookingProvider.notifier).confirmBooking(widget.booking.bookingId, payload);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🟢 تم تأكيد حجز الشحن بنجاح (BK-01) وترقية المرحلة إلى STEP_07 وتغذية رادار فترات السماح'),
+            backgroundColor: AppTheme.emerald,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ خطأ أثناء تأكيد الحجز: $e'),
+            backgroundColor: AppTheme.crimson,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final b = widget.booking;
+
+    return AlertDialog(
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppTheme.emerald.withOpacity(0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.verified, color: AppTheme.emerald, size: 22),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'تأكيد حجز الشحن والناقل (BK-01)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: isDark ? Colors.white : AppTheme.charcoal,
+                  ),
+                ),
+                Text(
+                  'رمز الحجز: ${b.bookingCode} | الناقل: ${b.shippingLineName ?? b.freightForwarderName ?? "TBA"}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.white70 : Colors.grey.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 580,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cobalt.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, size: 18, color: AppTheme.cobalt),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'تأكيد الحجز برقم التأكيد الفعلي (Booking No) ينقل ملف الشحنة تلقائياً إلى STEP_07 ويُغلق مهام BK-01 ويُنشئ مهمة متابعة فترات السماح (BK-02).',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white70 : const Color(0xFF1E3A8A),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  key: const Key('bookingConfirmNoInput'),
+                  controller: _bookingNoController,
+                  decoration: const InputDecoration(
+                    labelText: 'رقم تأكيد الحجز (Booking No / Booking Confirmation)*',
+                    hintText: 'e.g. MSC-CN-998822 أو COSCO-EGY-7711',
+                    prefixIcon: Icon(Icons.confirmation_number_outlined),
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) {
+                      return 'يرجى إدخال رقم تأكيد الحجز من الخط الملاحي';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        key: const Key('bookingVesselNameInput'),
+                        controller: _vesselNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'اسم السفينة (Vessel Name)',
+                          hintText: 'e.g. MSC OSCAR / EVER GIVEN',
+                          prefixIcon: Icon(Icons.directions_boat_filled_outlined),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        key: const Key('bookingVoyageNoInput'),
+                        controller: _voyageNumberController,
+                        decoration: const InputDecoration(
+                          labelText: 'رقم الرحلة (Voyage No)',
+                          hintText: 'e.g. 2608W / 045E',
+                          prefixIcon: Icon(Icons.tag),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _pickDate(true),
+                        borderRadius: BorderRadius.circular(4),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'تاريخ الإبحار المتوقع (ETD)',
+                            prefixIcon: Icon(Icons.calendar_today_outlined),
+                            border: OutlineInputBorder(),
+                          ),
+                          child: Text(
+                            _selectedEtd != null ? _selectedEtd!.toIso8601String().substring(0, 10) : 'اختر تاريخ ETD',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: _selectedEtd != null ? null : Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _pickDate(false),
+                        borderRadius: BorderRadius.circular(4),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'تاريخ الوصول المتوقع (ETA)',
+                            prefixIcon: Icon(Icons.event_available_outlined),
+                            border: OutlineInputBorder(),
+                          ),
+                          child: Text(
+                            _selectedEta != null ? _selectedEta!.toIso8601String().substring(0, 10) : 'اختر تاريخ ETA',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: _selectedEta != null ? null : Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const Key('bookingFreeDaysInput'),
+                  controller: _freeDaysController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'أيام السماح المجانية المتفق عليها (Free Demurrage Days)*',
+                    hintText: '14 أو 21 يوم',
+                    prefixIcon: Icon(Icons.timelapse_outlined),
+                    border: OutlineInputBorder(),
+                    suffixText: 'يوم',
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'يرجى تحديد أيام السماح';
+                    final parsed = int.tryParse(v.trim());
+                    if (parsed == null || parsed < 0) return 'أدخل رقم صحيح موجب';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const Key('bookingNotesInput'),
+                  controller: _notesController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'ملاحظات وتوجيهات الحجز (اختياري)',
+                    prefixIcon: Icon(Icons.notes_outlined),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+          child: const Text('إلغاء'),
+        ),
+        ElevatedButton.icon(
+          key: const Key('confirmBookingSubmitBtn'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.emerald,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          onPressed: _isSubmitting ? null : _submitConfirm,
+          icon: _isSubmitting
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              : const Icon(Icons.verified, size: 18),
+          label: const Text('تأكيد الحجز وتثبيته (BK-01)', style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      ],
     );
   }
 }

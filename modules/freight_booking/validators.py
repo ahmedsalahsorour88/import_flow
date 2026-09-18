@@ -6,11 +6,14 @@ from modules.freight_booking.model import ShipmentBooking
 
 
 def validate_booking_dates(etd: datetime, eta: datetime):
-    if etd and eta and eta < etd:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Estimated Time of Arrival (ETA) cannot be earlier than Estimated Time of Departure (ETD).",
-        )
+    if etd and eta:
+        etd_comp = etd.replace(tzinfo=None) if hasattr(etd, "tzinfo") and etd.tzinfo else etd
+        eta_comp = eta.replace(tzinfo=None) if hasattr(eta, "tzinfo") and eta.tzinfo else eta
+        if eta_comp < etd_comp:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Estimated Time of Arrival (ETA) cannot be earlier than Estimated Time of Departure (ETD).",
+            )
 
 
 def validate_container_allocation(shipment_type: str, containers_data: list):

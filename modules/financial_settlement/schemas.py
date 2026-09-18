@@ -184,3 +184,191 @@ class EstimatedLandedCostSimulationResponse(BaseModel):
     items_breakdown: List[EstimatedLandedCostItemBreakdown] = []
     executive_summary_ar: str
 
+
+# ==============================================================================
+# CLO-01: Final Settlement Invoices Aggregation Schemas
+# ==============================================================================
+
+class AggregatedInvoiceItemSchema(BaseModel):
+    invoice_id: Optional[str] = None
+    invoice_no: str
+    invoice_date: Optional[str] = None
+    party_type: str = Field("OTHER", description="SUPPLIER, CARRIER, CUSTOMS, INSURANCE, BROKER, TRANSPORT, DEMURRAGE, WAREHOUSE, OTHER")
+    party_type_ar: str
+    party_name: str
+    category: str
+    category_ar: str
+    currency: str = "EGP"
+    exchange_rate: float = 1.0
+    amount_fc: float = 0.0
+    amount_egp: float = 0.0
+    paid_amount_egp: float = 0.0
+    remaining_amount_egp: float = 0.0
+    payment_status: str = Field("PAID", description="PAID, PARTIAL, UNPAID")
+    payment_reference: Optional[str] = None
+    withholding_tax_rate: float = 0.0
+    withholding_tax_amount_egp: float = 0.0
+    net_payable_egp: float = 0.0
+    source_module: str = Field("Manual", description="Source module or table name")
+    notes: Optional[str] = None
+
+
+class InvoicesPartySummary(BaseModel):
+    party_type: str
+    party_type_ar: str
+    party_name: str
+    invoices_count: int = 0
+    total_egp: float = 0.0
+    paid_egp: float = 0.0
+    remaining_egp: float = 0.0
+
+
+class InvoicesAggregationResponse(BaseModel):
+    import_file_id: int
+    import_file_code: str
+    supplier_name: str
+    currency: str = "USD"
+    exchange_rate: float = 48.5
+    total_invoices_count: int = 0
+    total_amount_egp: float = 0.0
+    total_paid_egp: float = 0.0
+    total_remaining_egp: float = 0.0
+    total_withholding_tax_egp: float = 0.0
+    settlement_readiness_percent: float = 0.0
+    financial_settlement_status: str = "PENDING_SETTLEMENT"
+    parties_summary: List[InvoicesPartySummary] = []
+    invoices: List[AggregatedInvoiceItemSchema] = []
+    unsettled_warnings: List[str] = []
+
+
+class ConfirmInvoicesSettlementRequest(BaseModel):
+    import_file_id: int
+    settled_by: str = Field("Cost Accounting Specialist", description="Accountant or specialist name")
+    settlement_notes: Optional[str] = None
+    invoices_overrides: Optional[List[AggregatedInvoiceItemSchema]] = None
+
+
+class ConfirmInvoicesSettlementResponse(BaseModel):
+    success: bool = True
+    import_file_id: int
+    import_file_code: str
+    financial_settlement_status: str
+    financial_settlement_date: str
+    invoices_count: int
+    total_settled_egp: float
+    progress_percent: float
+    current_stage: str
+    current_module: str
+    next_task_code: str
+    next_task_title: str
+    message: str
+
+
+# ==============================================================================
+# CLO-02: Actual Landed Cost Calculation & Variance Schemas
+# ==============================================================================
+
+class ActualLandedCostCategoryBreakdown(BaseModel):
+    category: str
+    category_ar: str
+    estimated_egp: float = 0.0
+    actual_egp: float = 0.0
+    variance_egp: float = 0.0
+    variance_pct: float = 0.0
+    invoices_count: int = 0
+    allocation_rule: str = "Value-Based"
+
+
+class ActualLandedCostItemLine(BaseModel):
+    line_no: int
+    item_code: str
+    item_name: str
+    hs_code: str
+    qty: float
+    gross_weight_kg: float = 0.0
+    cbm: float = 0.0
+    fob_unit_egp: float = 0.0
+    fob_total_egp: float = 0.0
+    allocated_freight_egp: float = 0.0
+    allocated_insurance_egp: float = 0.0
+    allocated_customs_duty_egp: float = 0.0
+    allocated_vat_egp: float = 0.0
+    allocated_clearance_egp: float = 0.0
+    allocated_inland_transport_egp: float = 0.0
+    allocated_demurrage_egp: float = 0.0
+    allocated_other_egp: float = 0.0
+    total_allocated_expenses_egp: float = 0.0
+    actual_total_landed_cost_egp: float = 0.0
+    actual_unit_landed_cost_egp: float = 0.0
+    actual_markup_factor: float = 1.0
+    actual_markup_pct: float = 0.0
+    estimated_unit_landed_cost_egp: float = 0.0
+    unit_cost_variance_egp: float = 0.0
+    unit_cost_variance_pct: float = 0.0
+    item_variance_status: str = "MATCHED" # "SAVING", "MATCHED", "INCREASED"
+
+
+class ActualLandedCostCalculationRequest(BaseModel):
+    allocation_preference: str = Field("Value-Based", description="Value-Based, Weight-Based, Volume-Based, Equal")
+    custom_category_allocation: Optional[Dict[str, str]] = None
+
+
+class ActualLandedCostCalculationResponse(BaseModel):
+    import_file_id: int
+    import_file_code: str
+    supplier_name: str
+    currency: str = "USD"
+    exchange_rate: float = 48.5
+    incoterm: str = "FOB"
+    allocation_preference: str = "Value-Based"
+    total_items_count: int = 0
+    total_invoices_count: int = 0
+    estimated_total_fob_egp: float = 0.0
+    actual_total_fob_egp: float = 0.0
+    fob_variance_egp: float = 0.0
+    fob_variance_pct: float = 0.0
+    estimated_total_expenses_egp: float = 0.0
+    actual_total_expenses_egp: float = 0.0
+    expenses_variance_egp: float = 0.0
+    expenses_variance_pct: float = 0.0
+    estimated_total_landed_cost_egp: float = 0.0
+    actual_total_landed_cost_egp: float = 0.0
+    landed_variance_egp: float = 0.0
+    landed_variance_pct: float = 0.0
+    estimated_markup_factor: float = 1.0
+    actual_markup_factor: float = 1.0
+    variance_status: str = "ON_BUDGET" # "UNDER_BUDGET", "ON_BUDGET", "OVER_BUDGET"
+    variance_status_ar: str = "مطابق للميزانية التقديرية"
+    categories_breakdown: List[ActualLandedCostCategoryBreakdown] = []
+    items_breakdown: List[ActualLandedCostItemLine] = []
+    executive_summary_ar: str = ""
+
+
+class ApproveActualLandedCostRequest(BaseModel):
+    import_file_id: int
+    approved_by: str = Field("Cost Accounting Manager", description="Name/Role of approver")
+    allocation_preference: str = Field("Value-Based", description="Value-Based, Weight-Based, Volume-Based, Equal")
+    notes: Optional[str] = None
+    custom_category_allocation: Optional[Dict[str, str]] = None
+
+
+class ApproveActualLandedCostResponse(BaseModel):
+    success: bool = True
+    import_file_id: int
+    import_file_code: str
+    settlement_id: int
+    settlement_code: str
+    financial_settlement_status: str = "COST_ALLOCATED"
+    actual_landed_cost_total_egp: float
+    actual_landed_cost_markup_factor: float
+    landed_variance_egp: float
+    landed_variance_pct: float
+    variance_status: str
+    progress_percent: float
+    current_stage: str
+    current_module: str
+    next_task_code: str
+    next_task_title: str
+    message: str
+
+

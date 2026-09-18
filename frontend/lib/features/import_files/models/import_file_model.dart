@@ -112,12 +112,65 @@ class ImportFileModel {
   final int? acidExecutionDays;
   final bool isCustomsReleased;
   final String? customsReleasedAt;
+  final String? customsReleasePermitNo;
+  final String? customsReleaseType;
+  final String? customsReleaseOfficer;
+  final String? customsGatePassNo;
+  final double totalClearanceExpensesEgp;
+  final String clearanceInvoicesStatus;
+  final String inlandTransportStatus;
+  final String? inlandTransportBookingNo;
+  final String? inlandCarrierName;
+  final String? inlandTruckPlateNo;
+  final String? inlandDriverName;
+  final String? inlandDriverPhone;
+  final double inlandTransportCostEgp;
+  final String? inlandDepartureDate;
+  final String? inlandExpectedArrivalDate;
+  final String? inlandActualArrivalDate;
+  final String? emptyContainersReturnedAt;
+  final String? emptyContainersReturnStatus;
+  final String? emptyContainersEirNumbers;
+  final String? emptyContainersDepotName;
+  final String? financialSettlementStatus;
+  final String? financialSettlementDate;
+  final int financialSettlementInvoicesCount;
+  final double financialSettlementTotalEgp;
+  final double actualLandedCostTotalEgp;
+  final double actualLandedCostMarkupFactor;
+  final double actualLandedCostVarianceEgp;
+  final double actualLandedCostVariancePct;
+  final String? actualLandedCostCalculatedAt;
+  final String? dossierExportedAt;
+  final String? dossierExportedBy;
   final String? form4No;
   final String? form4RequestDate;
   final String? form4ReceivedDate;
   final int? form4ExecutionDays;
   final String? swiftNo;
   final String? form46No;
+  final String? form46Date;
+  final String? form46Status;
+  final int? cargoxEnvelopeId;
+  final String? cargoxEnvelopeCode;
+  final String? cargoxEnvelopeStatus;
+  final String? cargoxTransferredAt;
+  final String? originalDocumentsStatus;
+  final String? originalDocumentsReceivedAt;
+  final String? originalDocumentsCourierNo;
+  final String? originalDocumentsSessionCode;
+  final String? customsBrokerDelegationNo;
+  final String? customsBrokerDelegatedAt;
+  final String? customsBrokerAuthorizationStatus;
+  final String? deliveryOrderNo;
+  final String? deliveryOrderDate;
+  final String? deliveryOrderExpiryDate;
+  final String? deliveryOrderStatus;
+  final double customsDutyPaidAmount;
+  final String? customsDutyReceiptNo;
+  final String? customsDutySadadNo;
+  final String? customsDutyPaymentDate;
+  final String? customsDutyPaymentStatus;
   final double estimatedCost;
   final String estimatedCostCurrency;
   final String currentModule;
@@ -197,12 +250,65 @@ class ImportFileModel {
     this.acidExecutionDays,
     this.isCustomsReleased = false,
     this.customsReleasedAt,
+    this.customsReleasePermitNo,
+    this.customsReleaseType,
+    this.customsReleaseOfficer,
+    this.customsGatePassNo,
+    this.totalClearanceExpensesEgp = 0.0,
+    this.clearanceInvoicesStatus = 'Pending Invoices',
+    this.inlandTransportStatus = 'Not Booked',
+    this.inlandTransportBookingNo,
+    this.inlandCarrierName,
+    this.inlandTruckPlateNo,
+    this.inlandDriverName,
+    this.inlandDriverPhone,
+    this.inlandTransportCostEgp = 0.0,
+    this.inlandDepartureDate,
+    this.inlandExpectedArrivalDate,
+    this.inlandActualArrivalDate,
+    this.emptyContainersReturnedAt,
+    this.emptyContainersReturnStatus,
+    this.emptyContainersEirNumbers,
+    this.emptyContainersDepotName,
+    this.financialSettlementStatus,
+    this.financialSettlementDate,
+    this.financialSettlementInvoicesCount = 0,
+    this.financialSettlementTotalEgp = 0.0,
+    this.actualLandedCostTotalEgp = 0.0,
+    this.actualLandedCostMarkupFactor = 1.0,
+    this.actualLandedCostVarianceEgp = 0.0,
+    this.actualLandedCostVariancePct = 0.0,
+    this.actualLandedCostCalculatedAt,
+    this.dossierExportedAt,
+    this.dossierExportedBy,
     this.form4No,
     this.form4RequestDate,
     this.form4ReceivedDate,
     this.form4ExecutionDays,
     this.swiftNo,
     this.form46No,
+    this.form46Date,
+    this.form46Status,
+    this.cargoxEnvelopeId,
+    this.cargoxEnvelopeCode,
+    this.cargoxEnvelopeStatus,
+    this.cargoxTransferredAt,
+    this.originalDocumentsStatus,
+    this.originalDocumentsReceivedAt,
+    this.originalDocumentsCourierNo,
+    this.originalDocumentsSessionCode,
+    this.customsBrokerDelegationNo,
+    this.customsBrokerDelegatedAt,
+    this.customsBrokerAuthorizationStatus,
+    this.deliveryOrderNo,
+    this.deliveryOrderDate,
+    this.deliveryOrderExpiryDate,
+    this.deliveryOrderStatus,
+    this.customsDutyPaidAmount = 0.0,
+    this.customsDutyReceiptNo,
+    this.customsDutySadadNo,
+    this.customsDutyPaymentDate,
+    this.customsDutyPaymentStatus,
     this.estimatedCost = 0.0,
     this.estimatedCostCurrency = 'USD',
     required this.currentModule,
@@ -274,12 +380,65 @@ class ImportFileModel {
       acidExecutionDays: json['acid_execution_days'] as int?,
       isCustomsReleased: json['is_customs_released'] ?? false,
       customsReleasedAt: json['customs_released_at'],
+      customsReleasePermitNo: json['customs_release_permit_no'],
+      customsReleaseType: json['customs_release_type'],
+      customsReleaseOfficer: json['customs_release_officer'],
+      customsGatePassNo: json['customs_gate_pass_no'],
+      totalClearanceExpensesEgp: (json['total_clearance_expenses_egp'] as num?)?.toDouble() ?? 0.0,
+      clearanceInvoicesStatus: json['clearance_invoices_status'] ?? 'Pending Invoices',
+      inlandTransportStatus: json['inland_transport_status'] ?? 'Not Booked',
+      inlandTransportBookingNo: json['inland_transport_booking_no'],
+      inlandCarrierName: json['inland_carrier_name'],
+      inlandTruckPlateNo: json['inland_truck_plate_no'],
+      inlandDriverName: json['inland_driver_name'],
+      inlandDriverPhone: json['inland_driver_phone'],
+      inlandTransportCostEgp: (json['inland_transport_cost_egp'] as num?)?.toDouble() ?? 0.0,
+      inlandDepartureDate: json['inland_departure_date'],
+      inlandExpectedArrivalDate: json['inland_expected_arrival_date'],
+      inlandActualArrivalDate: json['inland_actual_arrival_date'],
+      emptyContainersReturnedAt: json['empty_containers_returned_at'],
+      emptyContainersReturnStatus: json['empty_containers_return_status'],
+      emptyContainersEirNumbers: json['empty_containers_eir_numbers'],
+      emptyContainersDepotName: json['empty_containers_depot_name'],
+      financialSettlementStatus: json['financial_settlement_status'],
+      financialSettlementDate: json['financial_settlement_date'],
+      financialSettlementInvoicesCount: json['financial_settlement_invoices_count'] as int? ?? 0,
+      financialSettlementTotalEgp: (json['financial_settlement_total_egp'] as num?)?.toDouble() ?? 0.0,
+      actualLandedCostTotalEgp: (json['actual_landed_cost_total_egp'] as num?)?.toDouble() ?? 0.0,
+      actualLandedCostMarkupFactor: (json['actual_landed_cost_markup_factor'] as num?)?.toDouble() ?? 1.0,
+      actualLandedCostVarianceEgp: (json['actual_landed_cost_variance_egp'] as num?)?.toDouble() ?? 0.0,
+      actualLandedCostVariancePct: (json['actual_landed_cost_variance_pct'] as num?)?.toDouble() ?? 0.0,
+      actualLandedCostCalculatedAt: json['actual_landed_cost_calculated_at'],
+      dossierExportedAt: json['dossier_exported_at'],
+      dossierExportedBy: json['dossier_exported_by'],
       form4No: json['form4_no'],
       form4RequestDate: json['form4_request_date'],
       form4ReceivedDate: json['form4_received_date'],
       form4ExecutionDays: json['form4_execution_days'] as int?,
       swiftNo: json['swift_no'],
       form46No: json['form46_no'],
+      form46Date: json['form46_date'],
+      form46Status: json['form46_status'],
+      cargoxEnvelopeId: json['cargox_envelope_id'],
+      cargoxEnvelopeCode: json['cargox_envelope_code'],
+      cargoxEnvelopeStatus: json['cargox_envelope_status'],
+      cargoxTransferredAt: json['cargox_transferred_at'],
+      originalDocumentsStatus: json['original_documents_status'],
+      originalDocumentsReceivedAt: json['original_documents_received_at'],
+      originalDocumentsCourierNo: json['original_documents_courier_no'],
+      originalDocumentsSessionCode: json['original_documents_session_code'],
+      customsBrokerDelegationNo: json['customs_broker_delegation_no'],
+      customsBrokerDelegatedAt: json['customs_broker_delegated_at'],
+      customsBrokerAuthorizationStatus: json['customs_broker_authorization_status'],
+      deliveryOrderNo: json['delivery_order_no'],
+      deliveryOrderDate: json['delivery_order_date'],
+      deliveryOrderExpiryDate: json['delivery_order_expiry_date'],
+      deliveryOrderStatus: json['delivery_order_status'],
+      customsDutyPaidAmount: (json['customs_duty_paid_amount'] as num?)?.toDouble() ?? 0.0,
+      customsDutyReceiptNo: json['customs_duty_receipt_no'],
+      customsDutySadadNo: json['customs_duty_sadad_no'],
+      customsDutyPaymentDate: json['customs_duty_payment_date'],
+      customsDutyPaymentStatus: json['customs_duty_payment_status'],
       estimatedCost: (json['estimated_cost'] as num?)?.toDouble() ?? 0.0,
       estimatedCostCurrency: json['estimated_cost_currency'] ?? 'USD',
       currentModule: json['current_module'] ?? '',
@@ -351,12 +510,65 @@ class ImportFileModel {
       'acid_execution_days': acidExecutionDays,
       'is_customs_released': isCustomsReleased,
       'customs_released_at': customsReleasedAt,
+      if (customsReleasePermitNo != null) 'customs_release_permit_no': customsReleasePermitNo,
+      if (customsReleaseType != null) 'customs_release_type': customsReleaseType,
+      if (customsReleaseOfficer != null) 'customs_release_officer': customsReleaseOfficer,
+      if (customsGatePassNo != null) 'customs_gate_pass_no': customsGatePassNo,
+      if (totalClearanceExpensesEgp > 0) 'total_clearance_expenses_egp': totalClearanceExpensesEgp,
+      'clearance_invoices_status': clearanceInvoicesStatus,
+      'inland_transport_status': inlandTransportStatus,
+      if (inlandTransportBookingNo != null) 'inland_transport_booking_no': inlandTransportBookingNo,
+      if (inlandCarrierName != null) 'inland_carrier_name': inlandCarrierName,
+      if (inlandTruckPlateNo != null) 'inland_truck_plate_no': inlandTruckPlateNo,
+      if (inlandDriverName != null) 'inland_driver_name': inlandDriverName,
+      if (inlandDriverPhone != null) 'inland_driver_phone': inlandDriverPhone,
+      if (inlandTransportCostEgp > 0) 'inland_transport_cost_egp': inlandTransportCostEgp,
+      if (inlandDepartureDate != null) 'inland_departure_date': inlandDepartureDate,
+      if (inlandExpectedArrivalDate != null) 'inland_expected_arrival_date': inlandExpectedArrivalDate,
+      if (inlandActualArrivalDate != null) 'inland_actual_arrival_date': inlandActualArrivalDate,
+      if (emptyContainersReturnedAt != null) 'empty_containers_returned_at': emptyContainersReturnedAt,
+      if (emptyContainersReturnStatus != null) 'empty_containers_return_status': emptyContainersReturnStatus,
+      if (emptyContainersEirNumbers != null) 'empty_containers_eir_numbers': emptyContainersEirNumbers,
+      if (emptyContainersDepotName != null) 'empty_containers_depot_name': emptyContainersDepotName,
+      if (financialSettlementStatus != null) 'financial_settlement_status': financialSettlementStatus,
+      if (financialSettlementDate != null) 'financial_settlement_date': financialSettlementDate,
+      'financial_settlement_invoices_count': financialSettlementInvoicesCount,
+      'financial_settlement_total_egp': financialSettlementTotalEgp,
+      'actual_landed_cost_total_egp': actualLandedCostTotalEgp,
+      'actual_landed_cost_markup_factor': actualLandedCostMarkupFactor,
+      'actual_landed_cost_variance_egp': actualLandedCostVarianceEgp,
+      'actual_landed_cost_variance_pct': actualLandedCostVariancePct,
+      if (actualLandedCostCalculatedAt != null) 'actual_landed_cost_calculated_at': actualLandedCostCalculatedAt,
+      if (dossierExportedAt != null) 'dossier_exported_at': dossierExportedAt,
+      if (dossierExportedBy != null) 'dossier_exported_by': dossierExportedBy,
       'form4_no': form4No,
       'form4_request_date': form4RequestDate,
       'form4_received_date': form4ReceivedDate,
       'form4_execution_days': form4ExecutionDays,
       'swift_no': swiftNo,
       'form46_no': form46No,
+      'form46_date': form46Date,
+      'form46_status': form46Status,
+      if (cargoxEnvelopeId != null) 'cargox_envelope_id': cargoxEnvelopeId,
+      if (cargoxEnvelopeCode != null) 'cargox_envelope_code': cargoxEnvelopeCode,
+      if (cargoxEnvelopeStatus != null) 'cargox_envelope_status': cargoxEnvelopeStatus,
+      if (cargoxTransferredAt != null) 'cargox_transferred_at': cargoxTransferredAt,
+      if (originalDocumentsStatus != null) 'original_documents_status': originalDocumentsStatus,
+      if (originalDocumentsReceivedAt != null) 'original_documents_received_at': originalDocumentsReceivedAt,
+      if (originalDocumentsCourierNo != null) 'original_documents_courier_no': originalDocumentsCourierNo,
+      if (originalDocumentsSessionCode != null) 'original_documents_session_code': originalDocumentsSessionCode,
+      if (customsBrokerDelegationNo != null) 'customs_broker_delegation_no': customsBrokerDelegationNo,
+      if (customsBrokerDelegatedAt != null) 'customs_broker_delegated_at': customsBrokerDelegatedAt,
+      if (customsBrokerAuthorizationStatus != null) 'customs_broker_authorization_status': customsBrokerAuthorizationStatus,
+      if (deliveryOrderNo != null) 'delivery_order_no': deliveryOrderNo,
+      if (deliveryOrderDate != null) 'delivery_order_date': deliveryOrderDate,
+      if (deliveryOrderExpiryDate != null) 'delivery_order_expiry_date': deliveryOrderExpiryDate,
+      if (deliveryOrderStatus != null) 'delivery_order_status': deliveryOrderStatus,
+      if (customsDutyPaidAmount > 0) 'customs_duty_paid_amount': customsDutyPaidAmount,
+      if (customsDutyReceiptNo != null) 'customs_duty_receipt_no': customsDutyReceiptNo,
+      if (customsDutySadadNo != null) 'customs_duty_sadad_no': customsDutySadadNo,
+      if (customsDutyPaymentDate != null) 'customs_duty_payment_date': customsDutyPaymentDate,
+      if (customsDutyPaymentStatus != null) 'customs_duty_payment_status': customsDutyPaymentStatus,
       'estimated_cost': estimatedCost,
       'estimated_cost_currency': estimatedCostCurrency,
       if (initialStartingStage != null) 'initial_starting_stage': initialStartingStage,

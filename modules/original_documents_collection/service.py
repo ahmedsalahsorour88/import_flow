@@ -219,7 +219,6 @@ class OriginalDocumentsCollectionService:
                 "updated_by": username,
             }
             saved = OriginalDocumentsCollectionRepository.update(db, existing_session, updates)
-            return OriginalDocumentsCollectionResponse.model_validate(saved)
         else:
             # Create new
             new_code = OriginalDocumentsCollectionRepository.get_next_collection_code(db)
@@ -245,23 +244,178 @@ class OriginalDocumentsCollectionService:
             )
             saved = OriginalDocumentsCollectionRepository.create(db, new_session)
 
-        # Lifecycle advance: STEP_11 → STEP_12 when originals are fully received or verified
-        if status_val in ("FULLY_RECEIVED", "FULLY_VERIFIED"):
-            try:
-                from modules.lifecycle_board.service import advance_lifecycle_step_service
-                advance_lifecycle_step_service(
-                    db=db,
-                    import_file_id=payload.import_file_id,
-                    completed_step_code="STEP_11",
-                    target_step_codes=["STEP_12"],
-                    notes=f"اكتمل استلام وتدقيق أصول المستندات (الحالة: {status_val}). الانتقال إلى مرحلة استخراج نموذج 4 البنكي.",
-                    assigned_user=username,
-                )
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning("Lifecycle advance STEP_11→STEP_12 failed: %s", e)
+        # Execute SH-04 Orchestration Workflow (ImportFile sync, SmartTasks, Notifications, Approvals, Lifecycle)
+        OriginalDocumentsCollectionService._handle_original_documents_orchestration_workflow(
+            db, saved, updated_by=username
+        )
 
         return OriginalDocumentsCollectionResponse.model_validate(saved)
+
+    save_or_update_session = save_or_upsert_collection_session
+
+    @staticmethod
+    def _handle_original_documents_orchestration_workflow(
+        db: Session,
+        session: OriginalDocumentsCollectionSession,
+        updated_by: str = "ADMIN",
+    ) -> None:
+        """
+        SH-04 Orchestration Workflow:
+        1. Synchronizes original documents status, couriers, and timestamps with ImportFile.
+        2. Auto-closes pending SH-04 SmartTasks.
+        3. Dispatches downstream CS-01 SmartTask (Customs Broker Electronic Authorization).
+        4. Emits operational SystemNotification.
+        5. Synchronizes CustomsDocumentApproval for ORIGINAL_DOCUMENTS.
+        6. Advances Lifecycle step STEP_11 -> STEP_12 when fully received or verified.
+        """
+        import uuid
+        import logging
+        from datetime import timedelta
+        logger = logging.getLogger(__name__)
+
+        try:
+            # 1. Synchronize ImportFile
+            imp_file = db.query(ImportFile).filter_by(import_file_id=session.import_file_id).first()
+            if imp_file:
+                imp_file.original_documents_status = session.status
+                imp_file.original_documents_session_code = session.collection_code
+                awbs = [c.get("courier_no") for c in (session.couriers_list or []) if c.get("courier_no")]
+                imp_file.original_documents_courier_no = ", ".join(awbs) if awbs else None
+
+                if session.status in ("FULLY_RECEIVED", "FULLY_VERIFIED"):
+                    imp_file.original_documents_received_at = datetime.now(timezone.utc)
+                    if (imp_file.progress_percent or 0) < 75.0:
+                        imp_file.progress_percent = 75.0
+                    imp_file.next_action = "تعيين المخلص الجمركي والتفويض الإلكتروني (CS-01)"
+
+            # 2. Complete pending SH-04 SmartTasks
+            try:
+                from modules.smart_tasks.model import SmartTask
+                pending_tasks = (
+                    db.query(SmartTask)
+                    .filter(
+                        SmartTask.import_file_id == session.import_file_id,
+                        SmartTask.status != "Completed",
+                    )
+                    .all()
+                )
+                for t in pending_tasks:
+                    if (
+                        t.task_type in ("ORIGINAL_DOCS_RECEIPT", "ORIGINAL_DOCS", "SH-04")
+                        or "SH-04" in (t.title or "")
+                        or "أصول المستندات" in (t.title or "")
+                    ):
+                        t.status = "Completed"
+                        t.completion_notes = f"تم استلام وتوثيق أصول المستندات بنجاح (الكود: {session.collection_code}) بالحالة {session.status}."
+            except Exception as ex_task:
+                logger.warning(f"Error auto-completing SH-04 SmartTasks: {ex_task}")
+
+            # If fully received or verified, trigger downstream tasks, notifications, and approvals
+            if session.status in ("FULLY_RECEIVED", "FULLY_VERIFIED"):
+                file_label = imp_file.import_file_code if imp_file else session.import_file_code
+
+                # 3. Dispatch downstream CS-01 SmartTask (Customs Broker Electronic Authorization)
+                try:
+                    from modules.smart_tasks.model import SmartTask
+                    existing_cs01 = (
+                        db.query(SmartTask)
+                        .filter(
+                            SmartTask.import_file_id == session.import_file_id,
+                            SmartTask.task_type.in_(["CUSTOMS_BROKER_ASSIGNMENT", "CS-01"]),
+                        )
+                        .first()
+                    )
+                    if not existing_cs01:
+                        due_dt = (datetime.now(timezone.utc) + timedelta(days=3)).strftime("%Y-%m-%d")
+                        task_code = f"TASK-{uuid.uuid4().hex[:8].upper()}"
+                        downstream_task = SmartTask(
+                            task_code=task_code,
+                            import_file_id=session.import_file_id,
+                            import_file_code=file_label,
+                            title=f"تعيين المخلص الجمركي والتفويض الإلكتروني (CS-01) — {file_label}".strip(),
+                            description=f"تم استلام وتوثيق أصول المستندات البنكية للملف ({file_label}) بنجاح (الجلسة: {session.collection_code}). يرجى تعيين المخلص الجمركي وإصدار التفويض الإلكتروني لبدء الإعداد الجمركي ونموذج 46 ك.م.",
+                            task_type="CUSTOMS_BROKER_ASSIGNMENT",
+                            priority="High",
+                            status="Pending",
+                            assigned_user="Customs Specialist",
+                            due_date=due_dt,
+                            created_by=updated_by,
+                        )
+                        db.add(downstream_task)
+                except Exception as ex_dispatch:
+                    logger.warning(f"Error dispatching downstream CS-01 smart task: {ex_dispatch}")
+
+                # 4. Emit SystemNotification
+                try:
+                    from modules.notifications.model import SystemNotification
+                    notif = SystemNotification(
+                        title=f"تم استلام وتوثيق أصول المستندات البنكية — {session.collection_code}",
+                        message=f"تم استلام وتوثيق كافة أصول المستندات البنكية للشحنة ({file_label}) بنسبة إنجاز {session.completion_percentage}% (الكود: {session.collection_code}). الملف جاهز للبدء في إجراءات التخليص الجمركي.",
+                        category="STAGE_PROGRESSION",
+                        severity="INFO",
+                        entity_type="ImportFile",
+                        entity_id=session.import_file_id,
+                        target_role="ALL",
+                        is_read=False,
+                    )
+                    db.add(notif)
+                except Exception as ex_notif:
+                    logger.warning(f"Error creating Original Docs SystemNotification: {ex_notif}")
+
+                # 5. Update CustomsDocumentApproval for ORIGINAL_DOCUMENTS
+                try:
+                    from modules.docs_customs_approval.model import CustomsDocumentApproval
+                    approval_rec = (
+                        db.query(CustomsDocumentApproval)
+                        .filter(
+                            CustomsDocumentApproval.import_file_id == session.import_file_id,
+                            CustomsDocumentApproval.document_type.in_(["ORIGINAL_DOCUMENTS", "ORIGINAL_BANK_DOCS", "Original Documents"]),
+                        )
+                        .first()
+                    )
+                    if not approval_rec:
+                        approval_rec = CustomsDocumentApproval(
+                            approval_code=f"DCA-{uuid.uuid4().hex[:8].upper()}",
+                            import_file_id=session.import_file_id,
+                            import_file_code=file_label,
+                            document_type="ORIGINAL_DOCUMENTS",
+                            document_reference_no=session.collection_code,
+                            commercial_status="Approved",
+                            commercial_reviewed_by=updated_by,
+                            commercial_reviewed_at=datetime.now(timezone.utc),
+                            customs_status="Approved",
+                            customs_reviewed_by=updated_by,
+                            customs_reviewed_at=datetime.now(timezone.utc),
+                            overall_status="Approved for Clearance",
+                            commercial_notes=f"تم استلام وتوثيق أصول المستندات البنكية بنجاح برقم {session.collection_code}",
+                        )
+                        db.add(approval_rec)
+                    else:
+                        approval_rec.commercial_status = "Approved"
+                        approval_rec.customs_status = "Approved"
+                        approval_rec.overall_status = "Approved for Clearance"
+                        approval_rec.document_reference_no = session.collection_code
+                        approval_rec.commercial_notes = f"تم استلام وتوثيق أصول المستندات البنكية بنجاح برقم {session.collection_code}"
+                except Exception as ex_appr:
+                    logger.warning(f"Error updating CustomsDocumentApproval for Original Docs: {ex_appr}")
+
+                # 6. Advance Lifecycle step STEP_11 -> STEP_12
+                try:
+                    from modules.lifecycle_board.service import advance_lifecycle_step_service
+                    advance_lifecycle_step_service(
+                        db=db,
+                        import_file_id=session.import_file_id,
+                        completed_step_code="STEP_11",
+                        target_step_codes=["STEP_12"],
+                        notes=f"اكتمل استلام وتوثيق أصول المستندات البنكية (الكود: {session.collection_code}). الانتقال إلى مرحلة نموذج 4 البنكي والإعداد الجمركي.",
+                        assigned_user=updated_by,
+                    )
+                except Exception as ex_lc:
+                    logger.warning(f"Lifecycle advance STEP_11→STEP_12 failed: {ex_lc}")
+
+            db.commit()
+        except Exception as e:
+            logger.error(f"Error executing _handle_original_documents_orchestration_workflow: {e}")
 
 
     @staticmethod
@@ -600,8 +754,13 @@ class OriginalDocumentsCollectionService:
             "completion_percentage": completion_pct,
             "updated_by": username,
         }
-
         saved = OriginalDocumentsCollectionRepository.update(db, session, updates)
+
+        # Execute SH-04 Orchestration Workflow
+        OriginalDocumentsCollectionService._handle_original_documents_orchestration_workflow(
+            db, saved, updated_by=username
+        )
+
         return OriginalDocumentsCollectionResponse.model_validate(saved)
 
     @staticmethod

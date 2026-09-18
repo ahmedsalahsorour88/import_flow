@@ -7,6 +7,8 @@ CHECKLIST_STAGE_MAPPING = {
     "customs_cleared": ["STEP_13", "STEP_14", "STEP_17", "customs_cleared"],
     "warehouse_received": ["STEP_19", "warehouse_received"],
     "landed_cost_settled": ["STEP_20", "landed_cost_settled"],
+    "dossier_exported": ["STEP_20", "dossier_exported"],
+    "empty_containers_returned": ["STEP_19", "empty_containers_returned"],
     "tasks_closed": ["STEP_21", "tasks_closed"],
 }
 

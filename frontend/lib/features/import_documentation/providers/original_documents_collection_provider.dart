@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../import_files/providers/import_files_provider.dart';
+import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../models/original_documents_collection_model.dart';
 
 final originalDocsDioProvider = Provider<Dio>((ref) {
@@ -11,15 +13,16 @@ final originalDocsDioProvider = Provider<Dio>((ref) {
 final originalDocumentsSessionsProvider = StateNotifierProvider<
     OriginalDocumentsCollectionNotifier,
     AsyncValue<List<OriginalDocumentsCollectionSessionModel>>>((ref) {
-  return OriginalDocumentsCollectionNotifier(ref.read(originalDocsDioProvider));
+  return OriginalDocumentsCollectionNotifier(ref.read(originalDocsDioProvider), ref);
 });
 
 class OriginalDocumentsCollectionNotifier
     extends StateNotifier<AsyncValue<List<OriginalDocumentsCollectionSessionModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
 
-  OriginalDocumentsCollectionNotifier(this._dio) : super(const AsyncValue.loading()) {
+  OriginalDocumentsCollectionNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchSessions();
   }
 
@@ -96,6 +99,8 @@ class OriginalDocumentsCollectionNotifier
         response.data as Map<String, dynamic>,
       );
       await fetchSessions();
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(smartTasksProvider);
       return created;
     } catch (e) {
       rethrow;
@@ -114,6 +119,8 @@ class OriginalDocumentsCollectionNotifier
         response.data as Map<String, dynamic>,
       );
       await fetchSessions();
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(smartTasksProvider);
       return updated;
     } catch (e) {
       rethrow;

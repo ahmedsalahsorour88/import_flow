@@ -137,6 +137,7 @@ class ShipmentBookingModel {
   final int bookingId;
   final String bookingCode;
   final String? bookingConfirmationNo;
+  final String? billOfLadingNo;
   final int? importFileId;
   final int? rfqRequestId;
   final int? scenarioSessionId;
@@ -192,6 +193,7 @@ class ShipmentBookingModel {
     required this.bookingId,
     required this.bookingCode,
     this.bookingConfirmationNo,
+    this.billOfLadingNo,
     this.importFileId,
     this.rfqRequestId,
     this.scenarioSessionId,
@@ -249,6 +251,7 @@ class ShipmentBookingModel {
       bookingId: json['booking_id'],
       bookingCode: json['booking_code'] ?? '',
       bookingConfirmationNo: json['booking_confirmation_no'],
+      billOfLadingNo: json['bill_of_lading_no'],
       importFileId: json['import_file_id'],
       rfqRequestId: json['rfq_request_id'],
       scenarioSessionId: json['scenario_session_id'],
@@ -303,6 +306,7 @@ class ShipmentBookingModel {
       'booking_id': bookingId,
       'booking_code': bookingCode,
       'booking_confirmation_no': bookingConfirmationNo,
+      'bill_of_lading_no': billOfLadingNo,
       'import_file_id': importFileId,
       'rfq_request_id': rfqRequestId,
       'scenario_session_id': scenarioSessionId,

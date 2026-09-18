@@ -2,19 +2,25 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/customs_clearance_model.dart';
+import '../models/clearance_expense_invoice_model.dart';
 import '../../../core/network/api_client.dart';
+import '../../import_files/providers/import_files_provider.dart';
+import '../../smart_tasks/providers/smart_tasks_provider.dart';
 
 
 final customsClearanceProvider =
     StateNotifierProvider<CustomsClearanceNotifier, AsyncValue<List<CustomsClearanceModel>>>((ref) {
-  return CustomsClearanceNotifier(ref.read(dioProvider));
+  return CustomsClearanceNotifier(ref.read(dioProvider), ref: ref);
 });
 
 class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClearanceModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
 
-  CustomsClearanceNotifier(this._dio) : super(const AsyncValue.loading()) {
+  CustomsClearanceNotifier(this._dio, {Ref? ref})
+      : _ref = ref,
+        super(const AsyncValue.loading()) {
     fetchRecords();
   }
 
@@ -56,6 +62,157 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
         return;
       }
       state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<CustomsClearanceModel?> authorizeBroker(Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/customs-clearance/authorize-broker',
+        data: payload,
+      );
+      final record = CustomsClearanceModel.fromJson(response.data);
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(smartTasksProvider);
+      await fetchRecords();
+      return record;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<CustomsClearanceModel?> recordDeliveryOrderPayment(Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/customs-clearance/delivery-order-payment',
+        data: payload,
+      );
+      final record = CustomsClearanceModel.fromJson(response.data);
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(smartTasksProvider);
+      await fetchRecords();
+      return record;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<CustomsClearanceModel?> registerDeclaration46(Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/customs-clearance/register-declaration-46',
+        data: payload,
+      );
+      final record = CustomsClearanceModel.fromJson(response.data);
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(smartTasksProvider);
+      await fetchRecords();
+      return record;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<CustomsClearanceModel?> recordInspectionSampling(Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/customs-clearance/record-inspection-sampling',
+        data: payload,
+      );
+      final record = CustomsClearanceModel.fromJson(response.data);
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(smartTasksProvider);
+      await fetchRecords();
+      return record;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<CustomsClearanceModel?> assessFinalDuties(Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/customs-clearance/assess-final-duties',
+        data: payload,
+      );
+      final record = CustomsClearanceModel.fromJson(response.data);
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(smartTasksProvider);
+      await fetchRecords();
+      return record;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<CustomsClearanceModel?> recordDutyPayment(Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/customs-clearance/record-duty-payment',
+        data: payload,
+      );
+      final record = CustomsClearanceModel.fromJson(response.data);
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(smartTasksProvider);
+      await fetchRecords();
+      return record;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<CustomsClearanceModel?> issueFinalRelease(Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/customs-clearance/issue-final-release',
+        data: payload,
+      );
+      final record = CustomsClearanceModel.fromJson(response.data);
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(smartTasksProvider);
+      await fetchRecords();
+      return record;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<ClearanceInvoicesSummaryModel?> fetchClearanceInvoices(int importFileId) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/customs-clearance/invoices/by-file/$importFileId',
+      );
+      return ClearanceInvoicesSummaryModel.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<ClearanceExpenseInvoiceModel?> createClearanceInvoice(Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/customs-clearance/invoices',
+        data: payload,
+      );
+      final created = ClearanceExpenseInvoiceModel.fromJson(response.data);
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(smartTasksProvider);
+      await fetchRecords();
+      return created;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> deleteClearanceInvoice(int invoiceId, int importFileId) async {
+    try {
+      await _dio.delete(
+        '${ApiConstants.baseUrl}/customs-clearance/invoices/$invoiceId',
+      );
+      _ref?.invalidate(importFilesProvider);
+      await fetchRecords();
+    } catch (e) {
+      rethrow;
     }
   }
 

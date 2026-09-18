@@ -7,13 +7,30 @@ from .schemas import (
     CustomsClearanceCreate,
     CustomsClearanceUpdate,
     CustomsClearanceResponse,
+    CustomsBrokerAuthorizationSubmit,
+    DeliveryOrderPaymentSubmit,
+    CustomsDeclaration46Submit,
+    CustomsInspectionSamplingSubmit,
+    FinalDutyAssessmentSubmit,
+    CustomsDutyPaymentSubmit,
     DutyPaymentSubmit,
     CompleteReleaseSubmit,
+    CustomsFinalReleaseSubmit,
     UnderBondReleaseSubmit,
     LabTestResultSubmit,
+    ClearanceExpenseInvoiceCreate,
+    ClearanceExpenseInvoiceResponse,
+    ClearanceInvoicesSummaryResponse,
 )
 from .service import (
     create_customs_clearance_service,
+    authorize_customs_broker_service,
+    record_delivery_order_payment_service,
+    register_customs_declaration_46_service,
+    record_customs_inspection_sampling_service,
+    assess_final_customs_duties_service,
+    record_customs_duty_payment_service,
+    issue_final_customs_release_service,
     get_customs_clearance_service,
     list_customs_clearances_service,
     submit_duty_payment_service,
@@ -23,6 +40,9 @@ from .service import (
     update_customs_clearance_service,
     soft_delete_customs_clearance_service,
     restore_customs_clearance_service,
+    record_clearance_invoice_service,
+    get_clearance_invoices_by_file_service,
+    delete_clearance_invoice_service,
 )
 
 router = APIRouter(prefix="/api/v1/customs-clearance", tags=["Phase 7 - Customs Clearance"])
@@ -43,6 +63,55 @@ def create_customs_clearance(
     db: Session = Depends(get_db),
 ):
     return create_customs_clearance_service(db, schema)
+
+@router.post("/authorize-broker", response_model=CustomsClearanceResponse, summary="تعيين المخلص الجمركي والتفويض الإلكتروني (CS-01)")
+def authorize_customs_broker(
+    payload: CustomsBrokerAuthorizationSubmit,
+    db: Session = Depends(get_db),
+):
+    return authorize_customs_broker_service(db, payload)
+
+@router.post("/delivery-order-payment", response_model=CustomsClearanceResponse, summary="سداد إذن التسليم الملاحي واستلام D/O (CS-02)")
+def record_delivery_order_payment(
+    payload: DeliveryOrderPaymentSubmit,
+    db: Session = Depends(get_db),
+):
+    return record_delivery_order_payment_service(db, payload)
+
+@router.post("/register-declaration-46", response_model=CustomsClearanceResponse, summary="قيد الإقرار الجمركي ونموذج 46 ك.م (CS-03)")
+def register_customs_declaration_46(
+    payload: CustomsDeclaration46Submit,
+    db: Session = Depends(get_db),
+):
+    return register_customs_declaration_46_service(db, payload)
+
+@router.post("/record-inspection-sampling", response_model=CustomsClearanceResponse, summary="تسجيل الكشف والمعاينة وسحب العينات ومطابقة الرقابة (CL-01)")
+def record_customs_inspection_sampling(
+    payload: CustomsInspectionSamplingSubmit,
+    db: Session = Depends(get_db),
+):
+    return record_customs_inspection_sampling_service(db, payload)
+
+@router.post("/assess-final-duties", response_model=CustomsClearanceResponse, summary="احتساب الرسوم والضرائب الجمركية النهائية (CL-02)")
+def assess_final_customs_duties(
+    payload: FinalDutyAssessmentSubmit,
+    db: Session = Depends(get_db),
+):
+    return assess_final_customs_duties_service(db, payload)
+
+@router.post("/record-duty-payment", response_model=CustomsClearanceResponse, summary="تسجيل سداد الرسوم الجمركية بسداد / E-Finance (CL-03)")
+def record_customs_duty_payment(
+    payload: CustomsDutyPaymentSubmit,
+    db: Session = Depends(get_db),
+):
+    return record_customs_duty_payment_service(db, payload)
+
+@router.post("/issue-final-release", response_model=CustomsClearanceResponse, summary="صدور أمر الإفراج الجمركي الأخضر وبدء إجراءات النقل (CL-04)")
+def issue_final_customs_release(
+    payload: CustomsFinalReleaseSubmit,
+    db: Session = Depends(get_db),
+):
+    return issue_final_customs_release_service(db, payload)
 
 @router.get("/{record_id}", response_model=CustomsClearanceResponse)
 def get_customs_clearance(
@@ -106,3 +175,33 @@ def restore_customs_clearance(
     db: Session = Depends(get_db),
 ):
     return restore_customs_clearance_service(db, record_id)
+
+
+# ==============================================================================
+# CL-05: Clearance Fees & Port Invoices Endpoints (تسجيل فواتير المخلص والعتالة والموانئ)
+# ==============================================================================
+
+@router.post("/invoices", response_model=ClearanceExpenseInvoiceResponse, status_code=status.HTTP_201_CREATED, summary="تسجيل فاتورة أتعاب تخليص أو رسوم موانئ أو عتالة (CL-05)")
+def record_clearance_invoice(
+    payload: ClearanceExpenseInvoiceCreate,
+    db: Session = Depends(get_db),
+):
+    return record_clearance_invoice_service(db, payload)
+
+
+@router.get("/invoices/by-file/{import_file_id}", response_model=ClearanceInvoicesSummaryResponse, summary="استرجاع وتلخيص فواتير ومصاريف التخليص لملف الشحنة (CL-05)")
+def get_clearance_invoices_by_file(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+):
+    return get_clearance_invoices_by_file_service(db, import_file_id)
+
+
+@router.delete("/invoices/{invoice_id}", status_code=status.HTTP_200_OK, summary="حذف فاتورة تخليص وإعادة احتساب الإجماليات وتكلفة الوصول")
+def delete_clearance_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+):
+    delete_clearance_invoice_service(db, invoice_id)
+    return {"status": "success", "message": "تم حذف فاتورة التخليص وإعادة احتساب الإجماليات بنجاح"}
+

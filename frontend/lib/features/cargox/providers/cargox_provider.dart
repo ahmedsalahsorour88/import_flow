@@ -2,18 +2,21 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
+import '../../import_files/providers/import_files_provider.dart';
+import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../models/cargox_model.dart';
 
 final cargoxEnvelopesProvider =
     StateNotifierProvider<CargoXNotifier, AsyncValue<List<CargoXEnvelopeModel>>>((ref) {
-  return CargoXNotifier(ref.read(dioProvider));
+  return CargoXNotifier(ref.read(dioProvider), ref);
 });
 
 class CargoXNotifier extends StateNotifier<AsyncValue<List<CargoXEnvelopeModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
 
-  CargoXNotifier(this._dio) : super(const AsyncValue.loading()) {
+  CargoXNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchEnvelopes();
   }
 
@@ -67,6 +70,8 @@ class CargoXNotifier extends StateNotifier<AsyncValue<List<CargoXEnvelopeModel>>
       );
       final created = CargoXEnvelopeModel.fromJson(response.data as Map<String, dynamic>);
       await fetchEnvelopes();
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(smartTasksProvider);
       return created;
     } catch (err) {
       rethrow;
@@ -81,6 +86,8 @@ class CargoXNotifier extends StateNotifier<AsyncValue<List<CargoXEnvelopeModel>>
       );
       final updated = CargoXEnvelopeModel.fromJson(response.data as Map<String, dynamic>);
       await fetchEnvelopes();
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(smartTasksProvider);
       return updated;
     } catch (err) {
       rethrow;
@@ -101,6 +108,8 @@ class CargoXNotifier extends StateNotifier<AsyncValue<List<CargoXEnvelopeModel>>
         },
       );
       await fetchEnvelopes();
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(smartTasksProvider);
       return response.data as Map<String, dynamic>;
     } catch (err) {
       rethrow;

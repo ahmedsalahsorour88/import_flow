@@ -19,6 +19,7 @@ import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../widgets/search_and_clone_warehouse_receiving_dialog.dart';
+import '../widgets/warehouse_inspection_dialog.dart';
 
 class WarehouseReceivingScreen extends ConsumerStatefulWidget {
   final bool isEmbedded;
@@ -801,6 +802,21 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                         onPressed: () => _showDiscrepancyDialog(r),
                                       ),
                                     ],
+                                    ElevatedButton.icon(
+                                      key: Key('openInspectionProtocolBtn_${r.receivingId}'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFFD97706),
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      icon: const Icon(Icons.fact_check_rounded, size: 15),
+                                      label: const Text(
+                                        'محضر الفحص (TR-04)',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                      ),
+                                      onPressed: () {
+                                        WarehouseInspectionDialog.show(context, record: r);
+                                      },
+                                    ),
                                     ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: r.quarantineZoneAssigned ? AppTheme.crimson : AppTheme.cobalt,

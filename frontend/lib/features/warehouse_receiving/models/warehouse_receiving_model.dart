@@ -63,6 +63,16 @@ class WarehouseReceivingModel {
   final bool quarantineZoneAssigned;
   final bool insuranceClaimFiled;
   final String? insuranceClaimRef;
+  final String? inspectionDate;
+  final String? inspectionCommittee;
+  final String? inspectionProtocolNumber;
+  final String? inspectionVerdict;
+  final String? rootCause;
+  final bool supplierClaimFiled;
+  final String? supplierClaimRef;
+  final double claimAmountEstimated;
+  final String claimCurrency;
+  final double discrepancyRatePercent;
   final String status;
   final String inspectorName;
   final String? notes;
@@ -91,6 +101,16 @@ class WarehouseReceivingModel {
     this.quarantineZoneAssigned = false,
     this.insuranceClaimFiled = false,
     this.insuranceClaimRef,
+    this.inspectionDate,
+    this.inspectionCommittee,
+    this.inspectionProtocolNumber,
+    this.inspectionVerdict = 'PENDING',
+    this.rootCause,
+    this.supplierClaimFiled = false,
+    this.supplierClaimRef,
+    this.claimAmountEstimated = 0.0,
+    this.claimCurrency = 'EGP',
+    this.discrepancyRatePercent = 0.0,
     this.status = 'Goods Received',
     this.inspectorName = 'Kamal',
     this.notes,
@@ -122,6 +142,16 @@ class WarehouseReceivingModel {
       quarantineZoneAssigned: json['quarantine_zone_assigned'] ?? false,
       insuranceClaimFiled: json['insurance_claim_filed'] ?? false,
       insuranceClaimRef: json['insurance_claim_ref'],
+      inspectionDate: json['inspection_date'],
+      inspectionCommittee: json['inspection_committee'],
+      inspectionProtocolNumber: json['inspection_protocol_number'],
+      inspectionVerdict: json['inspection_verdict'] ?? 'PENDING',
+      rootCause: json['root_cause'],
+      supplierClaimFiled: json['supplier_claim_filed'] ?? false,
+      supplierClaimRef: json['supplier_claim_ref'],
+      claimAmountEstimated: (json['claim_amount_estimated'] as num?)?.toDouble() ?? 0.0,
+      claimCurrency: json['claim_currency'] ?? 'EGP',
+      discrepancyRatePercent: (json['discrepancy_rate_percent'] as num?)?.toDouble() ?? 0.0,
       status: json['status'] ?? 'Goods Received',
       inspectorName: json['inspector_name'] ?? 'Kamal',
       notes: json['notes'],
@@ -153,6 +183,16 @@ class WarehouseReceivingModel {
       'quarantine_zone_assigned': quarantineZoneAssigned,
       'insurance_claim_filed': insuranceClaimFiled,
       'insurance_claim_ref': insuranceClaimRef,
+      'inspection_date': inspectionDate,
+      'inspection_committee': inspectionCommittee,
+      'inspection_protocol_number': inspectionProtocolNumber,
+      'inspection_verdict': inspectionVerdict,
+      'root_cause': rootCause,
+      'supplier_claim_filed': supplierClaimFiled,
+      'supplier_claim_ref': supplierClaimRef,
+      'claim_amount_estimated': claimAmountEstimated,
+      'claim_currency': claimCurrency,
+      'discrepancy_rate_percent': discrepancyRatePercent,
       'status': status,
       'inspector_name': inspectorName,
       'notes': notes,

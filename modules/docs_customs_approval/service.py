@@ -130,6 +130,7 @@ def auto_generate_approvals_for_import_file_service(
         "Certificate of Origin",
         "EUR.1",
         "Inspection Certificate",
+        "Fumigation Certificate",
         "Bank Form 4",
     ]
 
@@ -338,18 +339,162 @@ def run_cross_document_matrix_check_service(
 
     passed_count = sum(1 for c in checks if c.status == "Match")
     failed_count = sum(1 for c in checks if c.status in ("Mismatch", "Warning"))
-    overall = "Fully Compliant" if failed_count == 0 else ("Critical Blocker" if any(c.status == "Mismatch" for c in checks) else "Discrepancies Found")
+
+    # 7. Shipping Documents Matrix & Deficiency Radar (DC-04)
+    approvals = repo.list_approvals(db, import_file_id=import_file_id)
+
+    mandatory_docs_spec = [
+        {
+            "parameter": "Commercial Invoice Verification",
+            "name_ar": "الفاتورة التجارية المعتمدة",
+            "keys": ["Commercial Invoice", "Invoice", "Final Invoice", "Proforma Invoice"],
+            "critical": True,
+        },
+        {
+            "parameter": "Packing List Verification",
+            "name_ar": "بيان العبوة ومطابقة الأوزان (Packing List)",
+            "keys": ["Packing List", "PL", "Final Packing List"],
+            "critical": True,
+        },
+        {
+            "parameter": "Bill of Lading Verification",
+            "name_ar": "بوليصة الشحن البحرية / الجوية (B/L)",
+            "keys": ["Bill of Lading", "B/L", "Draft B/L", "Ocean Bill of Lading", "Air Waybill"],
+            "critical": True,
+        },
+        {
+            "parameter": "Certificate of Origin (COO / EUR.1)",
+            "name_ar": "شهادة المنشأ والاتفاقيات التفضيلية (COO / EUR.1)",
+            "keys": ["Certificate of Origin", "COO", "EUR.1", "Draft COO"],
+            "critical": True,
+        },
+        {
+            "parameter": "Inspection Certificate (Pre-Shipment / GOIEC)",
+            "name_ar": "شهادة الفحص والتفتيش والمطابقة (Inspection Cert)",
+            "keys": ["Inspection Certificate", "COC", "Pre-Shipment Inspection", "Certificate of Conformity"],
+            "critical": False,
+        },
+        {
+            "parameter": "Fumigation Certificate (ISPM 15)",
+            "name_ar": "شهادة التبخير والصحة النباتية (Fumigation Cert)",
+            "keys": ["Fumigation Certificate", "Phytosanitary Certificate", "Fumigation"],
+            "critical": False,
+        },
+        {
+            "parameter": "Bank Form 4 / LC Verification",
+            "name_ar": "نموذج 4 البنكي أو الاعتماد المستندي (Bank Form 4 / LC)",
+            "keys": ["Bank Form 4", "Form 4", "Letter of Credit", "L/C", "Form 9"],
+            "critical": True,
+        },
+    ]
+
+    missing_documents: List[str] = []
+    approved_docs_count = 0
+
+    for doc_spec in mandatory_docs_spec:
+        matching_approval = None
+        for a in approvals:
+            if any(k.lower() == (a.document_type or "").lower() for k in doc_spec["keys"]):
+                matching_approval = a
+                break
+
+        matching_doc_item = None
+        for d in docs:
+            doc_name_str = (d.doc_name or "").lower()
+            if any(k.lower() in doc_name_str for k in doc_spec["keys"]):
+                matching_doc_item = d
+                break
+
+        doc_status = "Missing"
+        doc_note = ""
+        inv_val = None
+        bl_val = None
+
+        if matching_approval:
+            inv_val = matching_approval.document_reference_no or matching_approval.approval_code
+            if matching_approval.overall_status == "Approved for Clearance" or (
+                matching_approval.commercial_status == "Approved" and matching_approval.customs_status == "Approved"
+            ):
+                doc_status = "Match"
+                doc_note = f"مستند {doc_spec['name_ar']} معتمد رسمياً ({matching_approval.approval_code})."
+                approved_docs_count += 1
+            elif matching_approval.overall_status in ("Rectification Required", "Rejected") or (
+                matching_approval.commercial_status == "Rejected" or matching_approval.customs_status == "Rejected"
+            ):
+                doc_status = "Mismatch"
+                doc_note = f"تنبيه استدراك: مستند {doc_spec['name_ar']} به ملاحظات رفض أو استدراك ({matching_approval.approval_code})."
+                recommendations.append(f"استدراك مستندي: مراجعة ملاحظات الرفض لمستند {doc_spec['name_ar']} وتعديلها مع المورد.")
+            else:
+                doc_status = "Warning"
+                doc_note = f"مستند {doc_spec['name_ar']} قيد المراجعة والتدقيق ({matching_approval.overall_status})."
+        elif matching_doc_item:
+            inv_val = matching_doc_item.doc_number or matching_doc_item.document_code
+            if matching_doc_item.status in ("Approved", "Endorsed"):
+                doc_status = "Match"
+                doc_note = f"مستند {doc_spec['name_ar']} مستلم ومعتمد برقم ({matching_doc_item.doc_number})."
+                approved_docs_count += 1
+            elif matching_doc_item.status == "Rejected":
+                doc_status = "Mismatch"
+                doc_note = f"مستند {doc_spec['name_ar']} مرفوض ويجب استبداله."
+                recommendations.append(f"استدراك مستندي: تم رفض مستند {doc_spec['name_ar']} ويجب طلب مسودة معدلة.")
+            else:
+                doc_status = "Warning"
+                doc_note = f"مستند {doc_spec['name_ar']} مسجل برقم ({matching_doc_item.doc_number}) وقيد التدقيق."
+        elif doc_spec["parameter"] == "Bank Form 4 / LC Verification" and getattr(import_file, "form4_no", None) and getattr(import_file, "form4_no", None) != "PENDING":
+            doc_status = "Match"
+            inv_val = getattr(import_file, "form4_no", None)
+            doc_note = f"تم توثيق نموذج 4 / الاعتماد برقم مرجعي ({inv_val})."
+            approved_docs_count += 1
+        elif doc_spec["parameter"] == "Bill of Lading Verification" and getattr(import_file, "bl_number", None) and getattr(import_file, "bl_number", None) != "PENDING":
+            doc_status = "Match"
+            bl_val = getattr(import_file, "bl_number", None)
+            doc_note = f"تم تسجيل رقم بوليصة الشحن ({bl_val})."
+            approved_docs_count += 1
+        else:
+            doc_status = "Missing"
+            doc_note = f"تنبيه نقص مستندي (DC-04): مستند {doc_spec['name_ar']} غير مستوفى للشحنة."
+            missing_documents.append(doc_spec["name_ar"])
+            recommendations.append(f"تنبيه استكمال مستندي (DC-04): يجب استيفاء مستند {doc_spec['name_ar']} ورفعه على المنظومة للملف ({file_code}).")
+
+        checks.append(
+            MatrixCheckItem(
+                parameter=doc_spec["parameter"],
+                status=doc_status,
+                invoice_val=inv_val or "N/A",
+                bl_val=bl_val,
+                notes=doc_note,
+            )
+        )
+
+    completeness_percent = round((approved_docs_count / len(mandatory_docs_spec)) * 100.0, 1)
+
+    total_passed = sum(1 for c in checks if c.status == "Match")
+    total_failed = sum(1 for c in checks if c.status in ("Mismatch", "Warning", "Missing"))
+
+    if any(c.status == "Mismatch" for c in checks) or len(open_tickets) > 0:
+        overall = "Critical Blocker"
+    elif total_failed > 0:
+        overall = "Discrepancies Found"
+    else:
+        overall = "Fully Compliant"
+
+    if overall == "Fully Compliant" and completeness_percent >= 100.0:
+        if import_file.next_action and "المستندات" in import_file.next_action:
+            import_file.next_action = "STEP_10 رفع المسودات المعتمدة وشهادات الفحص على منصة CargoX الرقمية"
+            db.commit()
 
     return CrossDocumentMatrixCheckResponse(
         import_file_id=import_file_id,
         import_file_code=file_code,
         overall_compliance=overall,
         total_checks=len(checks),
-        passed_checks=passed_count,
-        failed_checks=failed_count,
+        passed_checks=total_passed,
+        failed_checks=total_failed,
         checks=checks,
         recommendations=recommendations,
         open_tickets_count=len(open_tickets),
+        missing_documents=missing_documents,
+        completeness_percent=completeness_percent,
     )
 
 

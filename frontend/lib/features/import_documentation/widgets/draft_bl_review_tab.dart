@@ -17,6 +17,7 @@ import 'search_and_clone_draft_bl_dialog.dart';
 import 'visual_draft_bl_sheet.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
+import '../../smart_tasks/providers/smart_tasks_provider.dart';
 
 class DraftBLReviewTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -477,6 +478,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       final created = await ref.read(draftBLReviewsProvider.notifier).saveDraftBLReview(payload);
       ref.invalidate(importFilesProvider);
       ref.invalidate(docsCustomsApprovalProvider);
+      ref.invalidate(smartTasksProvider);
 
       setState(() {
         _activeSession = created;
@@ -596,6 +598,10 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       setState(() {
         _activeSession = updated;
       });
+
+      ref.invalidate(importFilesProvider);
+      ref.invalidate(docsCustomsApprovalProvider);
+      ref.invalidate(smartTasksProvider);
 
       if (mounted) {
         if (updated.stage == 'Stage 5: Final') {

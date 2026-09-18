@@ -66,12 +66,68 @@ class ImportFileBase(BaseModel):
     acid_execution_days: Optional[int] = None
     is_customs_released: bool = Field(False, description="Shipment cleared and released from customs")
     customs_released_at: Optional[datetime] = None
+    bl_number: Optional[str] = Field(None, description="Master/House Bill of Lading Number")
+    booking_no: Optional[str] = Field(None, description="Carrier Booking Confirmation Number")
+    vessel_name: Optional[str] = Field(None, description="Vessel Name")
     form4_no: Optional[str] = None
     form4_request_date: Optional[date] = None
     form4_received_date: Optional[date] = None
     form4_execution_days: Optional[int] = None
     swift_no: Optional[str] = None
     form46_no: Optional[str] = None
+    form46_date: Optional[datetime] = None
+    form46_status: Optional[str] = None
+    cargox_envelope_id: Optional[int] = None
+    cargox_envelope_code: Optional[str] = None
+    cargox_envelope_status: Optional[str] = None
+    cargox_transferred_at: Optional[datetime] = None
+    original_documents_status: Optional[str] = None
+    original_documents_received_at: Optional[datetime] = None
+    original_documents_courier_no: Optional[str] = None
+    original_documents_session_code: Optional[str] = None
+    customs_broker_delegation_no: Optional[str] = None
+    customs_broker_delegated_at: Optional[datetime] = None
+    customs_broker_authorization_status: Optional[str] = None
+    delivery_order_no: Optional[str] = None
+    delivery_order_date: Optional[datetime] = None
+    delivery_order_expiry_date: Optional[datetime] = None
+    delivery_order_status: Optional[str] = None
+    customs_duty_paid_amount: Optional[float] = 0.0
+    customs_duty_receipt_no: Optional[str] = None
+    customs_duty_sadad_no: Optional[str] = None
+    customs_duty_payment_date: Optional[datetime] = None
+    customs_duty_payment_status: Optional[str] = None
+    customs_release_permit_no: Optional[str] = None
+    customs_release_type: Optional[str] = None
+    customs_release_officer: Optional[str] = None
+    customs_gate_pass_no: Optional[str] = None
+    total_clearance_expenses_egp: Optional[float] = Field(0.0, description="Total logged customs clearance & port expenses in EGP")
+    clearance_invoices_status: Optional[str] = Field("Pending Invoices", description="Pending Invoices, Partially Logged, Invoices Logged & Verified")
+    inland_transport_status: Optional[str] = Field("NOT_BOOKED", description="NOT_BOOKED, BOOKED, IN_TRANSIT, ARRIVED, COMPLETED")
+    inland_transport_booking_no: Optional[str] = None
+    inland_carrier_name: Optional[str] = None
+    inland_truck_plate_no: Optional[str] = None
+    inland_driver_name: Optional[str] = None
+    inland_driver_phone: Optional[str] = None
+    inland_transport_cost_egp: Optional[float] = 0.0
+    inland_departure_date: Optional[datetime] = None
+    inland_expected_arrival_date: Optional[datetime] = None
+    inland_actual_arrival_date: Optional[datetime] = None
+    empty_containers_returned_at: Optional[datetime] = None
+    empty_containers_return_status: Optional[str] = None
+    empty_containers_eir_numbers: Optional[str] = None
+    empty_containers_depot_name: Optional[str] = None
+    financial_settlement_status: Optional[str] = Field("PENDING_SETTLEMENT", description="PENDING_SETTLEMENT, INVOICES_SETTLED, COST_ALLOCATED, CLOSED")
+    financial_settlement_date: Optional[date] = None
+    financial_settlement_invoices_count: Optional[int] = 0
+    financial_settlement_total_egp: Optional[float] = 0.0
+    actual_landed_cost_total_egp: Optional[float] = 0.0
+    actual_landed_cost_markup_factor: Optional[float] = 1.0
+    actual_landed_cost_variance_egp: Optional[float] = 0.0
+    actual_landed_cost_variance_pct: Optional[float] = 0.0
+    actual_landed_cost_calculated_at: Optional[datetime] = None
+    dossier_exported_at: Optional[datetime] = None
+    dossier_exported_by: Optional[str] = None
     estimated_cost: float = Field(0.0, ge=0.0, description="Estimated Landed/Import Cost")
     estimated_cost_currency: str = Field("USD", description="عملة التكلفة التقديرية")
     # Dynamic Lifecycle Controls
@@ -161,6 +217,59 @@ class ImportFileUpdate(BaseModel):
     form4_execution_days: Optional[int] = None
     swift_no: Optional[str] = None
     form46_no: Optional[str] = None
+    form46_date: Optional[datetime] = None
+    form46_status: Optional[str] = None
+    cargox_envelope_id: Optional[int] = None
+    cargox_envelope_code: Optional[str] = None
+    cargox_envelope_status: Optional[str] = None
+    cargox_transferred_at: Optional[datetime] = None
+    original_documents_status: Optional[str] = None
+    original_documents_received_at: Optional[datetime] = None
+    original_documents_courier_no: Optional[str] = None
+    original_documents_session_code: Optional[str] = None
+    customs_broker_delegation_no: Optional[str] = None
+    customs_broker_delegated_at: Optional[datetime] = None
+    customs_broker_authorization_status: Optional[str] = None
+    delivery_order_no: Optional[str] = None
+    delivery_order_date: Optional[datetime] = None
+    delivery_order_expiry_date: Optional[datetime] = None
+    delivery_order_status: Optional[str] = None
+    customs_duty_paid_amount: Optional[float] = None
+    customs_duty_receipt_no: Optional[str] = None
+    customs_duty_sadad_no: Optional[str] = None
+    customs_duty_payment_date: Optional[datetime] = None
+    customs_duty_payment_status: Optional[str] = None
+    customs_release_permit_no: Optional[str] = None
+    customs_release_type: Optional[str] = None
+    customs_release_officer: Optional[str] = None
+    customs_gate_pass_no: Optional[str] = None
+    total_clearance_expenses_egp: Optional[float] = None
+    clearance_invoices_status: Optional[str] = None
+    inland_transport_status: Optional[str] = None
+    inland_transport_booking_no: Optional[str] = None
+    inland_carrier_name: Optional[str] = None
+    inland_truck_plate_no: Optional[str] = None
+    inland_driver_name: Optional[str] = None
+    inland_driver_phone: Optional[str] = None
+    inland_transport_cost_egp: Optional[float] = None
+    inland_departure_date: Optional[datetime] = None
+    inland_expected_arrival_date: Optional[datetime] = None
+    inland_actual_arrival_date: Optional[datetime] = None
+    empty_containers_returned_at: Optional[datetime] = None
+    empty_containers_return_status: Optional[str] = None
+    empty_containers_eir_numbers: Optional[str] = None
+    empty_containers_depot_name: Optional[str] = None
+    financial_settlement_status: Optional[str] = None
+    financial_settlement_date: Optional[date] = None
+    financial_settlement_invoices_count: Optional[int] = None
+    financial_settlement_total_egp: Optional[float] = None
+    actual_landed_cost_total_egp: Optional[float] = None
+    actual_landed_cost_markup_factor: Optional[float] = None
+    actual_landed_cost_variance_egp: Optional[float] = None
+    actual_landed_cost_variance_pct: Optional[float] = None
+    actual_landed_cost_calculated_at: Optional[datetime] = None
+    dossier_exported_at: Optional[datetime] = None
+    dossier_exported_by: Optional[str] = None
     estimated_cost: Optional[float] = None
     estimated_cost_currency: Optional[str] = None
     initial_starting_stage: Optional[str] = None

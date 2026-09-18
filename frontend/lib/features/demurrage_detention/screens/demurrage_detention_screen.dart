@@ -13,9 +13,12 @@ import '../models/demurrage_model.dart';
 import '../providers/demurrage_provider.dart';
 import '../widgets/dual_clock_radar_dialog.dart';
 import '../widgets/freight_data_monitor_dialog.dart';
+import '../widgets/free_days_agreement_dialog.dart';
+import '../widgets/empty_container_return_dialog.dart';
 
 class DemurrageDetentionScreen extends ConsumerStatefulWidget {
-  const DemurrageDetentionScreen({super.key});
+  final int? initialImportFileId;
+  const DemurrageDetentionScreen({super.key, this.initialImportFileId});
 
   @override
   ConsumerState<DemurrageDetentionScreen> createState() => _DemurrageDetentionScreenState();
@@ -78,7 +81,12 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
     _tabController = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!ref.read(demurrageProvider).isLoading) {
-        ref.read(demurrageProvider.notifier).loadInitialData();
+        if (widget.initialImportFileId != null) {
+          ref.read(demurrageProvider.notifier).fetchTrackings(importFileId: widget.initialImportFileId);
+          ref.read(demurrageProvider.notifier).fetchFreeDaysAgreement(widget.initialImportFileId!);
+        } else {
+          ref.read(demurrageProvider.notifier).loadInitialData();
+        }
       }
       _runQuickSimulation();
     });
@@ -280,6 +288,27 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
         ),
         backgroundColor: AppTheme.charcoal,
         actions: [
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.flatEmerald,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              elevation: 0,
+            ),
+            icon: const Icon(Icons.verified_user_outlined, size: 16),
+            label: const Text(
+              'توثيق فترات السماح (BK-02)',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+            onPressed: () {
+              FreeDaysAgreementDialog.show(
+                context,
+                initialImportFileId: widget.initialImportFileId,
+              );
+            },
+          ),
+          const SizedBox(width: 8),
           IconButton(
             tooltip: l10n.freightDataLaunchConnectorTooltip,
             icon: Icon(Icons.cloud_sync_outlined, color: Colors.white, size: density.buttonIconSize),
@@ -485,6 +514,21 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                       label: Text(l10n.startNewTrackingBtn, style: const TextStyle(color: Colors.white)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.cobalt,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      key: const Key('globalEmptyContainerReturnBtn'),
+                      onPressed: () => EmptyContainerReturnDialog.show(
+                        context,
+                        initialImportFileId: widget.initialImportFileId,
+                      ),
+                      icon: const Icon(Icons.assignment_turned_in_rounded, color: Colors.white, size: 18),
+                      label: const Text('إرجاع الحاويات (TR-05)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF475569),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
@@ -702,6 +746,35 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                   onPressed: () => _showUpdateDatesDialog(context, item),
                   icon: const Icon(Icons.edit_calendar_outlined, size: 16),
                   label: Text(l10n.updateGateOutAndReturnDatesBtn),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  key: Key('emptyContainerReturnBtn_${item.trackingId}'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: item.status == 'RETURNED_SAFE' || item.status == 'Closed'
+                        ? const Color(0xFF64748B)
+                        : const Color(0xFF475569),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    final firstContainer = item.containers.isNotEmpty
+                        ? (item.containers.first is Map
+                            ? item.containers.first['container_number']?.toString()
+                            : item.containers.first.toString())
+                        : null;
+                    EmptyContainerReturnDialog.show(
+                      context,
+                      initialImportFileId: item.importFileId,
+                      initialContainerNumber: firstContainer,
+                    );
+                  },
+                  icon: const Icon(Icons.assignment_turned_in_rounded, size: 16),
+                  label: Text(
+                    item.status == 'RETURNED_SAFE' || item.status == 'Closed'
+                        ? 'تم الإرجاع (EIR)'
+                        : 'إرجاع الحاويات (TR-05)',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
 
                 const SizedBox(width: 8),

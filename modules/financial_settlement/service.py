@@ -9,6 +9,17 @@ from .schemas import (
     FinancialSettlementUpdate,
     ExpenseInvoiceSchema,
     ItemLandedCostSchema,
+    AggregatedInvoiceItemSchema,
+    InvoicesPartySummary,
+    InvoicesAggregationResponse,
+    ConfirmInvoicesSettlementRequest,
+    ConfirmInvoicesSettlementResponse,
+    ActualLandedCostCategoryBreakdown,
+    ActualLandedCostItemLine,
+    ActualLandedCostCalculationRequest,
+    ActualLandedCostCalculationResponse,
+    ApproveActualLandedCostRequest,
+    ApproveActualLandedCostResponse,
 )
 from .repository import (
     generate_settlement_code,
@@ -772,3 +783,1120 @@ def simulate_estimated_landed_cost_service(
         items_breakdown=items_breakdown,
         executive_summary_ar=summary_ar,
     )
+
+
+# ==============================================================================
+# CLO-01: Final Settlement Invoices Aggregation Services
+# ==============================================================================
+
+def aggregate_shipment_invoices_service(
+    db: Session,
+    import_file_id: int,
+) -> InvoicesAggregationResponse:
+    """
+    CLO-01: Multi-Source Invoice Aggregation Engine.
+    Scans all operational modules (Commercial Invoices, Freight Bookings, Cargo Insurance,
+    Customs Declaration 46, Clearance Invoices CL-05, Inland Transport TR-01, Demurrage TR-02/TR-05,
+    and Warehouse Discrepancies TR-03/TR-04) to assemble a unified multi-party settlement ledger.
+    """
+    from modules.freight_booking.model import ShipmentBooking
+    from modules.cargo_insurance.model import CargoInsuranceCertificate
+    from modules.customs_clearance.model import CustomsClearanceRecord, ClearanceExpenseInvoice
+    from modules.inland_transport.model import InlandTransportBooking
+    from modules.demurrage_detention.model import DemurrageTracking
+    from modules.warehouse_receiving.model import WarehouseReceivingRecord
+
+    imp = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if not imp:
+        raise HTTPException(status_code=404, detail="ملف الشحنة غير موجود")
+
+    currency = imp.estimated_cost_currency or "USD"
+    base_exchange_rate = 48.5
+
+    invoices: List[AggregatedInvoiceItemSchema] = []
+
+    # 1. Commercial Goods Invoices (FOB / CIF from PO & Invoices Data)
+    invoices_data = imp.invoices_data or []
+    if invoices_data and isinstance(invoices_data, list):
+        for idx, inv in enumerate(invoices_data):
+            inv_no = str(inv.get("invoice_no") or inv.get("invoice_number") or f"COMM-{imp.import_file_code}-{idx+1}")
+            inv_date = str(inv.get("invoice_date") or (imp.file_opening_date or ""))
+            c_curr = str(inv.get("currency") or currency)
+            c_rate = float(inv.get("exchange_rate") or (1.0 if c_curr == "EGP" else base_exchange_rate))
+            amt_fc = float(inv.get("amount") or inv.get("total_amount") or inv.get("total_fob") or 0.0)
+            amt_egp = round(amt_fc * c_rate if c_curr != "EGP" else amt_fc, 2)
+            is_paid = bool(imp.swift_no or inv.get("payment_status") == "PAID" or inv.get("paid"))
+            paid_egp = amt_egp if is_paid else 0.0
+            rem_egp = max(0.0, amt_egp - paid_egp)
+            status = "PAID" if rem_egp == 0 else ("PARTIAL" if paid_egp > 0 else "UNPAID")
+
+            invoices.append(AggregatedInvoiceItemSchema(
+                invoice_id=f"COMM-{idx+1}",
+                invoice_no=inv_no,
+                invoice_date=inv_date or None,
+                party_type="SUPPLIER",
+                party_type_ar="المورد الأجنبي",
+                party_name=imp.supplier_name or "المورد الأجنبي",
+                category="Commercial Goods",
+                category_ar="قيمة البضاعة التجارية (FOB/CIF)",
+                currency=c_curr,
+                exchange_rate=c_rate,
+                amount_fc=amt_fc,
+                amount_egp=amt_egp,
+                paid_amount_egp=paid_egp,
+                remaining_amount_egp=rem_egp,
+                payment_status=status,
+                payment_reference=imp.swift_no or inv.get("payment_ref") or "سويفت بنكي",
+                withholding_tax_rate=0.0,
+                withholding_tax_amount_egp=0.0,
+                net_payable_egp=amt_egp,
+                source_module="Commercial Invoice",
+                notes=f"فاتورة تجارية للشحنة {imp.import_file_code}",
+            ))
+    elif imp.estimated_cost and imp.estimated_cost > 0:
+        amt_fc = float(imp.estimated_cost)
+        amt_egp = round(amt_fc * base_exchange_rate if currency != "EGP" else amt_fc, 2)
+        is_paid = bool(imp.swift_no)
+        paid_egp = amt_egp if is_paid else 0.0
+        rem_egp = max(0.0, amt_egp - paid_egp)
+        status = "PAID" if rem_egp == 0 else "UNPAID"
+
+        invoices.append(AggregatedInvoiceItemSchema(
+            invoice_id="COMM-1",
+            invoice_no=f"COMM-{imp.import_file_code}",
+            invoice_date=str(imp.file_opening_date) if imp.file_opening_date else None,
+            party_type="SUPPLIER",
+            party_type_ar="المورد الأجنبي",
+            party_name=imp.supplier_name or "المورد الأجنبي",
+            category="Commercial Goods",
+            category_ar="قيمة البضاعة التجارية (FOB)",
+            currency=currency,
+            exchange_rate=base_exchange_rate if currency != "EGP" else 1.0,
+            amount_fc=amt_fc,
+            amount_egp=amt_egp,
+            paid_amount_egp=paid_egp,
+            remaining_amount_egp=rem_egp,
+            payment_status=status,
+            payment_reference=imp.swift_no or "سويفت بنكي",
+            withholding_tax_rate=0.0,
+            withholding_tax_amount_egp=0.0,
+            net_payable_egp=amt_egp,
+            source_module="Commercial Invoice",
+            notes="قيمة البضاعة التقديرية المعتمدة في أمر الشراء",
+        ))
+
+    # 2. Freight Bookings (Ocean / Air Freight)
+    bookings = db.query(ShipmentBooking).filter(
+        ShipmentBooking.import_file_id == import_file_id,
+        ShipmentBooking.is_active == True
+    ).all()
+    for b in bookings:
+        amt_usd = float(b.total_freight_cost_usd or 0.0)
+        if amt_usd > 0:
+            amt_egp = round(amt_usd * base_exchange_rate, 2)
+            invoices.append(AggregatedInvoiceItemSchema(
+                invoice_id=f"FRT-{b.booking_id}",
+                invoice_no=b.booking_confirmation_no or f"FRT-{b.booking_code}",
+                invoice_date=str(b.booking_confirmation_date.date()) if b.booking_confirmation_date else str(b.created_at.date()),
+                party_type="CARRIER",
+                party_type_ar="وكيل الشحن / الخط الملاحي",
+                party_name=b.freight_forwarder_name or b.shipping_line_name or "وكيل الشحن الدولي",
+                category="Ocean/Air Freight",
+                category_ar="نولون الشحن الدولي ومصاريف الشحن",
+                currency="USD",
+                exchange_rate=base_exchange_rate,
+                amount_fc=amt_usd,
+                amount_egp=amt_egp,
+                paid_amount_egp=amt_egp,
+                remaining_amount_egp=0.0,
+                payment_status="PAID",
+                payment_reference=b.bill_of_lading_no or b.booking_code,
+                withholding_tax_rate=0.0,
+                withholding_tax_amount_egp=0.0,
+                net_payable_egp=amt_egp,
+                source_module="Freight Booking",
+                notes=f"نولون بوليصة {b.bill_of_lading_no or b.booking_code}",
+            ))
+
+    # 3. Cargo Insurance
+    certs = db.query(CargoInsuranceCertificate).filter(
+        CargoInsuranceCertificate.import_file_id == import_file_id
+    ).all()
+    for c in certs:
+        prem = float(c.total_payable_premium or 0.0)
+        if prem > 0:
+            c_rate = float(c.exchange_rate or 1.0) if c.currency != "EGP" else 1.0
+            amt_egp = round(prem * c_rate, 2)
+            invoices.append(AggregatedInvoiceItemSchema(
+                invoice_id=f"INS-{c.certificate_id}",
+                invoice_no=c.policy_number or c.certificate_code,
+                invoice_date=str(c.created_at.date()),
+                party_type="INSURANCE",
+                party_type_ar="شركة التأمين البحري",
+                party_name=c.insurance_company_name or "شركة التأمين البحري",
+                category="Marine Insurance",
+                category_ar="وثيقة التأمين البحري الشامل",
+                currency=c.currency or "EGP",
+                exchange_rate=c_rate,
+                amount_fc=prem,
+                amount_egp=amt_egp,
+                paid_amount_egp=amt_egp,
+                remaining_amount_egp=0.0,
+                payment_status="PAID",
+                payment_reference=c.policy_number or c.certificate_code,
+                withholding_tax_rate=0.0,
+                withholding_tax_amount_egp=0.0,
+                net_payable_egp=amt_egp,
+                source_module="Cargo Insurance",
+                notes=f"وثيقة تأمين بحري تغطية {c.coverage_clause}",
+            ))
+
+    # 4. Customs Duties & Port / Delivery Order
+    clearances = db.query(CustomsClearanceRecord).filter(
+        CustomsClearanceRecord.import_file_id == import_file_id
+    ).all()
+    has_customs_inv = False
+    for cl in clearances:
+        c_duty = float(cl.duty_paid_amount or cl.total_duty_payable or 0.0)
+        if c_duty > 0:
+            has_customs_inv = True
+            paid = float(cl.duty_paid_amount or 0.0)
+            rem = max(0.0, (float(cl.total_duty_payable or c_duty)) - paid)
+            p_stat = "PAID" if rem == 0 else ("PARTIAL" if paid > 0 else "UNPAID")
+            invoices.append(AggregatedInvoiceItemSchema(
+                invoice_id=f"CUST-{cl.customs_clearance_id}",
+                invoice_no=cl.sadad_number or cl.declaration_46_no or cl.bank_receipt_no or f"DECL46-{imp.import_file_code}",
+                invoice_date=str(cl.payment_date.date()) if cl.payment_date else (str(cl.declaration_46_date.date()) if cl.declaration_46_date else None),
+                party_type="CUSTOMS",
+                party_type_ar="مصلحة الجمارك المصرية",
+                party_name=cl.customs_office_name or "مصلحة الجمارك المصرية (منظومة نافذة)",
+                category="Customs Duties & Taxes",
+                category_ar="الرسوم والضرائب الجمركية (إقرار 46 / سداد)",
+                currency="EGP",
+                exchange_rate=1.0,
+                amount_fc=c_duty,
+                amount_egp=c_duty,
+                paid_amount_egp=paid,
+                remaining_amount_egp=rem,
+                payment_status=p_stat,
+                payment_reference=cl.sadad_number or cl.bank_receipt_no or "إيصال سداد إلكتروني",
+                withholding_tax_rate=0.0,
+                withholding_tax_amount_egp=0.0,
+                net_payable_egp=c_duty,
+                source_module="Customs Declaration 46",
+                notes=f"سداد جمركي إقرار 46 رقم {cl.declaration_46_no or 'سداد'}",
+            ))
+
+        # Delivery order fees
+        if cl.delivery_order_fees and cl.delivery_order_fees > 0:
+            do_fees = float(cl.delivery_order_fees)
+            is_do_paid = (cl.delivery_order_status or "").lower() in ("paid and received", "paid & received", "paid", "مسدد")
+            do_paid = do_fees if is_do_paid else 0.0
+            do_rem = max(0.0, do_fees - do_paid)
+            do_stat = "PAID" if do_rem == 0 else "UNPAID"
+            invoices.append(AggregatedInvoiceItemSchema(
+                invoice_id=f"DO-{cl.customs_clearance_id}",
+                invoice_no=cl.delivery_order_number or f"DO-{imp.import_file_code}",
+                invoice_date=str(cl.delivery_order_date.date()) if cl.delivery_order_date else None,
+                party_type="CARRIER",
+                party_type_ar="التوكيل الملاحي",
+                party_name=cl.shipping_agent_name or "التوكيل الملاحي",
+                category="Delivery Order Fees",
+                category_ar="رسوم إذن التسليم ومصروفات التوكيل الملاحي",
+                currency=cl.delivery_order_currency or "EGP",
+                exchange_rate=1.0,
+                amount_fc=do_fees,
+                amount_egp=do_fees,
+                paid_amount_egp=do_paid,
+                remaining_amount_egp=do_rem,
+                payment_status=do_stat,
+                payment_reference=cl.delivery_order_payment_ref or cl.delivery_order_number or "إيصال التوكيل",
+                withholding_tax_rate=0.0,
+                withholding_tax_amount_egp=0.0,
+                net_payable_egp=do_fees,
+                source_module="Delivery Order (CS-02)",
+                notes="رسوم ومصاريف إذن تسليم الشحنة",
+            ))
+
+    if not has_customs_inv and imp.customs_duty_paid_amount and imp.customs_duty_paid_amount > 0:
+        c_duty = float(imp.customs_duty_paid_amount)
+        invoices.append(AggregatedInvoiceItemSchema(
+            invoice_id="CUST-IMP",
+            invoice_no=imp.customs_duty_sadad_no or imp.customs_duty_receipt_no or f"CUST-{imp.import_file_code}",
+            invoice_date=str(imp.customs_duty_payment_date.date()) if imp.customs_duty_payment_date else None,
+            party_type="CUSTOMS",
+            party_type_ar="مصلحة الجمارك المصرية",
+            party_name="مصلحة الجمارك المصرية (سداد)",
+            category="Customs Duties & Taxes",
+            category_ar="الرسوم والضرائب الجمركية (سداد)",
+            currency="EGP",
+            exchange_rate=1.0,
+            amount_fc=c_duty,
+            amount_egp=c_duty,
+            paid_amount_egp=c_duty,
+            remaining_amount_egp=0.0,
+            payment_status="PAID",
+            payment_reference=imp.customs_duty_sadad_no or imp.customs_duty_receipt_no or "سداد إلكتروني",
+            withholding_tax_rate=0.0,
+            withholding_tax_amount_egp=0.0,
+            net_payable_egp=c_duty,
+            source_module="Customs Declaration 46",
+            notes="رسوم جمركية مسددة بنظام سداد",
+        ))
+
+    # 5. Clearance Invoices (CL-05: ClearanceExpenseInvoice)
+    cl_invoices = db.query(ClearanceExpenseInvoice).filter(
+        ClearanceExpenseInvoice.import_file_id == import_file_id,
+        ClearanceExpenseInvoice.is_active == True
+    ).all()
+    has_broker_inv = False
+    for cl_inv in cl_invoices:
+        has_broker_inv = True
+        amt = float(cl_inv.amount_egp or (cl_inv.amount_fx * (cl_inv.exchange_rate or 1.0)))
+        is_p = (cl_inv.payment_status or "").lower() in ("paid", "مسدد")
+        is_part = "part" in (cl_inv.payment_status or "").lower()
+        paid = float(cl_inv.net_payable_egp if is_p else (cl_inv.net_payable_egp * 0.5 if is_part else 0.0))
+        rem = max(0.0, float(cl_inv.net_payable_egp or amt) - paid)
+        wht_rate = 1.0 if cl_inv.wht_deducted else 0.0
+        wht_amt = float(cl_inv.wht_amount or (round(amt * 0.01, 2) if cl_inv.wht_deducted else 0.0))
+        net = float(cl_inv.net_payable_egp or (amt - wht_amt))
+
+        invoices.append(AggregatedInvoiceItemSchema(
+            invoice_id=f"BROKER-{cl_inv.invoice_id}",
+            invoice_no=cl_inv.invoice_number or cl_inv.invoice_code,
+            invoice_date=str(cl_inv.invoice_date.date()) if cl_inv.invoice_date else None,
+            party_type="BROKER",
+            party_type_ar="المخلص الجمركي / هيئة الميناء",
+            party_name=cl_inv.provider_name or "المخلص الجمركي",
+            category=cl_inv.expense_category or "Clearance & Port Expenses",
+            category_ar=cl_inv.expense_category or "أتعاب التخليص ومصاريف الميناء والعتالة",
+            currency=cl_inv.currency or "EGP",
+            exchange_rate=float(cl_inv.exchange_rate or 1.0),
+            amount_fc=float(cl_inv.amount_fx or amt),
+            amount_egp=amt,
+            paid_amount_egp=paid,
+            remaining_amount_egp=rem,
+            payment_status="PAID" if is_p else ("PARTIAL" if is_part else "UNPAID"),
+            payment_reference=cl_inv.payment_ref or cl_inv.invoice_code,
+            withholding_tax_rate=wht_rate,
+            withholding_tax_amount_egp=wht_amt,
+            net_payable_egp=net,
+            source_module="Clearance Invoice CL-05",
+            notes=cl_inv.notes or f"فاتورة تخليص ومصاريف ميناء رقم {cl_inv.invoice_number}",
+        ))
+
+    if not has_broker_inv and imp.total_clearance_expenses_egp and imp.total_clearance_expenses_egp > 0:
+        amt = float(imp.total_clearance_expenses_egp)
+        wht_amt = round(amt * 0.01, 2)
+        net = round(amt - wht_amt, 2)
+        invoices.append(AggregatedInvoiceItemSchema(
+            invoice_id="BROKER-IMP",
+            invoice_no=f"BROK-{imp.import_file_code}",
+            invoice_date=str(datetime.now(timezone.utc).date()),
+            party_type="BROKER",
+            party_type_ar="المخلص الجمركي / هيئة الميناء",
+            party_name=imp.broker_name or "المخلص الجمركي المعتمد",
+            category="Customs Clearance & Port Expenses",
+            category_ar="إجمالي أتعاب التخليص ومصاريف الميناء",
+            currency="EGP",
+            exchange_rate=1.0,
+            amount_fc=amt,
+            amount_egp=amt,
+            paid_amount_egp=net,
+            remaining_amount_egp=0.0,
+            payment_status="PAID",
+            payment_reference="سند صرف مكتب التخليص",
+            withholding_tax_rate=1.0,
+            withholding_tax_amount_egp=wht_amt,
+            net_payable_egp=net,
+            source_module="Clearance Invoice CL-05",
+            notes="إجمالي مصاريف التخليص والخدمات بالميناء",
+        ))
+
+    # 6. Inland Transport (TR-01: InlandTransportBooking)
+    transports = db.query(InlandTransportBooking).filter(
+        InlandTransportBooking.import_file_id == import_file_id,
+        InlandTransportBooking.is_active == True
+    ).all()
+    has_trans_inv = False
+    for tr in transports:
+        amt = float(tr.transport_fare_egp or 0.0)
+        if amt > 0:
+            has_trans_inv = True
+            wht = round(amt * 0.01, 2)
+            net = round(amt - wht, 2)
+            is_p = tr.status in ("Delivered", "Arrived at Warehouse", "COMPLETED")
+            invoices.append(AggregatedInvoiceItemSchema(
+                invoice_id=f"TR-{tr.transport_id}",
+                invoice_no=tr.waybill_number or tr.transport_code,
+                invoice_date=str(tr.booking_date.date()) if tr.booking_date else None,
+                party_type="TRANSPORT",
+                party_type_ar="شركة النقل الداخلي",
+                party_name=tr.carrier_name or "الناقل الداخلي",
+                category="Inland Trucking",
+                category_ar="نولون النقل البري إلى المستودعات",
+                currency="EGP",
+                exchange_rate=1.0,
+                amount_fc=amt,
+                amount_egp=amt,
+                paid_amount_egp=net if is_p else 0.0,
+                remaining_amount_egp=0.0 if is_p else net,
+                payment_status="PAID" if is_p else "UNPAID",
+                payment_reference=tr.waybill_number or tr.transport_code,
+                withholding_tax_rate=1.0,
+                withholding_tax_amount_egp=wht,
+                net_payable_egp=net,
+                source_module="Inland Transport TR-01",
+                notes=f"نولون شاحنة {tr.truck_plate_number} السائق {tr.driver_name}",
+            ))
+
+    if not has_trans_inv and imp.inland_transport_cost_egp and imp.inland_transport_cost_egp > 0:
+        amt = float(imp.inland_transport_cost_egp)
+        wht = round(amt * 0.01, 2)
+        net = round(amt - wht, 2)
+        invoices.append(AggregatedInvoiceItemSchema(
+            invoice_id="TR-IMP",
+            invoice_no=imp.inland_transport_booking_no or f"TR-{imp.import_file_code}",
+            invoice_date=str(imp.inland_departure_date.date()) if imp.inland_departure_date else None,
+            party_type="TRANSPORT",
+            party_type_ar="شركة النقل الداخلي",
+            party_name=imp.inland_carrier_name or "شركة النقل الداخلي",
+            category="Inland Trucking",
+            category_ar="نولون النقل البري للشحنة",
+            currency="EGP",
+            exchange_rate=1.0,
+            amount_fc=amt,
+            amount_egp=amt,
+            paid_amount_egp=net,
+            remaining_amount_egp=0.0,
+            payment_status="PAID",
+            payment_reference=imp.inland_transport_booking_no or "بوليصة نقل بري",
+            withholding_tax_rate=1.0,
+            withholding_tax_amount_egp=wht,
+            net_payable_egp=net,
+            source_module="Inland Transport TR-01",
+            notes=f"نولون نقل الشحنة إلى المستودع {imp.inland_truck_plate_no or ''}",
+        ))
+
+    # 7. Demurrage & Detention Penalties (TR-02 & TR-05)
+    trackings = db.query(DemurrageTracking).filter(
+        DemurrageTracking.import_file_id == import_file_id,
+        DemurrageTracking.is_active == True
+    ).all()
+    for d in trackings:
+        cost = float(d.total_cost_egp or 0.0)
+        tot_fx = float(d.total_demurrage_fx or 0.0) + float(d.total_detention_fx or 0.0)
+        if cost > 0 or tot_fx > 0:
+            d_rate = float(d.exchange_rate or 50.0)
+            amt_egp = round(cost if cost > 0 else (tot_fx * d_rate + float(d.total_storage_egp or 0.0)), 2)
+            is_p = bool(d.is_pushed_to_settlement or d.status in ("Closed", "Settled"))
+            invoices.append(AggregatedInvoiceItemSchema(
+                invoice_id=f"DND-{d.tracking_id}",
+                invoice_no=f"DND-{d.tracking_code}",
+                invoice_date=str(d.empty_return_date or d.discharge_date or d.created_at.date()),
+                party_type="DEMURRAGE",
+                party_type_ar="غرامات وأرضيات الحاويات",
+                party_name=d.carrier_name or "الخط الملاحي",
+                category="Demurrage & Detention",
+                category_ar="غرامات تأخير الحاويات ورسوم الأرضيات",
+                currency=d.currency or "USD",
+                exchange_rate=d_rate,
+                amount_fc=tot_fx,
+                amount_egp=amt_egp,
+                paid_amount_egp=amt_egp if is_p else 0.0,
+                remaining_amount_egp=0.0 if is_p else amt_egp,
+                payment_status="PAID" if is_p else "UNPAID",
+                payment_reference=d.bill_of_lading_no or d.tracking_code,
+                withholding_tax_rate=0.0,
+                withholding_tax_amount_egp=0.0,
+                net_payable_egp=amt_egp,
+                source_module="Demurrage TR-02/TR-05",
+                notes=f"غرامات تأخير الحاويات بوليصة {d.bill_of_lading_no}",
+            ))
+
+    # Summarize by party
+    parties_map: Dict[str, Dict[str, Any]] = {}
+    for inv in invoices:
+        pkey = f"{inv.party_type}::{inv.party_name}"
+        if pkey not in parties_map:
+            parties_map[pkey] = {
+                "party_type": inv.party_type,
+                "party_type_ar": inv.party_type_ar,
+                "party_name": inv.party_name,
+                "invoices_count": 0,
+                "total_egp": 0.0,
+                "paid_egp": 0.0,
+                "remaining_egp": 0.0,
+            }
+        parties_map[pkey]["invoices_count"] += 1
+        parties_map[pkey]["total_egp"] = round(parties_map[pkey]["total_egp"] + inv.amount_egp, 2)
+        parties_map[pkey]["paid_egp"] = round(parties_map[pkey]["paid_egp"] + inv.paid_amount_egp, 2)
+        parties_map[pkey]["remaining_egp"] = round(parties_map[pkey]["remaining_egp"] + inv.remaining_amount_egp, 2)
+
+    parties_summary = [InvoicesPartySummary(**pdata) for pdata in parties_map.values()]
+
+    total_amt = round(sum(inv.amount_egp for inv in invoices), 2)
+    total_paid = round(sum(inv.paid_amount_egp for inv in invoices), 2)
+    total_rem = round(sum(inv.remaining_amount_egp for inv in invoices), 2)
+    total_wht = round(sum(inv.withholding_tax_amount_egp for inv in invoices), 2)
+    readiness = round((total_paid / total_amt * 100.0), 1) if total_amt > 0 else 100.0
+
+    warnings: List[str] = []
+    for inv in invoices:
+        if inv.remaining_amount_egp > 0:
+            warnings.append(
+                f"مستحق غير مسدد لصالح [{inv.party_name}]: {inv.remaining_amount_egp:,.2f} جنيه (فاتورة {inv.invoice_no})"
+            )
+
+    return InvoicesAggregationResponse(
+        import_file_id=imp.import_file_id,
+        import_file_code=imp.import_file_code or f"IMP-{imp.import_file_id}",
+        supplier_name=imp.supplier_name or "المورد الأجنبي",
+        currency=currency,
+        exchange_rate=round(base_exchange_rate, 4),
+        total_invoices_count=len(invoices),
+        total_amount_egp=total_amt,
+        total_paid_egp=total_paid,
+        total_remaining_egp=total_rem,
+        total_withholding_tax_egp=total_wht,
+        settlement_readiness_percent=readiness,
+        financial_settlement_status=imp.financial_settlement_status or "PENDING_SETTLEMENT",
+        parties_summary=parties_summary,
+        invoices=invoices,
+        unsettled_warnings=warnings,
+    )
+
+
+def confirm_invoices_settlement_service(
+    db: Session,
+    payload: ConfirmInvoicesSettlementRequest,
+) -> ConfirmInvoicesSettlementResponse:
+    """
+    CLO-01: Confirms and locks the aggregated invoices for the Import File.
+    - Updates ImportFile status, progress to >= 98.5%, and financial settlement summary.
+    - Closes SmartTask TSK-0901.
+    - Creates and dispatches downstream SmartTask TSK-0902 for Landed Cost Engine allocation (CLO-02).
+    - Emits a central high-priority SystemNotification.
+    """
+    from modules.smart_tasks.model import SmartTask
+    from modules.notifications.model import SystemNotification
+
+    imp = db.query(ImportFile).filter(ImportFile.import_file_id == payload.import_file_id).first()
+    if not imp:
+        raise HTTPException(status_code=404, detail="ملف الشحنة غير موجود")
+
+    if payload.invoices_overrides and len(payload.invoices_overrides) > 0:
+        invoices = payload.invoices_overrides
+    else:
+        agg = aggregate_shipment_invoices_service(db, payload.import_file_id)
+        invoices = agg.invoices
+
+    total_settled_egp = round(sum(inv.amount_egp for inv in invoices), 2)
+    today_date = datetime.now(timezone.utc).date()
+    today_str = str(today_date)
+
+    # 1. Update ImportFile
+    imp.financial_settlement_status = "INVOICES_SETTLED"
+    imp.financial_settlement_date = today_date
+    imp.financial_settlement_invoices_count = len(invoices)
+    imp.financial_settlement_total_egp = total_settled_egp
+    current_progress = float(imp.progress_percent or 0.0)
+    imp.progress_percent = max(current_progress, 98.5)
+    imp.current_stage = "Stage 9: Landed Cost & File Closure"
+    imp.current_module = "CLO-01 Final Settlement Invoices Aggregation"
+    imp.next_action = "احتساب تكلفة الوصول الفعلية وتوزيعها على الأصناف (CLO-02)"
+
+    # 2. Resolve SmartTask TSK-0901
+    tasks_901 = db.query(SmartTask).filter(
+        SmartTask.import_file_id == imp.import_file_id,
+        (SmartTask.task_code.ilike("%0901%") | SmartTask.title.ilike("%تسوية الفواتير%") | SmartTask.title.ilike("%فواتير%"))
+    ).all()
+    for t in tasks_901:
+        t.status = "Completed"
+        t.is_auto_closed = True
+        t.notes = f"تم اعتماد تسوية ومطابقة الفواتير بنجاح بواسطة {payload.settled_by} بتاريخ {today_str}"
+
+    # 3. Create downstream SmartTask TSK-0902
+    task_code_902 = f"TSK-0902-{imp.import_file_id}"
+    existing_902 = db.query(SmartTask).filter(SmartTask.task_code == task_code_902).first()
+    if not existing_902:
+        new_task = SmartTask(
+            task_code=task_code_902,
+            title="احتساب تكلفة الوصول الفعلية وتوزيعها على الأصناف (CLO-02)",
+            description=f"تم الانتهاء من تجميع ومطابقة فواتير ومصروفات الشحنة {imp.import_file_code} بإجمالي {total_settled_egp:,.2f} جنيه بعدد {len(invoices)} فاتورة. المطلوب الآن تشغيل محرك Landed Cost وتوزيع التكاليف على الأصناف.",
+            task_type="System Generated",
+            import_file_id=imp.import_file_id,
+            import_file_code=imp.import_file_code,
+            phase_name="Stage 9: Landed Cost & File Closure",
+            assigned_user=payload.settled_by or "Cost Accounting Specialist",
+            priority="High",
+            reminder_type="Financial Settlement",
+            due_date=today_str,
+            status="Pending",
+        )
+        db.add(new_task)
+
+    # 4. Dispatch central SystemNotification
+    notif = SystemNotification(
+        title=f"تم اعتماد تسوية فواتير الشحنة {imp.import_file_code}",
+        message=f"قام {payload.settled_by} باعتماد ومطابقة كافة فواتير ومصروفات الشحنة {imp.import_file_code} بعدد {len(invoices)} فاتورة وبإجمالي {total_settled_egp:,.2f} جنيه تمهيداً لحساب تكلفة الوصول (CLO-02).",
+        severity="INFO",
+        category="FINANCIAL_SETTLEMENT",
+        entity_type="ImportFile",
+        entity_id=imp.import_file_id,
+        target_role="ALL",
+    )
+    db.add(notif)
+
+    db.commit()
+    db.refresh(imp)
+
+    return ConfirmInvoicesSettlementResponse(
+        success=True,
+        import_file_id=imp.import_file_id,
+        import_file_code=imp.import_file_code or f"IMP-{imp.import_file_id}",
+        financial_settlement_status=imp.financial_settlement_status,
+        financial_settlement_date=today_str,
+        invoices_count=len(invoices),
+        total_settled_egp=total_settled_egp,
+        progress_percent=imp.progress_percent,
+        current_stage=imp.current_stage,
+        current_module=imp.current_module,
+        next_task_code=task_code_902,
+        next_task_title="احتساب تكلفة الوصول الفعلية وتوزيعها على الأصناف (CLO-02)",
+        message=f"تم اعتماد تسوية فواتير الشحنة {imp.import_file_code} بنجاح بإجمالي {total_settled_egp:,.2f} جنيه مصري وإطلاق المهمة الذكية التالية.",
+    )
+
+
+# ==============================================================================
+# CLO-02: Actual Landed Cost Calculation & Variance Services
+# ==============================================================================
+
+def calculate_actual_landed_cost_service(
+    db: Session,
+    import_file_id: int,
+    request: Optional[ActualLandedCostCalculationRequest] = None,
+) -> ActualLandedCostCalculationResponse:
+    """
+    CLO-02: Actual Landed Cost Calculation & Variance Engine.
+    Allocates actual settled expenses from all modules across item lines,
+    compares actual landed cost per item and category against estimated simulation (PL-08),
+    and computes absolute (EGP) and percentage variance and markup factor.
+    """
+    imp = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if not imp:
+        raise HTTPException(status_code=404, detail=f"ملف الشحنة رقم {import_file_id} غير موجود")
+
+    req = request or ActualLandedCostCalculationRequest()
+    pref = req.allocation_preference or "Value-Based"
+
+    # 1. Fetch simulation estimates (PL-08) for baseline comparison
+    try:
+        sim = simulate_estimated_landed_cost_service(db, import_file_id)
+    except Exception:
+        sim = None
+
+    # 2. Fetch all aggregated actual invoices
+    agg = aggregate_shipment_invoices_service(db, import_file_id)
+    all_invoices = agg.invoices
+    currency = agg.currency or "USD"
+    exchange_rate = agg.exchange_rate or 48.5
+
+    # Separate FOB Goods from other Expenses
+    goods_invoices = [inv for inv in all_invoices if "goods" in inv.category.lower() or "fob" in inv.category.lower() or "commercial" in inv.category.lower()]
+    expense_invoices = [inv for inv in all_invoices if inv not in goods_invoices]
+
+    # Calculate actual FOB from goods invoices, or fallback to simulation / estimated_cost
+    if goods_invoices:
+        actual_total_fob_egp = sum(inv.amount_egp for inv in goods_invoices)
+    elif sim and sim.total_fob_egp > 0:
+        actual_total_fob_egp = sim.total_fob_egp
+    else:
+        actual_total_fob_egp = float(imp.estimated_cost or 0.0) * exchange_rate
+
+    # Category buckets for actual expenses
+    cat_expenses = {
+        "Freight": {"ar": "النولون والشحن الدولي", "actual": 0.0, "count": 0},
+        "Insurance": {"ar": "التأمين البحري", "actual": 0.0, "count": 0},
+        "Customs Duty": {"ar": "ضريبة الوارد الجمركية", "actual": 0.0, "count": 0},
+        "VAT & Taxes": {"ar": "ضريبة القيمة المضافة وضريبة الجدول", "actual": 0.0, "count": 0},
+        "Clearance & Port": {"ar": "أتعاب التخليص ومصاريف الميناء والـ D/O", "actual": 0.0, "count": 0},
+        "Inland Transport": {"ar": "النقل الداخلي والتعتيق", "actual": 0.0, "count": 0},
+        "Demurrage & Storage": {"ar": "غرامات التأخير والأرضيات", "actual": 0.0, "count": 0},
+        "Other & Admin": {"ar": "مصاريف إدارية وبنكية متنوعة", "actual": 0.0, "count": 0},
+    }
+
+    for inv in expense_invoices:
+        cat_lower = (inv.category or "").lower()
+        amt = float(inv.amount_egp or 0.0)
+        if any(w in cat_lower for w in ["freight", "ocean", "air", "نولون", "شحن"]):
+            cat_expenses["Freight"]["actual"] += amt
+            cat_expenses["Freight"]["count"] += 1
+        elif any(w in cat_lower for w in ["insurance", "تأمين"]):
+            cat_expenses["Insurance"]["actual"] += amt
+            cat_expenses["Insurance"]["count"] += 1
+        elif any(w in cat_lower for w in ["duty", "duties", "46", "وارد", "جمرك"]) and "vat" not in cat_lower and "قيمة مضافة" not in cat_lower and "broker" not in cat_lower and "clearance" not in cat_lower:
+            cat_expenses["Customs Duty"]["actual"] += amt
+            cat_expenses["Customs Duty"]["count"] += 1
+        elif any(w in cat_lower for w in ["vat", "قيمة مضافة", "جدول", "schedule", "خدمات جمركية"]):
+            cat_expenses["VAT & Taxes"]["actual"] += amt
+            cat_expenses["VAT & Taxes"]["count"] += 1
+        elif any(w in cat_lower for w in ["clearance", "broker", "delivery order", "d/o", "تخليص", "إذن تسليم"]):
+            cat_expenses["Clearance & Port"]["actual"] += amt
+            cat_expenses["Clearance & Port"]["count"] += 1
+        elif any(w in cat_lower for w in ["transport", "truck", "inland", "نقل"]):
+            cat_expenses["Inland Transport"]["actual"] += amt
+            cat_expenses["Inland Transport"]["count"] += 1
+        elif any(w in cat_lower for w in ["demurrage", "detention", "storage", "أرضيات", "غرامات", "eir"]):
+            cat_expenses["Demurrage & Storage"]["actual"] += amt
+            cat_expenses["Demurrage & Storage"]["count"] += 1
+        else:
+            cat_expenses["Other & Admin"]["actual"] += amt
+            cat_expenses["Other & Admin"]["count"] += 1
+
+    actual_total_expenses_egp = sum(c["actual"] for c in cat_expenses.values())
+    actual_total_landed_cost_egp = actual_total_fob_egp + actual_total_expenses_egp
+    actual_markup_factor = (actual_total_landed_cost_egp / actual_total_fob_egp) if actual_total_fob_egp > 0 else 1.0
+
+    # Estimated numbers from simulation
+    est_total_fob = sim.total_fob_egp if sim else actual_total_fob_egp
+    est_freight = sim.total_freight_egp if sim else 0.0
+    est_ins = sim.total_insurance_egp if sim else 0.0
+    est_taxes = sim.total_customs_and_taxes_egp if sim else 0.0
+    est_duty = est_taxes * 0.4 if sim else 0.0 # estimated split
+    est_vat = est_taxes * 0.6 if sim else 0.0
+    est_clearance = sim.total_clearance_and_port_egp if sim else 0.0
+    est_transport = sim.total_inland_transport_egp if sim else 0.0
+    est_demurrage = 0.0 # usually 0 planned
+    est_other = sim.total_other_expenses_egp if sim else 0.0
+
+    est_total_expenses = sim.total_expenses_egp if sim else (est_freight + est_ins + est_taxes + est_clearance + est_transport + est_other)
+    est_total_landed = sim.total_landed_cost_egp if sim else (est_total_fob + est_total_expenses)
+    est_markup = sim.average_markup_factor if sim else 1.0
+
+    # Build Categories Breakdown
+    cat_est_map = {
+        "Freight": est_freight,
+        "Insurance": est_ins,
+        "Customs Duty": est_duty,
+        "VAT & Taxes": est_vat,
+        "Clearance & Port": est_clearance,
+        "Inland Transport": est_transport,
+        "Demurrage & Storage": est_demurrage,
+        "Other & Admin": est_other,
+    }
+
+    categories_breakdown: List[ActualLandedCostCategoryBreakdown] = []
+    for c_key, c_data in cat_expenses.items():
+        est_val = cat_est_map.get(c_key, 0.0)
+        act_val = c_data["actual"]
+        v_egp = round(act_val - est_val, 2)
+        v_pct = round((v_egp / est_val * 100.0), 2) if est_val > 0 else (100.0 if act_val > 0 else 0.0)
+        
+        # Determine allocation rule for category
+        rule = "Value-Based"
+        if req.custom_category_allocation and c_key in req.custom_category_allocation:
+            rule = req.custom_category_allocation[c_key]
+        elif c_key in ["Freight", "Demurrage & Storage"]:
+            rule = "Volume-Based" if pref in ["Volume-Based", "Weight-Based"] else pref
+        elif c_key in ["Inland Transport"]:
+            rule = "Weight-Based" if pref in ["Weight-Based", "Volume-Based"] else pref
+
+        categories_breakdown.append(ActualLandedCostCategoryBreakdown(
+            category=c_key,
+            category_ar=c_data["ar"],
+            estimated_egp=round(est_val, 2),
+            actual_egp=round(act_val, 2),
+            variance_egp=v_egp,
+            variance_pct=v_pct,
+            invoices_count=c_data["count"],
+            allocation_rule=rule,
+        ))
+
+    # 3. Extract items to allocate across: Prefer POLineItem directly if available
+    items_raw = []
+    from modules.purchase_orders.model import PurchaseOrder, POLineItem
+    po_lines = db.query(POLineItem).join(PurchaseOrder).filter(
+        PurchaseOrder.import_file_id == import_file_id,
+        PurchaseOrder.is_active == True,
+    ).all()
+
+    sim_map = {}
+    if sim and sim.items_breakdown:
+        sim_map = {s.item_code: s for s in sim.items_breakdown}
+
+    if po_lines:
+        for idx, pl in enumerate(po_lines):
+            qty = float(pl.quantity or 1.0)
+            u_p = float(pl.unit_price or 0.0)
+            tot_p = float(pl.total_price or (qty * u_p))
+            fob_tot_egp = tot_p * exchange_rate
+            fob_u_egp = fob_tot_egp / qty if qty > 0 else 0.0
+
+            s_match = sim_map.get(pl.item_code)
+            est_u = float(s_match.unit_landed_cost_egp) if s_match else (fob_u_egp * est_markup)
+
+            items_raw.append({
+                "line_no": idx + 1,
+                "item_code": pl.item_code or f"ITM-{idx+1:03d}",
+                "item_name": pl.description_ar or pl.description_en or f"Item #{idx+1}",
+                "hs_code": (pl.tariff.hs_code if pl.tariff else getattr(pl, "hs_code", "")) or imp.hs_code or "8479.89.90",
+                "qty": qty,
+                "fob_unit_egp": fob_u_egp,
+                "fob_total_egp": fob_tot_egp,
+                "gross_weight_kg": float(pl.gross_weight_kg or 100.0),
+                "cbm": float(pl.total_cbm or 0.5),
+                "estimated_unit_landed_cost_egp": est_u,
+            })
+    elif sim and sim.items_breakdown and len(sim.items_breakdown) > 0:
+        for s_itm in sim.items_breakdown:
+            items_raw.append({
+                "line_no": s_itm.line_no,
+                "item_code": s_itm.item_code,
+                "item_name": s_itm.item_name,
+                "hs_code": s_itm.hs_code,
+                "qty": float(s_itm.qty or 1.0),
+                "fob_unit_egp": float(s_itm.fob_unit_egp or 0.0),
+                "fob_total_egp": float(s_itm.fob_total_egp or 0.0),
+                "gross_weight_kg": 100.0,
+                "cbm": 0.5,
+                "estimated_unit_landed_cost_egp": float(s_itm.unit_landed_cost_egp or 0.0),
+            })
+    else:
+        # Fallback to single general cargo item
+        items_raw.append({
+            "line_no": 1,
+            "item_code": "ITM-001",
+            "item_name": imp.product_category or "بضائع استيرادية عامة",
+            "hs_code": imp.hs_code or "8479.89.90",
+            "qty": 1.0,
+            "fob_unit_egp": actual_total_fob_egp,
+            "fob_total_egp": actual_total_fob_egp,
+            "gross_weight_kg": 100.0,
+            "cbm": 1.0,
+            "estimated_unit_landed_cost_egp": est_total_landed,
+        })
+
+    total_items_fob = sum(i["fob_total_egp"] for i in items_raw)
+    total_items_wt = sum(i["gross_weight_kg"] for i in items_raw)
+    total_items_cbm = sum(i["cbm"] for i in items_raw)
+    n_items = len(items_raw)
+
+    items_breakdown: List[ActualLandedCostItemLine] = []
+
+    act_freight = cat_expenses["Freight"]["actual"]
+    act_ins = cat_expenses["Insurance"]["actual"]
+    act_duty = cat_expenses["Customs Duty"]["actual"]
+    act_vat = cat_expenses["VAT & Taxes"]["actual"]
+    act_clearance = cat_expenses["Clearance & Port"]["actual"]
+    act_transport = cat_expenses["Inland Transport"]["actual"]
+    act_demurrage = cat_expenses["Demurrage & Storage"]["actual"]
+    act_other = cat_expenses["Other & Admin"]["actual"]
+
+    for itm in items_raw:
+        qty = max(itm["qty"], 1.0)
+        fob_tot = itm["fob_total_egp"]
+        fob_u = itm["fob_unit_egp"]
+
+        v_ratio = (fob_tot / total_items_fob) if total_items_fob > 0 else (1.0 / n_items)
+        w_ratio = (itm["gross_weight_kg"] / total_items_wt) if total_items_wt > 0 else v_ratio
+        c_ratio = (itm["cbm"] / total_items_cbm) if total_items_cbm > 0 else v_ratio
+        eq_ratio = 1.0 / n_items
+
+        if pref == "Weight-Based" and total_items_wt > 0:
+            pri_ratio = w_ratio
+        elif pref == "Volume-Based" and total_items_cbm > 0:
+            pri_ratio = c_ratio
+        elif pref == "Equal":
+            pri_ratio = eq_ratio
+        else:
+            pri_ratio = v_ratio
+
+        # Allocation per bucket
+        all_freight = act_freight * (c_ratio if total_items_cbm > 0 else pri_ratio)
+        all_ins = act_ins * v_ratio
+        all_duty = act_duty * v_ratio
+        all_vat = act_vat * v_ratio
+        all_clearance = act_clearance * pri_ratio
+        all_transport = act_transport * (w_ratio if total_items_wt > 0 else pri_ratio)
+        all_demurrage = act_demurrage * pri_ratio
+        all_other = act_other * v_ratio
+
+        tot_alloc = all_freight + all_ins + all_duty + all_vat + all_clearance + all_transport + all_demurrage + all_other
+        item_landed_tot = fob_tot + tot_alloc
+        item_landed_u = item_landed_tot / qty
+        item_mkp = (item_landed_u / fob_u) if fob_u > 0 else 1.0
+        item_mkp_pct = (item_mkp - 1.0) * 100.0
+
+        est_u = itm.get("estimated_unit_landed_cost_egp") or fob_u
+        u_var = item_landed_u - est_u
+        u_var_pct = (u_var / est_u * 100.0) if est_u > 0 else 0.0
+
+        if u_var < -0.05:
+            v_status = "SAVING"
+        elif u_var > 0.05:
+            v_status = "INCREASED"
+        else:
+            v_status = "MATCHED"
+
+        items_breakdown.append(ActualLandedCostItemLine(
+            line_no=itm["line_no"],
+            item_code=itm["item_code"],
+            item_name=itm["item_name"],
+            hs_code=itm["hs_code"],
+            qty=qty,
+            gross_weight_kg=round(itm["gross_weight_kg"], 2),
+            cbm=round(itm["cbm"], 2),
+            fob_unit_egp=round(fob_u, 2),
+            fob_total_egp=round(fob_tot, 2),
+            allocated_freight_egp=round(all_freight, 2),
+            allocated_insurance_egp=round(all_ins, 2),
+            allocated_customs_duty_egp=round(all_duty, 2),
+            allocated_vat_egp=round(all_vat, 2),
+            allocated_clearance_egp=round(all_clearance, 2),
+            allocated_inland_transport_egp=round(all_transport, 2),
+            allocated_demurrage_egp=round(all_demurrage, 2),
+            allocated_other_egp=round(all_other, 2),
+            total_allocated_expenses_egp=round(tot_alloc, 2),
+            actual_total_landed_cost_egp=round(item_landed_tot, 2),
+            actual_unit_landed_cost_egp=round(item_landed_u, 2),
+            actual_markup_factor=round(item_mkp, 4),
+            actual_markup_pct=round(item_mkp_pct, 2),
+            estimated_unit_landed_cost_egp=round(est_u, 2),
+            unit_cost_variance_egp=round(u_var, 2),
+            unit_cost_variance_pct=round(u_var_pct, 2),
+            item_variance_status=v_status,
+        ))
+
+    # Overall file variances
+    fob_var_egp = round(actual_total_fob_egp - est_total_fob, 2)
+    fob_var_pct = round((fob_var_egp / est_total_fob * 100.0), 2) if est_total_fob > 0 else 0.0
+
+    exp_var_egp = round(actual_total_expenses_egp - est_total_expenses, 2)
+    exp_var_pct = round((exp_var_egp / est_total_expenses * 100.0), 2) if est_total_expenses > 0 else 0.0
+
+    landed_var_egp = round(actual_total_landed_cost_egp - est_total_landed, 2)
+    landed_var_pct = round((landed_var_egp / est_total_landed * 100.0), 2) if est_total_landed > 0 else 0.0
+
+    if landed_var_egp < -100.0:
+        overall_status = "UNDER_BUDGET"
+        overall_status_ar = f"وفورات في التكلفة بنسبة {abs(landed_var_pct):.1f}% (تحت الميزانية التقديرية)"
+    elif landed_var_egp > 100.0:
+        overall_status = "OVER_BUDGET"
+        overall_status_ar = f"تجاوز وحيود في التكلفة بنسبة {landed_var_pct:.1f}% (فوق الميزانية التقديرية)"
+    else:
+        overall_status = "ON_BUDGET"
+        overall_status_ar = "مطابق للميزانية التقديرية بدقة عالية"
+
+    # Executive Summary in Arabic
+    exec_summary = (
+        f"بلغت التكلفة الإجمالية الفعلية الواصلة للشحنة {imp.import_file_code} ما قيمته "
+        f"{actual_total_landed_cost_egp:,.2f} جنيه مصري، مقارنة بالتكلفة التقديرية البالغة "
+        f"{est_total_landed:,.2f} جنيه مصري، بفارق انحراف قدره {landed_var_egp:+,.2f} جنيه "
+        f"({landed_var_pct:+.1f}% — {overall_status_ar}). "
+        f"بلغت قيمة البضاعة الفعلية {actual_total_fob_egp:,.2f} جنيه، ومجموع المصاريف الفعلية "
+        f"{actual_total_expenses_egp:,.2f} جنيه موزعة عبر {len(expense_invoices)} فاتورة ومطالبة. "
+        f"متوسط معامل الزيادة الفعلي (Landed Markup Factor) يبلغ {actual_markup_factor:.3f}x، "
+        f"وتم توزيع المصاريف بنجاح على عدد {len(items_breakdown)} صنف طبقا لقاعدة '{pref}'."
+    )
+
+    return ActualLandedCostCalculationResponse(
+        import_file_id=imp.import_file_id,
+        import_file_code=imp.import_file_code or f"IMP-{imp.import_file_id}",
+        supplier_name=imp.supplier_name or "المورد الأجنبي",
+        currency=currency,
+        exchange_rate=round(exchange_rate, 4),
+        incoterm=imp.incoterm_code or "FOB",
+        allocation_preference=pref,
+        total_items_count=len(items_breakdown),
+        total_invoices_count=len(all_invoices),
+        estimated_total_fob_egp=round(est_total_fob, 2),
+        actual_total_fob_egp=round(actual_total_fob_egp, 2),
+        fob_variance_egp=fob_var_egp,
+        fob_variance_pct=fob_var_pct,
+        estimated_total_expenses_egp=round(est_total_expenses, 2),
+        actual_total_expenses_egp=round(actual_total_expenses_egp, 2),
+        expenses_variance_egp=exp_var_egp,
+        expenses_variance_pct=exp_var_pct,
+        estimated_total_landed_cost_egp=round(est_total_landed, 2),
+        actual_total_landed_cost_egp=round(actual_total_landed_cost_egp, 2),
+        landed_variance_egp=landed_var_egp,
+        landed_variance_pct=landed_var_pct,
+        estimated_markup_factor=round(est_markup, 4),
+        actual_markup_factor=round(actual_markup_factor, 4),
+        variance_status=overall_status,
+        variance_status_ar=overall_status_ar,
+        categories_breakdown=categories_breakdown,
+        items_breakdown=items_breakdown,
+        executive_summary_ar=exec_summary,
+    )
+
+
+def approve_actual_landed_cost_service(
+    db: Session,
+    payload: ApproveActualLandedCostRequest,
+) -> ApproveActualLandedCostResponse:
+    """
+    CLO-02: Approves and finalizes the Actual Landed Cost calculation for the Import File.
+    - Synchronizes item landed costs and total landed cost to LandedCostSettlementRecord.
+    - Updates ImportFile status to 'COST_ALLOCATED', sets actual landed cost KPIs, and advances progress >= 99.0%.
+    - Resolves SmartTask TSK-0902.
+    - Dispatches downstream SmartTask TSK-0903 for Final Dossier Dossier Export (CLO-03).
+    - Emits central SystemNotification.
+    """
+    from modules.smart_tasks.model import SmartTask
+    from modules.notifications.model import SystemNotification
+
+    imp = db.query(ImportFile).filter(ImportFile.import_file_id == payload.import_file_id).first()
+    if not imp:
+        raise HTTPException(status_code=404, detail="ملف الشحنة غير موجود")
+
+    # Run calculation
+    calc_req = ActualLandedCostCalculationRequest(
+        allocation_preference=payload.allocation_preference,
+        custom_category_allocation=payload.custom_category_allocation,
+    )
+    calc = calculate_actual_landed_cost_service(db, payload.import_file_id, calc_req)
+
+    now_utc = datetime.now(timezone.utc)
+    today_str = str(now_utc.date())
+
+    # 1. Update or create LandedCostSettlementRecord
+    settlement = db.query(LandedCostSettlementRecord).filter(
+        LandedCostSettlementRecord.import_file_id == imp.import_file_id,
+        LandedCostSettlementRecord.is_active == True,
+    ).first()
+
+    items_json = [itm.model_dump() for itm in calc.items_breakdown]
+    expenses_json = [c.model_dump() for c in calc.categories_breakdown]
+
+    if not settlement:
+        code = generate_settlement_code(db)
+        settlement = LandedCostSettlementRecord(
+            settlement_code=code,
+            import_file_id=imp.import_file_id,
+            incoterm_code=calc.incoterm,
+            expense_invoices=expenses_json,
+            total_fob_egp=calc.actual_total_fob_egp,
+            total_expenses_egp=calc.actual_total_expenses_egp,
+            total_landed_cost_egp=calc.actual_total_landed_cost_egp,
+            average_markup_factor=calc.actual_markup_factor,
+            item_landed_costs=items_json,
+            status="Approved",
+            accountant_name=payload.approved_by,
+            notes=payload.notes,
+            created_by=payload.approved_by,
+            created_at=now_utc,
+            updated_at=now_utc,
+        )
+        db.add(settlement)
+        db.flush()
+    else:
+        settlement.incoterm_code = calc.incoterm
+        settlement.expense_invoices = expenses_json
+        settlement.total_fob_egp = calc.actual_total_fob_egp
+        settlement.total_expenses_egp = calc.actual_total_expenses_egp
+        settlement.total_landed_cost_egp = calc.actual_total_landed_cost_egp
+        settlement.average_markup_factor = calc.actual_markup_factor
+        settlement.item_landed_costs = items_json
+        settlement.status = "Approved"
+        settlement.accountant_name = payload.approved_by
+        if payload.notes:
+            settlement.notes = f"{settlement.notes or ''}\n{payload.notes}".strip()
+        settlement.updated_at = now_utc
+
+    # 2. Update ImportFile
+    imp.financial_settlement_status = "COST_ALLOCATED"
+    imp.actual_landed_cost_total_egp = calc.actual_total_landed_cost_egp
+    imp.actual_landed_cost_markup_factor = calc.actual_markup_factor
+    imp.actual_landed_cost_variance_egp = calc.landed_variance_egp
+    imp.actual_landed_cost_variance_pct = calc.landed_variance_pct
+    imp.actual_landed_cost_calculated_at = now_utc
+    current_progress = float(imp.progress_percent or 0.0)
+    imp.progress_percent = max(current_progress, 99.0)
+    imp.current_stage = "Stage 9: Landed Cost & File Closure"
+    imp.current_module = "CLO-02 Actual Landed Cost Calculation"
+    imp.next_action = "إصدار وتصدير التقرير والملف الشامل PDF/Excel (CLO-03)"
+
+    # 3. Resolve SmartTask TSK-0902
+    tasks_902 = db.query(SmartTask).filter(
+        SmartTask.import_file_id == imp.import_file_id,
+        (SmartTask.task_code.ilike("%0902%") | SmartTask.title.ilike("%تكلفة الوصول الفعلية%") | SmartTask.title.ilike("%CLO-02%"))
+    ).all()
+    for t in tasks_902:
+        t.status = "Completed"
+        t.is_auto_closed = True
+        t.notes = f"تم اعتماد واحتساب تكلفة الوصول الفعلية بنجاح بواسطة {payload.approved_by} بتاريخ {today_str}"
+
+    # 4. Dispatch downstream SmartTask TSK-0903
+    task_code_903 = f"TSK-0903-{imp.import_file_id}"
+    existing_903 = db.query(SmartTask).filter(SmartTask.task_code == task_code_903).first()
+    if not existing_903:
+        new_task = SmartTask(
+            task_code=task_code_903,
+            title="إصدار وتصدير التقرير والملف الشامل PDF/Excel (CLO-03)",
+            description=f"تم اعتماد واحتساب تكلفة الوصول الفعلية للشحنة {imp.import_file_code} بإجمالي {calc.actual_total_landed_cost_egp:,.2f} جنيه ومطابقة الانحراف بنسبة {calc.landed_variance_pct:+.1f}%. المطلوب الآن تصدير الملف الشامل وحزم المستندات PDF/Excel.",
+            task_type="System Generated",
+            import_file_id=imp.import_file_id,
+            import_file_code=imp.import_file_code,
+            phase_name="Stage 9: Landed Cost & File Closure",
+            assigned_user=payload.approved_by or "Cost Accounting Manager",
+            priority="High",
+            reminder_type="Comprehensive Report",
+            due_date=today_str,
+            status="Pending",
+        )
+        db.add(new_task)
+
+    # 5. Dispatch central SystemNotification
+    notif = SystemNotification(
+        title=f"تم اعتماد تكلفة الوصول الفعلية للشحنة {imp.import_file_code}",
+        message=f"قام {payload.approved_by} باعتماد تكلفة الوصول الفعلية للشحنة {imp.import_file_code} بإجمالي {calc.actual_total_landed_cost_egp:,.2f} جنيه مصري (معامل زيادة {calc.actual_markup_factor:.3f}x، انحراف {calc.landed_variance_pct:+.1f}% - {calc.variance_status_ar}).",
+        severity="INFO",
+        category="FINANCIAL_SETTLEMENT",
+        entity_type="ImportFile",
+        entity_id=imp.import_file_id,
+        target_role="ALL",
+    )
+    db.add(notif)
+
+    # 6. Advance lifecycle board step
+    try:
+        from modules.lifecycle_board.service import advance_lifecycle_step_service
+        advance_lifecycle_step_service(
+            db=db,
+            import_file_id=imp.import_file_id,
+            completed_step_code="STEP_20",
+            target_step_codes=["STEP_21"],
+            notes=f"تم اعتماد تكلفة الوصول الفعلية والانحراف ({settlement.settlement_code}).",
+            assigned_user=payload.approved_by,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Lifecycle advance STEP_20->STEP_21 notice: %s", e)
+
+    imp.next_action = "إصدار وتصدير التقرير والملف الشامل PDF/Excel (CLO-03)"
+    db.commit()
+    db.refresh(imp)
+    db.refresh(settlement)
+
+    return ApproveActualLandedCostResponse(
+        success=True,
+        import_file_id=imp.import_file_id,
+        import_file_code=imp.import_file_code or f"IMP-{imp.import_file_id}",
+        settlement_id=settlement.settlement_id,
+        settlement_code=settlement.settlement_code,
+        financial_settlement_status=imp.financial_settlement_status,
+        actual_landed_cost_total_egp=calc.actual_total_landed_cost_egp,
+        actual_landed_cost_markup_factor=calc.actual_markup_factor,
+        landed_variance_egp=calc.landed_variance_egp,
+        landed_variance_pct=calc.landed_variance_pct,
+        variance_status=calc.variance_status,
+        progress_percent=imp.progress_percent,
+        current_stage=imp.current_stage,
+        current_module=imp.current_module,
+        next_task_code=task_code_903,
+        next_task_title="إصدار وتصدير التقرير والملف الشامل PDF/Excel (CLO-03)",
+        message=f"تم اعتماد تكلفة الوصول الفعلية للشحنة {imp.import_file_code} بنجاح بإجمالي {calc.actual_total_landed_cost_egp:,.2f} جنيه وإطلاق مهمة الملف الشامل.",
+    )
+

@@ -199,6 +199,8 @@ class CrossDocumentMatrixResultModel {
   final List<MatrixCheckItemModel> checks;
   final List<String> recommendations;
   final int openTicketsCount;
+  final List<String> missingDocuments;
+  final double completenessPercent;
 
   CrossDocumentMatrixResultModel({
     required this.importFileId,
@@ -210,6 +212,8 @@ class CrossDocumentMatrixResultModel {
     required this.checks,
     required this.recommendations,
     required this.openTicketsCount,
+    this.missingDocuments = const [],
+    this.completenessPercent = 0.0,
   });
 
   factory CrossDocumentMatrixResultModel.fromJson(Map<String, dynamic> json) {
@@ -229,6 +233,11 @@ class CrossDocumentMatrixResultModel {
               .toList() ??
           [],
       openTicketsCount: json['open_tickets_count'] as int? ?? 0,
+      missingDocuments: (json['missing_documents'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      completenessPercent: (json['completeness_percent'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

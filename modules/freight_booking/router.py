@@ -10,6 +10,8 @@ from database.database import get_db
 from modules.freight_booking.schemas import (
     ShipmentBookingCreate,
     ShipmentBookingUpdate,
+    ShipmentBookingConfirm,
+    ShipmentDepartureConfirm,
     ShipmentBookingResponse,
 )
 import modules.freight_booking.service as service
@@ -64,6 +66,34 @@ def update_booking(booking_id: int, payload: ShipmentBookingUpdate, db: Session 
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shipment booking not found")
     return updated
+
+
+@router.post(
+    "/{booking_id}/confirm",
+    response_model=ShipmentBookingResponse,
+    summary="Confirm freight booking with carrier booking confirmation no and dates (BK-01)",
+)
+def confirm_booking(booking_id: int, payload: ShipmentBookingConfirm, db: Session = Depends(get_db)):
+    booking = service.confirm_booking_service(db, booking_id, payload)
+    if not booking:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shipment booking not found")
+    return booking
+
+
+@router.post(
+    "/{booking_id}/depart",
+    response_model=ShipmentBookingResponse,
+    summary="Confirm actual departure & register Bill of Lading (B/L) number (SH-01)",
+)
+def confirm_departure(
+    booking_id: int,
+    payload: ShipmentDepartureConfirm,
+    db: Session = Depends(get_db),
+):
+    booking = service.confirm_departure_and_bol_service(db, booking_id, payload)
+    if not booking:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shipment booking not found")
+    return booking
 
 
 @router.delete(

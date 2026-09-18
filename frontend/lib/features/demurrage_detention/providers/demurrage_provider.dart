@@ -1,12 +1,18 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
+import '../../freight_booking/providers/freight_booking_provider.dart';
+import '../../import_files/providers/import_files_provider.dart';
+import '../../inland_transport/providers/inland_transport_provider.dart';
+import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../models/demurrage_model.dart';
 
 class DemurrageState {
   final List<DemurragePolicyModel> policies;
   final List<DemurrageTrackingModel> trackings;
   final DemurrageSimulationResultModel? simulationResult;
+  final FreeDaysAgreementModel? activeAgreement;
   final bool isLoading;
   final String? error;
 
@@ -14,6 +20,7 @@ class DemurrageState {
     this.policies = const [],
     this.trackings = const [],
     this.simulationResult,
+    this.activeAgreement,
     this.isLoading = false,
     this.error,
   });
@@ -22,6 +29,7 @@ class DemurrageState {
     List<DemurragePolicyModel>? policies,
     List<DemurrageTrackingModel>? trackings,
     DemurrageSimulationResultModel? simulationResult,
+    FreeDaysAgreementModel? activeAgreement,
     bool? isLoading,
     String? error,
   }) {
@@ -29,6 +37,7 @@ class DemurrageState {
       policies: policies ?? this.policies,
       trackings: trackings ?? this.trackings,
       simulationResult: simulationResult ?? this.simulationResult,
+      activeAgreement: activeAgreement ?? this.activeAgreement,
       isLoading: isLoading ?? this.isLoading,
       error: error,
     );
@@ -37,10 +46,11 @@ class DemurrageState {
 
 class DemurrageNotifier extends StateNotifier<DemurrageState> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
 
-  DemurrageNotifier()
-      : _dio = Dio(BaseOptions(baseUrl: ApiConstants.baseUrl)),
+  DemurrageNotifier([Dio? dio, this._ref])
+      : _dio = dio ?? Dio(BaseOptions(baseUrl: ApiConstants.baseUrl)),
         super(const DemurrageState());
 
   @override
@@ -185,8 +195,100 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
       return false;
     }
   }
+
+  Future<FreeDaysAgreementModel?> fetchFreeDaysAgreement(int importFileId) async {
+    try {
+      final res = await _dio.get('/demurrage-detention/free-days-agreement/$importFileId');
+      if (res.data is Map<String, dynamic>) {
+        final agreement = FreeDaysAgreementModel.fromJson(res.data);
+        state = state.copyWith(activeAgreement: agreement);
+        return agreement;
+      }
+    } catch (_) {
+      // If none registered yet, return null quietly
+      return null;
+    }
+    return null;
+  }
+
+  Future<FreeDaysAgreementModel?> registerFreeDaysAgreement(Map<String, dynamic> agreementData) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final res = await _dio.post(
+        '/demurrage-detention/free-days-agreement',
+        data: agreementData,
+      );
+      if (res.data is Map<String, dynamic>) {
+        final agreement = FreeDaysAgreementModel.fromJson(res.data);
+        state = state.copyWith(activeAgreement: agreement, isLoading: false);
+
+        // Invalidate dependent providers per ERP auto-refresh rules
+        _ref?.invalidate(importFilesProvider);
+        _ref?.invalidate(smartTasksProvider);
+        _ref?.invalidate(freightBookingProvider);
+
+        // Refresh trackings to reflect newly calculated free days
+        await fetchTrackings();
+        return agreement;
+      }
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+    return null;
+  }
+
+  Future<ContainerRadarOverviewModel?> fetchRadarOverview() async {
+    try {
+      final res = await _dio.get('/demurrage-detention/radar-overview');
+      if (res.data is Map<String, dynamic>) {
+        return ContainerRadarOverviewModel.fromJson(res.data);
+      }
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+    return null;
+  }
+
+  Future<EmptyContainerReturnResponseModel?> recordEmptyContainerReturn(
+      EmptyContainerReturnSubmitModel submitModel) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final res = await _dio.post(
+        '/demurrage-detention/empty-container-return',
+        data: submitModel.toJson(),
+      );
+      if (res.data is Map<String, dynamic>) {
+        final responseModel =
+            EmptyContainerReturnResponseModel.fromJson(res.data);
+        state = state.copyWith(isLoading: false);
+
+        // Invalidate dependent providers per ERP auto-refresh rules
+        _ref?.invalidate(importFilesProvider);
+        _ref?.invalidate(containerRadarOverviewProvider);
+        _ref?.invalidate(smartTasksProvider);
+        _ref?.invalidate(inlandTransportProvider);
+
+        await fetchTrackings();
+        return responseModel;
+      }
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+    return null;
+  }
 }
 
 final demurrageProvider = StateNotifierProvider<DemurrageNotifier, DemurrageState>((ref) {
-  return DemurrageNotifier();
+  return DemurrageNotifier(ref.read(dioProvider), ref);
+});
+
+final containerRadarOverviewProvider = FutureProvider.autoDispose<ContainerRadarOverviewModel>((ref) async {
+  final dio = ref.read(dioProvider);
+  final res = await dio.get('/demurrage-detention/radar-overview');
+  if (res.data is Map<String, dynamic>) {
+    return ContainerRadarOverviewModel.fromJson(res.data);
+  }
+  throw Exception('Failed to load container demurrage radar overview');
 });

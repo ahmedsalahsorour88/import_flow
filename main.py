@@ -56,6 +56,7 @@ from modules.freight_booking.model import ShipmentBooking
 from modules.cargo_shipping.model import CargoShippingRecord
 from modules.customs_clearance.model import CustomsClearanceRecord
 from modules.warehouse_receiving.model import WarehouseReceivingRecord
+from modules.inland_transport.model import InlandTransportBooking
 from modules.financial_settlement.model import LandedCostSettlementRecord
 from modules.file_closure.model import ImportFileClosureRecord
 from modules.notifications.model import SystemNotification
@@ -122,6 +123,7 @@ from modules.cargo_shipping.router import router as cargo_shipping_router
 from modules.cargo_insurance.router import router as cargo_insurance_router
 from modules.customs_clearance.router import router as customs_clearance_router
 from modules.warehouse_receiving.router import router as warehouse_receiving_router
+from modules.inland_transport.router import router as inland_transport_router
 from modules.financial_settlement.router import router as financial_settlement_router
 from modules.file_closure.router import router as file_closure_router
 from modules.notifications.router import router as notifications_router
@@ -155,7 +157,7 @@ from modules.recalculation.router import router as recalculation_router
 
 app = FastAPI(
     title="Sorour Logistics ERP API",
-    version="1.0.183",
+    version="1.0.184",
 )
 
 # ==================================================
@@ -260,6 +262,7 @@ app.include_router(freight_booking_router)
 app.include_router(cargo_shipping_router)
 app.include_router(cargo_insurance_router)
 app.include_router(customs_clearance_router)
+app.include_router(inland_transport_router)
 app.include_router(warehouse_receiving_router)
 app.include_router(financial_settlement_router)
 app.include_router(file_closure_router)
@@ -311,7 +314,7 @@ SchemaUpgradeService.execute_safe_startup_upgrade(
 def dashboard():
     return {
         "system": "Sorour Logistics ERP",
-        "version": "1.0.183",
+        "version": "1.0.184",
         "status": "running",
     }
 
@@ -342,7 +345,7 @@ def health_check():
     return {
         "status": "OK",
         "system": "Sorour Logistics ERP",
-        "version": "1.0.183",
+        "version": "1.0.184",
         "database": {
             "connected": db_exists,
             "size_kb": db_size_kb,

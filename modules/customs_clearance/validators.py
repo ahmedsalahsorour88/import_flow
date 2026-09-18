@@ -7,7 +7,8 @@ def validate_bank_receipt_no(receipt_no: str) -> None:
 
 def validate_release_permit(permit_no: str, payment_status: str) -> None:
     """Ensures customs duty payment is verified before issuing final release permit."""
-    if payment_status != "Paid & Verified":
+    valid_payment_statuses = ("Paid & Verified", "Paid", "Duties Paid")
+    if payment_status not in valid_payment_statuses:
         raise HTTPException(status_code=400, detail="لا يمكن إصدار الإفراج الجمركي النهائي قبل تأكيد وتوثيق سداد الرسوم الجمركية بنجاح.")
     if not permit_no or not permit_no.strip():
         raise HTTPException(status_code=400, detail="رقم إذن/تصريح الإفراج الجمركي النهائي مطلوب ولا يمكن أن يكون فارغاً.")

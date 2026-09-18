@@ -15,6 +15,11 @@ from .schemas import (
     PushToSettlementRequest,
     DualClockResponse,
     ContainerIndividualUpdate,
+    FreeDaysAgreementRegister,
+    FreeDaysAgreementResponse,
+    ContainerRadarOverviewResponse,
+    EmptyContainerReturnSubmit,
+    EmptyContainerReturnResponse,
 )
 from .service import (
     simulate_demurrage_and_detention,
@@ -30,6 +35,10 @@ from .service import (
     push_demurrage_to_financial_settlement_service,
     get_dual_clock_status_service,
     update_single_container_service,
+    register_free_days_agreement_service,
+    get_free_days_agreement_service,
+    get_containers_radar_overview_service,
+    record_empty_container_return_service,
 )
 
 router = APIRouter(prefix="/api/v1/demurrage-detention", tags=["Demurrage & Detention Engine"])
@@ -132,4 +141,49 @@ def update_single_container_endpoint(
     db: Session = Depends(get_db),
 ):
     return update_single_container_service(db, tracking_id, container_no, req)
+
+
+# ----------------------------------------------------
+# Free Days Agreement Endpoints (BK-02)
+# ----------------------------------------------------
+
+@router.post("/free-days-agreement", response_model=FreeDaysAgreementResponse, status_code=status.HTTP_201_CREATED, summary="تسجيل وتوثيق اتفاقية فترات السماح الممنوحة للحاويات (BK-02)")
+def register_free_days_agreement_endpoint(req: FreeDaysAgreementRegister, db: Session = Depends(get_db)):
+    return register_free_days_agreement_service(db, req)
+
+
+@router.get("/free-days-agreement/{import_file_id}", response_model=FreeDaysAgreementResponse, summary="جلب بيانات اتفاقية فترات السماح المعتمدة لملف استيراد")
+def get_free_days_agreement_endpoint(import_file_id: int, db: Session = Depends(get_db)):
+    return get_free_days_agreement_service(db, import_file_id)
+
+
+# ----------------------------------------------------
+# TR-02: Demurrage & Detention Radar Overview Endpoint
+# ----------------------------------------------------
+
+@router.get(
+    "/radar-overview",
+    response_model=ContainerRadarOverviewResponse,
+    summary="رادار مراقبة فترات السماح وتفادي غرامات الحاويات والأرضيات (TR-02)",
+)
+def get_radar_overview_endpoint(db: Session = Depends(get_db)):
+    return get_containers_radar_overview_service(db)
+
+
+# ----------------------------------------------------
+# TR-05: Empty Container Return (EIR) Endpoint
+# ----------------------------------------------------
+
+@router.post(
+    "/empty-container-return",
+    response_model=EmptyContainerReturnResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="تسجيل إرجاع الحاويات الفارغة للخط الملاحي وإيصال EIR وإيقاف الغرامات (TR-05)",
+)
+def record_empty_container_return_endpoint(
+    req: EmptyContainerReturnSubmit,
+    db: Session = Depends(get_db),
+):
+    return record_empty_container_return_service(db, req)
+
 

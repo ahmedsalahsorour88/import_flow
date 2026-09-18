@@ -7,6 +7,11 @@ from .schemas import (
     FileClosureCreate,
     FileClosureUpdate,
     FileClosureResponse,
+    ComprehensiveShipmentDossierResponse,
+    DossierExportConfirmRequest,
+    DossierExportConfirmResponse,
+    ClosurePrecheckResponse,
+    OfficialClosureCertificateResponse,
 )
 from .service import (
     close_import_file_service,
@@ -15,6 +20,10 @@ from .service import (
     update_closure_service,
     soft_delete_closure_service,
     restore_closure_service,
+    get_comprehensive_shipment_dossier_service,
+    confirm_dossier_export_service,
+    get_closure_precheck_service,
+    official_close_import_file_service,
 )
 
 router = APIRouter(prefix="/api/v1/file-closure", tags=["Phase 10 - Import File Closure & Historical Archival"])
@@ -64,3 +73,58 @@ def restore_closure(
     db: Session = Depends(get_db),
 ):
     return restore_closure_service(db, closure_id)
+
+
+# ==============================================================================
+# CLO-03: Comprehensive Shipment Dossier Export Endpoints
+# ==============================================================================
+
+@router.get("/comprehensive-dossier/{import_file_id}", response_model=ComprehensiveShipmentDossierResponse)
+def get_comprehensive_shipment_dossier(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    CLO-03: Retrieve aggregated comprehensive shipment dossier across all 10 phases.
+    """
+    return get_comprehensive_shipment_dossier_service(db, import_file_id)
+
+
+@router.post("/confirm-dossier-export", response_model=DossierExportConfirmResponse)
+def confirm_dossier_export(
+    payload: DossierExportConfirmRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    CLO-03: Confirm the export of the comprehensive shipment dossier, advance progress to >=99.5%,
+    close TSK-0903, dispatch TSK-0904, and post system notification.
+    """
+    return confirm_dossier_export_service(db, payload)
+
+
+# ==============================================================================
+# CLO-04: Official File Closure & Digital Archive Endpoints
+# ==============================================================================
+
+@router.get("/closure-precheck/{import_file_id}", response_model=ClosurePrecheckResponse)
+def get_closure_precheck(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    CLO-04: Perform pre-closure audit checks across all 6 core pillars.
+    """
+    return get_closure_precheck_service(db, import_file_id)
+
+
+@router.post("/official-close", response_model=OfficialClosureCertificateResponse, status_code=status.HTTP_201_CREATED)
+def official_close_import_file(
+    schema: FileClosureCreate,
+    db: Session = Depends(get_db),
+):
+    """
+    CLO-04: Issue official closure certificate, lock file to 100% closed, advance lifecycle board to STEP_21.
+    """
+    return official_close_import_file_service(db, schema)
+
+

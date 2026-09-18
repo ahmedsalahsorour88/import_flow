@@ -156,6 +156,8 @@ class CrossDocumentMatrixCheckResponse(BaseModel):
     checks: List[MatrixCheckItem]
     recommendations: List[str]
     open_tickets_count: int
+    missing_documents: List[str] = Field(default_factory=list)
+    completeness_percent: float = 0.0
 
 
 # --- Docs Customs Approval Session Schemas (STEP-09) ---

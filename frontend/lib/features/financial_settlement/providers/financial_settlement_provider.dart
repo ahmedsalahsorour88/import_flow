@@ -3,19 +3,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/financial_settlement_model.dart';
 import '../models/estimated_landed_cost_model.dart';
+import '../models/invoices_aggregation_model.dart';
+import '../models/actual_landed_cost_model.dart';
+import '../../import_files/providers/import_files_provider.dart';
 import '../../../core/network/api_client.dart';
 
 
 final financialSettlementProvider =
     StateNotifierProvider<FinancialSettlementNotifier, AsyncValue<List<LandedCostSettlementModel>>>((ref) {
-  return FinancialSettlementNotifier(ref.read(dioProvider));
+  return FinancialSettlementNotifier(ref.read(dioProvider), ref);
 });
 
 class FinancialSettlementNotifier extends StateNotifier<AsyncValue<List<LandedCostSettlementModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
 
-  FinancialSettlementNotifier(this._dio) : super(const AsyncValue.loading()) {
+  FinancialSettlementNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchSettlements();
   }
 
@@ -151,6 +155,82 @@ class FinancialSettlementNotifier extends StateNotifier<AsyncValue<List<LandedCo
         data: overrides ?? {},
       );
       return EstimatedLandedCostSimulationModel.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<InvoicesAggregationResponseModel> fetchInvoicesAggregation(int importFileId) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/financial-settlement/invoices-aggregation/$importFileId',
+      );
+      return InvoicesAggregationResponseModel.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<ConfirmInvoicesSettlementResponseModel> confirmInvoicesSettlement(
+    ConfirmInvoicesSettlementRequestModel request,
+  ) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/financial-settlement/confirm-invoices-settlement',
+        data: request.toJson(),
+      );
+      final result = ConfirmInvoicesSettlementResponseModel.fromJson(response.data);
+      if (_ref != null) {
+        _ref.invalidate(importFilesProvider);
+      }
+      await fetchSettlements();
+      return result;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<ActualLandedCostCalculationResponseModel> calculateActualLandedCost(
+    int importFileId, {
+    String allocationPreference = 'Value-Based',
+    String? notes,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/financial-settlement/calculate-actual-landed-cost/$importFileId',
+        data: {
+          'allocation_preference': allocationPreference,
+          if (notes != null) 'notes': notes,
+        },
+      );
+      return ActualLandedCostCalculationResponseModel.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<ApproveActualLandedCostResponseModel> approveActualLandedCost({
+    required int importFileId,
+    required String approvedBy,
+    String allocationPreference = 'Value-Based',
+    String? notes,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/financial-settlement/approve-actual-landed-cost',
+        data: {
+          'import_file_id': importFileId,
+          'approved_by': approvedBy,
+          'allocation_preference': allocationPreference,
+          if (notes != null) 'notes': notes,
+        },
+      );
+      final result = ApproveActualLandedCostResponseModel.fromJson(response.data);
+      if (_ref != null) {
+        _ref.invalidate(importFilesProvider);
+      }
+      await fetchSettlements();
+      return result;
     } catch (e) {
       rethrow;
     }

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -22,6 +22,7 @@ class BookingChargeItem(BaseModel):
 
 class ShipmentBookingBase(BaseModel):
     booking_confirmation_no: Optional[str] = None
+    bill_of_lading_no: Optional[str] = None
     import_file_id: Optional[int] = None
     rfq_request_id: Optional[int] = None
     scenario_session_id: Optional[int] = None
@@ -69,6 +70,7 @@ class ShipmentBookingCreate(ShipmentBookingBase):
 class ShipmentBookingUpdate(BaseModel):
     import_file_id: Optional[int] = None
     booking_confirmation_no: Optional[str] = None
+    bill_of_lading_no: Optional[str] = None
     scenario_session_id: Optional[int] = None
     scenario_item_id: Optional[int] = None
     scenario_provider_name: Optional[str] = None
@@ -101,6 +103,26 @@ class ShipmentBookingUpdate(BaseModel):
     status: Optional[str] = None
     owner: Optional[str] = None
     notes: Optional[str] = None
+
+
+class ShipmentBookingConfirm(BaseModel):
+    booking_confirmation_no: str = Field(..., description="Carrier Booking Confirmation Number (e.g. MSC-CN-9900)")
+    vessel_name: Optional[str] = Field(None, description="Vessel Name (e.g. MSC OSCAR)")
+    voyage_number: Optional[str] = Field(None, description="Voyage Number (e.g. 2608W)")
+    etd: Optional[datetime] = None
+    eta: Optional[datetime] = None
+    free_demurrage_days: Optional[int] = Field(14, description="Agreed Free Demurrage Days")
+    notes: Optional[str] = None
+
+
+class ShipmentDepartureConfirm(BaseModel):
+    actual_departure_date: datetime = Field(..., description="تاريخ الإبحار الفعلي (ATD)")
+    bill_of_lading_no: str = Field(..., min_length=3, max_length=100, description="رقم بوليصة الشحن (B/L Number)")
+    revised_eta: Optional[datetime] = Field(None, description="موعد الوصول المتوقع المحدث (Revised ETA)")
+    vessel_name: Optional[str] = Field(None, description="اسم الباخرة")
+    voyage_number: Optional[str] = Field(None, description="رقم الرحلة")
+    shipped_on_board_date: Optional[date] = Field(None, description="تاريخ الشحن على ظهر السفينة (Shipped On Board Date)")
+    notes: Optional[str] = Field(None, description="ملاحظات الإبحار والرحلة")
 
 
 class ShipmentBookingResponse(ShipmentBookingBase):

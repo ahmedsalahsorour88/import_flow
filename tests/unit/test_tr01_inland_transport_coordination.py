@@ -1,0 +1,280 @@
+import pytest
+from datetime import datetime, timedelta, timezone
+from fastapi.testclient import TestClient
+
+from main import app
+from database.database import get_db, Base
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from modules.import_files.model import ImportFile
+from modules.inland_transport.model import InlandTransportBooking
+from modules.inland_transport.schemas import (
+    InlandTransportBookingCreate,
+    InlandTransportGateOutSubmit,
+    InlandTransportArrivalSubmit,
+)
+from modules.inland_transport.service import (
+    create_transport_booking_service,
+    record_port_gate_out_service,
+    record_warehouse_arrival_service,
+    get_transport_booking_by_file_service,
+)
+
+# Test in-memory SQLite database setup
+TEST_SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+engine = create_engine(
+    TEST_SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+@pytest.fixture(scope="function")
+def db_session():
+    Base.metadata.create_all(bind=engine)
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        Base.metadata.drop_all(bind=engine)
+
+@pytest.fixture(scope="function")
+def client(db_session):
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.clear()
+
+def _create_sample_file(db) -> ImportFile:
+    imp_file = ImportFile(
+        import_file_code="IMP-2026-0095",
+        custom_file_number="Machinery Import",
+        company_id=1,
+        company_name="Delta Industrial Machinery LLC",
+        supplier_id=2,
+        supplier_name="Bavaria Tech GmbH",
+        port_of_discharge="El Dekheila Port",
+        delivery_order_no="DO-2026-HAPAG-5511",
+        form46_no="DEC-2026-DKH-5511",
+        is_customs_released=True,
+        customs_release_permit_no="REL-2026-DKH-0044",
+        current_module="Phase 7 - Customs Clearance & Release",
+        current_stage="Customs Released",
+        progress_percent=95.0,
+        next_action="تنسيق سيارات النقل الداخلي (TR-01)",
+        is_active=True,
+    )
+    db.add(imp_file)
+    db.commit()
+    db.refresh(imp_file)
+    return imp_file
+
+def test_create_transport_booking_success(db_session):
+    imp_file = _create_sample_file(db_session)
+    now = datetime.now(timezone.utc)
+    departure = now + timedelta(hours=2)
+    arrival = now + timedelta(hours=8)
+
+    payload = InlandTransportBookingCreate(
+        import_file_id=imp_file.import_file_id,
+        waybill_number="WB-2026-DKH-001",
+        booking_date=now,
+        carrier_name="شركة النصر لخدمات النقل البري",
+        truck_plate_number="ط ر س 4821",
+        truck_type="Flatbed Trailer 40ft (تريلا مسطح)",
+        driver_name="محمود عبد المنعم عطية",
+        driver_phone="01012345678",
+        driver_national_id="28801011234567",
+        container_numbers="MSCU1234567, TGHU7654321",
+        pickup_port_location="ميناء الدخيلة - رصيف الحاويات 92",
+        destination_warehouse="مستودع الشركة الرئيسي - العاشر من رمضان",
+        planned_departure_at=departure,
+        expected_arrival_at=arrival,
+        transport_fare_egp=8500.0,
+        status="Booking Confirmed",
+        tracking_notes="نقل حاويتين بحالة سليمة وتنسيق تفريغ رافعة شوكية",
+    )
+
+    booking = create_transport_booking_service(db_session, payload, user="TransportOfficer")
+
+    assert booking.transport_id is not None
+    assert booking.transport_code.startswith("TR-")
+    assert booking.truck_plate_number == "ط ر س 4821"
+    assert booking.driver_name == "محمود عبد المنعم عطية"
+    assert booking.transport_fare_egp == 8500.0
+    assert booking.status == "Booking Confirmed"
+
+    # Verify ImportFile synchronization
+    db_session.refresh(imp_file)
+    assert imp_file.inland_transport_status == "BOOKED"
+    assert imp_file.inland_transport_booking_no == "WB-2026-DKH-001"
+    assert imp_file.inland_carrier_name == "شركة النصر لخدمات النقل البري"
+    assert imp_file.inland_truck_plate_no == "ط ر س 4821"
+    assert imp_file.inland_driver_name == "محمود عبد المنعم عطية"
+    assert imp_file.inland_driver_phone == "01012345678"
+    assert imp_file.inland_transport_cost_egp == 8500.0
+    assert imp_file.progress_percent >= 97.0
+    assert "Inland Transport" in imp_file.current_stage
+
+def test_record_port_gate_out_and_arrival(db_session):
+    imp_file = _create_sample_file(db_session)
+    now = datetime.now(timezone.utc)
+
+    payload = InlandTransportBookingCreate(
+        import_file_id=imp_file.import_file_id,
+        waybill_number="WB-2026-DKH-002",
+        carrier_name="شركة الصفا للنقل",
+        truck_plate_number="ق ن د 9912",
+        driver_name="عادل سالم الشاذلي",
+        driver_phone="01198765432",
+        pickup_port_location="ميناء الإسكندرية باب 27",
+        destination_warehouse="مستودع 6 أكتوبر",
+        planned_departure_at=now,
+        expected_arrival_at=now + timedelta(hours=6),
+        transport_fare_egp=7200.0,
+    )
+    booking = create_transport_booking_service(db_session, payload)
+
+    # 1. Record Port Gate Out
+    gate_out_time = now + timedelta(hours=1)
+    gate_out_payload = InlandTransportGateOutSubmit(
+        actual_departure_at=gate_out_time,
+        gate_pass_no="GP-2026-DKH-5599",
+        notes="خرجت الشاحنة عبر باب 27 بعد سداد رسوم الميزان",
+    )
+    updated_booking = record_port_gate_out_service(db_session, booking.transport_id, gate_out_payload)
+    assert updated_booking.status == "In Transit"
+    assert updated_booking.actual_departure_at is not None
+
+    db_session.refresh(imp_file)
+    assert imp_file.inland_transport_status == "IN_TRANSIT"
+    assert imp_file.inland_departure_date is not None
+
+    # 2. Record Warehouse Arrival
+    arrival_time = now + timedelta(hours=5)
+    arrival_payload = InlandTransportArrivalSubmit(
+        actual_arrival_at=arrival_time,
+        seal_intact=True,
+        seal_number="SEAL-EGY-991122",
+        notes="وصلت الشاحنة سالمة وجاري فحص الأختام للتفريغ",
+    )
+    arrived_booking = record_warehouse_arrival_service(db_session, booking.transport_id, arrival_payload)
+    assert arrived_booking.status == "Arrived at Warehouse"
+    assert arrived_booking.actual_arrival_at is not None
+
+    db_session.refresh(imp_file)
+    assert imp_file.inland_transport_status == "ARRIVED"
+    assert imp_file.inland_actual_arrival_date is not None
+
+def test_transport_validation_rules(db_session):
+    imp_file = _create_sample_file(db_session)
+    now = datetime.now(timezone.utc)
+
+    # Test invalid plate number
+    with pytest.raises(Exception) as exc_plate:
+        create_transport_booking_service(
+            db_session,
+            InlandTransportBookingCreate(
+                import_file_id=imp_file.import_file_id,
+                waybill_number="WB-001",
+                carrier_name="Carrier",
+                truck_plate_number="",
+                driver_name="Driver",
+                driver_phone="01012345678",
+                pickup_port_location="Port",
+                destination_warehouse="WH",
+                planned_departure_at=now,
+                expected_arrival_at=now + timedelta(hours=2),
+            ),
+        )
+    assert "truck_plate_number" in str(exc_plate.value) or "لوحة الشاحنة" in str(exc_plate.value)
+
+    # Test invalid dates (arrival before departure)
+    with pytest.raises(Exception) as exc_date:
+        create_transport_booking_service(
+            db_session,
+            InlandTransportBookingCreate(
+                import_file_id=imp_file.import_file_id,
+                waybill_number="WB-001",
+                carrier_name="Carrier",
+                truck_plate_number="ط ر س 1234",
+                driver_name="Driver",
+                driver_phone="01012345678",
+                pickup_port_location="Port",
+                destination_warehouse="WH",
+                planned_departure_at=now + timedelta(hours=4),
+                expected_arrival_at=now, # Before departure!
+            ),
+        )
+    assert "الوصول المتوقع" in str(exc_date.value)
+
+def test_inland_transport_rest_api(client, db_session):
+    imp_file = _create_sample_file(db_session)
+    now = datetime.now(timezone.utc)
+    departure = now + timedelta(hours=1)
+    arrival = now + timedelta(hours=6)
+
+    # 1. POST /bookings
+    post_res = client.post(
+        "/api/v1/inland-transport/bookings",
+        json={
+            "import_file_id": imp_file.import_file_id,
+            "waybill_number": "WB-API-001",
+            "carrier_name": "شركة الهلال للنقل",
+            "truck_plate_number": "أ ب ج 7711",
+            "driver_name": "سيد متولي الدسوقي",
+            "driver_phone": "01234567890",
+            "pickup_port_location": "ميناء بورسعيد",
+            "destination_warehouse": "مستودع العاشر",
+            "planned_departure_at": departure.isoformat(),
+            "expected_arrival_at": arrival.isoformat(),
+            "transport_fare_egp": 9500.0,
+        },
+    )
+    assert post_res.status_code == 201
+    booking_data = post_res.json()
+    assert booking_data["transport_code"].startswith("TR-")
+    assert booking_data["truck_plate_number"] == "أ ب ج 7711"
+    transport_id = booking_data["transport_id"]
+
+    # 2. GET /bookings/by-file/{import_file_id}
+    get_file_res = client.get(f"/api/v1/inland-transport/bookings/by-file/{imp_file.import_file_id}")
+    assert get_file_res.status_code == 200
+    assert get_file_res.json()["transport_id"] == transport_id
+
+    # 3. POST /bookings/{id}/gate-out
+    gate_out_res = client.post(
+        f"/api/v1/inland-transport/bookings/{transport_id}/gate-out",
+        json={
+            "actual_departure_at": departure.isoformat(),
+            "gate_pass_no": "GP-9911",
+            "notes": "انطلقت الشاحنة",
+        },
+    )
+    assert gate_out_res.status_code == 200
+    assert gate_out_res.json()["status"] == "In Transit"
+
+    # 4. POST /bookings/{id}/warehouse-arrival
+    arrival_res = client.post(
+        f"/api/v1/inland-transport/bookings/{transport_id}/warehouse-arrival",
+        json={
+            "actual_arrival_at": arrival.isoformat(),
+            "seal_intact": True,
+            "notes": "وصلت بالسلامة",
+        },
+    )
+    assert arrival_res.status_code == 200
+    assert arrival_res.json()["status"] == "Arrived at Warehouse"
+
+    # 5. DELETE /bookings/{id}
+    del_res = client.delete(f"/api/v1/inland-transport/bookings/{transport_id}")
+    assert del_res.status_code == 204

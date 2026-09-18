@@ -442,6 +442,8 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
         return l.customsApprovalDocEur1;
       case 'Inspection Certificate':
         return l.customsApprovalDocInspectionCertificate;
+      case 'Fumigation Certificate':
+        return l.isArabic ? 'شهادة التبخير والصحة النباتية' : 'Fumigation Certificate';
       case 'Bank Form 4':
         return l.customsApprovalDocBankForm4;
       case 'Proforma Invoice':
@@ -742,6 +744,51 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                           ),
                           isSelectable: false,
                         ),
+                        if (_matrixResult!.completenessPercent > 0 || _matrixResult!.missingDocuments.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4, bottom: 4),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: _matrixResult!.completenessPercent >= 100
+                                        ? AppTheme.emerald.withOpacity(0.2)
+                                        : AppTheme.orange.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    context.l10n.isArabic
+                                        ? 'استكمال المستندات (DC-04): ${_matrixResult!.completenessPercent.toStringAsFixed(1)}%'
+                                        : 'Docs Completeness: ${_matrixResult!.completenessPercent.toStringAsFixed(1)}%',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: _matrixResult!.completenessPercent >= 100 ? AppTheme.emerald : AppTheme.orange,
+                                    ),
+                                  ),
+                                ),
+                                if (_matrixResult!.missingDocuments.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.crimson.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: AppTheme.crimson.withOpacity(0.3)),
+                                    ),
+                                    child: Text(
+                                      context.l10n.isArabic
+                                          ? '⚠️ نواقص مستندية: ${_matrixResult!.missingDocuments.join("، ")}'
+                                          : '⚠️ Missing: ${_matrixResult!.missingDocuments.join(", ")}',
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         if (_matrixResult!.recommendations.isNotEmpty)
                           CopyableText(
                             context.l10n.customsApprovalMatrixRecommendations(_matrixResult!.recommendations.join(' | ')),

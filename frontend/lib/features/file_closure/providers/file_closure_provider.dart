@@ -88,4 +88,33 @@ class FileClosureNotifier extends StateNotifier<AsyncValue<List<ImportFileClosur
       rethrow;
     }
   }
+
+  Future<ClosurePrecheckResponseModel> fetchClosurePrecheck(int importFileId) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/file-closure/closure-precheck/$importFileId',
+      );
+      return ClosurePrecheckResponseModel.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<OfficialClosureCertificateResponseModel> officialCloseImportFile(
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/file-closure/official-close',
+        data: payload,
+      );
+      final certificate =
+          OfficialClosureCertificateResponseModel.fromJson(response.data);
+      await fetchClosures();
+      return certificate;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
+

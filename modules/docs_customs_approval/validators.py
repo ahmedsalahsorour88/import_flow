@@ -14,6 +14,7 @@ VALID_DOCUMENT_TYPES = [
     "Certificate of Origin",
     "EUR.1",
     "Inspection Certificate",
+    "Fumigation Certificate",
     "Bank Form 4",
     "Insurance Certificate",
 ]

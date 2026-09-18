@@ -9,6 +9,8 @@ from .schemas import (
     WarehouseReceivingResponse,
     DiscrepancyReportSubmit,
     WarehouseDispatchValidationResponse,
+    WarehouseInspectionSubmit,
+    InspectionSummaryResponse,
 )
 from .service import (
     create_warehouse_receiving_service,
@@ -19,6 +21,8 @@ from .service import (
     soft_delete_warehouse_receiving_service,
     restore_warehouse_receiving_service,
     validate_warehouse_dispatch_authorization,
+    submit_warehouse_inspection_protocol_service,
+    get_inspection_summary_service,
 )
 
 
@@ -40,6 +44,14 @@ def create_warehouse_receiving(
     db: Session = Depends(get_db),
 ):
     return create_warehouse_receiving_service(db, schema)
+
+@router.get("/by-file/{import_file_id}", response_model=Optional[WarehouseReceivingResponse])
+def get_warehouse_receiving_by_file(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+):
+    records = list_warehouse_receivings_service(db, import_file_id=import_file_id)
+    return records[0] if records else None
 
 @router.get("/{record_id}", response_model=WarehouseReceivingResponse)
 def get_warehouse_receiving(
@@ -63,6 +75,21 @@ def report_receiving_discrepancy(
     db: Session = Depends(get_db),
 ):
     return report_receiving_discrepancy_service(db, record_id, payload)
+
+@router.post("/{record_id}/inspection-protocol", response_model=WarehouseReceivingResponse, summary="اعتماد محضر الفحص الفني ومطابقة العجز والتالف بالمخازن (TR-04)")
+def submit_inspection_protocol(
+    record_id: int,
+    payload: WarehouseInspectionSubmit,
+    db: Session = Depends(get_db),
+):
+    return submit_warehouse_inspection_protocol_service(db, record_id, payload)
+
+@router.get("/{record_id}/inspection-protocol", response_model=InspectionSummaryResponse, summary="استعراض ملخص محضر الفحص والمطابقة (TR-04)")
+def get_inspection_summary(
+    record_id: int,
+    db: Session = Depends(get_db),
+):
+    return get_inspection_summary_service(db, record_id)
 
 @router.post("/{record_id}/validate-dispatch", response_model=WarehouseDispatchValidationResponse, summary="التحقق من تصريح صرف البضاعة من المخزن وخلوها من قفل التحفظ الجمركي")
 def validate_dispatch(

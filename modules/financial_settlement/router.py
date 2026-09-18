@@ -11,6 +11,13 @@ from .schemas import (
     OdooExportConfig,
     EstimatedLandedCostSimulationRequest,
     EstimatedLandedCostSimulationResponse,
+    InvoicesAggregationResponse,
+    ConfirmInvoicesSettlementRequest,
+    ConfirmInvoicesSettlementResponse,
+    ActualLandedCostCalculationRequest,
+    ActualLandedCostCalculationResponse,
+    ApproveActualLandedCostRequest,
+    ApproveActualLandedCostResponse,
 )
 from .service import (
     create_settlement_service,
@@ -21,6 +28,10 @@ from .service import (
     soft_delete_settlement_service,
     restore_settlement_service,
     simulate_estimated_landed_cost_service,
+    aggregate_shipment_invoices_service,
+    confirm_invoices_settlement_service,
+    calculate_actual_landed_cost_service,
+    approve_actual_landed_cost_service,
 )
 from .odoo_export_service import (
     generate_odoo_journal_entry_service,
@@ -137,4 +148,50 @@ def simulate_estimated_landed_cost(
     محاكاة واحتساب تكلفة الوصول التقديرية للشحنة وللوحدة الواحدة (PL-08: Estimated Landed Cost Simulation).
     """
     return simulate_estimated_landed_cost_service(db, import_file_id, payload)
+
+
+@router.get("/invoices-aggregation/{import_file_id}", response_model=InvoicesAggregationResponse)
+def get_invoices_aggregation(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    CLO-01: تجميع فواتير ومصروفات الشحنة من كافة الموديولات (المورد، الشحن، الجمارك، التأمين، المخلص، النقل، غرامات التأخير).
+    """
+    return aggregate_shipment_invoices_service(db, import_file_id)
+
+
+@router.post("/confirm-invoices-settlement", response_model=ConfirmInvoicesSettlementResponse)
+def confirm_invoices_settlement(
+    payload: ConfirmInvoicesSettlementRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    CLO-01: اعتماد تسوية الفواتير الختامية للملف وإغلاق TSK-0901 وتصعيد المهمة الذكية التالية CLO-02.
+    """
+    return confirm_invoices_settlement_service(db, payload)
+
+
+@router.post("/calculate-actual-landed-cost/{import_file_id}", response_model=ActualLandedCostCalculationResponse)
+def calculate_actual_landed_cost(
+    import_file_id: int,
+    payload: Optional[ActualLandedCostCalculationRequest] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    CLO-02: احتساب تكلفة الوصول الفعلية وتوزيع المصاريف على الأصناف ومقارنة الفعلي بالتقديري والانحراف.
+    """
+    return calculate_actual_landed_cost_service(db, import_file_id, payload)
+
+
+@router.post("/approve-actual-landed-cost", response_model=ApproveActualLandedCostResponse)
+def approve_actual_landed_cost(
+    payload: ApproveActualLandedCostRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    CLO-02: اعتماد تكلفة الوصول الفعلية للشحنة وتحديث حالة الملف وإغلاق TSK-0902 وإطلاق مهمة الملف الشامل TSK-0903.
+    """
+    return approve_actual_landed_cost_service(db, payload)
+
 

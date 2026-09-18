@@ -17,7 +17,37 @@ import '../../smart_checklists/widgets/smart_checklist_dialog.dart';
 import '../../customs_tariff/widgets/duty_calculator_dialog.dart';
 import '../../financial_settlement/widgets/estimated_landed_cost_dialog.dart';
 import '../../financial_approval/widgets/supplier_advance_payment_dialog.dart';
+import '../../import_documentation/screens/nafeza_acid_screen.dart';
+import '../../import_documentation/screens/bank_form4_screen.dart';
+import '../../import_documentation/screens/shipment_draft_docs_screen.dart';
+import '../../freight_booking/screens/freight_booking_screen.dart';
+import '../../freight_booking/models/freight_booking_model.dart';
+import '../../freight_booking/providers/freight_booking_provider.dart';
+import '../../freight_booking/widgets/departure_confirmation_dialog.dart';
+import '../../demurrage_detention/widgets/free_days_agreement_dialog.dart';
 import 'visual_container_load_planner_dialog.dart';
+import '../../import_documentation/widgets/draft_bl_review_dialog.dart';
+import '../../cargox/widgets/cargox_hub_dialog.dart';
+import '../../import_documentation/widgets/original_documents_collection_dialog.dart';
+import '../../customs_clearance/widgets/customs_broker_authorization_dialog.dart';
+import '../../customs_clearance/widgets/delivery_order_payment_dialog.dart';
+import '../../customs_clearance/widgets/customs_declaration_46_dialog.dart';
+import '../../customs_clearance/widgets/customs_inspection_sampling_dialog.dart';
+import '../../customs_clearance/widgets/final_duty_assessment_dialog.dart';
+import '../../customs_clearance/widgets/customs_duty_payment_dialog.dart';
+import '../../customs_clearance/widgets/customs_final_release_dialog.dart';
+import '../../customs_clearance/widgets/clearance_expenses_dialog.dart';
+import '../../inland_transport/widgets/inland_transport_dialog.dart';
+import '../../demurrage_detention/screens/demurrage_detention_screen.dart';
+import '../../warehouse_receiving/screens/warehouse_receiving_screen.dart';
+import '../../warehouse_receiving/widgets/warehouse_inspection_dialog.dart';
+import '../../warehouse_receiving/models/warehouse_receiving_model.dart';
+import '../../warehouse_receiving/providers/warehouse_receiving_provider.dart';
+import '../../demurrage_detention/widgets/empty_container_return_dialog.dart';
+import '../../financial_settlement/widgets/final_settlement_invoices_dialog.dart';
+import '../../financial_settlement/widgets/actual_landed_cost_dialog.dart';
+import '../../comprehensive_report/widgets/comprehensive_dossier_export_dialog.dart';
+import '../../file_closure/widgets/official_file_closure_dialog.dart';
 
 
 
@@ -430,6 +460,493 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                 context,
                 ref,
                 importFileId: file.importFileId,
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E40AF),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.verified_outlined, size: 18),
+            label: const Text('نافذة و ACID (DC-01)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => NafezaAcidScreen(
+                    initialImportFileId: file.importFileId,
+                    initialSubTab: (file.acidNumber != null && file.acidNumber!.isNotEmpty && file.acidNumber != 'PENDING') ? 3 : 0,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D9488),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.account_balance_outlined, size: 18),
+            label: const Text('المستندات البنكية (DC-03)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BankForm4Screen(
+                    initialImportFileId: file.importFileId,
+                    initialSubTab: (file.form4No != null && file.form4No!.isNotEmpty && file.form4No != 'PENDING') ? 1 : 0,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6366F1), // Indigo
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.fact_check_outlined, size: 18),
+            label: const Text('مصفوفة المستندات (DC-04)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ShipmentDraftDocsScreen(
+                    initialImportFileId: file.importFileId,
+                    initialSubTab: 0,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0284C7), // Sky Blue / Ocean
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.directions_boat_outlined, size: 18),
+            label: const Text('حجز الشحن (BK-01)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => FreightBookingScreen(
+                    initialImportFileId: file.importFileId,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF059669), // Emerald
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.verified_user_outlined, size: 18),
+            label: const Text('فترات السماح (BK-02)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              FreeDaysAgreementDialog.show(
+                context,
+                initialImportFileId: file.importFileId,
+                initialDemurrageDays: file.targetFreeDays,
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2563EB), // Blue Cobalt
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.sailing_rounded, size: 18),
+            label: const Text('تأكيد الإبحار (SH-01)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              final bookings = ref.read(freightBookingProvider).value ?? [];
+              final linkedBooking = bookings.firstWhere(
+                (b) => b.importFileId == file.importFileId,
+                orElse: () => ShipmentBookingModel(
+                  bookingId: 0,
+                  bookingCode: 'NEW-BKG',
+                  importFileId: file.importFileId,
+                  importFileCode: file.importFileCode,
+                  createdAt: '',
+                  updatedAt: '',
+                ),
+              );
+              if (linkedBooking.bookingId > 0) {
+                DepartureConfirmationDialog.show(context, linkedBooking);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('يرجى إنشاء وتأكيد حجز الشحن (BK-01) أولاً من شاشة حجز الشحن لتسجيل الإبحار'),
+                    backgroundColor: AppTheme.orange,
+                  ),
+                );
+              }
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('reviewDraftBlHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF059669), // Emerald
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.fact_check_rounded, size: 18),
+            label: const Text('مراجعة مسودة البوليصة (SH-02)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              DraftBLReviewDialog.show(context, file);
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('cargoxHubHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0284C7), // Sky Cobalt
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.cloud_upload_rounded, size: 18),
+            label: const Text('مستندات CargoX (SH-03)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              CargoXHubDialog.show(context, file);
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('originalDocsHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD97706), // Amber / Gold
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.markunread_mailbox_rounded, size: 18),
+            label: const Text('تتبع أصول المستندات (SH-04)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              OriginalDocumentsCollectionDialog.show(context, file);
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('customsBrokerAuthHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7C3AED), // Royal Purple
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.assignment_ind_rounded, size: 18),
+            label: const Text('تفويض المخلص (CS-01)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              CustomsBrokerAuthorizationDialog.show(context, file);
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('deliveryOrderPaymentHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0284C7), // Ocean / Shipping Blue
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.directions_boat_filled_rounded, size: 18),
+            label: const Text('سداد إذن التسليم (CS-02)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              DeliveryOrderPaymentDialog.show(context, file);
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('customsDeclaration46HeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD97706), // Amber / Customs Gold
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.description_rounded, size: 18),
+            label: const Text('قيد إقرار 46 (CS-03)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              CustomsDeclaration46Dialog.show(context, file);
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('customsInspectionSamplingHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D9488), // Teal / Inspection Cyan
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.biotech_rounded, size: 18),
+            label: const Text('الكشف والمعاينة (CL-01)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              CustomsInspectionSamplingDialog.show(context, file);
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('finalDutyAssessmentHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7C3AED), // Royal Purple
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.calculate_rounded, size: 18),
+            label: const Text('احتساب الرسوم (CL-02)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              FinalDutyAssessmentDialog.show(context, file);
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('customsDutyPaymentHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.emerald, // Emerald Green
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.receipt_long_rounded, size: 18),
+            label: const Text('سداد الرسوم (CL-03)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              CustomsDutyPaymentDialog.show(context, file);
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('customsFinalReleaseHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.emerald, // Emerald Green
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.verified_outlined, size: 18),
+            label: const Text('إذن الإفراج (CL-04)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              CustomsFinalReleaseDialog.show(context, file);
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('customsClearanceInvoicesHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0284C7),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.receipt_long_rounded, size: 18),
+            label: const Text('فواتير التخليص (CL-05)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              ClearanceExpensesDialog.show(context, file);
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('inlandTransportHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D9488),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.local_shipping_rounded, size: 18),
+            label: const Text('النقل الداخلي (TR-01)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              InlandTransportDialog.show(context, file);
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('demurrageRadarHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFC0392B),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.radar_rounded, size: 18),
+            label: const Text('رادار الغرامات (TR-02)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (ctx) => const DemurrageDetentionScreen(),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('warehouseReceivingHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF27AE60),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.warehouse_rounded, size: 18),
+            label: const Text('استلام المخزن (TR-03)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (ctx) => const WarehouseReceivingScreen(),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('warehouseInspectionHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD97706),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.fact_check_rounded, size: 18),
+            label: const Text('محضر الفحص (TR-04)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              final recs = ref.read(warehouseReceivingProvider).valueOrNull ?? [];
+              final matching = recs.where((r) => r.importFileId == file.importFileId).toList();
+              final calculatedQty = file.packingListsData.isNotEmpty
+                  ? file.packingListsData.fold<int>(0, (sum, pl) => sum + pl.totalPackages)
+                  : 100;
+              final targetRec = matching.isNotEmpty
+                  ? matching.first
+                  : WarehouseReceivingModel(
+                      receivingId: file.importFileId,
+                      grnCode: 'GRN-${file.importFileCode}',
+                      importFileId: file.importFileId,
+                      warehouseName: 'Main Warehouse - Cairo',
+                      arrivalDatetime: DateTime.now().toIso8601String(),
+                      totalInvoicedQty: calculatedQty > 0 ? calculatedQty : 100,
+                      totalAcceptedQty: calculatedQty > 0 ? calculatedQty : 100,
+                      totalShortageQty: 0,
+                      totalDamagedQty: 0,
+                      createdAt: DateTime.now().toIso8601String(),
+                      updatedAt: DateTime.now().toIso8601String(),
+                    );
+              WarehouseInspectionDialog.show(context, record: targetRec, importFileCode: file.importFileCode);
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('emptyContainerReturnHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF475569),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.assignment_turned_in_rounded, size: 18),
+            label: const Text('إرجاع الحاويات (TR-05)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              EmptyContainerReturnDialog.show(
+                context,
+                initialImportFileId: file.importFileId,
+                initialEirNumber: file.emptyContainersEirNumbers,
+                initialDepotName: file.emptyContainersDepotName,
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('finalSettlementInvoicesHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D9488),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.receipt_long_rounded, size: 18),
+            label: const Text('تسوية الفواتير (CLO-01)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              FinalSettlementInvoicesDialog.show(
+                context,
+                importFileId: file.importFileId,
+                importFileCode: file.importFileCode,
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('actualLandedCostHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E3A8A), // Deep Cobalt / Navy
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.calculate_rounded, size: 18),
+            label: const Text('التكلفة الفعلية (CLO-02)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              ActualLandedCostDialog.show(
+                context,
+                importFileId: file.importFileId,
+                importFileCode: file.importFileCode,
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('comprehensiveReportHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7C3AED), // Royal Purple / Violet
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.assignment_turned_in_rounded, size: 18),
+            label: const Text('الملف الشامل (CLO-03)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              ComprehensiveDossierExportDialog.show(
+                context,
+                file: file,
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('officialFileClosureHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.flatEmerald,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.verified_rounded, size: 18),
+            label: const Text('الإغلاق الرسمي (CLO-04)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              OfficialFileClosureDialog.show(
+                context,
+                file: file,
               );
             },
           ),

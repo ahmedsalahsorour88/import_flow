@@ -19,6 +19,8 @@ import '../../../core/widgets/recalculate_button.dart';
 import '../widgets/search_and_clone_financial_settlement_dialog.dart';
 import 'landed_cost_comparison_screen.dart';
 import 'odoo_journal_entry_dialog.dart';
+import '../widgets/final_settlement_invoices_dialog.dart';
+import '../widgets/actual_landed_cost_dialog.dart';
 
 
 class FinancialSettlementScreen extends ConsumerStatefulWidget {
@@ -642,6 +644,58 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
         }
       },
       headerActions: [
+        ElevatedButton.icon(
+          key: const Key('globalFinalSettlementInvoicesBtn'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.emerald,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          icon: const Icon(Icons.receipt_long_rounded, size: 16),
+          label: const Text('تسوية الفواتير (CLO-01)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          onPressed: () {
+            final files = ref.read(importFilesProvider).valueOrNull ?? [];
+            if (files.isNotEmpty) {
+              FinalSettlementInvoicesDialog.show(
+                context,
+                importFileId: files.first.importFileId,
+                importFileCode: files.first.importFileCode,
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('يرجى اختيار شحنة أولاً لتجميع فواتيرها')),
+              );
+            }
+          },
+        ),
+        const SizedBox(width: 8),
+        ElevatedButton.icon(
+          key: const Key('globalActualLandedCostBtn'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF1E3A8A), // Deep Cobalt / Navy
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          icon: const Icon(Icons.calculate_rounded, size: 16),
+          label: const Text('التكلفة الفعلية (CLO-02)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          onPressed: () {
+            final files = ref.read(importFilesProvider).valueOrNull ?? [];
+            if (files.isNotEmpty) {
+              ActualLandedCostDialog.show(
+                context,
+                importFileId: files.first.importFileId,
+                importFileCode: files.first.importFileCode,
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('يرجى اختيار شحنة أولاً لاحتساب تكلفتها الفعلية')),
+              );
+            }
+          },
+        ),
+        const SizedBox(width: 8),
         IconButton(
           icon: Icon(Icons.refresh, color: Colors.white70, size: density.buttonIconSize),
           tooltip: context.l10n.financialSettlementRefreshTooltip,
@@ -1022,6 +1076,50 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                                       style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
                                     ),
                                     onPressed: () => _onCloneSettlement(r),
+                                  ),
+                                  OutlinedButton.icon(
+                                    key: Key('settlementInvoicesBtn_${r.settlementCode}'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: const Color(0xFF0D9488),
+                                      side: const BorderSide(color: Color(0xFF0D9488)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    ),
+                                    icon: const Icon(Icons.receipt_long_rounded, size: 15, color: Color(0xFF0D9488)),
+                                    label: const Text(
+                                      'تسوية الفواتير (CLO-01)',
+                                      style: TextStyle(fontSize: 11, color: Color(0xFF0D9488), fontWeight: FontWeight.bold),
+                                    ),
+                                    onPressed: () {
+                                      final matchingFile = importFilesMap[r.importFileId];
+                                      final fileCode = matchingFile?.importFileCode ?? 'IMP-${r.importFileId}';
+                                      FinalSettlementInvoicesDialog.show(
+                                        context,
+                                        importFileId: r.importFileId,
+                                        importFileCode: fileCode,
+                                      );
+                                    },
+                                  ),
+                                  OutlinedButton.icon(
+                                    key: Key('actualLandedCostBtn_${r.settlementCode}'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: const Color(0xFF1E3A8A),
+                                      side: const BorderSide(color: Color(0xFF1E3A8A)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    ),
+                                    icon: const Icon(Icons.calculate_rounded, size: 15, color: Color(0xFF1E3A8A)),
+                                    label: const Text(
+                                      'التكلفة الفعلية (CLO-02)',
+                                      style: TextStyle(fontSize: 11, color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold),
+                                    ),
+                                    onPressed: () {
+                                      final matchingFile = importFilesMap[r.importFileId];
+                                      final fileCode = matchingFile?.importFileCode ?? 'IMP-${r.importFileId}';
+                                      ActualLandedCostDialog.show(
+                                        context,
+                                        importFileId: r.importFileId,
+                                        importFileCode: fileCode,
+                                      );
+                                    },
                                   ),
                                   OutlinedButton.icon(
                                     style: OutlinedButton.styleFrom(

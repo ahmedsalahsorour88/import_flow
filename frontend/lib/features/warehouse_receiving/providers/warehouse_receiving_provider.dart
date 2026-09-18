@@ -1,20 +1,23 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
-import '../models/warehouse_receiving_model.dart';
 import '../../../core/network/api_client.dart';
-
+import '../models/warehouse_receiving_model.dart';
+import '../../import_files/providers/import_files_provider.dart';
+import '../../smart_tasks/providers/smart_tasks_provider.dart';
+import 'goods_in_transit_provider.dart';
 
 final warehouseReceivingProvider =
     StateNotifierProvider<WarehouseReceivingNotifier, AsyncValue<List<WarehouseReceivingModel>>>((ref) {
-  return WarehouseReceivingNotifier(ref.read(dioProvider));
+  return WarehouseReceivingNotifier(ref.read(dioProvider), ref);
 });
 
 class WarehouseReceivingNotifier extends StateNotifier<AsyncValue<List<WarehouseReceivingModel>>> {
   final Dio _dio;
+  final Ref? _ref;
   CancelToken? _cancelToken;
 
-  WarehouseReceivingNotifier(this._dio) : super(const AsyncValue.loading()) {
+  WarehouseReceivingNotifier(this._dio, [this._ref]) : super(const AsyncValue.loading()) {
     fetchRecords();
   }
 
@@ -68,6 +71,9 @@ class WarehouseReceivingNotifier extends StateNotifier<AsyncValue<List<Warehouse
         data: payload,
       );
       final created = WarehouseReceivingModel.fromJson(response.data);
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(smartTasksProvider);
+      _ref?.invalidate(goodsInTransitProvider);
       await fetchRecords();
       return created;
     } catch (e) {
@@ -82,6 +88,9 @@ class WarehouseReceivingNotifier extends StateNotifier<AsyncValue<List<Warehouse
         data: payload,
       );
       final updated = WarehouseReceivingModel.fromJson(response.data);
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(smartTasksProvider);
+      _ref?.invalidate(goodsInTransitProvider);
       await fetchRecords();
       return updated;
     } catch (e) {
@@ -96,6 +105,26 @@ class WarehouseReceivingNotifier extends StateNotifier<AsyncValue<List<Warehouse
         data: payload,
       );
       final updated = WarehouseReceivingModel.fromJson(response.data);
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(smartTasksProvider);
+      _ref?.invalidate(goodsInTransitProvider);
+      await fetchRecords();
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<WarehouseReceivingModel?> submitInspectionProtocol(int recordId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/warehouse-receiving/$recordId/inspection-protocol',
+        data: payload,
+      );
+      final updated = WarehouseReceivingModel.fromJson(response.data);
+      _ref?.invalidate(importFilesProvider);
+      _ref?.invalidate(smartTasksProvider);
+      _ref?.invalidate(goodsInTransitProvider);
       await fetchRecords();
       return updated;
     } catch (e) {

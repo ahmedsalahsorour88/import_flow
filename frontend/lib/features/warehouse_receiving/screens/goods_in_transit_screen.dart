@@ -10,6 +10,7 @@ import '../providers/goods_in_transit_provider.dart';
 import '../services/goods_in_transit_export_service.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../../core/services/display_name_resolver.dart';
+import '../../inland_transport/widgets/inland_transport_dialog.dart';
 
 class GoodsInTransitScreen extends ConsumerStatefulWidget {
   final bool isEmbedded;
@@ -118,6 +119,32 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                           icon: const Icon(Icons.file_download_outlined, size: 16),
                           label: Text(l.gitExportExcelBtn),
                           onPressed: () => GoodsInTransitExportService.saveGitCsvToFile(context, filteredItems),
+                        ),
+                        ElevatedButton.icon(
+                          key: const Key('inlandTransportScreenBtn'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D9488),
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: const Icon(Icons.local_shipping_rounded, size: 16),
+                          label: const Text('حجز وتنسيق النقل (TR-01)'),
+                          onPressed: () {
+                            final files = ref.read(importFilesProvider).valueOrNull ?? [];
+                            if (files.isNotEmpty) {
+                              final target = files.firstWhere(
+                                (f) => f.inlandTransportStatus != 'Arrived Warehouse' && f.isActive,
+                                orElse: () => files.first,
+                              );
+                              InlandTransportDialog.show(context, target);
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('لا توجد ملفات استيراد متاحة لحجز النقل'),
+                                  backgroundColor: AppTheme.flatOrange,
+                                ),
+                              );
+                            }
+                          },
                         ),
                       ],
                     );

@@ -55,6 +55,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
   String _bankName = 'National Bank of Egypt (NBE)';
   final TextEditingController _form4RequestDateCtrl = TextEditingController(text: DateTime.now().toString().substring(0, 10));
   final TextEditingController _form4NotesCtrl = TextEditingController();
+  final TextEditingController _docReferenceNumberCtrl = TextEditingController();
 
   String _form4SearchQuery = '';
   bool _isSavingForm4 = false;
@@ -111,6 +112,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
     _bankAmountController.dispose();
     _form4RequestDateCtrl.dispose();
     _form4NotesCtrl.dispose();
+    _docReferenceNumberCtrl.dispose();
     super.dispose();
   }
 
@@ -120,6 +122,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
       _editingBankDocCode = doc.bankDocCode;
       _form4ImportFileId = doc.importFileId;
       _bankDocType = doc.docType;
+      _docReferenceNumberCtrl.text = (doc.docReferenceNumber == 'PENDING') ? '' : doc.docReferenceNumber;
       _selectedBankId = doc.bankId;
       _bankName = doc.bankName;
       _bankAmountController.text = doc.amount.toStringAsFixed(2);
@@ -136,6 +139,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
       _editingBankDocCode = null;
       _form4ImportFileId = null;
       _bankDocType = 'Form 4';
+      _docReferenceNumberCtrl.clear();
       _selectedBankId = null;
       _bankName = 'National Bank of Egypt (NBE)';
       _bankAmountController.clear();
@@ -195,6 +199,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                 _selectedSubTab = 0;
                 _form4ImportFileId = doc.importFileId;
                 _bankDocType = doc.docType;
+                _docReferenceNumberCtrl.clear();
                 _selectedBankId = doc.bankId;
                 _bankName = doc.bankName;
                 _bankAmountController.text = doc.amount.toStringAsFixed(2);
@@ -221,6 +226,132 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
 
   void _onCloneBankDocRow(BankingDocumentModel doc) {
     _onCloneBankDocSelected(doc);
+  }
+
+  void _openReceiveBankDocDialog(BankingDocumentModel doc) {
+    final formKey = GlobalKey<FormState>();
+    final numCtrl = TextEditingController(text: doc.docReferenceNumber != 'PENDING' ? doc.docReferenceNumber : '');
+    final dateCtrl = TextEditingController(text: DateTime.now().toIso8601String().substring(0, 10));
+    final notesCtrl = TextEditingController(text: doc.notes ?? '');
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          return AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.verified, color: AppTheme.wcagEmerald),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'توثيق استلام ${doc.docType} البنكي (DC-03)',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'سجل رقم المستند البنكي الصادر من بنك (${doc.bankName}) لربطه تلقائياً بملف الشحنة وترقية دورة الحياة إلى مرحلة الإقرار الجمركي 46.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: numCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'رقم ${doc.docType} / رقم الاعتماد المعتمد *',
+                        hintText: 'مثال: F4-EG-2026-990011 أو LC-7788',
+                        prefixIcon: const Icon(Icons.confirmation_number_outlined),
+                        border: const OutlineInputBorder(),
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty ? 'يرجى إدخال رقم المستند الصادر من البنك' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: dateCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'تاريخ الاستلام / الاعتماد *',
+                        prefixIcon: Icon(Icons.calendar_today_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty ? 'يرجى تحديد تاريخ الاستلام' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: notesCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'ملاحظات التوثيق والفرع (اختياري)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.of(ctx).pop(),
+                child: Text(context.l10n.cancel),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.wcagEmerald,
+                  foregroundColor: Colors.white,
+                ),
+                icon: isSubmitting
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.check, size: 16),
+                label: Text(isSubmitting ? 'جاري التوثيق...' : 'توثيق وربط بالشحنة'),
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+                        setModalState(() => isSubmitting = true);
+                        try {
+                          await ref.read(bankingDocumentsProvider.notifier).receiveBankingDocument(
+                            doc.bankDocId,
+                            {
+                              'form4_number': numCtrl.text.trim(),
+                              'received_date': dateCtrl.text.trim(),
+                              'notes': notesCtrl.text.trim(),
+                            },
+                          );
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('تم توثيق وربط المستند البنكي بالشحنة وترقية دورة الحياة بنجاح.'),
+                                backgroundColor: AppTheme.wcagEmerald,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          setModalState(() => isSubmitting = false);
+                          if (mounted) {
+                            showErrorDetailsDialog(context, title: 'خطأ في توثيق المستند البنكي', error: e);
+                          }
+                        }
+                      },
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -461,6 +592,67 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                       ),
                     ),
                     Divider(height: 24, color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+
+                    // Inputs Row 0: Doc Type & Reference Number (DC-03)
+                    if (isMobile) ...[
+                      SearchableDropdownField<String>(
+                        labelText: 'نوع المعاملة / المستند البنكي *',
+                        hintText: 'اختر نوع المعاملة',
+                        value: _bankDocType,
+                        isRequired: true,
+                        items: const [
+                          SearchableDropdownItem<String>(value: 'Form 4', label: 'نموذج 4 (Form 4 - مستندات تحصيل / دفعة مقدمة)'),
+                          SearchableDropdownItem<String>(value: 'Letter of Credit (L/C)', label: 'اعتماد مستندي (Letter of Credit - L/C)'),
+                          SearchableDropdownItem<String>(value: 'Form 9', label: 'نموذج 9 (Form 9 - إفراج دون تحويل)'),
+                        ],
+                        onChanged: (val) => setState(() => _bankDocType = val ?? 'Form 4'),
+                      ),
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        controller: _docReferenceNumberCtrl,
+                        style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                        decoration: const InputDecoration(
+                          labelText: 'رقم المرجع البنكي / رقم الاعتماد (إن وجد)',
+                          hintText: 'اتركه فارغاً إذا كان قيد الطلب، أو اكتب: F4-2026-009 / LC-9988',
+                          prefixIcon: Icon(Icons.pin_outlined),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ] else ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: SearchableDropdownField<String>(
+                              labelText: 'نوع المعاملة / المستند البنكي *',
+                              hintText: 'اختر نوع المعاملة',
+                              value: _bankDocType,
+                              isRequired: true,
+                              items: const [
+                                SearchableDropdownItem<String>(value: 'Form 4', label: 'نموذج 4 (Form 4 - مستندات تحصيل / دفعة مقدمة)'),
+                                SearchableDropdownItem<String>(value: 'Letter of Credit (L/C)', label: 'اعتماد مستندي (Letter of Credit - L/C)'),
+                                SearchableDropdownItem<String>(value: 'Form 9', label: 'نموذج 9 (Form 9 - إفراج دون تحويل)'),
+                              ],
+                              onChanged: (val) => setState(() => _bankDocType = val ?? 'Form 4'),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _docReferenceNumberCtrl,
+                              style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                              decoration: const InputDecoration(
+                                labelText: 'رقم المرجع البنكي / رقم الاعتماد (إن وجد)',
+                                hintText: 'اتركه فارغاً إذا كان قيد الطلب، أو اكتب: F4-2026-009 / LC-9988',
+                                prefixIcon: Icon(Icons.pin_outlined),
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                    ],
 
                     // Inputs Row 1: Bank, Amount, Currency
                     if (isMobile) ...[
@@ -965,6 +1157,8 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                     columns: [
                       DataColumn(label: Text(context.l10n.actionCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
                       DataColumn(label: Text(context.l10n.documentCodeCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
+                      DataColumn(label: Text('نوع المعاملة', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
+                      DataColumn(label: Text('رقم المرجع / الاعتماد', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
                       DataColumn(label: Text(context.l10n.importFile, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
                       DataColumn(label: Text(context.l10n.certifiedBankCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
                       DataColumn(label: Text(context.l10n.amountAndCurrencyCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
@@ -979,7 +1173,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                       final statusLabel = d.status == 'Received' ? context.l10n.endorsedStatusBadge : context.l10n.bankProcessingStatusBadge;
                       final formattedDate = d.requestDate ?? d.issueDate.substring(0, min(10, d.issueDate.length));
                       final formattedAmount = '${d.amount.toStringAsFixed(2)} ${d.currencyCode}';
-                      final rowSummary = '${d.bankDocCode}\t$shipTitle\t${d.bankName}\t$formattedAmount\t$formattedDate\t$statusLabel';
+                      final rowSummary = '${d.bankDocCode}\t${d.docType}\t${d.docReferenceNumber}\t$shipTitle\t${d.bankName}\t$formattedAmount\t$formattedDate\t$statusLabel';
 
                       return DataRow(
                         cells: [
@@ -987,6 +1181,12 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
+                                IconButton(
+                                  key: Key('receiveBankDocBtn_${d.bankDocId}'),
+                                  icon: const Icon(Icons.verified, color: AppTheme.wcagEmerald, size: 18),
+                                  tooltip: 'توثيق استلام نموذج 4 / الاعتماد (DC-03)',
+                                  onPressed: () => _openReceiveBankDocDialog(d),
+                                ),
                                 IconButton(
                                   icon: const Icon(Icons.edit, color: AppTheme.wcagCobalt, size: 18),
                                   tooltip: context.l10n.edit,
@@ -1006,6 +1206,45 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                               value: d.bankDocCode,
                               rowSummary: rowSummary,
                               child: Text(d.bankDocCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.wcagCobalt)),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: d.docType,
+                              rowSummary: rowSummary,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.wcagCobalt.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(d.docType, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: d.docReferenceNumber,
+                              rowSummary: rowSummary,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: d.docReferenceNumber != 'PENDING'
+                                      ? AppTheme.wcagEmerald.withOpacity(0.12)
+                                      : Colors.grey.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  d.docReferenceNumber,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: d.docReferenceNumber != 'PENDING'
+                                        ? AppTheme.wcagEmerald
+                                        : (isDark ? Colors.grey.shade400 : Colors.grey.shade700),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                           DataCell(
@@ -1131,6 +1370,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
         'amount': double.tryParse(_bankAmountController.text) ?? 0.0,
         'currency_code': _form4Currency,
         'request_date': _form4RequestDateCtrl.text.trim(),
+        'doc_reference_number': _docReferenceNumberCtrl.text.trim().isNotEmpty ? _docReferenceNumberCtrl.text.trim() : 'PENDING',
         'notes': _form4NotesCtrl.text.trim(),
       };
 

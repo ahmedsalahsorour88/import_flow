@@ -10,6 +10,7 @@ import '../../customs_clearance/models/customs_clearance_model.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../shipment_updates/models/shipment_update_model.dart';
 import '../../warehouse_receiving/models/warehouse_receiving_model.dart';
+import '../models/comprehensive_dossier_model.dart';
 
 /// Central export and dossier generation service for the Comprehensive Import File Report (Screen 47).
 /// Provides TSV, unmerged Excel (CSV with UTF-8 BOM), vector A4 Cairo PDF, and plain text clipboard dossier.
@@ -18,6 +19,7 @@ class ComprehensiveReportExportService {
   static String buildDossierText({
     required BuildContext context,
     required ImportFileModel file,
+    ComprehensiveShipmentDossierModel? dossier,
     List<ShipmentUpdateLogModel>? logs,
     CustomsClearanceModel? clearance,
     WarehouseReceivingModel? warehouse,
@@ -105,6 +107,21 @@ class ComprehensiveReportExportService {
     sb.writeln('${l.compReportEstimatedVariance}: ${(file.estimatedCost - totalInvoicesValue).toStringAsFixed(2)} USD');
     sb.writeln();
 
+    // Section: Actual Landed Cost & Settlement (CLO-01 & CLO-02)
+    final actualLanded = dossier?.actualLandedCostTotalEgp ?? file.actualLandedCostTotalEgp;
+    if (actualLanded > 0) {
+      final markup = dossier?.actualLandedCostMarkupFactor ?? file.actualLandedCostMarkupFactor;
+      final varianceEgp = dossier?.actualLandedCostVarianceEgp ?? file.actualLandedCostVarianceEgp;
+      final variancePct = dossier?.actualLandedCostVariancePct ?? file.actualLandedCostVariancePct;
+
+      sb.writeln('--- تكلفة الوصول الفعلية والتسوية المالية الشاملة (CLO-01 & CLO-02) ---');
+      sb.writeln('إجمالي تكلفة الوصول الفعلية: ${actualLanded.toStringAsFixed(2)} EGP');
+      sb.writeln('معامل زيادة التكلفة (Markup Factor): ${markup.toStringAsFixed(3)}x');
+      sb.writeln('انحراف التكلفة الفعلية عن التقديرية: ${varianceEgp.toStringAsFixed(2)} EGP (${variancePct > 0 ? "+" : ""}${variancePct.toStringAsFixed(2)}%)');
+      sb.writeln('حالة التسوية المالية: ${file.financialSettlementStatus ?? "COST_ALLOCATED"}');
+      sb.writeln();
+    }
+
     // Section: Customs Clearance
     if (clearance != null) {
       sb.writeln('--- ${l.compReportSecClearance} ---');
@@ -121,6 +138,17 @@ class ComprehensiveReportExportService {
       sb.writeln('${l.compReportGrnChip(warehouse.grnCode)} | ${warehouse.warehouseName}');
       sb.writeln('${l.compReportArrivalDatetime(warehouse.arrivalDatetime)} | ${l.compReportInspectorPrefix(warehouse.inspectorName)}');
       sb.writeln('${l.compReportQtyInvoiced}: ${warehouse.totalInvoicedQty} | ${l.compReportQtyAccepted}: ${warehouse.totalAcceptedQty} | ${l.compReportQtyShortage}: ${warehouse.totalShortageQty} | ${l.compReportQtyDamaged}: ${warehouse.totalDamagedQty}');
+      sb.writeln();
+    }
+
+    // Section: Empty Container Return EIR
+    final eirNumbers = dossier?.emptyContainersEirNumbers ?? file.emptyContainersEirNumbers;
+    if (eirNumbers != null && eirNumbers.isNotEmpty) {
+      sb.writeln('--- إعادة الحاويات الفارغة وإيصالات EIR (TR-05) ---');
+      sb.writeln('أرقام إيصالات EIR: $eirNumbers');
+      if (file.emptyContainersReturnedAt != null) {
+        sb.writeln('تاريخ الإعادة: ${file.emptyContainersReturnedAt}');
+      }
       sb.writeln();
     }
 
@@ -145,12 +173,13 @@ class ComprehensiveReportExportService {
   static Future<void> exportToTsv({
     required BuildContext context,
     required ImportFileModel file,
+    ComprehensiveShipmentDossierModel? dossier,
     List<ShipmentUpdateLogModel>? logs,
     CustomsClearanceModel? clearance,
     WarehouseReceivingModel? warehouse,
   }) async {
     final l = context.l10n;
-    final rows = _buildDossierRows(context, file, logs: logs, clearance: clearance, warehouse: warehouse);
+    final rows = _buildDossierRows(context, file, dossier: dossier, logs: logs, clearance: clearance, warehouse: warehouse);
 
     final sb = StringBuffer();
     sb.writeln('# ${l.compReportDossierHeader} - ${file.importFileCode} - ${DateTime.now().toIso8601String()}');
@@ -164,7 +193,7 @@ class ComprehensiveReportExportService {
       sb.writeln('$sec\t$fld\t$val\t$det');
     }
 
-    final filename = 'Comprehensive_Report_${file.importFileCode}_${DateTime.now().millisecondsSinceEpoch}.tsv';
+    final filename = 'Comprehensive Dossier - ${file.primaryNameWithCode}.tsv';
     await FileSaveHelper.saveText(
       context: context,
       textContent: sb.toString(),
@@ -178,12 +207,13 @@ class ComprehensiveReportExportService {
   static Future<void> exportToExcel({
     required BuildContext context,
     required ImportFileModel file,
+    ComprehensiveShipmentDossierModel? dossier,
     List<ShipmentUpdateLogModel>? logs,
     CustomsClearanceModel? clearance,
     WarehouseReceivingModel? warehouse,
   }) async {
     final l = context.l10n;
-    final rows = _buildDossierRows(context, file, logs: logs, clearance: clearance, warehouse: warehouse);
+    final rows = _buildDossierRows(context, file, dossier: dossier, logs: logs, clearance: clearance, warehouse: warehouse);
 
     final sb = StringBuffer();
     sb.writeln('# ${l.compReportDossierHeader} - ${file.importFileCode} - ${DateTime.now().toIso8601String()}');
@@ -197,7 +227,7 @@ class ComprehensiveReportExportService {
       sb.writeln('"$sec","$fld","$val","$det"');
     }
 
-    final filename = 'Comprehensive_Report_${file.importFileCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Comprehensive Dossier - ${file.primaryNameWithCode}.csv';
     await FileSaveHelper.saveText(
       context: context,
       textContent: sb.toString(),
@@ -407,7 +437,227 @@ class ComprehensiveReportExportService {
 
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: 'Comprehensive_Report_${file.importFileCode}.pdf',
+      name: 'Comprehensive Dossier - ${file.primaryNameWithCode}.pdf',
+    );
+  }
+
+  /// Generates vector A4 PDF using Cairo typography and saves directly to user-selected location via FileSaveHelper.
+  static Future<void> exportToPdf({
+    required BuildContext context,
+    required ImportFileModel file,
+    ComprehensiveShipmentDossierModel? dossier,
+    List<ShipmentUpdateLogModel>? logs,
+    CustomsClearanceModel? clearance,
+    WarehouseReceivingModel? warehouse,
+  }) async {
+    final l = context.l10n;
+    final isAr = Directionality.of(context) == TextDirection.rtl;
+
+    final pdf = pw.Document();
+    final cairoRegular = await PdfGoogleFonts.cairoRegular();
+    final cairoBold = await PdfGoogleFonts.cairoBold();
+
+    final totalInvoicesValue = file.invoicesData.fold(0.0, (s, i) => s + i.amount);
+    final totalCbm = file.packingListsData.fold(0.0, (s, p) => s + p.cbm);
+    final totalWeight = file.packingListsData.fold(0.0, (s, p) => s + p.grossWeightKg);
+    final totalPkgs = file.packingListsData.fold(0, (s, p) => s + p.totalPackages);
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
+        theme: pw.ThemeData.withFont(base: cairoRegular, bold: cairoBold),
+        build: (pw.Context pdfContext) => [
+          pw.Directionality(
+            textDirection: isAr ? pw.TextDirection.rtl : pw.TextDirection.ltr,
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // Top Header Banner
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(12),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#2C3E50'),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                  ),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            l.compReportDossierHeader,
+                            style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
+                          ),
+                          pw.SizedBox(height: 2),
+                          pw.Text(
+                            '${file.displayName}  |  ${file.supplierName}  |  ${file.companyName}',
+                            style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 9),
+                          ),
+                        ],
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: pw.BoxDecoration(
+                          color: file.status.toLowerCase() == 'closed' ? PdfColors.grey600 : PdfColor.fromHex('#27AE60'),
+                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                        ),
+                        child: pw.Text(
+                          file.status,
+                          style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+
+                // Section 1: Basic Information Table
+                pw.Text(l.compReportSecBasicInfo, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#2C3E50'))),
+                pw.SizedBox(height: 4),
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.grey300),
+                  children: [
+                    _pdfTableRow(l.compReportColFileCode, file.importFileCode, l.compReportColCustomsFileNo, file.customFileNumber ?? '—'),
+                    _pdfTableRow(l.compReportColImportCompany, file.companyName, l.compReportColSupplier, file.supplierName),
+                    _pdfTableRow(l.compReportColBroker, file.brokerName ?? '—', l.compReportColShipmentMode, file.shipmentMode),
+                    _pdfTableRow(l.compReportColIncoterm, file.incotermCode, l.compReportColCategory, file.shipmentCategory),
+                    _pdfTableRow(l.compReportColPoNumber, file.poNumber ?? '—', l.compReportColPiNumber, file.piNumber ?? '—'),
+                    _pdfTableRow(l.compReportColScenario, file.selectedScenario ?? '—', l.compReportColRequiredEta, file.requiredEta ?? '—'),
+                    _pdfTableRow(l.compReportCurrentStageLabel, DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isAr), l.compReportTotalProgressLabel, '${file.progressPercent.toStringAsFixed(0)}%'),
+                  ],
+                ),
+                pw.SizedBox(height: 12),
+
+                // Section 2: Official Documents Table
+                pw.Text(l.compReportSecDocs, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#E67E22'))),
+                pw.SizedBox(height: 4),
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.grey300),
+                  children: [
+                    _pdfTableRow(l.compReportAcidNumber, file.acidNumber ?? '—', l.compReportBankForm4, file.form4No ?? '—'),
+                    _pdfTableRow(l.compReportSwiftNumber, file.swiftNo ?? '—', l.compReportForm46Number, file.form46No ?? '—'),
+                  ],
+                ),
+                pw.SizedBox(height: 12),
+
+                // Section 3: Financial Summary & Landed Cost (CLO-01 & CLO-02)
+                pw.Text('${l.compReportSecFinancial} & Actual Landed Cost', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#27AE60'))),
+                pw.SizedBox(height: 4),
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.grey300),
+                  children: [
+                    _pdfTableRow(l.compReportTotalInvoicesVal, '${totalInvoicesValue.toStringAsFixed(2)} USD', l.compReportEstimatedCostVal, '${file.estimatedCost.toStringAsFixed(2)} USD'),
+                    _pdfTableRow(l.compReportTotalPackages, '$totalPkgs pkgs (${totalWeight.toStringAsFixed(1)} KG)', l.compReportTotalCbm, '${totalCbm.toStringAsFixed(2)} m³'),
+                    if (file.actualLandedCostTotalEgp > 0 || (dossier != null && dossier.actualLandedCostTotalEgp > 0)) ...[
+                      _pdfTableRow('Actual Landed Cost', '${(dossier?.actualLandedCostTotalEgp ?? file.actualLandedCostTotalEgp).toStringAsFixed(2)} EGP', 'Markup Factor', '${(dossier?.actualLandedCostMarkupFactor ?? file.actualLandedCostMarkupFactor).toStringAsFixed(3)}x'),
+                      _pdfTableRow('Variance', '${(dossier?.actualLandedCostVarianceEgp ?? file.actualLandedCostVarianceEgp).toStringAsFixed(2)} EGP (${(dossier?.actualLandedCostVariancePct ?? file.actualLandedCostVariancePct).toStringAsFixed(2)}%)', 'Settlement Status', file.financialSettlementStatus ?? 'COST_ALLOCATED'),
+                    ],
+                  ],
+                ),
+                pw.SizedBox(height: 12),
+
+                // Section 4: Customs Clearance
+                if (clearance != null) ...[
+                  pw.Text(l.compReportSecClearance, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#3498DB'))),
+                  pw.SizedBox(height: 4),
+                  pw.Table(
+                    border: pw.TableBorder.all(color: PdfColors.grey300),
+                    children: [
+                      _pdfTableRow('Customs 46', clearance.declaration46No ?? '—', 'Channel / Office', '${clearance.channelType} / ${clearance.customsOfficeName}'),
+                      _pdfTableRow('Release Permit', clearance.releasePermitNo ?? '—', 'Release Date', clearance.releaseDate != null ? clearance.releaseDate!.split('T').first : '—'),
+                      _pdfTableRow(l.compReportDutyImport, clearance.importDutyAmount.toStringAsFixed(2), l.compReportDutyVat, clearance.vatAmount.toStringAsFixed(2)),
+                      _pdfTableRow(l.compReportDutySchedule, clearance.scheduleTaxAmount.toStringAsFixed(2), l.compReportDutyTotal, clearance.totalDutyPayable.toStringAsFixed(2)),
+                    ],
+                  ),
+                  pw.SizedBox(height: 12),
+                ],
+
+                // Section 5: Warehouse Receiving & Containers
+                if (warehouse != null || file.emptyContainersReturnedAt != null) ...[
+                  pw.Text('${l.compReportSecWarehouse} & EIR Containers', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#27AE60'))),
+                  pw.SizedBox(height: 4),
+                  pw.Table(
+                    border: pw.TableBorder.all(color: PdfColors.grey300),
+                    children: [
+                      if (warehouse != null) ...[
+                        _pdfTableRow('GRN / Warehouse', '${warehouse.grnCode} / ${warehouse.warehouseName}', 'Arrival / Inspector', '${warehouse.arrivalDatetime.split('T').first} / ${warehouse.inspectorName}'),
+                        _pdfTableRow(l.compReportQtyInvoiced, '${warehouse.totalInvoicedQty}', l.compReportQtyAccepted, '${warehouse.totalAcceptedQty}'),
+                        _pdfTableRow(l.compReportQtyShortage, '${warehouse.totalShortageQty}', l.compReportQtyDamaged, '${warehouse.totalDamagedQty}'),
+                      ],
+                      if (file.emptyContainersReturnedAt != null || (dossier != null && dossier.emptyContainersReturnedAt != null))
+                        _pdfTableRow('EIR Receipts', file.emptyContainersEirNumbers ?? dossier?.emptyContainersEirNumbers ?? '—', 'Returned Date', file.emptyContainersReturnedAt ?? dossier?.emptyContainersReturnedAt ?? '—'),
+                    ],
+                  ),
+                  pw.SizedBox(height: 12),
+                ],
+
+                // Section 6: Operational Timeline Logs (Recent)
+                if (logs != null && logs.isNotEmpty) ...[
+                  pw.Text(l.compReportSecTimeline(logs.length), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#2C3E50'))),
+                  pw.SizedBox(height: 4),
+                  pw.Table(
+                    border: pw.TableBorder.all(color: PdfColors.grey300),
+                    children: [
+                      pw.TableRow(
+                        decoration: pw.BoxDecoration(color: PdfColor.fromHex('#2C3E50')),
+                        children: [
+                          _pdfHeaderCell('Date', widthFactor: 1.5),
+                          _pdfHeaderCell('Category', widthFactor: 1.5),
+                          _pdfHeaderCell('Phase', widthFactor: 1.5),
+                          _pdfHeaderCell('Note', widthFactor: 3.5),
+                        ],
+                      ),
+                      ...logs.take(10).map((log) => pw.TableRow(
+                        children: [
+                          _pdfDataCell(log.logDate.split('T').first),
+                          _pdfDataCell(log.updateCategory),
+                          _pdfDataCell(log.targetPhase),
+                          _pdfDataCell(log.note),
+                        ],
+                      )),
+                    ],
+                  ),
+                  pw.SizedBox(height: 12),
+                ],
+
+                if (file.notes != null && file.notes!.isNotEmpty) ...[
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(8),
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColors.grey100,
+                      borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
+                    ),
+                    child: pw.Text('${l.compReportSecNotes}: ${file.notes}', style: const pw.TextStyle(fontSize: 8)),
+                  ),
+                  pw.SizedBox(height: 12),
+                ],
+
+                // Sign-off footer
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text('Export Date: ${DateTime.now().toString().substring(0, 19)}', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
+                    pw.Text('Sorour Logistics ERP Enterprise Edition', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final pdfBytes = await pdf.save();
+    final filename = 'Comprehensive Dossier - ${file.primaryNameWithCode}.pdf';
+    if (!context.mounted) return;
+    await FileSaveHelper.saveBytes(
+      context: context,
+      bytes: pdfBytes,
+      defaultFileName: filename,
+      dialogTitle: 'حفظ وتصدير الملف الشامل PDF',
+      allowedExtensions: ['pdf'],
     );
   }
 
@@ -451,6 +701,7 @@ class ComprehensiveReportExportService {
   static List<List<String>> _buildDossierRows(
     BuildContext context,
     ImportFileModel file, {
+    ComprehensiveShipmentDossierModel? dossier,
     List<ShipmentUpdateLogModel>? logs,
     CustomsClearanceModel? clearance,
     WarehouseReceivingModel? warehouse,
@@ -508,6 +759,32 @@ class ComprehensiveReportExportService {
     addRow(sFin, l.compReportEstimatedCostVal, '${file.estimatedCost.toStringAsFixed(2)} USD');
     addRow(sFin, l.compReportEstimatedVariance, '${(file.estimatedCost - totalInvoicesValue).toStringAsFixed(2)} USD');
 
+    // Actual Landed Cost & Financial Settlement (CLO-01 & CLO-02)
+    const sSettlement = 'التسوية وتكلفة الوصول الفعلية';
+    if (file.actualLandedCostTotalEgp > 0 || (dossier != null && dossier.actualLandedCostTotalEgp > 0)) {
+      final actualLanded = dossier?.actualLandedCostTotalEgp ?? file.actualLandedCostTotalEgp;
+      final markup = dossier?.actualLandedCostMarkupFactor ?? file.actualLandedCostMarkupFactor;
+      final varianceEgp = dossier?.actualLandedCostVarianceEgp ?? file.actualLandedCostVarianceEgp;
+      final variancePct = dossier?.actualLandedCostVariancePct ?? file.actualLandedCostVariancePct;
+
+      addRow(sSettlement, 'إجمالي تكلفة الوصول الفعلية', '${actualLanded.toStringAsFixed(2)} EGP');
+      addRow(sSettlement, 'معامل الزيادة Markup Factor', '${markup.toStringAsFixed(3)}x');
+      addRow(sSettlement, 'انحراف التكلفة Variance', '${varianceEgp.toStringAsFixed(2)} EGP (${variancePct.toStringAsFixed(2)}%)');
+      addRow(sSettlement, 'حالة التسوية', file.financialSettlementStatus ?? 'COST_ALLOCATED');
+    }
+
+    if (file.emptyContainersReturnedAt != null || (dossier != null && dossier.emptyContainersReturnedAt != null)) {
+      addRow('إعادة الحاويات', 'إيصالات EIR', file.emptyContainersEirNumbers ?? dossier?.emptyContainersEirNumbers ?? '—', file.emptyContainersReturnedAt ?? dossier?.emptyContainersReturnedAt ?? '');
+    }
+
+    // 10-Phase Sections if dossier model available
+    if (dossier != null && dossier.sections.isNotEmpty) {
+      const sPhases = 'مراحل الملف الاستيرادي (10 Phases)';
+      for (final sec in dossier.sections) {
+        addRow(sPhases, '${sec.sectionCode} - ${sec.sectionNameAr}', sec.statusAr, sec.sectionNameEn);
+      }
+    }
+
     // Status
     final sStat = l.compReportSecStatus;
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
@@ -554,3 +831,4 @@ class ComprehensiveReportExportService {
     return rows;
   }
 }
+

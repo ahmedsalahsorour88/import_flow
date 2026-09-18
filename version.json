@@ -1,17 +1,17 @@
 {
   "major": 1,
   "minor": 0,
-  "patch": 183,
-  "version": "1.0.183",
-  "build_number": 184,
-  "updated_at": "2026-09-17 10:03:45",
+  "patch": 184,
+  "version": "1.0.184",
+  "build_number": 185,
+  "updated_at": "2026-09-18 21:40:32",
   "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v1.0.151/Sorour_Logistics_Setup_v1.0.151.exe",
   "installer_filename": "Sorour_Logistics_Setup_v1.0.151.exe",
   "installer_size_mb": 198.02,
   "release_notes": [
-    "Integrated top toolbar \"بحث واستنساخ أرشفة سابقة\" button and card-level clone action button.",
-    "Integrated top toolbar \"بحث واستنساخ تسوية تكلفة سابقة\" button and card-level clone action button.",
-    "Integrated top toolbar \"بحث واستنساخ إذن إضافة سابق\" button and card-level clone action button.",
-    "Integrated top toolbar \"بحث واستنساخ بيان تخليص سابق\" button and card-level clone action button."
+    "Checklist Item: #46 (The 46th and Final Task of ImportFlow ERP Checklist — إتمام كامل بنود النظام بنسبة 100%)",
+    "Stage: المرحلة 9: تكلفة الوصول والإغلاق (Stage 9/10: Landed Cost & File Closure)",
+    "CLO-04: Official File Closure & Digital Archive — الإغلاق الرسمي والأرشفة الرقمية المكتملة للملف",
+    "إنجاز متكامل للإغلاق النهائي والأرشفة الرقمية للشحنة مع استيفاء بوابة التدقيق المسبقة المرتكزة على ركائز التدقيق الستة (6 Core Pillars)."
   ]
 }

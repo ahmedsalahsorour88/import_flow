@@ -23,6 +23,7 @@ def create_booking(db: Session, payload: ShipmentBookingCreate) -> ShipmentBooki
     booking = ShipmentBooking(
         booking_code=code,
         booking_confirmation_no=payload.booking_confirmation_no,
+        bill_of_lading_no=payload.bill_of_lading_no,
         import_file_id=payload.import_file_id,
         rfq_request_id=payload.rfq_request_id,
         scenario_session_id=payload.scenario_session_id,
@@ -95,6 +96,7 @@ def list_bookings(
         query = query.filter(
             (ShipmentBooking.booking_code.like(pattern)) |
             (ShipmentBooking.booking_confirmation_no.like(pattern)) |
+            (ShipmentBooking.bill_of_lading_no.like(pattern)) |
             (ShipmentBooking.vessel_name.like(pattern)) |
             (ShipmentBooking.freight_forwarder_name.like(pattern))
         )

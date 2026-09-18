@@ -32,6 +32,24 @@ class DiscrepancyReportSubmit(BaseModel):
     insurance_claim_filed: bool = False
     insurance_claim_ref: Optional[str] = None
 
+class WarehouseInspectionSubmit(BaseModel):
+    inspection_date: Optional[datetime] = None
+    inspection_committee: Optional[str] = "لجنة الفحص والاستلام المخزني"
+    inspection_verdict: Optional[str] = Field("ACCEPTED_FULL", description="ACCEPTED_FULL, ACCEPTED_WITH_DISCREPANCY, REJECTED_QUARANTINED, DAMAGE_CLAIM_PENDING")
+    root_cause: Optional[str] = Field(None, description="Port Handling, Transit Vibration, Packaging Failure, Water Ingress, Factory Shortage")
+    grn_items: Optional[List[GrnItemSchema]] = None
+    discrepancy_type: Optional[str] = "None"
+    discrepancy_notes: Optional[str] = None
+    quarantine_zone_assigned: bool = False
+    insurance_claim_filed: bool = False
+    insurance_claim_ref: Optional[str] = None
+    supplier_claim_filed: bool = False
+    supplier_claim_ref: Optional[str] = None
+    claim_amount_estimated: float = 0.0
+    claim_currency: str = "EGP"
+    inspector_name: Optional[str] = None
+    notes: Optional[str] = None
+
 class WarehouseReceivingUpdate(BaseModel):
     warehouse_name: Optional[str] = None
     truck_plate_number: Optional[str] = None
@@ -43,6 +61,13 @@ class WarehouseReceivingUpdate(BaseModel):
     status: Optional[str] = None
     inspector_name: Optional[str] = None
     notes: Optional[str] = None
+    inspection_committee: Optional[str] = None
+    inspection_verdict: Optional[str] = None
+    root_cause: Optional[str] = None
+    supplier_claim_filed: Optional[bool] = None
+    supplier_claim_ref: Optional[str] = None
+    claim_amount_estimated: Optional[float] = None
+    claim_currency: Optional[str] = None
 
 class WarehouseReceivingResponse(BaseModel):
     receiving_id: int
@@ -68,6 +93,16 @@ class WarehouseReceivingResponse(BaseModel):
     is_under_bond_quarantine: bool = False
     quarantine_lock_active: bool = False
     dispatch_blocked: bool = False
+    inspection_date: Optional[datetime] = None
+    inspection_committee: Optional[str] = None
+    inspection_protocol_number: Optional[str] = None
+    inspection_verdict: Optional[str] = "PENDING"
+    root_cause: Optional[str] = None
+    supplier_claim_filed: bool = False
+    supplier_claim_ref: Optional[str] = None
+    claim_amount_estimated: float = 0.0
+    claim_currency: str = "EGP"
+    discrepancy_rate_percent: float = 0.0
     status: str
     inspector_name: str
     notes: Optional[str] = None
@@ -78,6 +113,31 @@ class WarehouseReceivingResponse(BaseModel):
     updated_by: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class InspectionSummaryResponse(BaseModel):
+    receiving_id: int
+    grn_code: str
+    import_file_id: int
+    inspection_protocol_number: Optional[str] = None
+    inspection_date: Optional[datetime] = None
+    inspection_committee: Optional[str] = None
+    inspection_verdict: str
+    root_cause: Optional[str] = None
+    total_invoiced_qty: int
+    total_accepted_qty: int
+    total_shortage_qty: int
+    total_damaged_qty: int
+    discrepancy_rate_percent: float
+    quarantine_zone_assigned: bool
+    insurance_claim_filed: bool
+    insurance_claim_ref: Optional[str] = None
+    supplier_claim_filed: bool
+    supplier_claim_ref: Optional[str] = None
+    claim_amount_estimated: float
+    claim_currency: str
+    status: str
+    is_ready_for_landed_cost: bool
 
 
 class WarehouseDispatchValidationResponse(BaseModel):

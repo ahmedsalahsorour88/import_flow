@@ -1707,7 +1707,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           ];
 
     return VerticalStageScaffold(
-      stageCode: '',
+      stageCode: widget.isTaxReviewMode ? 'PHASE-1: STEP_02-TAX' : 'PHASE-1: STEP_02',
       titleEn: widget.isTaxReviewMode
           ? 'Customs Duty Review & Tax Calculation Workspace'
           : 'Customs Broker Consultation & Inspection Workspace',
@@ -1715,7 +1715,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           ? l.customsDutyReviewTitle
           : l.customsStudiesTitle,
       headerIcon: widget.isTaxReviewMode ? Icons.calculate_outlined : Icons.gavel_outlined,
-      headerColor: widget.isTaxReviewMode ? Colors.teal : AppTheme.cobalt,
+      headerColor: widget.isTaxReviewMode ? AppTheme.emerald : AppTheme.cobalt,
       tabs: tabs,
       selectedIndex: _tabController.index,
       onTabSelected: (index) {

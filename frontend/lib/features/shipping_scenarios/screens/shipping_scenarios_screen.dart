@@ -68,7 +68,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
   int? _selectedImportFileId;
   int? _selectedPoId;
   int? _selectedProjectId;
-  String _sessionNotes = '';
+  final String _sessionNotes = '';
 
   // Carrier Options List
   final List<ShippingScenarioItemModel> _evalItems = [];
@@ -77,7 +77,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
 
   // ── Smart AI Extractor State (Text & OCR) ──────────────────────────────
   bool _isFreightExtractorExpanded = true;
-  bool _isFreightExtracting = false;
+  final bool _isFreightExtracting = false;
   final TextEditingController _rawFreightQuoteController = TextEditingController();
   List<ExtractedQuotationOption> _extractedOptions = [];
   Map<String, dynamic>? _extractedFreightMetadata;
@@ -1290,7 +1290,7 @@ Best regards,
     ];
 
     return VerticalStageScaffold(
-      stageCode: '',
+      stageCode: 'PHASE-1: STEP_03',
       titleEn: 'Freight Shipping Scenarios & Carrier Evaluation',
       titleAr: 'دراسات وسيناريوهات الشحن والمفاضلة',
       headerIcon: Icons.alt_route_outlined,
@@ -1302,12 +1302,14 @@ Best regards,
         if (index == 0) _hasVisitedTab0 = true;
         if (index == 1) _hasVisitedTab1 = true;
       }),
+      selectedImportFileId: _selectedImportFileId,
+      onShipmentStatusChanged: () => _refreshData(force: true),
       headerActions: [
-        ElevatedButton.icon(
+        OutlinedButton.icon(
           key: const ValueKey('searchAndCloneStudyBtn'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.wcagCobalt,
+          style: OutlinedButton.styleFrom(
             foregroundColor: Colors.white,
+            side: const BorderSide(color: Colors.white60),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           ),
           icon: const Icon(Icons.copy_all_rounded, size: 16),

@@ -10,6 +10,7 @@ from modules.transport_locations.schemas import (
     TransportLocationUpdate,
 )
 from modules.transport_locations.service import TransportLocationService
+from utils.cache_manager import memory_cache
 
 router = APIRouter(prefix="/api/v1/transport-locations", tags=["Transport Locations (MD-009)"])
 
@@ -24,8 +25,13 @@ def get_all_locations(
     limit: Optional[int] = Query(None, ge=1, le=5000, description="Max number of records to return"),
     db: Session = Depends(get_db),
 ):
+    cache_key = f"transport_locations:{include_inactive}:{location_type}:{country}:{search}:{skip}:{limit}"
+    cached = memory_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     service = TransportLocationService(db)
-    return service.get_all(
+    results = service.get_all(
         include_inactive=include_inactive,
         location_type=location_type,
         country=country,
@@ -33,6 +39,8 @@ def get_all_locations(
         skip=skip,
         limit=limit,
     )
+    memory_cache.set(cache_key, results, ttl_seconds=300)
+    return results
 
 
 # ==================================================
@@ -92,6 +100,8 @@ async def import_excel_locations(file: UploadFile = File(...), db: Session = Dep
         except Exception as e:
             errors.append(f"Row {idx}: {str(e)}")
 
+    if imported_count > 0:
+        memory_cache.clear_prefix("transport_locations:")
     return {"message": f"Successfully imported {imported_count} transport locations.", "errors": errors}
 
 
@@ -159,7 +169,9 @@ def create_location(
     db: Session = Depends(get_db),
 ):
     service = TransportLocationService(db)
-    return service.create(data)
+    res = service.create(data)
+    memory_cache.clear_prefix("transport_locations:")
+    return res
 
 
 @router.put("/{location_id}", response_model=TransportLocationResponse)
@@ -169,7 +181,9 @@ def update_location(
     db: Session = Depends(get_db),
 ):
     service = TransportLocationService(db)
-    return service.update(location_id, data)
+    res = service.update(location_id, data)
+    memory_cache.clear_prefix("transport_locations:")
+    return res
 
 
 @router.delete("/{location_id}", response_model=TransportLocationResponse)
@@ -178,7 +192,9 @@ def soft_delete_location(
     db: Session = Depends(get_db),
 ):
     service = TransportLocationService(db)
-    return service.soft_delete(location_id)
+    res = service.soft_delete(location_id)
+    memory_cache.clear_prefix("transport_locations:")
+    return res
 
 
 @router.post("/{location_id}/restore", response_model=TransportLocationResponse)
@@ -187,4 +203,6 @@ def restore_location(
     db: Session = Depends(get_db),
 ):
     service = TransportLocationService(db)
-    return service.restore(location_id)
+    res = service.restore(location_id)
+    memory_cache.clear_prefix("transport_locations:")
+    return res

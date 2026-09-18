@@ -1,3 +1,5 @@
+import time
+import threading
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.orm import Session
@@ -6,6 +8,10 @@ from database.database import get_db
 from .schemas import NotificationCreate, NotificationResponse, NotificationSummary
 from .service import NotificationService
 from .websocket_manager import websocket_manager
+
+_LAST_EXPIRY_CHECK_TIMESTAMP: float = 0.0
+_EXPIRY_CHECK_LOCK = threading.Lock()
+_EXPIRY_CHECK_COOLDOWN_SECONDS: float = 120.0  # 2-minute cooldown between background scans
 
 router = APIRouter(prefix="/api/v1/notifications", tags=["System Notifications & Real-Time Expiry Engine"])
 
@@ -75,7 +81,17 @@ def mark_all_notifications_as_read(
 
 
 @router.post("/trigger-expiry-check", response_model=List[NotificationResponse])
-async def trigger_expiry_check(db: Session = Depends(get_db)):
+async def trigger_expiry_check(
+    force: bool = Query(False, description="Force expiry check bypassing debounce cooldown"),
+    db: Session = Depends(get_db),
+):
+    global _LAST_EXPIRY_CHECK_TIMESTAMP
+    now = time.time()
+    with _EXPIRY_CHECK_LOCK:
+        if not force and (now - _LAST_EXPIRY_CHECK_TIMESTAMP < _EXPIRY_CHECK_COOLDOWN_SECONDS):
+            return []
+        _LAST_EXPIRY_CHECK_TIMESTAMP = now
+
     service = NotificationService(db)
     new_notifs = service.trigger_expiry_check()
     for notif in new_notifs:

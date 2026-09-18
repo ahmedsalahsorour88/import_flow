@@ -344,7 +344,7 @@ class ShipmentStageLifecycleControl extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Skip Step Button
-        ElevatedButton.icon(
+        OutlinedButton.icon(
           onPressed: () => SkipStepDialogHelper.show(
             context: context,
             ref: ref,
@@ -358,9 +358,9 @@ class ShipmentStageLifecycleControl extends ConsumerWidget {
             l.skipStepBtn,
             style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
           ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.orange,
-            foregroundColor: Colors.white,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.orange,
+            side: const BorderSide(color: AppTheme.orange, width: 1.2),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             visualDensity: VisualDensity.compact,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),

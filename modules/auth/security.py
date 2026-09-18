@@ -4,9 +4,28 @@ import hmac
 import json
 import secrets
 import time
-from typing import Optional
+import re
+from typing import Optional, Tuple
 
 from settings import SECRET_KEY
+
+
+def validate_password_strength(password: str) -> Tuple[bool, Optional[str]]:
+    """
+    Validates password strength according to enterprise security policy:
+    - Minimum 8 characters, maximum 128 characters
+    - At least one letter (a-z or A-Z)
+    - At least one digit (0-9)
+    """
+    if not password or len(password) < 8:
+        return False, "كلمة المرور يجب أن تتكون من 8 أحرف على الأقل."
+    if len(password) > 128:
+        return False, "كلمة المرور يجب ألا تتجاوز 128 حرفاً."
+    if not re.search(r"[A-Za-z]", password):
+        return False, "كلمة المرور يجب أن تحتوي على حرف أبجدي واحد على الأقل."
+    if not re.search(r"\d", password):
+        return False, "كلمة المرور يجب أن تحتوي على رقم واحد على الأقل."
+    return True, None
 
 
 def hash_password(password: str) -> str:

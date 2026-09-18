@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
+import '../../../core/widgets/page_header.dart';
+import '../../../core/widgets/action_toolbar.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
 import '../../../core/widgets/custom_text_field.dart';
-
-import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/helpers/master_data_action_helper.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../models/partner_model.dart';
@@ -259,212 +261,210 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final density = ref.watch(displayDensityProvider);
+
     return Scaffold(
       backgroundColor: isDark ? Theme.of(context).scaffoldBackgroundColor : AppTheme.cloudWhite,
+      appBar: PageHeader(
+        icon: Icons.apartment,
+        title: l10n.partnersScreenTitle,
+        subtitle: l10n.partnersScreenSubtitle,
+        actions: const [
+          BackToDashboardButton(),
+          SizedBox(width: 8),
+        ],
+      ),
       body: SelectionArea(
         child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Bar Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.partnersScreenTitle,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        l10n.partnersScreenSubtitle,
-                        style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey, fontSize: 14),
-                      ),
-                    ],
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ActionToolbar(
+                primaryActions: [
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.cobalt,
+                      foregroundColor: Colors.white,
+                      minimumSize: Size(0, density.buttonHeight),
+                      padding: density.buttonPadding,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    icon: Icon(Icons.add, size: density.buttonIconSize),
+                    label: Text(
+                      l10n.addExternalPartnerBtn,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+                    ),
+                    onPressed: () => _showPartnerDialog(context),
                   ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.emerald,
+                      foregroundColor: Colors.white,
+                      minimumSize: Size(0, density.buttonHeight),
+                      padding: density.buttonPadding,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    icon: Icon(Icons.auto_awesome_rounded, size: density.buttonIconSize),
+                    label: Text(
+                      selectedCategory == 'All'
+                          ? l10n.aiCodePartnerBtn
+                          : l10n.aiCodeCategoryPartner(_getCategoryLabel(context, selectedCategory)),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+                    ),
+                    onPressed: () => _openExtractorForCategory(context, selectedCategory),
+                  ),
+                ],
+                moreActionItems: MasterDataActionHelper.buildStandardMoreActionItems(
+                  context: context,
+                  includeTsv: partnerList.isNotEmpty,
                 ),
-                Row(
-                  children: [
-                    const BackToDashboardButton(),
-                    const SizedBox(width: 10),
-                    if (partnerList.isNotEmpty) ...[
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.table_chart_outlined, size: 18),
-                        label: Text(l10n.partnersExportTsvBtn),
-                        onPressed: () => _copyPartnersTsv(context, partnerList),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.cobalt,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                    ],
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                      label: Text(
-                        selectedCategory == 'All'
-                            ? l10n.aiCodePartnerBtn
-                            : l10n.aiCodeCategoryPartner(_getCategoryLabel(context, selectedCategory)),
-                      ),
-                      onPressed: () => _openExtractorForCategory(context, selectedCategory),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.emerald,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.add, size: 18),
-                      label: Text(l10n.addExternalPartnerBtn),
-                      onPressed: () => _showPartnerDialog(context),
-                    ),
-                  ],
-                ),
-
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Master Data Toolbar
-            MasterDataToolbarWidget(
-              moduleEndpoint: 'external-service-providers',
-              title: 'Partners_Banks',
-              onRefreshNeeded: () => ref.refresh(partnersProvider.notifier).fetchPartners(),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Category Filter Chips
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _categories.map((cat) {
-                  final isSelected = selectedCategory == cat;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: ChoiceChip(
-                      label: Text(
-                        _getCategoryLabel(context, cat),
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                        ),
-                      ),
-                      selected: isSelected,
-                      selectedColor: AppTheme.cobalt,
-                      backgroundColor: isDark ? AppTheme.darkElevatedSurface : Colors.white,
-                      onSelected: (val) {
-                        if (val) {
-                          ref.read(selectedPartnerCategoryProvider.notifier).state = cat;
-                        }
-                      },
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Search Bar & Filter Switch
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.transparent),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: _searchController,
-                      builder: (_, val, __) => TextField(
-                        controller: _searchController,
-                        style: TextStyle(fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                        decoration: InputDecoration(
-                          prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
-                          hintText: l10n.searchPartnersHint,
-                          hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
-                          filled: false,
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: AppTheme.cobalt, width: 2),
-                          ),
-                          suffixIcon: val.text.isEmpty
-                              ? null
-                              : IconButton(
-                                  icon: Icon(Icons.clear, size: 18, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() => _searchQuery = '');
-                                  },
-                                ),
-                        ),
-                        onChanged: (v) {
-                          setState(() {
-                            _searchQuery = v.toLowerCase();
-                          });
+                onMoreActionSelected: (val) {
+                  switch (val) {
+                    case 'export_excel':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'external-service-providers',
+                        actionEndpoint: 'export-excel',
+                        defaultFileName: 'Partners_Banks_Report.xlsx',
+                        dialogTitle: 'تصدير الشركاء والبنوك إكسيل',
+                      );
+                      break;
+                    case 'export_pdf':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'external-service-providers',
+                        actionEndpoint: 'export-pdf',
+                        defaultFileName: 'Partners_Banks_Report.pdf',
+                        dialogTitle: 'تصدير الشركاء والبنوك PDF',
+                      );
+                      break;
+                    case 'copy_tsv':
+                      if (partnerList.isNotEmpty) {
+                        _copyPartnersTsv(context, partnerList);
+                      }
+                      break;
+                    case 'download_template':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'external-service-providers',
+                        actionEndpoint: 'excel-template',
+                        defaultFileName: 'Partners_Banks_Template.xlsx',
+                        dialogTitle: 'تنزيل نموذج الشركاء والبنوك',
+                      );
+                      break;
+                    case 'import_excel':
+                      MasterDataActionHelper.importExcel(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'external-service-providers',
+                        onImportSuccess: () {
+                          ref.read(partnersProvider.notifier).fetchPartners();
+                          ref.read(allPartnersProvider.notifier).fetchPartners();
                         },
+                      );
+                      break;
+                  }
+                },
+                searchController: _searchController,
+                searchHint: l10n.searchPartnersHint,
+                onSearchChanged: (v) {
+                  setState(() {
+                    _searchQuery = v.toLowerCase();
+                  });
+                },
+                filters: [
+                  // Category Dropdown Filter
+                  SizedBox(
+                    width: 155,
+                    height: density.buttonHeight,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.black26, width: 0.8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: selectedCategory,
+                          isExpanded: true,
+                          style: TextStyle(
+                            fontSize: density.buttonFontSize - 1,
+                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                          ),
+                          items: _categories.map((cat) => DropdownMenuItem(
+                            value: cat,
+                            child: Text(
+                              _getCategoryLabel(context, cat),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          )).toList(),
+                          onChanged: (cat) {
+                            if (cat != null) {
+                              ref.read(selectedPartnerCategoryProvider.notifier).state = cat;
+                            }
+                          },
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 16),
-
-                // Show Inactive Toggle Switch
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.transparent),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         l10n.showInactivePartnersLabel,
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                        style: TextStyle(
+                          fontSize: density.buttonFontSize - 1,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
+                        ),
                       ),
-                      Switch(
-                        value: showInactive,
-                        activeColor: AppTheme.cobalt,
-                        onChanged: (val) {
-                          ref.read(showInactivePartnersProvider.notifier).state = val;
-                        },
+                      const SizedBox(width: 4),
+                      Transform.scale(
+                        scale: 0.8,
+                        child: Switch(
+                          value: showInactive,
+                          activeColor: AppTheme.cobalt,
+                          onChanged: (val) {
+                            ref.read(showInactivePartnersProvider.notifier).state = val;
+                          },
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
+                ],
+                quickDataActions: [
+                  IconButton(
+                    icon: Icon(Icons.refresh, size: density.buttonIconSize + 2),
+                    tooltip: l10n.liveRefresh,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: density.buttonHeight,
+                      minHeight: density.buttonHeight,
+                    ),
+                    onPressed: () {
+                      ref.read(partnersProvider.notifier).fetchPartners();
+                      ref.read(allPartnersProvider.notifier).fetchPartners();
+                    },
+                  ),
+                  if (partnerList.isNotEmpty)
+                    IconButton(
+                      icon: Icon(Icons.copy_rounded, size: density.buttonIconSize + 2, color: AppTheme.cobalt),
+                      tooltip: l10n.partnersExportTsvBtn,
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(
+                        minWidth: density.buttonHeight,
+                        minHeight: density.buttonHeight,
+                      ),
+                      onPressed: () => _copyPartnersTsv(context, partnerList),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
 
             // Data Table Content
             Expanded(

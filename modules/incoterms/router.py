@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database.database import get_db
+from utils.cache_manager import memory_cache
 
 from .schemas import (
     CostItemCreate,
@@ -52,7 +53,9 @@ incoterms_router = APIRouter(prefix="/api/v1", tags=["Incoterms"])
 @incoterms_router.post("/incoterms/", response_model=IncotermResponse, include_in_schema=False)
 def create_incoterm(data: IncotermCreate, db: Session = Depends(get_db)):
     try:
-        return create_incoterm_service(db, data)
+        res = create_incoterm_service(db, data)
+        memory_cache.clear_prefix("incoterms:")
+        return res
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -60,7 +63,13 @@ def create_incoterm(data: IncotermCreate, db: Session = Depends(get_db)):
 @incoterms_router.get("/incoterms", response_model=List[IncotermResponse])
 @incoterms_router.get("/incoterms/", response_model=List[IncotermResponse], include_in_schema=False)
 def list_incoterms(include_inactive: bool = False, db: Session = Depends(get_db)):
-    return get_all_incoterms_service(db, include_inactive)
+    cache_key = f"incoterms:list:{include_inactive}"
+    cached = memory_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    res = get_all_incoterms_service(db, include_inactive)
+    memory_cache.set(cache_key, res, ttl_seconds=300)
+    return res
 
 
 @incoterms_router.get("/incoterms/{incoterm_id}", response_model=IncotermResponse)
@@ -71,19 +80,25 @@ def get_incoterm(incoterm_id: int, db: Session = Depends(get_db)):
 @incoterms_router.put("/incoterms/{incoterm_id}", response_model=IncotermResponse)
 def update_incoterm(incoterm_id: int, data: IncotermUpdate, db: Session = Depends(get_db)):
     try:
-        return update_incoterm_service(db, incoterm_id, data)
+        res = update_incoterm_service(db, incoterm_id, data)
+        memory_cache.clear_prefix("incoterms:")
+        return res
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @incoterms_router.delete("/incoterms/{incoterm_id}", response_model=IncotermResponse)
 def delete_incoterm(incoterm_id: int, db: Session = Depends(get_db)):
-    return delete_incoterm_service(db, incoterm_id)
+    res = delete_incoterm_service(db, incoterm_id)
+    memory_cache.clear_prefix("incoterms:")
+    return res
 
 
 @incoterms_router.patch("/incoterms/{incoterm_id}/restore", response_model=IncotermResponse)
 def restore_incoterm(incoterm_id: int, db: Session = Depends(get_db)):
-    return restore_incoterm_service(db, incoterm_id)
+    res = restore_incoterm_service(db, incoterm_id)
+    memory_cache.clear_prefix("incoterms:")
+    return res
 
 
 # ==================================================
@@ -102,7 +117,13 @@ def create_cost_item(data: CostItemCreate, db: Session = Depends(get_db)):
 @incoterms_router.get("/cost-items", response_model=List[CostItemResponse])
 @incoterms_router.get("/cost-items/", response_model=List[CostItemResponse], include_in_schema=False)
 def list_cost_items(include_inactive: bool = False, db: Session = Depends(get_db)):
-    return get_all_cost_items_service(db, include_inactive)
+    cache_key = f"incoterms:cost_items:{include_inactive}"
+    cached = memory_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    res = get_all_cost_items_service(db, include_inactive)
+    memory_cache.set(cache_key, res, ttl_seconds=300)
+    return res
 
 
 @incoterms_router.get("/cost-items/{cost_item_id}", response_model=CostItemResponse)
@@ -113,19 +134,25 @@ def get_cost_item(cost_item_id: int, db: Session = Depends(get_db)):
 @incoterms_router.put("/cost-items/{cost_item_id}", response_model=CostItemResponse)
 def update_cost_item(cost_item_id: int, data: CostItemUpdate, db: Session = Depends(get_db)):
     try:
-        return update_cost_item_service(db, cost_item_id, data)
+        res = update_cost_item_service(db, cost_item_id, data)
+        memory_cache.clear_prefix("incoterms:")
+        return res
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @incoterms_router.delete("/cost-items/{cost_item_id}", response_model=CostItemResponse)
 def delete_cost_item(cost_item_id: int, db: Session = Depends(get_db)):
-    return delete_cost_item_service(db, cost_item_id)
+    res = delete_cost_item_service(db, cost_item_id)
+    memory_cache.clear_prefix("incoterms:")
+    return res
 
 
 @incoterms_router.patch("/cost-items/{cost_item_id}/restore", response_model=CostItemResponse)
 def restore_cost_item(cost_item_id: int, db: Session = Depends(get_db)):
-    return restore_cost_item_service(db, cost_item_id)
+    res = restore_cost_item_service(db, cost_item_id)
+    memory_cache.clear_prefix("incoterms:")
+    return res
 
 
 # ==================================================
@@ -142,7 +169,9 @@ def create_responsibility(
     data: IncotermResponsibilityCreate, db: Session = Depends(get_db)
 ):
     try:
-        return create_responsibility_service(db, data)
+        res = create_responsibility_service(db, data)
+        memory_cache.clear_prefix("incoterms:")
+        return res
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -154,7 +183,13 @@ def create_responsibility(
     "/incoterm-responsibilities/", response_model=List[IncotermResponsibilityResponse], include_in_schema=False
 )
 def list_responsibilities(db: Session = Depends(get_db)):
-    return get_all_responsibilities_service(db)
+    cache_key = "incoterms:responsibilities:all"
+    cached = memory_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    res = get_all_responsibilities_service(db)
+    memory_cache.set(cache_key, res, ttl_seconds=300)
+    return res
 
 
 @incoterms_router.get(
@@ -178,7 +213,9 @@ def update_responsibility(
     db: Session = Depends(get_db),
 ):
     try:
-        return update_responsibility_service(db, responsibility_id, data)
+        res = update_responsibility_service(db, responsibility_id, data)
+        memory_cache.clear_prefix("incoterms:")
+        return res
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -188,4 +225,6 @@ def update_responsibility(
     response_model=IncotermResponsibilityResponse,
 )
 def delete_responsibility(responsibility_id: int, db: Session = Depends(get_db)):
-    return delete_responsibility_service(db, responsibility_id)
+    res = delete_responsibility_service(db, responsibility_id)
+    memory_cache.clear_prefix("incoterms:")
+    return res

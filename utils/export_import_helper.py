@@ -168,16 +168,39 @@ class MasterDataExportImportHelper:
     @staticmethod
     def export_to_pdf(title: str, headers: List[str], rows_data: List[List[Any]]) -> bytes:
         buf = io.BytesIO()
-        doc = SimpleDocTemplate(buf, pagesize=landscape(A4), rightMargin=20, leftMargin=20, topMargin=20, bottomMargin=20)
+        doc = SimpleDocTemplate(
+            buf,
+            pagesize=landscape(A4),
+            rightMargin=20,
+            leftMargin=20,
+            topMargin=35,
+            bottomMargin=35,
+        )
 
         styles = getSampleStyleSheet()
+        company_style = ParagraphStyle(
+            name="CompanyStyle",
+            parent=styles["Heading1"],
+            fontSize=13,
+            leading=16,
+            textColor=colors.HexColor("#2C3E50"),
+            fontName="Helvetica-Bold",
+        )
         title_style = ParagraphStyle(
             name="TitleStyle",
-            parent=styles["Heading1"],
-            fontSize=16,
-            leading=20,
-            alignment=1, # Center
-            textColor=colors.HexColor("#2C3E50"),
+            parent=styles["Normal"],
+            fontSize=10,
+            leading=13,
+            textColor=colors.HexColor("#3498DB"),
+            fontName="Helvetica-Bold",
+        )
+        meta_style = ParagraphStyle(
+            name="MetaStyle",
+            parent=styles["Normal"],
+            fontSize=8,
+            leading=10,
+            alignment=2,  # Right align
+            textColor=colors.HexColor("#5D6D7E"),
         )
         cell_style = ParagraphStyle(
             name="CellStyle",
@@ -194,15 +217,34 @@ class MasterDataExportImportHelper:
             textColor=colors.white,
         )
 
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
+        doc_id = f"RPT-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
         elements = []
-        elements.append(Paragraph(f"<b>ImportFlow ERP - {title}</b>", title_style))
-        elements.append(Spacer(1, 15))
 
+        # 1. Corporate Header Block
+        left_header = [
+            Paragraph("<b>SOROUR LOGISTICS & IMPORT SERVICES</b>", company_style),
+            Paragraph(f"<b>ImportFlow ERP -- {title}</b>", title_style),
+        ]
+        right_header = [
+            Paragraph(f"<b>Doc Ref:</b> {doc_id}", meta_style),
+            Paragraph(f"<b>Generated:</b> {now_str}", meta_style),
+            Paragraph("<b>Classification:</b> OFFICIAL & CONFIDENTIAL", meta_style),
+        ]
+        header_table = Table([[left_header, right_header]], colWidths=[500, 300])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        elements.append(header_table)
+        elements.append(Spacer(1, 10))
+
+        # 2. Main Data Table
         table_data = []
-        # Header Row
         table_data.append([Paragraph(h, header_cell_style) for h in headers])
-
-        # Data Rows
         for row in rows_data:
             table_data.append([Paragraph(str(v) if v is not None else "", cell_style) for v in row])
 
@@ -212,13 +254,36 @@ class MasterDataExportImportHelper:
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-            ('TOPPADDING', (0, 0), (-1, 0), 6),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#DDDDDD")),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 5),
+            ('TOPPADDING', (0, 0), (-1, 0), 5),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8F9FA")]),
         ]))
-
         elements.append(t)
-        doc.build(elements)
+        elements.append(Spacer(1, 15))
+
+        # 3. Running Header/Footer Callback
+        def draw_page_decorations(canvas, doc_obj):
+            canvas.saveState()
+            page_w, page_h = doc_obj.pagesize
+
+            # Top Accent Line
+            canvas.setStrokeColor(colors.HexColor("#3498DB"))
+            canvas.setLineWidth(2)
+            canvas.line(20, page_h - 20, page_w - 20, page_h - 20)
+
+            # Bottom Footer Divider Line
+            canvas.setStrokeColor(colors.HexColor("#BDC3C7"))
+            canvas.setLineWidth(0.75)
+            canvas.line(20, 22, page_w - 20, 22)
+
+            # Footer Text & Page Number
+            canvas.setFont("Helvetica", 7.5)
+            canvas.setFillColor(colors.HexColor("#7F8C8D"))
+            canvas.drawString(20, 12, "ImportFlow ERP Enterprise System -- Official Operational Record -- Sorour Logistics")
+            canvas.drawRightString(page_w - 20, 12, f"Page {canvas.getPageNumber()}")
+            canvas.restoreState()
+
+        doc.build(elements, onFirstPage=draw_page_decorations, onLaterPages=draw_page_decorations)
         buf.seek(0)
         return buf.getvalue()

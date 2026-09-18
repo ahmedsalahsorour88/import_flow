@@ -157,8 +157,15 @@ from modules.recalculation.router import router as recalculation_router
 
 app = FastAPI(
     title="Sorour Logistics ERP API",
-    version="1.0.184",
+    version="1.0.193",
 )
+
+# ==================================================
+# Response Compression Middleware (GZip)
+# ==================================================
+from fastapi.middleware.gzip import GZipMiddleware
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # ==================================================
 # CORS & Private Network Access (PNA) Middleware
@@ -182,29 +189,48 @@ LOCAL_ORIGIN_REGEX = CORS_ALLOWED_ORIGIN_REGEX
 async def cors_and_pna_middleware(request: Request, call_next):
     raw_origin = request.headers.get("origin", "")
     is_allowed = bool(raw_origin and _re.match(CORS_ALLOWED_ORIGIN_REGEX, raw_origin))
-    effective_origin = raw_origin if is_allowed else (raw_origin if raw_origin else "*")
 
-    # Handle CORS preflight (OPTIONS) immediately — no need to forward downstream
+    # Security headers applied system-wide
+    sec_headers = {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Content-Security-Policy": "default-src 'self'; frame-ancestors 'none'; object-src 'none';",
+        "Permissions-Policy": "geolocation=(), camera=(), microphone=()",
+    }
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    if proto == "https":
+        sec_headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+    # Handle CORS preflight (OPTIONS) immediately
     if request.method == "OPTIONS":
         req_headers = request.headers.get("access-control-request-headers", "*")
         response = Response(status_code=204)
-        response.headers["Access-Control-Allow-Origin"] = effective_origin
-        response.headers["Access-Control-Allow-Methods"] = CORS_ALLOWED_METHODS
-        response.headers["Access-Control-Allow-Headers"] = req_headers
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Private-Network"] = "true"
-        response.headers["Access-Control-Max-Age"] = "86400"
-        response.headers["Vary"] = "Origin"
+        for k, v in sec_headers.items():
+            response.headers[k] = v
+        if is_allowed:
+            response.headers["Access-Control-Allow-Origin"] = raw_origin
+            response.headers["Access-Control-Allow-Methods"] = CORS_ALLOWED_METHODS
+            response.headers["Access-Control-Allow-Headers"] = req_headers
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Private-Network"] = "true"
+            response.headers["Access-Control-Max-Age"] = "86400"
+            response.headers["Vary"] = "Origin"
         return response
 
     response = await call_next(request)
 
-    # Inject CORS + PNA headers on every actual response
-    response.headers["Access-Control-Allow-Origin"] = effective_origin
-    if effective_origin != "*":
+    # Inject security headers on every response
+    for k, v in sec_headers.items():
+        response.headers[k] = v
+
+    # Inject CORS + PNA headers strictly if origin is authorized
+    if is_allowed:
+        response.headers["Access-Control-Allow-Origin"] = raw_origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Allow-Private-Network"] = "true"
-    response.headers["Vary"] = "Origin"
+        response.headers["Access-Control-Allow-Private-Network"] = "true"
+        response.headers["Vary"] = "Origin"
+
     return response
 
 
@@ -216,14 +242,19 @@ async def global_exception_handler(request: Request, exc: Exception):
     from fastapi.responses import JSONResponse
 
     logging.getLogger("main").error(f"Unhandled server error: {exc}", exc_info=True)
-    raw_origin = request.headers.get("origin")
+    raw_origin = request.headers.get("origin", "")
     is_allowed = bool(raw_origin and re.match(LOCAL_ORIGIN_REGEX, raw_origin))
-    origin = raw_origin if is_allowed else "http://localhost:28080"
     headers = {
-        "Access-Control-Allow-Origin": origin,
-        "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Allow-Private-Network": "true",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
     }
+    if is_allowed:
+        headers["Access-Control-Allow-Origin"] = raw_origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+        headers["Access-Control-Allow-Private-Network"] = "true"
+        headers["Vary"] = "Origin"
+
     is_debug = os.getenv("DEBUG", "false").lower() in ("true", "1")
     detail = f"Internal Server Error: {str(exc)}" if is_debug else "Internal Server Error"
     return JSONResponse(
@@ -314,7 +345,7 @@ SchemaUpgradeService.execute_safe_startup_upgrade(
 def dashboard():
     return {
         "system": "Sorour Logistics ERP",
-        "version": "1.0.184",
+        "version": "1.0.193",
         "status": "running",
     }
 
@@ -345,12 +376,53 @@ def health_check():
     return {
         "status": "OK",
         "system": "Sorour Logistics ERP",
-        "version": "1.0.184",
+        "version": "1.0.193",
         "database": {
             "connected": db_exists,
             "size_kb": db_size_kb,
             "tables_count": tables_count,
         },
+    }
+
+
+# ==================================================
+# System Version & Client Update Check
+# ==================================================
+
+@app.get("/api/v1/system/version-check")
+@app.get("/api/v1/system/version")
+def system_version_check():
+    import json
+    from pathlib import Path
+
+    version_file = Path(__file__).resolve().parent / "version.json"
+    ver_data = {}
+    if version_file.exists():
+        try:
+            with open(version_file, "r", encoding="utf-8") as f:
+                ver_data = json.load(f)
+        except Exception:
+            pass
+
+    ver_str = ver_data.get("version", "1.0.188")
+    build_num = ver_data.get("build_number", 189)
+
+    return {
+        "status": "OK",
+        "system_name": "Sorour Logistics ERP",
+        "current_version": ver_str,
+        "latest_version": ver_str,
+        "build_number": build_num,
+        "has_update": False,
+        "check_status": "up_to_date",
+        "installer_url": ver_data.get("installer_url", f"https://github.com/ahmedsalahsorour88/import_flow/releases/download/v{ver_str}/Sorour_Logistics_Setup_v{ver_str}.exe"),
+        "installer_filename": ver_data.get("installer_filename", f"Sorour_Logistics_Setup_v{ver_str}.exe"),
+        "installer_size_mb": ver_data.get("installer_size_mb", 198.04),
+        "release_notes": ver_data.get("release_notes", [
+            "Sorour Logistics ERP Production Release",
+            "Full enterprise import workflow, customs calculation, and landed cost modules",
+        ]),
+        "updated_at": ver_data.get("updated_at", ""),
     }
 
 

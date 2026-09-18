@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/page_header.dart';
+import '../../../core/widgets/action_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/services/master_data_export_service.dart';
+import '../../../core/helpers/master_data_action_helper.dart';
 import '../../../core/widgets/adaptive_tab_scaffold.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/incoterm_model.dart';
@@ -29,6 +32,9 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
     // Live reload on mount — guard against duplicate fetches
     if (!ref.read(incotermsProvider).isLoading) {
       Future.microtask(
@@ -54,115 +60,236 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final density = ref.watch(displayDensityProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final showInactiveIncoterms = ref.watch(showInactiveIncotermsProvider);
+    final showInactiveCostItems = ref.watch(showInactiveCostItemsProvider);
+    final incotermsAsync = ref.watch(incotermsProvider);
+    final costItemsAsync = ref.watch(costItemsProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.cloudWhite,
+      backgroundColor: isDark ? AppTheme.darkScaffoldBackground : AppTheme.cloudWhite,
+      appBar: PageHeader(
+        title: l10n.incotermsScreenTitle,
+        subtitle: l10n.incotermsScreenSubtitle,
+        actions: const [
+          BackToDashboardButton(),
+          SizedBox(width: 8),
+        ],
+      ),
       body: SelectionArea(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.incotermsScreenTitle,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.charcoal,
-                        ),
+              ActionToolbar(
+                primaryActions: [
+                  if (_tabController.index == 0)
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.cobalt,
+                        foregroundColor: Colors.white,
+                        minimumSize: Size(0, density.buttonHeight),
+                        padding: density.buttonPadding,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        l10n.incotermsScreenSubtitle,
-                        style: const TextStyle(color: Colors.grey, fontSize: 14),
+                      icon: Icon(Icons.add, size: density.buttonIconSize),
+                      label: Text(
+                        l10n.addIncotermBtn,
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
                       ),
-                    ],
-                  ),
-                  const BackToDashboardButton(),
+                      onPressed: () => _IncotermsTab.showIncotermDialog(context, ref),
+                    )
+                  else if (_tabController.index == 1)
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.cobalt,
+                        foregroundColor: Colors.white,
+                        minimumSize: Size(0, density.buttonHeight),
+                        padding: density.buttonPadding,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      icon: Icon(Icons.add, size: density.buttonIconSize),
+                      label: Text(
+                        l10n.addCostItemBtn,
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+                      ),
+                      onPressed: () => _CostItemsTab.showCostItemDialog(context, ref),
+                    ),
                 ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // Data Actions Toolbar
-              MasterDataToolbarWidget(
-                moduleEndpoint: 'incoterms',
-                title: 'Incoterms_Master',
-                onRefreshNeeded: () {
-                  ref.read(incotermsProvider.notifier).fetchIncoterms();
-                  ref.read(costItemsProvider.notifier).fetchCostItems();
-                  ref.read(responsibilityMatrixProvider.notifier).fetchAll();
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-            // Adaptive Tab Navigation
-            Expanded(
-              child: AdaptiveTabScaffold(
-                controller: _tabController,
-                header: AnimatedBuilder(
-                  animation: _tabController,
-                  builder: (context, _) {
-                    if (_tabController.index == 2) return const SizedBox.shrink();
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: _searchController,
-                        builder: (context, val, _) {
-                          return TextField(
-                            controller: _searchController,
-                            onChanged: (v) =>
-                                setState(() => _searchQuery = v.toLowerCase()),
-                            decoration: InputDecoration(
-                              hintText: l10n.searchIncotermsHint,
-                              prefixIcon:
-                                  const Icon(Icons.search, color: Colors.grey),
-                              suffixIcon: val.text.isEmpty
-                                  ? null
-                                  : IconButton(
-                                      icon: const Icon(Icons.clear,
-                                          color: Colors.grey),
-                                      onPressed: () {
-                                        _searchController.clear();
-                                        setState(() => _searchQuery = '');
-                                      }),
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  },
+                moreActionItems: MasterDataActionHelper.buildStandardMoreActionItems(
+                  context: context,
+                  includeTsv: true,
                 ),
-                tabs: [
-                  AdaptiveTabItem(
-                    icon: Icons.handshake_outlined,
-                    label: l10n.incotermsTabRules,
-                    content: _IncotermsTab(searchQuery: _searchQuery),
+                onMoreActionSelected: (val) {
+                  switch (val) {
+                    case 'export_excel':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'incoterms',
+                        actionEndpoint: 'export-excel',
+                        defaultFileName: 'Incoterms_Master.xlsx',
+                        dialogTitle: 'تصدير الشروط التجارية Excel',
+                      );
+                      break;
+                    case 'export_pdf':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'incoterms',
+                        actionEndpoint: 'export-pdf',
+                        defaultFileName: 'Incoterms_Report.pdf',
+                        dialogTitle: 'تصدير الشروط التجارية PDF',
+                      );
+                      break;
+                    case 'copy_tsv':
+                      if (_tabController.index == 0) {
+                        _IncotermsTab.copyIncotermsTsv(context, incotermsAsync.value ?? []);
+                      } else if (_tabController.index == 1) {
+                        _CostItemsTab.copyCostItemsTsv(context, costItemsAsync.value ?? []);
+                      }
+                      break;
+                    case 'download_template':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'incoterms',
+                        actionEndpoint: 'excel-template',
+                        defaultFileName: 'Incoterms_Template.xlsx',
+                        dialogTitle: 'تنزيل نموذج الشروط التجارية',
+                      );
+                      break;
+                    case 'import_excel':
+                      MasterDataActionHelper.importExcel(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'incoterms',
+                        onImportSuccess: () {
+                          ref.read(incotermsProvider.notifier).fetchIncoterms();
+                          ref.read(costItemsProvider.notifier).fetchCostItems();
+                          ref.read(responsibilityMatrixProvider.notifier).fetchAll();
+                        },
+                      );
+                      break;
+                  }
+                },
+                searchController: _searchController,
+                searchHint: l10n.searchIncotermsHint,
+                onSearchChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+                filters: [
+                  if (_tabController.index == 0)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          l10n.showInactiveIncotermsLabel,
+                          style: TextStyle(
+                            fontSize: density.buttonFontSize - 1,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Transform.scale(
+                          scale: 0.8,
+                          child: Switch(
+                            value: showInactiveIncoterms,
+                            activeColor: AppTheme.cobalt,
+                            onChanged: (val) {
+                              ref.read(showInactiveIncotermsProvider.notifier).state = val;
+                            },
+                          ),
+                        ),
+                      ],
+                    )
+                  else if (_tabController.index == 1)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          l10n.showInactiveCostItemsLabel,
+                          style: TextStyle(
+                            fontSize: density.buttonFontSize - 1,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Transform.scale(
+                          scale: 0.8,
+                          child: Switch(
+                            value: showInactiveCostItems,
+                            activeColor: AppTheme.cobalt,
+                            onChanged: (val) {
+                              ref.read(showInactiveCostItemsProvider.notifier).state = val;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+                quickDataActions: [
+                  IconButton(
+                    icon: Icon(Icons.refresh, size: density.buttonIconSize + 2),
+                    tooltip: l10n.liveRefresh,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: density.buttonHeight,
+                      minHeight: density.buttonHeight,
+                    ),
+                    onPressed: () {
+                      ref.read(incotermsProvider.notifier).fetchIncoterms();
+                      ref.read(costItemsProvider.notifier).fetchCostItems();
+                      ref.read(responsibilityMatrixProvider.notifier).fetchAll();
+                    },
                   ),
-                  AdaptiveTabItem(
-                    icon: Icons.receipt_long_outlined,
-                    label: l10n.incotermsTabCostItems,
-                    content: _CostItemsTab(searchQuery: _searchQuery),
-                  ),
-                  AdaptiveTabItem(
-                    icon: Icons.table_chart_outlined,
-                    label: l10n.incotermsTabMatrix,
-                    content: const _ResponsibilityMatrixTab(),
+                  IconButton(
+                    icon: Icon(Icons.copy_rounded, size: density.buttonIconSize + 2, color: AppTheme.cobalt),
+                    tooltip: l10n.incotermsExportTsvBtn,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: density.buttonHeight,
+                      minHeight: density.buttonHeight,
+                    ),
+                    onPressed: () {
+                      if (_tabController.index == 0) {
+                        _IncotermsTab.copyIncotermsTsv(context, incotermsAsync.value ?? []);
+                      } else if (_tabController.index == 1) {
+                        _CostItemsTab.copyCostItemsTsv(context, costItemsAsync.value ?? []);
+                      }
+                    },
                   ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              // Adaptive Tab Navigation
+              Expanded(
+                child: AdaptiveTabScaffold(
+                  controller: _tabController,
+                  tabs: [
+                    AdaptiveTabItem(
+                      icon: Icons.handshake_outlined,
+                      label: l10n.incotermsTabRules,
+                      content: _IncotermsTab(searchQuery: _searchQuery),
+                    ),
+                    AdaptiveTabItem(
+                      icon: Icons.receipt_long_outlined,
+                      label: l10n.incotermsTabCostItems,
+                      content: _CostItemsTab(searchQuery: _searchQuery),
+                    ),
+                    AdaptiveTabItem(
+                      icon: Icons.table_chart_outlined,
+                      label: l10n.incotermsTabMatrix,
+                      content: const _ResponsibilityMatrixTab(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -180,75 +307,30 @@ class _IncotermsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final incotermsAsync = ref.watch(incotermsProvider);
-    final showInactive = ref.watch(showInactiveIncotermsProvider);
 
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Text(l10n.showInactiveIncotermsLabel, style: const TextStyle(fontSize: 13)),
-                const SizedBox(width: 8),
-                Switch(
-                  value: showInactive,
-                  activeColor: AppTheme.cobalt,
-                  onChanged: (val) {
-                    ref.read(showInactiveIncotermsProvider.notifier).state = val;
-                  },
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.table_chart_outlined, size: 18),
-                  label: Text(l10n.incotermsExportTsvBtn),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.cobalt,
-                    side: const BorderSide(color: AppTheme.cobalt),
-                  ),
-                  onPressed: () => _copyIncotermsTsv(context, incotermsAsync.value ?? []),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.add, size: 18),
-                  label: Text(l10n.addIncotermBtn),
-                  onPressed: () => _showIncotermDialog(context, ref),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: incotermsAsync.when(
-            loading: () =>
-                const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
-            error: (e, _) => Center(child: Text(e.toString())),
-            data: (incoterms) {
-              final filtered = searchQuery.isEmpty
-                  ? incoterms
-                  : incoterms
-                      .where((i) =>
-                          i.incotermCode.toLowerCase().contains(searchQuery) ||
-                          i.incotermName.toLowerCase().contains(searchQuery))
-                      .toList();
-              if (filtered.isEmpty) {
-                return Center(
-                    child: Text(l10n.noIncotermsFound,
-                        style: const TextStyle(color: Colors.grey)));
-              }
-              return _buildIncotermTable(context, ref, filtered);
-            },
-          ),
-        ),
-      ],
+    return incotermsAsync.when(
+      loading: () =>
+          const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
+      error: (e, _) => Center(child: Text(e.toString())),
+      data: (incoterms) {
+        final filtered = searchQuery.isEmpty
+            ? incoterms
+            : incoterms
+                .where((i) =>
+                    i.incotermCode.toLowerCase().contains(searchQuery) ||
+                    i.incotermName.toLowerCase().contains(searchQuery))
+                .toList();
+        if (filtered.isEmpty) {
+          return Center(
+              child: Text(l10n.noIncotermsFound,
+                  style: const TextStyle(color: Colors.grey)));
+        }
+        return _buildIncotermTable(context, ref, filtered);
+      },
     );
   }
 
-  void _copyIncotermsTsv(BuildContext context, List<IncotermModel> incoterms) {
+  static void copyIncotermsTsv(BuildContext context, List<IncotermModel> incoterms) {
     final l10n = context.l10n;
     final headers = [
       l10n.incotermsTsvHeaderCode,
@@ -393,8 +475,8 @@ class _IncotermsTab extends ConsumerWidget {
                                 ),
                               ),
                               RowActionsPill(
-                                onView: () => _showIncotermDialog(context, ref, incoterm: i),
-                                onEdit: () => _showIncotermDialog(context, ref, incoterm: i),
+                                onView: () => showIncotermDialog(context, ref, incoterm: i),
+                                onEdit: () => showIncotermDialog(context, ref, incoterm: i),
                                 onPrint: () {
                                   final matrix = ref.read(responsibilityMatrixProvider).value ?? [];
                                   MasterDataExportService.printOrSaveIncotermPdf(i, matrix);
@@ -546,7 +628,7 @@ class _IncotermsTab extends ConsumerWidget {
     );
   }
 
-  void _showIncotermDialog(BuildContext context, WidgetRef ref,
+  static void showIncotermDialog(BuildContext context, WidgetRef ref,
       {IncotermModel? incoterm}) {
     final l10n = context.l10n;
     final codeCtrl =
@@ -774,76 +856,31 @@ class _CostItemsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final costItemsAsync = ref.watch(costItemsProvider);
-    final showInactive = ref.watch(showInactiveCostItemsProvider);
 
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Text(l10n.showInactiveCostItemsLabel, style: const TextStyle(fontSize: 13)),
-                const SizedBox(width: 8),
-                Switch(
-                  value: showInactive,
-                  activeColor: AppTheme.cobalt,
-                  onChanged: (val) {
-                    ref.read(showInactiveCostItemsProvider.notifier).state = val;
-                  },
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.table_chart_outlined, size: 18),
-                  label: Text(l10n.costItemsExportTsvBtn),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.cobalt,
-                    side: const BorderSide(color: AppTheme.cobalt),
-                  ),
-                  onPressed: () => _copyCostItemsTsv(context, costItemsAsync.value ?? []),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.add, size: 18),
-                  label: Text(l10n.addCostItemBtn),
-                  onPressed: () => _showCostItemDialog(context, ref),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: costItemsAsync.when(
-            loading: () => const Center(
-                child: CircularProgressIndicator(color: AppTheme.cobalt)),
-            error: (e, _) => Center(child: Text(e.toString())),
-            data: (items) {
-              final filtered = searchQuery.isEmpty
-                  ? items
-                  : items
-                      .where((i) =>
-                          i.costItemCode.toLowerCase().contains(searchQuery) ||
-                          i.costItemName.toLowerCase().contains(searchQuery) ||
-                          i.costCategory.toLowerCase().contains(searchQuery))
-                      .toList();
-              if (filtered.isEmpty) {
-                return Center(
-                    child: Text(l10n.noCostItemsFound,
-                        style: const TextStyle(color: Colors.grey)));
-              }
-              return _buildCostItemTable(context, ref, filtered);
-            },
-          ),
-        ),
-      ],
+    return costItemsAsync.when(
+      loading: () => const Center(
+          child: CircularProgressIndicator(color: AppTheme.cobalt)),
+      error: (e, _) => Center(child: Text(e.toString())),
+      data: (items) {
+        final filtered = searchQuery.isEmpty
+            ? items
+            : items
+                .where((i) =>
+                    i.costItemCode.toLowerCase().contains(searchQuery) ||
+                    i.costItemName.toLowerCase().contains(searchQuery) ||
+                    i.costCategory.toLowerCase().contains(searchQuery))
+                .toList();
+        if (filtered.isEmpty) {
+          return Center(
+              child: Text(l10n.noCostItemsFound,
+                  style: const TextStyle(color: Colors.grey)));
+        }
+        return _buildCostItemTable(context, ref, filtered);
+      },
     );
   }
 
-  void _copyCostItemsTsv(BuildContext context, List<CostItemModel> items) {
+  static void copyCostItemsTsv(BuildContext context, List<CostItemModel> items) {
     final l10n = context.l10n;
     final headers = [
       l10n.costItemsTsvHeaderCode,
@@ -989,8 +1026,8 @@ class _CostItemsTab extends ConsumerWidget {
                             ),
                           ),
                           RowActionsPill(
-                            onView: () => _showCostItemDialog(context, ref, item: item),
-                            onEdit: () => _showCostItemDialog(context, ref, item: item),
+                            onView: () => showCostItemDialog(context, ref, item: item),
+                            onEdit: () => showCostItemDialog(context, ref, item: item),
                             onPrint: () {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
@@ -1141,7 +1178,7 @@ class _CostItemsTab extends ConsumerWidget {
 );
 }
 
-  void _showCostItemDialog(BuildContext context, WidgetRef ref,
+  static void showCostItemDialog(BuildContext context, WidgetRef ref,
       {CostItemModel? item}) {
     final l10n = context.l10n;
     final codeCtrl = TextEditingController(text: item?.costItemCode ?? '');

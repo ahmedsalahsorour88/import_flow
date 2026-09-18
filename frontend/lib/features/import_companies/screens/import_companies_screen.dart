@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
+import '../../../core/widgets/page_header.dart';
+import '../../../core/widgets/action_toolbar.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
 import '../../../core/widgets/custom_text_field.dart';
-import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/row_context_menu.dart';
 import '../../../core/widgets/universal_entity_extractor_dialog.dart';
+import '../../../core/helpers/master_data_action_helper.dart';
 import '../models/import_company_model.dart';
 import '../providers/import_companies_provider.dart';
 import '../widgets/import_company_details_dialog.dart';
@@ -115,155 +118,171 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
     final companiesAsync = ref.watch(importCompaniesProvider);
     final showInactive = ref.watch(showInactiveCompaniesProvider);
 
+    final density = ref.watch(displayDensityProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: AppTheme.cloudWhite,
+      backgroundColor: isDark ? AppTheme.darkScaffoldBackground : AppTheme.cloudWhite,
+      appBar: PageHeader(
+        icon: Icons.business,
+        title: l10n.importCompaniesScreenTitle,
+        subtitle: l10n.importCompaniesScreenSubtitle,
+        actions: const [
+          BackToDashboardButton(),
+          SizedBox(width: 8),
+        ],
+      ),
       body: SelectionArea(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top Bar Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.importCompaniesScreenTitle,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.charcoal,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          l10n.importCompaniesScreenSubtitle,
-                          style: const TextStyle(color: Colors.grey, fontSize: 14),
-                        ),
-                      ],
+              ActionToolbar(
+                primaryActions: [
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.cobalt,
+                      foregroundColor: Colors.white,
+                      minimumSize: Size(0, density.buttonHeight),
+                      padding: density.buttonPadding,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    icon: Icon(Icons.add_business, size: density.buttonIconSize),
+                    label: Text(
+                      l10n.addImporterCompanyBtn,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+                    ),
+                    onPressed: () => _showCompanyDialog(context),
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.emerald,
+                      foregroundColor: Colors.white,
+                      minimumSize: Size(0, density.buttonHeight),
+                      padding: density.buttonPadding,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    icon: Icon(Icons.auto_awesome_rounded, size: density.buttonIconSize),
+                    label: Text(
+                      l10n.aiCodeCompanyBtn,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+                    ),
+                    onPressed: () => UniversalEntityExtractorDialog.showImporterExtractor(
+                      context,
+                      onSaved: () => ref.read(importCompaniesProvider.notifier).fetchCompanies(),
                     ),
                   ),
-                  Row(
-                    children: [
-                      const BackToDashboardButton(),
-                      const SizedBox(width: 12),
-                      // Show Deactivated Filter Switch
-                      Row(
-                        children: [
-                          Text(l10n.includeDeactivatedLabel, style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal)),
-                          const SizedBox(width: 8),
-                          Switch(
-                            value: showInactive,
-                            activeColor: AppTheme.cobalt,
-                            onChanged: (val) {
-                              ref.read(showInactiveCompaniesProvider.notifier).state = val;
-                            },
-                          ),
-                        ],
-                      ),
-                      if (companiesAsync.valueOrNull != null && companiesAsync.valueOrNull!.isNotEmpty) ...[
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.table_chart_rounded, size: 18),
-                          label: Text(l10n.importCompaniesExportTsvBtn),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.cobalt,
-                            side: const BorderSide(color: AppTheme.cobalt),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          onPressed: () => _copyCompaniesTsv(companiesAsync.valueOrNull!),
-                        ),
-                        const SizedBox(width: 12),
-                      ],
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                        label: Text(l10n.aiCodeCompanyBtn),
-                        onPressed: () => UniversalEntityExtractorDialog.showImporterExtractor(
-                          context,
-                          onSaved: () => ref.read(importCompaniesProvider.notifier).fetchCompanies(),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.emerald,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.add_business, size: 18),
-                        label: Text(l10n.addImporterCompanyBtn),
-                        onPressed: () => _showCompanyDialog(context),
-                      ),
-                    ],
-                  ),
                 ],
-              ),
-            const SizedBox(height: 16),
-
-            // Master Data Toolbar (Excel Template, Upload, Export Excel, Export PDF)
-            MasterDataToolbarWidget(
-              moduleEndpoint: 'import-companies',
-              title: 'Import_Companies',
-              onRefreshNeeded: () => ref.refresh(importCompaniesProvider.notifier).fetchCompanies(),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Search Bar
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: TextField(
-                controller: _searchController,
-                style: const TextStyle(fontSize: 14),
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search, color: AppTheme.charcoal),
-                  suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: _searchController,
-                    builder: (context, value, child) {
-                      if (value.text.isEmpty) return const SizedBox.shrink();
-                      return IconButton(
-                        icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {
-                            _searchQuery = '';
-                          });
-                        },
-                      );
-                    },
-                  ),
-                  hintText: l10n.searchImporterHint,
-                  filled: false,
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppTheme.cobalt, width: 2),
-                  ),
+                moreActionItems: MasterDataActionHelper.buildStandardMoreActionItems(
+                  context: context,
+                  includeTsv: companiesAsync.valueOrNull != null && companiesAsync.valueOrNull!.isNotEmpty,
                 ),
-                onChanged: (val) {
+                onMoreActionSelected: (val) {
+                  switch (val) {
+                    case 'export_excel':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'import-companies',
+                        actionEndpoint: 'export-excel',
+                        defaultFileName: 'Import_Companies_Report.xlsx',
+                        dialogTitle: 'تصدير الشركات المستوردة إكسيل',
+                      );
+                      break;
+                    case 'export_pdf':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'import-companies',
+                        actionEndpoint: 'export-pdf',
+                        defaultFileName: 'Import_Companies_Report.pdf',
+                        dialogTitle: 'تصدير الشركات المستوردة PDF',
+                      );
+                      break;
+                    case 'copy_tsv':
+                      if (companiesAsync.valueOrNull != null) {
+                        _copyCompaniesTsv(companiesAsync.valueOrNull!);
+                      }
+                      break;
+                    case 'download_template':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'import-companies',
+                        actionEndpoint: 'excel-template',
+                        defaultFileName: 'Import_Companies_Template.xlsx',
+                        dialogTitle: 'تنزيل نموذج الشركات المستوردة',
+                      );
+                      break;
+                    case 'import_excel':
+                      MasterDataActionHelper.importExcel(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'import-companies',
+                        onImportSuccess: () => ref.read(importCompaniesProvider.notifier).fetchCompanies(),
+                      );
+                      break;
+                  }
+                },
+                searchController: _searchController,
+                searchHint: l10n.searchImporterHint,
+                onSearchChanged: (val) {
                   setState(() {
                     _searchQuery = val.toLowerCase();
                   });
                 },
+                filters: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        l10n.includeDeactivatedLabel,
+                        style: TextStyle(
+                          fontSize: density.buttonFontSize - 1,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Transform.scale(
+                        scale: 0.8,
+                        child: Switch(
+                          value: showInactive,
+                          activeColor: AppTheme.cobalt,
+                          onChanged: (val) {
+                            ref.read(showInactiveCompaniesProvider.notifier).state = val;
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                quickDataActions: [
+                  IconButton(
+                    icon: Icon(Icons.refresh, size: density.buttonIconSize + 2),
+                    tooltip: l10n.liveRefresh,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: density.buttonHeight,
+                      minHeight: density.buttonHeight,
+                    ),
+                    onPressed: () => ref.read(importCompaniesProvider.notifier).fetchCompanies(),
+                  ),
+                  if (companiesAsync.valueOrNull != null && companiesAsync.valueOrNull!.isNotEmpty)
+                    IconButton(
+                      icon: Icon(Icons.copy_rounded, size: density.buttonIconSize + 2, color: AppTheme.cobalt),
+                      tooltip: l10n.importCompaniesExportTsvBtn,
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(
+                        minWidth: density.buttonHeight,
+                        minHeight: density.buttonHeight,
+                      ),
+                      onPressed: () => _copyCompaniesTsv(companiesAsync.valueOrNull!),
+                    ),
+                ],
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 8),
 
             // Data Table Content
             Expanded(

@@ -476,7 +476,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       titleAr: 'الميناء والتخليص الجمركي والمعاينة والمطابقة',
       titleEn: 'Port Operations & Customs Clearance Hub',
       headerIcon: Icons.gavel_rounded,
-      headerColor: Colors.purple,
+      headerColor: AppTheme.cobalt,
       headerActions: [
         ElevatedButton.icon(
           icon: Icon(Icons.auto_awesome_rounded, size: density.buttonIconSize),
@@ -516,7 +516,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
             CustomsBrokerAuthorizationDialog.show(context, targetFile);
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF7C3AED),
+            backgroundColor: AppTheme.cobalt,
             foregroundColor: Colors.white,
             padding: EdgeInsets.symmetric(
               horizontal: density.isCompact ? 10 : 14,
@@ -546,7 +546,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
             DeliveryOrderPaymentDialog.show(context, targetFile);
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0284C7),
+            backgroundColor: AppTheme.cobalt,
             foregroundColor: Colors.white,
             padding: EdgeInsets.symmetric(
               horizontal: density.isCompact ? 10 : 14,
@@ -576,7 +576,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
             CustomsDeclaration46Dialog.show(context, targetFile);
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFD97706),
+            backgroundColor: AppTheme.cobalt,
             foregroundColor: Colors.white,
             padding: EdgeInsets.symmetric(
               horizontal: density.isCompact ? 10 : 14,
@@ -606,7 +606,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
             CustomsInspectionSamplingDialog.show(context, targetFile);
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0D9488), // Teal
+            backgroundColor: AppTheme.emerald,
             foregroundColor: Colors.white,
             padding: EdgeInsets.symmetric(
               horizontal: density.isCompact ? 10 : 14,
@@ -636,7 +636,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
             FinalDutyAssessmentDialog.show(context, targetFile);
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF7C3AED), // Purple
+            backgroundColor: AppTheme.cobalt,
             foregroundColor: Colors.white,
             padding: EdgeInsets.symmetric(
               horizontal: density.isCompact ? 10 : 14,
@@ -726,7 +726,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
             ClearanceExpensesDialog.show(context, targetFile);
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0284C7),
+            backgroundColor: AppTheme.cobalt,
             foregroundColor: Colors.white,
             padding: EdgeInsets.symmetric(
               horizontal: density.isCompact ? 10 : 14,
@@ -743,6 +743,8 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       ],
       selectedIndex: _selectedTab,
       onTabSelected: (idx) => setState(() => _selectedTab = idx),
+      selectedImportFileId: widget.initialImportFileId,
+      onShipmentStatusChanged: _refreshData,
       tabs: const [
         VerticalNavTabItem(
           icon: Icons.fact_check_outlined,

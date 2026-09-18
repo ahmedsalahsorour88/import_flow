@@ -12,31 +12,61 @@ else:
     BASE_DIR = Path(__file__).resolve().parent.parent
 
 DB_PATH = os.getenv("DATABASE_PATH", str(BASE_DIR / "sorour_logistics.db"))
-# SQLite Database
-DATABASE_URL = f"sqlite:///{Path(DB_PATH).as_posix()}"
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    DATABASE_URL = f"sqlite:///{Path(DB_PATH).as_posix()}"
 
+# Normalize legacy postgres:// URI to standard postgresql:// for SQLAlchemy 2.0
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# Create Engine
-engine = create_engine(
-    DATABASE_URL,
-    echo=False,
-    connect_args={
-        "check_same_thread": False,
-        "timeout": 30,
-    }
-)
+IS_SQLITE = DATABASE_URL.startswith("sqlite")
 
+# Create Engine with Optimized Connection Pooling for Concurrency
+if IS_SQLITE:
+    engine = create_engine(
+        DATABASE_URL,
+        echo=False,
+        pool_size=20,
+        max_overflow=20,
+        pool_timeout=30,
+        pool_recycle=1800,
+        connect_args={
+            "check_same_thread": False,
+            "timeout": 30,
+        }
+    )
 
-@event.listens_for(engine, "connect")
-def _set_sqlite_pragma(dbapi_connection, connection_record):
-    cursor = dbapi_connection.cursor()
-    try:
-        cursor.execute("PRAGMA journal_mode = WAL;")
-        cursor.execute("PRAGMA synchronous = NORMAL;")
-    except Exception:
-        pass
-    finally:
-        cursor.close()
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        try:
+            # WAL mode allows concurrent readers while writing
+            cursor.execute("PRAGMA journal_mode = WAL;")
+            cursor.execute("PRAGMA synchronous = NORMAL;")
+            # Prevent "database is locked" errors by waiting up to 30s for locks to clear
+            cursor.execute("PRAGMA busy_timeout = 30000;")
+            # Expand page cache from default 2MB to 64MB (-64000 KiB)
+            cursor.execute("PRAGMA cache_size = -64000;")
+            # Memory-mapped I/O (256 MB) for lightning-fast reads
+            cursor.execute("PRAGMA mmap_size = 268435456;")
+            # Keep temp tables and sorting structures in RAM
+            cursor.execute("PRAGMA temp_store = MEMORY;")
+        except Exception:
+            pass
+        finally:
+            cursor.close()
+else:
+    # Enterprise PostgreSQL Engine with connection recycling and health pre-ping
+    engine = create_engine(
+        DATABASE_URL,
+        echo=False,
+        pool_size=20,
+        max_overflow=20,
+        pool_timeout=30,
+        pool_recycle=1800,
+        pool_pre_ping=True,
+    )
 
 
 # Create Session

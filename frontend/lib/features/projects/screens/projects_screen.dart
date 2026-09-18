@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
+import '../../../core/widgets/page_header.dart';
+import '../../../core/widgets/action_toolbar.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/helpers/master_data_action_helper.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
@@ -258,163 +261,171 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final l10n = context.l10n;
     final projectsAsync = ref.watch(projectsProvider);
 
+    final density = ref.watch(displayDensityProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.grey.shade100,
+      appBar: PageHeader(
+        icon: Icons.folder_special_outlined,
+        title: l10n.projectsScreenTitle,
+        subtitle: l10n.projectsScreenSubtitle,
+        actions: const [
+          BackToDashboardButton(),
+          SizedBox(width: 8),
+        ],
+      ),
       body: SelectionArea(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Title & Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.projectsScreenTitle,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.charcoal,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          l10n.projectsScreenSubtitle,
-                          style: const TextStyle(fontSize: 13, color: Colors.grey),
-                        ),
-                      ],
+              ActionToolbar(
+                primaryActions: [
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.cobalt,
+                      foregroundColor: Colors.white,
+                      minimumSize: Size(0, density.buttonHeight),
+                      padding: density.buttonPadding,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const BackToDashboardButton(),
-                      const SizedBox(width: 10),
-                      if (projectsAsync.valueOrNull != null && projectsAsync.valueOrNull!.isNotEmpty) ...[
-                        OutlinedButton.icon(
-                          onPressed: () => _copyProjectsTsv(projectsAsync.valueOrNull!),
-                          icon: const Icon(Icons.table_chart_outlined, size: 18),
-                          label: Text(l10n.projectsExportTsvBtn),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.cobalt,
-                            side: const BorderSide(color: AppTheme.cobalt),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                      ],
-                      ElevatedButton.icon(
-                        onPressed: () => _showProjectDialog(context),
-                        icon: const Icon(Icons.add, size: 18),
-                        label: Text(l10n.createNewProjectBtn),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.cobalt,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                    ],
+                    icon: Icon(Icons.add, size: density.buttonIconSize),
+                    label: Text(
+                      l10n.createNewProjectBtn,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+                    ),
+                    onPressed: () => _showProjectDialog(context),
                   ),
                 ],
-              ),
-
-            const SizedBox(height: 16),
-
-            // Master Data Toolbar
-            MasterDataToolbarWidget(
-              moduleEndpoint: 'projects',
-              title: 'Projects_CostCenters',
-              onRefreshNeeded: () => ref.refresh(projectsProvider.notifier).fetchProjects(),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Filters & Search Bar
-            Row(
-              children: [
-                Wrap(
-                  spacing: 8,
-                  children: _statuses.map((st) {
-                    final isSelected = _selectedStatus == st;
-                    return ChoiceChip(
-                      label: Text(_getStatusLabel(context, st)),
-                      selected: isSelected,
-                      selectedColor: AppTheme.cobalt,
-                      labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : AppTheme.charcoal,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(() {
-                            _selectedStatus = st;
-                          });
-                          ref.read(projectsProvider.notifier).fetchProjects(
-                                status: st,
-                                search: _searchQuery,
-                              );
-                        }
-                      },
-                    );
-                  }).toList(),
+                moreActionItems: MasterDataActionHelper.buildStandardMoreActionItems(
+                  context: context,
+                  includeTsv: projectsAsync.valueOrNull != null && projectsAsync.valueOrNull!.isNotEmpty,
                 ),
-                const Spacer(),
-                SizedBox(
-                  width: 320,
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: l10n.projectsSearchHint,
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: _searchController,
-                        builder: (context, value, _) {
-                          if (value.text.isEmpty) return const SizedBox.shrink();
-                          return IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
-                            onPressed: () {
-                              _searchController.clear();
-                              _searchQuery = '';
+                onMoreActionSelected: (val) {
+                  switch (val) {
+                    case 'export_excel':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'projects',
+                        actionEndpoint: 'export-excel',
+                        defaultFileName: 'Projects_CostCenters_Report.xlsx',
+                        dialogTitle: 'تصدير المشاريع ومراكز التكلفة إكسيل',
+                      );
+                      break;
+                    case 'export_pdf':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'projects',
+                        actionEndpoint: 'export-pdf',
+                        defaultFileName: 'Projects_CostCenters_Report.pdf',
+                        dialogTitle: 'تصدير المشاريع ومراكز التكلفة PDF',
+                      );
+                      break;
+                    case 'copy_tsv':
+                      if (projectsAsync.valueOrNull != null) {
+                        _copyProjectsTsv(projectsAsync.valueOrNull!);
+                      }
+                      break;
+                    case 'download_template':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'projects',
+                        actionEndpoint: 'excel-template',
+                        defaultFileName: 'Projects_CostCenters_Template.xlsx',
+                        dialogTitle: 'تنزيل نموذج المشاريع ومراكز التكلفة',
+                      );
+                      break;
+                    case 'import_excel':
+                      MasterDataActionHelper.importExcel(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'projects',
+                        onImportSuccess: () => ref.read(projectsProvider.notifier).fetchProjects(),
+                      );
+                      break;
+                  }
+                },
+                searchController: _searchController,
+                searchHint: l10n.projectsSearchHint,
+                onSearchChanged: (val) {
+                  _searchQuery = val;
+                  ref.read(projectsProvider.notifier).fetchProjects(
+                        status: _selectedStatus,
+                        search: val,
+                      );
+                },
+                filters: [
+                  SizedBox(
+                    width: 140,
+                    height: density.buttonHeight,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.black26, width: 0.8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedStatus,
+                          isExpanded: true,
+                          style: TextStyle(
+                            fontSize: density.buttonFontSize - 1,
+                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                          ),
+                          items: _statuses.map((st) => DropdownMenuItem(
+                            value: st,
+                            child: Text(_getStatusLabel(context, st)),
+                          )).toList(),
+                          onChanged: (st) {
+                            if (st != null) {
+                              setState(() {
+                                _selectedStatus = st;
+                              });
                               ref.read(projectsProvider.notifier).fetchProjects(
-                                    status: _selectedStatus,
-                                    search: '',
+                                    status: st,
+                                    search: _searchQuery,
                                   );
-                            },
-                          );
-                        },
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
+                            }
+                          },
+                        ),
                       ),
                     ),
-                    onChanged: (val) {
-                      _searchQuery = val;
-                      ref.read(projectsProvider.notifier).fetchProjects(
-                            status: _selectedStatus,
-                            search: val,
-                          );
-                    },
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+                ],
+                quickDataActions: [
+                  IconButton(
+                    icon: Icon(Icons.refresh, size: density.buttonIconSize + 2),
+                    tooltip: l10n.liveRefresh,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: density.buttonHeight,
+                      minHeight: density.buttonHeight,
+                    ),
+                    onPressed: () => ref.read(projectsProvider.notifier).fetchProjects(
+                          status: _selectedStatus,
+                          search: _searchQuery,
+                        ),
+                  ),
+                  if (projectsAsync.valueOrNull != null && projectsAsync.valueOrNull!.isNotEmpty)
+                    IconButton(
+                      icon: Icon(Icons.copy_rounded, size: density.buttonIconSize + 2, color: AppTheme.cobalt),
+                      tooltip: l10n.projectsExportTsvBtn,
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(
+                        minWidth: density.buttonHeight,
+                        minHeight: density.buttonHeight,
+                      ),
+                      onPressed: () => _copyProjectsTsv(projectsAsync.valueOrNull!),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
 
             // Table Content
             Expanded(

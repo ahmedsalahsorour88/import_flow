@@ -1,0 +1,8 @@
+# 🤖 Antigravity Standing Operating Rules (ImportFlow ERP)
+
+1. **Read Manifest First:** Always inspect `docs/design-system/INDEX.md` at the start of any session before modifying screens or writing UI/business logic.
+2. **Follow Execution Order:** Strictly adhere to the recommended execution sequence defined in `docs/design-system/INDEX.md` (Component Consolidation -> Screen Types -> Interactive Patterns -> Security -> Logistics -> Performance -> Master Audit).
+3. **Persistent Session Logging:** Append every modification, touched files, test results, and pending actions to `docs/design-system/execution-log.md` after every change.
+4. **Git Safety Net:** Never commit directly to `main` or production branches without user confirmation of the diff. Always confirm rollback points before major fix passes.
+5. **Conflict Resolution:** If two specifications, color guidelines, or layout rules conflict, flag the discrepancy and ask the user explicitly — do NOT guess or silently pick one.
+6. **Self-Verification per Spec:** Check off every item in the spec's "Definition of Done" before declaring any task complete.

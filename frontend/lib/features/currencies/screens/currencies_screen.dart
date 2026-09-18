@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/page_header.dart';
+import '../../../core/widgets/action_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/master_data_export_service.dart';
+import '../../../core/helpers/master_data_action_helper.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/currency_model.dart';
 
@@ -130,208 +133,197 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
 
   @override
   Widget build(BuildContext context) {
-
     final l10n = context.l10n;
     final currenciesAsync = ref.watch(currenciesProvider);
+    final density = ref.watch(displayDensityProvider);
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
+      appBar: PageHeader(
+        title: l10n.currenciesScreenTitle,
+        subtitle: l10n.currenciesScreenSubtitle,
+        actions: const [
+          BackToDashboardButton(),
+          SizedBox(width: 8),
+        ],
+      ),
       body: SelectionArea(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Title & Actions
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 16,
-                runSpacing: 12,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.currenciesScreenTitle,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.charcoal,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        l10n.currenciesScreenSubtitle,
-                        style: const TextStyle(fontSize: 13, color: Colors.grey),
-                      ),
-                    ],
+              ActionToolbar(
+                primaryActions: [
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.cobalt,
+                      foregroundColor: Colors.white,
+                      minimumSize: Size(0, density.buttonHeight),
+                      padding: density.buttonPadding,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    icon: Icon(Icons.add, size: density.buttonIconSize),
+                    label: Text(
+                      l10n.addCurrencyBtn,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+                    ),
+                    onPressed: () => _showCurrencyDialog(context),
                   ),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      const BackToDashboardButton(),
-                      ElevatedButton.icon(
-                        onPressed: () => _copyCurrenciesTsv(context),
-                        icon: const Icon(Icons.table_chart_outlined, size: 18),
-                        label: Text(l10n.currenciesExportTsvBtn),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.cobalt,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () => _showCurrencyConverterDialog(context),
-                        icon: const Icon(Icons.currency_exchange, size: 18),
-                        label: Text(l10n.liveCurrencyConverterBtn),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.cobalt,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () => _showGainLossCalculatorDialog(context),
-                        icon: const Icon(Icons.trending_up, size: 18),
-                        label: Text(l10n.currencyGainLossBtn),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.orange,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () => _syncOfficialCustomsExchangeRates(context),
-                        icon: const Icon(Icons.sync, size: 18),
-                        label: Text(l10n.syncOfficialCustomsRatesBtn),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.charcoal,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => const WhatIfSimulatorDialog(),
-                          );
-                        },
-                        icon: const Icon(Icons.analytics_outlined, size: 18),
-                        label: Text(l10n.whatIfSimulatorBtn),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.crimson,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () => _showAddRateDialog(context),
-                        icon: const Icon(Icons.rate_review, size: 18),
-                        label: Text(l10n.updateExchangeRatesBtn),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.emerald,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-
-                      ElevatedButton.icon(
-                        onPressed: () => _showCurrencyDialog(context),
-                        icon: const Icon(Icons.add, size: 18),
-                        label: Text(l10n.addCurrencyBtn),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.charcoal,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                    ],
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.emerald,
+                      foregroundColor: Colors.white,
+                      minimumSize: Size(0, density.buttonHeight),
+                      padding: density.buttonPadding,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    icon: Icon(Icons.rate_review, size: density.buttonIconSize),
+                    label: Text(
+                      l10n.updateExchangeRatesBtn,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+                    ),
+                    onPressed: () => _showAddRateDialog(context),
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.cobalt,
+                      foregroundColor: Colors.white,
+                      minimumSize: Size(0, density.buttonHeight),
+                      padding: density.buttonPadding,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    icon: Icon(Icons.currency_exchange, size: density.buttonIconSize),
+                    label: Text(
+                      l10n.liveCurrencyConverterBtn,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+                    ),
+                    onPressed: () => _showCurrencyConverterDialog(context),
                   ),
                 ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // Data Actions Toolbar
-              MasterDataToolbarWidget(
-                moduleEndpoint: 'currencies',
-                title: 'Currencies',
-                onRefreshNeeded: () => ref.read(currenciesProvider.notifier).fetchCurrencies(),
-                onExportExcel: () {
-                  final currencies = ref.read(currenciesProvider).value ?? [];
-                  if (currencies.isNotEmpty) {
-                    MasterDataExportService.exportCurrenciesToExcel(context, currencies);
+                moreActionItems: [
+                  PopupMenuItem<String>(
+                    value: 'gain_loss',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.trending_up, size: 16, color: AppTheme.orange),
+                        const SizedBox(width: 8),
+                        Text(l10n.currencyGainLossBtn),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'what_if',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.analytics_outlined, size: 16, color: AppTheme.crimson),
+                        const SizedBox(width: 8),
+                        Text(l10n.whatIfSimulatorBtn),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'sync_customs',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.sync, size: 16, color: AppTheme.charcoal),
+                        const SizedBox(width: 8),
+                        Text(l10n.syncOfficialCustomsRatesBtn),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  ...MasterDataActionHelper.buildStandardMoreActionItems(
+                    context: context,
+                    includeTsv: (currenciesAsync.value ?? []).isNotEmpty,
+                  ),
+                ],
+                onMoreActionSelected: (val) {
+                  switch (val) {
+                    case 'gain_loss':
+                      _showGainLossCalculatorDialog(context);
+                      break;
+                    case 'what_if':
+                      showDialog(
+                        context: context,
+                        builder: (context) => const WhatIfSimulatorDialog(),
+                      );
+                      break;
+                    case 'sync_customs':
+                      _syncOfficialCustomsExchangeRates(context);
+                      break;
+                    case 'export_excel':
+                      final currencies = currenciesAsync.value ?? [];
+                      if (currencies.isNotEmpty) {
+                        MasterDataExportService.exportCurrenciesToExcel(context, currencies);
+                      }
+                      break;
+                    case 'export_pdf':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'currencies',
+                        actionEndpoint: 'export-pdf',
+                        defaultFileName: 'Currencies_Report.pdf',
+                        dialogTitle: 'تصدير العملات PDF',
+                      );
+                      break;
+                    case 'copy_tsv':
+                      _copyCurrenciesTsv(context);
+                      break;
+                    case 'download_template':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'currencies',
+                        actionEndpoint: 'excel-template',
+                        defaultFileName: 'Currencies_Template.xlsx',
+                        dialogTitle: 'تنزيل نموذج العملات',
+                      );
+                      break;
+                    case 'import_excel':
+                      MasterDataActionHelper.importExcel(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'currencies',
+                        onImportSuccess: () => ref.read(currenciesProvider.notifier).fetchCurrencies(),
+                      );
+                      break;
                   }
                 },
-              ),
-
-            const SizedBox(height: 16),
-
-            // Search input
-            Row(
-              children: [
-                SizedBox(
-                  width: 320,
-                  child: ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: _searchController,
-                    builder: (context, val, _) {
-                      return TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: l10n.searchCurrenciesHint,
-                          prefixIcon: const Icon(Icons.search, size: 20),
-                          suffixIcon: val.text.isEmpty
-                              ? null
-                              : IconButton(
-                                  icon: const Icon(Icons.clear, size: 18),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() {
-                                      _currentPage = 1;
-                                    });
-                                    ref
-                                        .read(currenciesProvider.notifier)
-                                        .fetchCurrencies(search: '');
-                                  },
-                                ),
-                          filled: true,
-                          fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(
-                              vertical: 10, horizontal: 16),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                        ),
-                        onChanged: (v) {
-                          setState(() {
-                            _currentPage = 1;
-                          });
-                          ref
-                              .read(currenciesProvider.notifier)
-                              .fetchCurrencies(search: v);
-                        },
-                      );
-                    },
+                searchController: _searchController,
+                searchHint: l10n.searchCurrenciesHint,
+                onSearchChanged: (v) {
+                  setState(() {
+                    _currentPage = 1;
+                  });
+                  ref.read(currenciesProvider.notifier).fetchCurrencies(search: v);
+                },
+                quickDataActions: [
+                  IconButton(
+                    icon: Icon(Icons.refresh, size: density.buttonIconSize + 2),
+                    tooltip: l10n.liveRefresh,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: density.buttonHeight,
+                      minHeight: density.buttonHeight,
+                    ),
+                    onPressed: () => ref.read(currenciesProvider.notifier).fetchCurrencies(),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+                  if ((currenciesAsync.value ?? []).isNotEmpty)
+                    IconButton(
+                      icon: Icon(Icons.copy_rounded, size: density.buttonIconSize + 2, color: AppTheme.cobalt),
+                      tooltip: l10n.currenciesExportTsvBtn,
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(
+                        minWidth: density.buttonHeight,
+                        minHeight: density.buttonHeight,
+                      ),
+                      onPressed: () => _copyCurrenciesTsv(context),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
 
             // Table Content
             Expanded(

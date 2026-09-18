@@ -5,6 +5,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from database.database import get_db
+from utils.cache_manager import memory_cache
 
 from .schemas import (
     CustomsDutyBreakdown,
@@ -48,19 +49,27 @@ def get_all_tariffs(
     limit: Optional[int] = Query(None, ge=1, le=5000, description="Page limit"),
     db: Session = Depends(get_db),
 ):
-    return get_all_tariffs_service(
+    cache_key = f"customs_tariff:list:{include_inactive}:{search}:{skip}:{limit}"
+    cached = memory_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    res = get_all_tariffs_service(
         db,
         include_inactive=include_inactive,
         search=search,
         skip=skip,
         limit=limit,
     )
+    memory_cache.set(cache_key, res, ttl_seconds=300)
+    return res
 
 
 @customs_tariff_router.post("", response_model=CustomsTariffResponse)
 def create_tariff(data: CustomsTariffCreate, db: Session = Depends(get_db)):
     try:
-        return create_tariff_service(db, data)
+        res = create_tariff_service(db, data)
+        memory_cache.clear_prefix("customs_tariff:")
+        return res
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -73,13 +82,19 @@ def list_tariffs(
     limit: Optional[int] = Query(None, ge=1, le=5000, description="Page limit"),
     db: Session = Depends(get_db),
 ):
-    return get_all_tariffs_service(
+    cache_key = f"customs_tariff:list:{include_inactive}:{search}:{skip}:{limit}"
+    cached = memory_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    res = get_all_tariffs_service(
         db,
         include_inactive=include_inactive,
         search=search,
         skip=skip,
         limit=limit,
     )
+    memory_cache.set(cache_key, res, ttl_seconds=300)
+    return res
 
 
 @customs_tariff_router.post("/estimate", response_model=CustomsDutyBreakdown)
@@ -105,7 +120,13 @@ def estimate_multi_item_customs_duty(
 
 @customs_tariff_router.get("/hs/{hs_code}", response_model=CustomsTariffResponse)
 def get_tariff_by_hs_code(hs_code: str, db: Session = Depends(get_db)):
-    return get_tariff_by_hs_code_service(db, hs_code)
+    cache_key = f"customs_tariff:hs:{hs_code}"
+    cached = memory_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    res = get_tariff_by_hs_code_service(db, hs_code)
+    memory_cache.set(cache_key, res, ttl_seconds=300)
+    return res
 
 
 @customs_tariff_router.get("/{tariff_id}", response_model=CustomsTariffResponse)
@@ -116,19 +137,25 @@ def get_tariff(tariff_id: int, db: Session = Depends(get_db)):
 @customs_tariff_router.put("/{tariff_id}", response_model=CustomsTariffResponse)
 def update_tariff(tariff_id: int, data: CustomsTariffUpdate, db: Session = Depends(get_db)):
     try:
-        return update_tariff_service(db, tariff_id, data)
+        res = update_tariff_service(db, tariff_id, data)
+        memory_cache.clear_prefix("customs_tariff:")
+        return res
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @customs_tariff_router.delete("/{tariff_id}", response_model=CustomsTariffResponse)
 def delete_tariff(tariff_id: int, db: Session = Depends(get_db)):
-    return delete_tariff_service(db, tariff_id)
+    res = delete_tariff_service(db, tariff_id)
+    memory_cache.clear_prefix("customs_tariff:")
+    return res
 
 
 @customs_tariff_router.patch("/{tariff_id}/restore", response_model=CustomsTariffResponse)
 def restore_tariff(tariff_id: int, db: Session = Depends(get_db)):
-    return restore_tariff_service(db, tariff_id)
+    res = restore_tariff_service(db, tariff_id)
+    memory_cache.clear_prefix("customs_tariff:")
+    return res
 
 
 @customs_tariff_router.post("/hs/{hs_code}/verify", response_model=CustomsTariffResponse)
@@ -139,7 +166,9 @@ def verify_and_update_tariff(
     تسجيل مراجعة يدوية وتحديث لبيانات البند الجمركي (Addendum 3 Workflow).
     في حال تغيير نسب الضرائب، يتم إنشاء إيراد جديد أوتوماتيكياً والحفاظ على السجل التاريخي.
     """
-    return verify_and_update_tariff_service(db, hs_code, request)
+    res = verify_and_update_tariff_service(db, hs_code, request)
+    memory_cache.clear_prefix("customs_tariff:")
+    return res
 
 
 @customs_tariff_router.get("/hs/{hs_code}/agreements", response_model=List[PreferentialAgreementResponse])
@@ -159,7 +188,9 @@ def create_preferential_agreement(
     """
     إضافة اتفاقية تفضيلية جديدة مرتبط بدولة منشأ وبند جمركي.
     """
-    return create_preferential_agreement_service(db, data)
+    res = create_preferential_agreement_service(db, data)
+    memory_cache.clear_prefix("customs_tariff:")
+    return res
 
 
 @customs_tariff_router.post("/upload-excel")
@@ -168,7 +199,9 @@ async def upload_customs_tariffs(file: UploadFile = File(...), db: Session = Dep
     Upload Excel/CSV file containing Nafeza/Egyptian Customs Tariffs (HS Codes) for bulk creation or update.
     """
     contents = await file.read()
-    return bulk_import_tariffs_service(db, contents, file.filename or "uploaded.csv")
+    res = bulk_import_tariffs_service(db, contents, file.filename or "uploaded.csv")
+    memory_cache.clear_prefix("customs_tariff:")
+    return res
 
 
 @customs_tariff_router.get("/export-template")

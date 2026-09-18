@@ -31,3 +31,19 @@ def test_check_for_system_updates():
     assert "latest_version" in data
     assert "check_status" in data
     assert isinstance(data["release_notes"], list)
+
+
+def test_system_version_check_endpoint():
+    """Verifies that GET /api/v1/system/version-check returns release info and installer metadata."""
+    response = client.get("/api/v1/system/version-check")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "OK"
+    assert data["system_name"] == "Sorour Logistics ERP"
+    assert "1.0." in data["current_version"]
+    assert "installer_url" in data
+    assert "installer_filename" in data
+    assert "installer_size_mb" in data
+    assert isinstance(data["release_notes"], list)
+    assert len(data["release_notes"]) > 0
+

@@ -146,6 +146,8 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
           _showAddEditCertificateDialog();
         }
       },
+      selectedImportFileId: widget.initialImportFileId,
+      onShipmentStatusChanged: _refreshData,
       headerActions: [
         ElevatedButton.icon(
           icon: const Icon(Icons.auto_awesome_rounded, size: 16),

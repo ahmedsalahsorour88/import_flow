@@ -2566,7 +2566,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     ];
 
     return VerticalStageScaffold(
-      stageCode: '',
+      stageCode: 'PHASE-1: STEP_04',
       titleEn: 'Financial Approvals & Budget Management',
       titleAr: 'الموافقات المالية وإدارة الميزانية',
       headerIcon: Icons.account_balance_wallet_outlined,
@@ -2577,10 +2577,16 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         _visitedTabs.add(index);
         _tabController.index = index;
       }),
+      selectedImportFileId: _paySelectedImportFileId ?? _bgtSelectedImportFileId ?? widget.initialImportFileId,
+      onShipmentStatusChanged: () {
+        ref.read(paymentRequestsProvider.notifier).fetchPaymentRequests();
+        ref.read(importBudgetsProvider.notifier).fetchImportBudgets();
+        ref.read(importFilesProvider.notifier).fetchImportFiles();
+      },
       headerActions: [
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.crimson,
+            backgroundColor: AppTheme.cobalt,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           ),

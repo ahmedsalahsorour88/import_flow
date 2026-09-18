@@ -805,7 +805,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                     ElevatedButton.icon(
                                       key: Key('openInspectionProtocolBtn_${r.receivingId}'),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFFD97706),
+                                        backgroundColor: AppTheme.cobalt,
                                         foregroundColor: Colors.white,
                                       ),
                                       icon: const Icon(Icons.fact_check_rounded, size: 15),

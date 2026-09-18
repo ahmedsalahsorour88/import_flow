@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/page_header.dart';
+import '../../../core/widgets/action_toolbar.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/audit_log_model.dart';
 import '../providers/audit_logs_provider.dart';
@@ -114,242 +117,184 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final logsAsync = ref.watch(systemAuditLogsProvider);
+    final density = ref.watch(displayDensityProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: AppTheme.cloudWhite,
+      backgroundColor: isDark ? AppTheme.darkScaffoldBackground : AppTheme.cloudWhite,
+      appBar: PageHeader(
+        title: l10n.auditLogsScreenTitle,
+        subtitle: l10n.auditLogsScreenSubtitle,
+        actions: const [
+          BackToDashboardButton(),
+          SizedBox(width: 8),
+        ],
+      ),
       body: SelectionArea(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top Bar Header & Action Buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              ActionToolbar(
+                moreActionItems: [
+                  PopupMenuItem<String>(
+                    value: 'export_excel',
+                    child: Row(
                       children: [
-                        Text(
-                          l10n.auditLogsScreenTitle,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.charcoal,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          l10n.auditLogsScreenSubtitle,
-                          style: const TextStyle(color: Colors.grey, fontSize: 14),
-                        ),
+                        const Icon(Icons.file_download_outlined, size: 16, color: AppTheme.emerald),
+                        const SizedBox(width: 8),
+                        Text(l10n.exportAuditLogExcelBtn),
                       ],
                     ),
                   ),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      const BackToDashboardButton(),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.table_view_rounded, size: 18),
-                        label: Text(l10n.auditLogsExportTsvBtn),
-                        onPressed: () {
-                          final logs = logsAsync.valueOrNull ?? [];
-                          _copyAuditLogsTsv(_getFilteredLogs(logs));
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.emerald,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.file_download_outlined, size: 18),
-                        label: Text(l10n.exportAuditLogExcelBtn),
-                        onPressed: () {
-                          final logs = logsAsync.valueOrNull ?? [];
-                          MasterDataExportService.exportAuditLogsToExcel(context, _getFilteredLogs(logs));
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.charcoal,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                        label: Text(l10n.exportAuditLogPdfBtn),
-                        onPressed: () {
-                          final logs = logsAsync.valueOrNull ?? [];
-                          MasterDataExportService.printOrSaveAuditLogsListPdf(_getFilteredLogs(logs));
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.cobalt,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.refresh, size: 18),
-                        label: Text(l10n.liveRefreshBtn),
-                        onPressed: () => ref.invalidate(systemAuditLogsProvider),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.charcoal.withOpacity(0.08),
-                          foregroundColor: AppTheme.charcoal,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                    ],
+                  PopupMenuItem<String>(
+                    value: 'export_pdf',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.picture_as_pdf_outlined, size: 16, color: AppTheme.cobalt),
+                        const SizedBox(width: 8),
+                        Text(l10n.exportAuditLogPdfBtn),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'copy_tsv',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.copy_rounded, size: 16, color: AppTheme.charcoal),
+                        const SizedBox(width: 8),
+                        Text(l10n.auditLogsExportTsvBtn),
+                      ],
+                    ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 20),
-
-            // Entity Type Filter Chips
-            Row(
-              children: [
-                Text(l10n.filterEntityLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: _entityTypes.map((type) {
-                        final isSelected = _selectedEntityType == type;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: ChoiceChip(
-                            label: Text(
-                              l10n.auditEntityLabel(type),
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : AppTheme.charcoal,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                fontSize: 12,
-                              ),
-                            ),
-                            selected: isSelected,
-                            selectedColor: AppTheme.cobalt,
-                            backgroundColor: Colors.white,
-                            onSelected: (val) {
-                              if (val) {
-                                setState(() {
-                                  _selectedEntityType = type;
-                                });
-                              }
-                            },
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            // Action Filter Chips
-            Row(
-              children: [
-                Text(l10n.filterActionLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: _actions.map((act) {
-                        final isSelected = _selectedAction == act;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: ChoiceChip(
-                            label: Text(
-                              l10n.auditActionLabel(act),
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : AppTheme.charcoal,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                fontSize: 12,
-                              ),
-                            ),
-                            selected: isSelected,
-                            selectedColor: _getActionColor(act),
-                            backgroundColor: Colors.white,
-                            onSelected: (val) {
-                              if (val) {
-                                setState(() {
-                                  _selectedAction = act;
-                                });
-                              }
-                            },
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Search Input Bar
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ValueListenableBuilder<TextEditingValue>(
-                valueListenable: _searchController,
-                builder: (context, val, _) {
-                  return TextField(
-                    controller: _searchController,
-                    style: const TextStyle(fontSize: 14),
-                    decoration: InputDecoration(
-                      prefixIcon:
-                          const Icon(Icons.search, color: AppTheme.charcoal),
-                      hintText: l10n.searchAuditLogsHint,
-                      suffixIcon: val.text.isEmpty
-                          ? null
-                          : IconButton(
-                              icon: const Icon(Icons.clear, color: Colors.grey),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() {
-                                  _searchQuery = '';
-                                });
-                              },
-                            ),
-                      filled: false,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide:
-                            const BorderSide(color: AppTheme.cobalt, width: 2),
-                      ),
-                    ),
-                    onChanged: (val) {
-                      setState(() {
-                        _searchQuery = val.toLowerCase();
-                      });
-                    },
-                  );
+                onMoreActionSelected: (val) {
+                  final logs = logsAsync.valueOrNull ?? [];
+                  final filtered = _getFilteredLogs(logs);
+                  switch (val) {
+                    case 'export_excel':
+                      MasterDataExportService.exportAuditLogsToExcel(context, filtered);
+                      break;
+                    case 'export_pdf':
+                      MasterDataExportService.printOrSaveAuditLogsListPdf(filtered);
+                      break;
+                    case 'copy_tsv':
+                      _copyAuditLogsTsv(filtered);
+                      break;
+                  }
                 },
+                searchController: _searchController,
+                searchHint: l10n.searchAuditLogsHint,
+                onSearchChanged: (val) {
+                  setState(() {
+                    _searchQuery = val.trim().toLowerCase();
+                  });
+                },
+                filters: [
+                  // Entity Type Filter Dropdown
+                  Container(
+                    height: density.buttonHeight,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.black12),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedEntityType,
+                        isDense: true,
+                        style: TextStyle(
+                          fontSize: density.buttonFontSize,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                        ),
+                        dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        items: _entityTypes.map((type) {
+                          return DropdownMenuItem<String>(
+                            value: type,
+                            child: Text(
+                              type == 'All' ? '${l10n.filterEntityLabel}: ${l10n.auditEntityLabel("All")}' : l10n.auditEntityLabel(type),
+                              style: TextStyle(fontSize: density.buttonFontSize),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _selectedEntityType = val;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  // Action Filter Dropdown
+                  Container(
+                    height: density.buttonHeight,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.black12),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedAction,
+                        isDense: true,
+                        style: TextStyle(
+                          fontSize: density.buttonFontSize,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                        ),
+                        dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        items: _actions.map((act) {
+                          return DropdownMenuItem<String>(
+                            value: act,
+                            child: Text(
+                              act == 'All' ? '${l10n.filterActionLabel}: ${l10n.auditActionLabel("All")}' : l10n.auditActionLabel(act),
+                              style: TextStyle(fontSize: density.buttonFontSize),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _selectedAction = val;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+                quickDataActions: [
+                  IconButton(
+                    icon: Icon(Icons.refresh, size: density.buttonIconSize + 2),
+                    tooltip: l10n.liveRefreshBtn,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: density.buttonHeight,
+                      minHeight: density.buttonHeight,
+                    ),
+                    onPressed: () => ref.invalidate(systemAuditLogsProvider),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.copy_rounded, size: density.buttonIconSize + 2, color: AppTheme.cobalt),
+                    tooltip: l10n.auditLogsExportTsvBtn,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: density.buttonHeight,
+                      minHeight: density.buttonHeight,
+                    ),
+                    onPressed: () {
+                      final logs = logsAsync.valueOrNull ?? [];
+                      _copyAuditLogsTsv(_getFilteredLogs(logs));
+                    },
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 8),
 
             // Data Table Content
             Expanded(

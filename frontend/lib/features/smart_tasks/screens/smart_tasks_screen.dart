@@ -6,7 +6,10 @@ import '../../../core/localization/app_localizations_ar.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/page_header.dart';
+import '../../../core/widgets/action_toolbar.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/enterprise_data_table/enterprise_data_table.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -536,206 +539,266 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
     final l = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isArabic = l is AppLocalizationsAr;
+    final density = ref.watch(displayDensityProvider);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF141A22) : AppTheme.charcoal,
-        title: Row(
-          children: [
-            const Icon(Icons.task_alt, color: AppTheme.cobalt),
-            const SizedBox(width: 10),
-            Text(
-              l.smartTasksTitle,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-          ],
-        ),
-        actions: [
-          const BackToDashboardButton(),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => ref.read(smartTasksProvider.notifier).fetchTasks(),
-          ),
+      appBar: PageHeader(
+        title: l.smartTasksTitle,
+        subtitle: isArabic ? 'متابعة المهام الذكية وتنبيهات الشحنات والبريد الإلكتروني' : 'Smart tasks tracking, shipment alerts, and email sync',
+        actions: const [
+          BackToDashboardButton(),
+          SizedBox(width: 8),
         ],
       ),
       body: SelectionArea(
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top Filters & Actions Card
-              Card(
-                color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                elevation: 1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      // Action Buttons Row
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.cobalt,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              ),
-                              onPressed: () => SmartTaskDialog.show(context),
-                              icon: const Icon(Icons.add_task),
-                              label: Text(l.smartTasksNewTaskBtn),
-                            ),
-                            const SizedBox(width: 10),
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isDark ? AppTheme.darkSurface : AppTheme.charcoal,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              ),
-                              onPressed: () => SmartEmailListenerDialog.show(context),
-                              icon: const Icon(Icons.mark_email_read_outlined, size: 18),
-                              label: Text(l.smartEmailListenerDialogTitle),
-                            ),
-                            const SizedBox(width: 10),
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isDark ? const Color(0xFF193247) : Colors.teal.shade800,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              ),
-                              onPressed: () => EmailSettingsDialog.show(context),
-                              icon: const Icon(Icons.settings_suggest_rounded, size: 18),
-                              label: Text(isArabic ? 'إعدادات البريد (IMAP/SMTP)' : 'Email Settings'),
-                            ),
-                            const SizedBox(width: 10),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                                side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              ),
-                              onPressed: () => _copySmartTasksTsv(state.tasks),
-                              icon: const Icon(Icons.copy_all, size: 16, color: AppTheme.cobalt),
-                              label: Text(l.smartTasksExportTsvBtn),
-                            ),
-                            const SizedBox(width: 10),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.emerald,
-                                side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              ),
-                              onPressed: () => MasterDataExportService.exportSmartTasksToExcel(context, state.tasks),
-                              icon: const Icon(Icons.table_view, size: 16, color: AppTheme.emerald),
-                              label: Text(l.smartTasksExportExcelBtn),
-                            ),
-                            const SizedBox(width: 10),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                                side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              ),
-                              onPressed: () => MasterDataExportService.printOrSaveSmartTasksListPdf(state.tasks),
-                              icon: Icon(Icons.print, size: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                              label: Text(l.smartTasksExportPdfBtn),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Divider(height: 24),
-
-                      // Filters Row
-                      Row(
-                        children: [
-                          // Filter Type
-                          SizedBox(
-                            width: 180,
-                            child: DropdownButtonFormField<String>(
-                              value: _selectedTaskType,
-                              isExpanded: true,
-                              decoration: InputDecoration(labelText: l.smartTasksFilterType, isDense: true, border: const OutlineInputBorder()),
-                              items: [
-                                DropdownMenuItem(value: 'All', child: Text(l.smartTasksTypeAll, overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'System Generated', child: Text(l.smartTasksTypeSystem, overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'Manual To-Do', child: Text(l.smartTasksTypeManual, overflow: TextOverflow.ellipsis)),
-                              ],
-                              onChanged: (v) {
-                                setState(() => _selectedTaskType = v!);
-                                _onFilterChanged();
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-
-                          // Filter Priority
-                          SizedBox(
-                            width: 160,
-                            child: DropdownButtonFormField<String>(
-                              value: _selectedPriority,
-                              isExpanded: true,
-                              decoration: InputDecoration(labelText: l.smartTasksFilterPriority, isDense: true, border: const OutlineInputBorder()),
-                              items: [
-                                DropdownMenuItem(value: 'All', child: Text(l.smartTasksPriorityAll, overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'Low', child: Text(l.smartTasksPriorityLow, overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'Medium', child: Text(l.smartTasksPriorityMedium, overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'High', child: Text(l.smartTasksPriorityHigh, overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'Critical', child: Text(l.smartTasksPriorityCritical, overflow: TextOverflow.ellipsis)),
-                              ],
-                              onChanged: (v) {
-                                setState(() => _selectedPriority = v!);
-                                _onFilterChanged();
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-
-                          // Filter Status
-                          SizedBox(
-                            width: 160,
-                            child: DropdownButtonFormField<String>(
-                              value: _selectedStatus,
-                              isExpanded: true,
-                              decoration: InputDecoration(labelText: l.smartTasksFilterStatus, isDense: true, border: const OutlineInputBorder()),
-                              items: [
-                                DropdownMenuItem(value: 'All', child: Text(l.smartTasksStatusAll, overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'Pending', child: Text(l.smartTasksStatusPending, overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'In Progress', child: Text(l.smartTasksStatusInProgress, overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'Completed', child: Text(l.smartTasksStatusCompleted, overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'Cancelled', child: Text(l.smartTasksStatusCancelled, overflow: TextOverflow.ellipsis)),
-                              ],
-                              onChanged: (v) {
-                                setState(() => _selectedStatus = v!);
-                                _onFilterChanged();
-                              },
-                            ),
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            icon: const Icon(Icons.filter_alt_off, color: Colors.grey),
-                            tooltip: l.smartTasksResetFiltersTooltip,
-                            onPressed: () {
-                              setState(() {
-                                _selectedTaskType = 'All';
-                                _selectedPriority = 'All';
-                                _selectedStatus = 'All';
-                              });
-                              _onFilterChanged();
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
+              ActionToolbar(
+                primaryActions: [
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.cobalt,
+                      foregroundColor: Colors.white,
+                      minimumSize: Size(0, density.buttonHeight),
+                      padding: density.buttonPadding,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    icon: Icon(Icons.add_task, size: density.buttonIconSize),
+                    label: Text(
+                      l.smartTasksNewTaskBtn,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+                    ),
+                    onPressed: () => SmartTaskDialog.show(context),
                   ),
-                ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark ? AppTheme.darkSurface : AppTheme.charcoal,
+                      foregroundColor: Colors.white,
+                      minimumSize: Size(0, density.buttonHeight),
+                      padding: density.buttonPadding,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    icon: Icon(Icons.mark_email_read_outlined, size: density.buttonIconSize),
+                    label: Text(
+                      l.smartEmailListenerDialogTitle,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+                    ),
+                    onPressed: () => SmartEmailListenerDialog.show(context),
+                  ),
+                ],
+                moreActionItems: [
+                  PopupMenuItem<String>(
+                    value: 'email_settings',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.settings_suggest_rounded, size: 16, color: Colors.teal),
+                        const SizedBox(width: 8),
+                        Text(isArabic ? 'إعدادات البريد (IMAP/SMTP)' : 'Email Settings'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  PopupMenuItem<String>(
+                    value: 'export_excel',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.table_view, size: 16, color: AppTheme.emerald),
+                        const SizedBox(width: 8),
+                        Text(l.smartTasksExportExcelBtn),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'export_pdf',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.picture_as_pdf_outlined, size: 16, color: AppTheme.cobalt),
+                        const SizedBox(width: 8),
+                        Text(l.smartTasksExportPdfBtn),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'copy_tsv',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.copy_rounded, size: 16, color: AppTheme.charcoal),
+                        const SizedBox(width: 8),
+                        Text(l.smartTasksExportTsvBtn),
+                      ],
+                    ),
+                  ),
+                ],
+                onMoreActionSelected: (val) {
+                  switch (val) {
+                    case 'email_settings':
+                      EmailSettingsDialog.show(context);
+                      break;
+                    case 'export_excel':
+                      MasterDataExportService.exportSmartTasksToExcel(context, state.tasks);
+                      break;
+                    case 'export_pdf':
+                      MasterDataExportService.printOrSaveSmartTasksListPdf(state.tasks);
+                      break;
+                    case 'copy_tsv':
+                      _copySmartTasksTsv(state.tasks);
+                      break;
+                  }
+                },
+                searchController: _searchController,
+                searchHint: isArabic ? 'بحث في المهام...' : 'Search tasks...',
+                onSearchChanged: (v) => _onFilterChanged(),
+                filters: [
+                  // Filter Type
+                  Container(
+                    height: density.buttonHeight,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.black12),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedTaskType,
+                        isDense: true,
+                        style: TextStyle(
+                          fontSize: density.buttonFontSize,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                        ),
+                        dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        items: [
+                          DropdownMenuItem(value: 'All', child: Text(l.smartTasksTypeAll)),
+                          DropdownMenuItem(value: 'System Generated', child: Text(l.smartTasksTypeSystem)),
+                          DropdownMenuItem(value: 'Manual To-Do', child: Text(l.smartTasksTypeManual)),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) {
+                            setState(() => _selectedTaskType = v);
+                            _onFilterChanged();
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  // Filter Priority
+                  Container(
+                    height: density.buttonHeight,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.black12),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedPriority,
+                        isDense: true,
+                        style: TextStyle(
+                          fontSize: density.buttonFontSize,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                        ),
+                        dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        items: [
+                          DropdownMenuItem(value: 'All', child: Text(l.smartTasksPriorityAll)),
+                          DropdownMenuItem(value: 'Low', child: Text(l.smartTasksPriorityLow)),
+                          DropdownMenuItem(value: 'Medium', child: Text(l.smartTasksPriorityMedium)),
+                          DropdownMenuItem(value: 'High', child: Text(l.smartTasksPriorityHigh)),
+                          DropdownMenuItem(value: 'Critical', child: Text(l.smartTasksPriorityCritical)),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) {
+                            setState(() => _selectedPriority = v);
+                            _onFilterChanged();
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  // Filter Status
+                  Container(
+                    height: density.buttonHeight,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.black12),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedStatus,
+                        isDense: true,
+                        style: TextStyle(
+                          fontSize: density.buttonFontSize,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                        ),
+                        dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        items: [
+                          DropdownMenuItem(value: 'All', child: Text(l.smartTasksStatusAll)),
+                          DropdownMenuItem(value: 'Pending', child: Text(l.smartTasksStatusPending)),
+                          DropdownMenuItem(value: 'In Progress', child: Text(l.smartTasksStatusInProgress)),
+                          DropdownMenuItem(value: 'Completed', child: Text(l.smartTasksStatusCompleted)),
+                          DropdownMenuItem(value: 'Cancelled', child: Text(l.smartTasksStatusCancelled)),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) {
+                            setState(() => _selectedStatus = v);
+                            _onFilterChanged();
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    icon: Icon(Icons.filter_alt_off, size: density.buttonIconSize + 2, color: Colors.grey),
+                    tooltip: l.smartTasksResetFiltersTooltip,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: density.buttonHeight,
+                      minHeight: density.buttonHeight,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _selectedTaskType = 'All';
+                        _selectedPriority = 'All';
+                        _selectedStatus = 'All';
+                        _searchController.clear();
+                      });
+                      _onFilterChanged();
+                    },
+                  ),
+                ],
+                quickDataActions: [
+                  IconButton(
+                    icon: Icon(Icons.refresh, size: density.buttonIconSize + 2),
+                    tooltip: l.liveRefreshBtn,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: density.buttonHeight,
+                      minHeight: density.buttonHeight,
+                    ),
+                    onPressed: () => ref.read(smartTasksProvider.notifier).fetchTasks(),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.copy_rounded, size: density.buttonIconSize + 2, color: AppTheme.cobalt),
+                    tooltip: l.smartTasksExportTsvBtn,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: density.buttonHeight,
+                      minHeight: density.buttonHeight,
+                    ),
+                    onPressed: () => _copySmartTasksTsv(state.tasks),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
 
               // Unified Enterprise Data Table
               Expanded(

@@ -4,6 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 
 class FormalLetterGeneratorDialog extends ConsumerStatefulWidget {
@@ -257,18 +258,18 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                               ),
                               const SizedBox(height: 6),
-                              DropdownButtonFormField<int>(
+                              SearchableDropdownField<int>(
                                 value: _selectedFileId,
-                                isExpanded: true,
+                                labelText: l.formalLetterSelectShipmentPrompt,
                                 decoration: const InputDecoration(
                                   isDense: true,
                                   border: OutlineInputBorder(),
                                   prefixIcon: Icon(Icons.folder, size: 18),
                                 ),
                                 items: files.map((f) {
-                                  return DropdownMenuItem<int>(
+                                  return SearchableDropdownItem<int>(
                                     value: f.importFileId,
-                                    child: Text('${f.importFileCode} — ${f.supplierName}', overflow: TextOverflow.ellipsis),
+                                    label: '${f.importFileCode} — ${f.supplierName}',
                                   );
                                 }).toList(),
                                 onChanged: (val) {

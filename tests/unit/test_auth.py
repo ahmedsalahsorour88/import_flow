@@ -53,7 +53,7 @@ class TestAuthAndRBAC(unittest.TestCase):
             username="dupuser",
             email="dup1@importflow.com",
             full_name="User 1",
-            password="password",
+            password="Password123",
             role="OPERATOR",
         )
         self.auth_service.register_user(user_in1)
@@ -62,11 +62,37 @@ class TestAuthAndRBAC(unittest.TestCase):
             username="dupuser",
             email="dup2@importflow.com",
             full_name="User 2",
-            password="password",
+            password="Password123",
             role="OPERATOR",
         )
         with self.assertRaises(Exception):
             self.auth_service.register_user(user_in2)
+
+    def test_weak_password_rejected(self):
+        from fastapi import HTTPException
+        # Too short (< 8 chars)
+        short_user = UserCreate(
+            username="shortpass",
+            email="short@importflow.com",
+            full_name="Short Pass",
+            password="Pass1",
+            role="OPERATOR",
+        )
+        with self.assertRaises(HTTPException) as ctx:
+            self.auth_service.register_user(short_user)
+        self.assertEqual(ctx.exception.status_code, 400)
+
+        # No digits
+        no_digits_user = UserCreate(
+            username="nodigitspass",
+            email="nodigits@importflow.com",
+            full_name="No Digits",
+            password="PasswordOnly",
+            role="OPERATOR",
+        )
+        with self.assertRaises(HTTPException) as ctx:
+            self.auth_service.register_user(no_digits_user)
+        self.assertEqual(ctx.exception.status_code, 400)
 
     def test_resolve_user_with_token_and_headers_fallback(self):
         from modules.auth.permissions import resolve_user
@@ -76,7 +102,7 @@ class TestAuthAndRBAC(unittest.TestCase):
             username="mainadmin",
             email="mainadmin@importflow.com",
             full_name="Main Admin",
-            password="adminpassword",
+            password="AdminPassword123",
             role="ADMIN",
         )
         admin = self.auth_service.register_user(admin_in)
@@ -85,7 +111,7 @@ class TestAuthAndRBAC(unittest.TestCase):
             username="op_user",
             email="op@importflow.com",
             full_name="Operator User",
-            password="oppassword",
+            password="OperatorPassword123",
             role="OPERATOR",
         )
         op = self.auth_service.register_user(op_in)
@@ -106,6 +132,36 @@ class TestAuthAndRBAC(unittest.TestCase):
         # 4. Fallback to active ADMIN when no auth headers are provided (Desktop app support)
         fallback = resolve_user(self.db)
         self.assertEqual(fallback.role, "ADMIN")
+
+    def test_login_rate_limiter(self):
+        from unittest.mock import MagicMock
+        from modules.auth.rate_limiter import LoginRateLimiter
+        from fastapi import HTTPException
+
+        limiter = LoginRateLimiter(max_attempts=3, window_seconds=60, lockout_seconds=10)
+        req = MagicMock()
+        req.client.host = "192.168.1.100"
+        req.headers = {}
+
+        # 1st and 2nd failed attempts
+        limiter.check_rate_limit(req)
+        limiter.record_failure(req)
+        limiter.check_rate_limit(req)
+        limiter.record_failure(req)
+
+        # 3rd failed attempt reaches limit
+        limiter.record_failure(req)
+
+        # Next check must raise 429 Too Many Requests
+        with self.assertRaises(HTTPException) as ctx:
+            limiter.check_rate_limit(req)
+        self.assertEqual(ctx.exception.status_code, 429)
+        self.assertIn("Retry-After", ctx.exception.headers)
+
+        # Success clears lockouts
+        limiter.record_success(req)
+        # Should now pass without raising
+        limiter.check_rate_limit(req)
 
 
 if __name__ == "__main__":

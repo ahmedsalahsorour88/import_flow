@@ -728,7 +728,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
           titleEn: 'Customs Declaration 46 Registration',
           titleAr: 'الإقرار الجمركي المبدئي وشهادة 46 ك.م',
           headerIcon: Icons.description_outlined,
-          headerColor: Colors.indigo,
+          headerColor: AppTheme.cobalt,
           tabs: tabs,
           selectedIndex: _selectedSubTab,
           onTabSelected: (index) => setState(() => _selectedSubTab = index),

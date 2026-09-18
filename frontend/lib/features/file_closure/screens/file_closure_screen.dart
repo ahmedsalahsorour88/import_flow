@@ -477,11 +477,11 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                                   icon: const Icon(Icons.lock_clock, color: Colors.white, size: 18),
                                   label: Text(context.l10n.fileClosureNewCertificateBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
                                 ),
-                                ElevatedButton.icon(
+                                OutlinedButton.icon(
                                   key: const Key('searchAndCloneClosureBtn'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.emerald,
-                                    foregroundColor: Colors.white,
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppTheme.cobalt,
+                                    side: const BorderSide(color: AppTheme.cobalt),
                                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                   ),
                                   onPressed: () => _openSearchAndCloneDialog(closuresState.valueOrNull ?? []),

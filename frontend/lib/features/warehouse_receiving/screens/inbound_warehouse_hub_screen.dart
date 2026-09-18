@@ -102,6 +102,8 @@ class _InboundWarehouseHubScreenState
         _selectedSubTab = idx;
         _visitedSubTabs.add(idx);
       }),
+      selectedImportFileId: widget.initialImportFileId,
+      onShipmentStatusChanged: _refreshData,
       headerActions: [
         IconButton(
           icon: Icon(Icons.refresh, color: Colors.white70, size: density.buttonIconSize),

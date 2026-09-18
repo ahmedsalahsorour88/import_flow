@@ -42,3 +42,7 @@ scratch*.txt
 
 # Secrets / Environment
 .env
+
+# Backups
+backups/
+!backups/day0_manifest.json

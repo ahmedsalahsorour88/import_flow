@@ -75,6 +75,15 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
     });
   }
 
+  void _refreshData() {
+    ref.read(freightBookingProvider.notifier).fetchBookings(
+      importFileId: _selectedImportFileId,
+      status: _selectedStatusFilter != 'All' ? _selectedStatusFilter : null,
+    );
+    ref.read(shippingScenariosProvider.notifier).fetchSessions();
+    ref.read(importFilesProvider.notifier).fetchImportFiles();
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -429,7 +438,7 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
     ];
 
     return VerticalStageScaffold(
-      stageCode: '',
+      stageCode: 'PHASE-3: STEP_07',
       titleEn: 'Freight Booking & Carrier Allocation',
       titleAr: 'حجز الشحن وتخصيص الحاويات',
       headerIcon: Icons.directions_boat,
@@ -441,6 +450,8 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
           _showAddEditBookingDialog();
         }
       },
+      selectedImportFileId: _selectedImportFileId,
+      onShipmentStatusChanged: _refreshData,
       headerActions: [
         ElevatedButton.icon(
           icon: const Icon(Icons.directions_boat_rounded, size: 16),
@@ -471,7 +482,7 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
             },
           ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.cobalt,
+            backgroundColor: AppTheme.emerald,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -481,10 +492,7 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
           tooltip: l.freightBookingBtnLiveReload,
-          onPressed: () {
-            ref.read(freightBookingProvider.notifier).fetchBookings();
-            ref.read(shippingScenariosProvider.notifier).fetchSessions();
-          },
+          onPressed: _refreshData,
         ),
       ],
       body: SelectionArea(

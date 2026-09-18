@@ -1,11 +1,58 @@
 import os
-from typing import List, Set, Dict, Any, Optional
+from typing import List, Set, Dict, Any, Optional, Tuple
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 from database.database import get_db
 from modules.users.model import User, Role, Permission, UserPermission, RolePermission
 from modules.auth.security import decode_access_token
 from settings import ALLOW_DEV_AUTH_BYPASS
+from utils.cache_manager import memory_cache
+
+
+import time
+import threading
+from sqlalchemy import event
+
+_PERMISSION_CACHE: Dict[Tuple[int, int], tuple] = {}
+_CACHE_LOCK = threading.Lock()
+_CACHE_TTL_SECONDS = 60.0
+
+
+def invalidate_permission_cache(user_id: Optional[int] = None) -> None:
+    """
+    Invalidates the permission cache for a specific user or all users.
+    Called when roles, permissions, or user active statuses are updated.
+    """
+    with _CACHE_LOCK:
+        if user_id is not None:
+            keys_to_del = [k for k in _PERMISSION_CACHE if k[1] == user_id]
+            for k in keys_to_del:
+                _PERMISSION_CACHE.pop(k, None)
+            memory_cache.delete(f"auth_user:{user_id}")
+        else:
+            _PERMISSION_CACHE.clear()
+            memory_cache.clear_prefix("auth_user:")
+
+
+@event.listens_for(UserPermission, "after_insert")
+@event.listens_for(UserPermission, "after_update")
+@event.listens_for(UserPermission, "after_delete")
+def _on_user_permission_change(mapper, connection, target):
+    invalidate_permission_cache()
+
+
+@event.listens_for(RolePermission, "after_insert")
+@event.listens_for(RolePermission, "after_update")
+@event.listens_for(RolePermission, "after_delete")
+def _on_role_permission_change(mapper, connection, target):
+    invalidate_permission_cache()
+
+
+@event.listens_for(User, "after_update")
+@event.listens_for(User, "after_insert")
+@event.listens_for(User, "after_delete")
+def _on_user_change(mapper, connection, target):
+    invalidate_permission_cache()
 
 
 def get_user_effective_permissions(db: Session, user_id: int) -> Set[str]:
@@ -17,7 +64,20 @@ def get_user_effective_permissions(db: Session, user_id: int) -> Set[str]:
     4. Apply custom UserPermission overrides:
        - is_granted == True: Add to effective set (grant exception).
        - is_granted == False: Remove from effective set (explicit revocation).
+    
+    Optimized with a 60-second in-memory TTL cache to eliminate redundant DB query waterfalls
+    during high concurrent user loads.
     """
+    bind_id = id(db.get_bind())
+    cache_key = (bind_id, user_id)
+    now = time.time()
+    with _CACHE_LOCK:
+        cached = _PERMISSION_CACHE.get(cache_key)
+        if cached is not None:
+            cached_time, cached_perms = cached
+            if now - cached_time < _CACHE_TTL_SECONDS:
+                return set(cached_perms)
+
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user or not user.is_active:
         return set()
@@ -30,6 +90,8 @@ def get_user_effective_permissions(db: Session, user_id: int) -> Set[str]:
     if is_admin:
         all_perms = {p.permission_code for p in db.query(Permission).all()}
         all_perms.add("*")
+        with _CACHE_LOCK:
+            _PERMISSION_CACHE[cache_key] = (now, set(all_perms))
         return all_perms
 
     effective: Set[str] = set()
@@ -49,6 +111,9 @@ def get_user_effective_permissions(db: Session, user_id: int) -> Set[str]:
                 effective.add(code)
             else:
                 effective.discard(code)
+
+    with _CACHE_LOCK:
+        _PERMISSION_CACHE[cache_key] = (now, set(effective))
 
     return effective
 
@@ -126,13 +191,22 @@ def resolve_user(
             payload = decode_access_token(token)
             if payload:
                 user_id = int(payload.get("sub", 0))
-                user = db.query(User).filter(User.user_id == user_id).first()
+                cache_key = f"auth_user:{user_id}"
+                cached = memory_cache.get(cache_key)
+                if cached is not None and not cached.get("is_active", True):
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="حساب المستخدم معطّل. تواصل مع مدير النظام."
+                    )
+                user = db.get(User, user_id)
                 if user:
                     if not user.is_active:
+                        memory_cache.set(cache_key, {"is_active": False}, ttl_seconds=30)
                         raise HTTPException(
                             status_code=status.HTTP_403_FORBIDDEN,
                             detail="حساب المستخدم معطّل. تواصل مع مدير النظام."
                         )
+                    memory_cache.set(cache_key, {"is_active": True, "role": user.role, "username": user.username}, ttl_seconds=30)
                     return user
             else:
                 raise HTTPException(

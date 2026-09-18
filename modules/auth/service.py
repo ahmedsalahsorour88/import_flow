@@ -4,8 +4,12 @@ from sqlalchemy.orm import Session
 from modules.users.model import User, Role, Permission, RolePermission, UserPermission
 from modules.audit_logs.service import AuditLogService
 from .schemas import UserCreate, UserUpdate, UserPermissionsUpdatePayload
-from .security import hash_password, verify_password, create_access_token
-from .permissions import get_user_permissions_breakdown, get_user_effective_permissions
+from .security import hash_password, verify_password, create_access_token, validate_password_strength
+from .permissions import (
+    get_user_permissions_breakdown,
+    get_user_effective_permissions,
+    invalidate_permission_cache,
+)
 
 
 class AuthService:
@@ -28,10 +32,11 @@ class AuthService:
                 detail=f"البريد الإلكتروني '{user_data.email}' مسجل بالفعل."
             )
 
-        if len(user_data.password) < 6:
+        is_valid, err_msg = validate_password_strength(user_data.password)
+        if not is_valid:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="كلمة المرور يجب أن تكون 6 أحرف على الأقل."
+                detail=err_msg
             )
 
         # Resolve role_id and role_code
@@ -124,10 +129,11 @@ class AuthService:
                 user.role = role_input
 
         if update_data.password is not None:
-            if len(update_data.password) < 6:
+            is_valid, err_msg = validate_password_strength(update_data.password)
+            if not is_valid:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="كلمة المرور يجب أن تكون 6 أحرف على الأقل."
+                    detail=err_msg
                 )
             user.hashed_password = hash_password(update_data.password)
 
@@ -142,6 +148,7 @@ class AuthService:
             old_data=old_data,
             new_data={"role": user.role, "role_id": user.role_id, "full_name": user.full_name, "email": user.email}
         )
+        invalidate_permission_cache(user.user_id)
 
         return user
 
@@ -169,6 +176,7 @@ class AuthService:
             old_data={"is_active": old_status},
             new_data={"is_active": user.is_active}
         )
+        invalidate_permission_cache(user.user_id)
 
         return user
 
@@ -347,5 +355,6 @@ class AuthService:
                 "overrides_count": len(payload.permissions),
             },
         )
+        invalidate_permission_cache(user.user_id)
 
         return self.get_user_permissions(user_id)

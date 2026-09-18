@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
+import '../../../core/widgets/page_header.dart';
+import '../../../core/widgets/action_toolbar.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/helpers/master_data_action_helper.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
@@ -59,218 +62,212 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
     final tariffsAsync = ref.watch(customsTariffProvider);
     final showInactive = ref.watch(showInactiveCustomsTariffsProvider);
 
+    final density = ref.watch(displayDensityProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: AppTheme.cloudWhite,
+      backgroundColor: isDark ? Theme.of(context).scaffoldBackgroundColor : AppTheme.cloudWhite,
+      appBar: PageHeader(
+        icon: Icons.receipt_long_outlined,
+        title: l10n.customsTariffScreenTitle,
+        subtitle: l10n.customsTariffScreenSubtitle,
+        actions: [
+          SegmentedButton<int>(
+            style: ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              backgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return AppTheme.cobalt;
+                }
+                return Colors.white12;
+              }),
+              foregroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return Colors.white;
+                }
+                return Colors.white70;
+              }),
+            ),
+            segments: [
+              ButtonSegment(
+                value: 0,
+                icon: const Icon(Icons.table_chart_outlined, size: 16),
+                label: Text(l10n.customsTariffScreenTitle, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+              ButtonSegment(
+                value: 1,
+                icon: const Icon(Icons.saved_search, size: 16),
+                label: Text(l10n.hsExplorerBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ],
+            selected: {_currentTab},
+            onSelectionChanged: (set) => setState(() => _currentTab = set.first),
+          ),
+          const SizedBox(width: 8),
+          const BackToDashboardButton(),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: SelectionArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Top Bar Header
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 16,
-                runSpacing: 12,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.customsTariffScreenTitle,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.charcoal,
+        child: _currentTab == 1
+            ? HsCodeSearchScreen(
+                key: const ValueKey('hs_explorer_tab_view'),
+                initialQuery: _searchController.text,
+                isEmbedded: true,
+              )
+            : Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ActionToolbar(
+                      primaryActions: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.cobalt,
+                            foregroundColor: Colors.white,
+                            minimumSize: Size(0, density.buttonHeight),
+                            padding: density.buttonPadding,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                          ),
+                          icon: Icon(Icons.add, size: density.buttonIconSize),
+                          label: Text(
+                            l10n.addTariffManualBtn,
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+                          ),
+                          onPressed: () => showTariffDialog(context, ref, initialModeIndex: 1),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        l10n.customsTariffScreenSubtitle,
-                        style: const TextStyle(color: Colors.grey, fontSize: 13),
-                      ),
-                    ],
-                  ),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 8,
-                    children: [
-                      const BackToDashboardButton(),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.cobalt,
-                          side: const BorderSide(color: AppTheme.cobalt),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 12),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.orange,
+                            foregroundColor: Colors.white,
+                            minimumSize: Size(0, density.buttonHeight),
+                            padding: density.buttonPadding,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                          ),
+                          icon: Icon(Icons.auto_fix_high, size: density.buttonIconSize),
+                          label: Text(
+                            l10n.smartNafezaDiffEngineBtn,
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+                          ),
+                          onPressed: () => showTariffDialog(context, ref, initialModeIndex: 0),
                         ),
-                        icon: const Icon(Icons.table_chart_outlined, size: 18),
-                        label: Text(l10n.customsTariffExportTsvBtn),
-                        onPressed: () => _copyTariffsTsv(
-                            context, ref.read(customsTariffProvider).value ?? []),
-                      ),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.cobalt,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 12),
-                        ),
-                        icon: const Icon(Icons.file_upload_outlined, size: 18),
-                        label: Text(l10n.importExcelCsvBtn),
-                        onPressed: () => _handleExcelImport(context, ref),
-                      ),
-                    SegmentedButton<int>(
-                      style: ButtonStyle(
-                        visualDensity: VisualDensity.compact,
-                        backgroundColor: WidgetStateProperty.resolveWith((states) {
-                          if (states.contains(WidgetState.selected)) {
-                            return AppTheme.cobalt;
-                          }
-                          return Colors.white;
-                        }),
-                        foregroundColor: WidgetStateProperty.resolveWith((states) {
-                          if (states.contains(WidgetState.selected)) {
-                            return Colors.white;
-                          }
-                          return AppTheme.charcoal;
-                        }),
-                      ),
-                      segments: [
-                        ButtonSegment(
-                          value: 0,
-                          icon: const Icon(Icons.table_chart_outlined, size: 16),
-                          label: Text(l10n.customsTariffScreenTitle, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        ),
-                        ButtonSegment(
-                          value: 1,
-                          icon: const Icon(Icons.saved_search, size: 16),
-                          label: Text(l10n.hsExplorerBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.emerald,
+                            foregroundColor: Colors.white,
+                            minimumSize: Size(0, density.buttonHeight),
+                            padding: density.buttonPadding,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                          ),
+                          icon: Icon(Icons.calculate, size: density.buttonIconSize),
+                          label: Text(
+                            l10n.dutyCalculatorBtn,
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+                          ),
+                          onPressed: () => showDutyCalculatorDialog(context, ref),
                         ),
                       ],
-                      selected: {_currentTab},
-                      onSelectionChanged: (set) => setState(() => _currentTab = set.first),
-                    ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.orange,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 12),
+                      moreActionItems: MasterDataActionHelper.buildStandardMoreActionItems(
+                        context: context,
+                        includeTsv: (tariffsAsync.value ?? []).isNotEmpty,
                       ),
-                      icon: const Icon(Icons.auto_fix_high, size: 18),
-                      label: Text(l10n.smartNafezaDiffEngineBtn),
-                      onPressed: () => showTariffDialog(context, ref, initialModeIndex: 0),
-                    ),
-
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.emerald,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 12),
-                      ),
-                      icon: const Icon(Icons.calculate, size: 18),
-                      label: Text(l10n.dutyCalculatorBtn),
-                      onPressed: () => showDutyCalculatorDialog(context, ref),
-                    ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 12),
-                      ),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: Text(l10n.addTariffManualBtn),
-                      onPressed: () => showTariffDialog(context, ref, initialModeIndex: 1),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            if (_currentTab == 0) ...[
-              // Data Actions Toolbar
-              MasterDataToolbarWidget(
-                moduleEndpoint: 'customs-tariff',
-                title: 'Customs_Tariffs',
-                onRefreshNeeded: () => ref.read(customsTariffProvider.notifier).fetchTariffs(),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Search & Filter Toolbar
-              Row(
-                children: [
-                  Expanded(
-                    child: ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: _searchController,
-                      builder: (context, val, _) {
-                        return TextField(
-                          controller: _searchController,
-                          onChanged: (val) {
-                            ref
-                                .read(customsTariffSearchQueryProvider.notifier)
-                                .state = val.trim();
-                          },
-                          decoration: InputDecoration(
-                            hintText: l10n.searchTariffsHint,
-                            prefixIcon:
-                                const Icon(Icons.search, color: Colors.grey),
-                            suffixIcon: val.text.isEmpty
-                                ? null
-                                : IconButton(
-                                    icon: const Icon(Icons.clear,
-                                        color: Colors.grey),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      ref
-                                          .read(
-                                              customsTariffSearchQueryProvider
-                                                  .notifier)
-                                          .state = '';
-                                    },
-                                  ),
-                          ),
-                        );
+                      onMoreActionSelected: (val) {
+                        switch (val) {
+                          case 'export_excel':
+                            final list = tariffsAsync.value ?? [];
+                            MasterDataExportService.exportTariffsToExcel(context, list);
+                            break;
+                          case 'export_pdf':
+                            MasterDataActionHelper.downloadFile(
+                              context: context,
+                              ref: ref,
+                              moduleEndpoint: 'customs-tariff',
+                              actionEndpoint: 'export-pdf',
+                              defaultFileName: 'Customs_Tariffs_Report.pdf',
+                              dialogTitle: 'تصدير التعريفة الجمركية PDF',
+                            );
+                            break;
+                          case 'copy_tsv':
+                            _copyTariffsTsv(context, tariffsAsync.value ?? []);
+                            break;
+                          case 'download_template':
+                            MasterDataActionHelper.downloadFile(
+                              context: context,
+                              ref: ref,
+                              moduleEndpoint: 'customs-tariff',
+                              actionEndpoint: 'excel-template',
+                              defaultFileName: 'Customs_Tariff_Template.xlsx',
+                              dialogTitle: 'تنزيل نموذج التعريفة الجمركية',
+                            );
+                            break;
+                          case 'import_excel':
+                            _handleExcelImport(context, ref);
+                            break;
+                        }
                       },
+                      searchController: _searchController,
+                      searchHint: l10n.searchTariffsHint,
+                      onSearchChanged: (val) {
+                        ref.read(customsTariffSearchQueryProvider.notifier).state = val.trim();
+                      },
+                      filters: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              l10n.showInactiveTariffsLabel,
+                              style: TextStyle(
+                                fontSize: density.buttonFontSize - 1,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Transform.scale(
+                              scale: 0.8,
+                              child: Switch(
+                                value: showInactive,
+                                activeColor: AppTheme.cobalt,
+                                onChanged: (val) {
+                                  ref.read(showInactiveCustomsTariffsProvider.notifier).state = val;
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      quickDataActions: [
+                        IconButton(
+                          icon: Icon(Icons.refresh, size: density.buttonIconSize + 2),
+                          tooltip: l10n.liveRefresh,
+                          padding: EdgeInsets.zero,
+                          constraints: BoxConstraints(
+                            minWidth: density.buttonHeight,
+                            minHeight: density.buttonHeight,
+                          ),
+                          onPressed: () => ref.read(customsTariffProvider.notifier).fetchTariffs(),
+                        ),
+                        if ((tariffsAsync.value ?? []).isNotEmpty)
+                          IconButton(
+                            icon: Icon(Icons.copy_rounded, size: density.buttonIconSize + 2, color: AppTheme.cobalt),
+                            tooltip: l10n.customsTariffExportTsvBtn,
+                            padding: EdgeInsets.zero,
+                            constraints: BoxConstraints(
+                              minWidth: density.buttonHeight,
+                              minHeight: density.buttonHeight,
+                            ),
+                            onPressed: () => _copyTariffsTsv(context, tariffsAsync.value ?? []),
+                          ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Row(
-                    children: [
-                      Text(
-                        l10n.showInactiveTariffsLabel,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(width: 8),
-                      Switch(
-                        value: showInactive,
-                        activeColor: AppTheme.cobalt,
-                        onChanged: (val) {
-                          ref
-                              .read(showInactiveCustomsTariffsProvider.notifier)
-                              .state = val;
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Main Content Area
-            Expanded(
-              child: _currentTab == 1
-                  ? HsCodeSearchScreen(
-                      key: const ValueKey('hs_explorer_tab_view'),
-                      initialQuery: _searchController.text,
-                      isEmbedded: true,
-                    )
-                  : tariffsAsync.when(
-                loading: () => const Center(
-                  child: CircularProgressIndicator(color: AppTheme.cobalt),
-                ),
-                error: (e, _) => Center(child: Text('Error: $e')),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: tariffsAsync.when(
+                        loading: () => const Center(
+                          child: CircularProgressIndicator(color: AppTheme.cobalt),
+                        ),
+                        error: (e, _) => Center(child: Text('Error: $e')),
                 data: (tariffs) {
                   final query = _searchController.text.trim().toLowerCase().replaceAll('.', '');
                   final filteredTariffs = query.isEmpty

@@ -18,6 +18,7 @@ from datetime import date, datetime, timezone
 
 from modules.users.model import User
 from modules.auth.security import hash_password
+from settings import ADMIN_INITIAL_PASSWORD
 from modules.incoterms.model import Incoterm, CostItem, IncotermResponsibility
 from modules.incoterms.incoterms_matrix import IncotermsMatrix, Party
 from modules.customs_tariff.model import CustomsTariff, FeeCode, PreferentialAgreement
@@ -40,7 +41,7 @@ class MasterDataSyncService:
                     username="admin",
                     email="admin@sorourlogistics.com",
                     full_name="System Admin",
-                    hashed_password=hash_password("admin123"),
+                    hashed_password=hash_password(ADMIN_INITIAL_PASSWORD),
                     role="ADMIN",
                     is_active=True,
                 ),

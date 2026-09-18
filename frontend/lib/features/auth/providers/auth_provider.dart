@@ -46,7 +46,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   AuthNotifier(this._dio, this._storage)
       : super(const AuthState(
-          isAuthenticated: true,
+          isAuthenticated: false,
           user: null,
         )) {
     _initFromStorage();
@@ -67,22 +67,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isAuthenticated: true,
         );
       } else {
-        // Default dev initial session (General Manager)
-        final defaultUser = UserModel(
-          userId: 2,
-          username: 'manager',
-          email: 'manager@sorourlogistics.com',
-          fullName: 'General Logistics Manager',
-          role: 'MANAGER',
-          isActive: true,
-        );
+        // No valid token stored -> stay unauthenticated, display LoginScreen
         state = state.copyWith(
-          user: defaultUser,
-          isAuthenticated: true,
+          user: null,
+          token: null,
+          isAuthenticated: false,
         );
       }
     } catch (_) {
-      // Fallback
+      state = state.copyWith(
+        user: null,
+        token: null,
+        isAuthenticated: false,
+      );
     }
   }
 

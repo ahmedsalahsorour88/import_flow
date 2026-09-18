@@ -1,5 +1,7 @@
+import time
+import threading
 from datetime import date
-from typing import List, Optional
+from typing import List, Optional, Dict, Tuple
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -15,6 +17,18 @@ from modules.currencies.schemas import (
 )
 from modules.currencies.validators import CurrencyValidator
 
+_CURRENCIES_CACHE: Dict[bool, Tuple[float, List[CurrencyResponse]]] = {}
+_RATE_CACHE: Dict[Tuple[str, str, date], Tuple[float, float, Optional[date], Optional[int]]] = {}
+_CURRENCY_CACHE_LOCK = threading.Lock()
+_CURRENCY_CACHE_TTL = 300.0  # 5 minutes
+
+
+def clear_currency_cache():
+    """Invalidates the in-memory currency and exchange rate cache."""
+    with _CURRENCY_CACHE_LOCK:
+        _CURRENCIES_CACHE.clear()
+        _RATE_CACHE.clear()
+
 
 class CurrencyService:
 
@@ -26,6 +40,16 @@ class CurrencyService:
     def get_all_currencies(
         self, include_inactive: bool = False, search: Optional[str] = None
     ) -> List[CurrencyResponse]:
+        now = time.time()
+        # Fast-path cache for standard list fetches without ad-hoc search
+        if not search:
+            with _CURRENCY_CACHE_LOCK:
+                cached = _CURRENCIES_CACHE.get(include_inactive)
+                if cached is not None:
+                    cached_time, cached_items = cached
+                    if now - cached_time < _CURRENCY_CACHE_TTL:
+                        return list(cached_items)
+
         currencies = self.repo.get_all_currencies(include_inactive=include_inactive, search=search)
         result = []
         for c in currencies:
@@ -44,6 +68,11 @@ class CurrencyService:
                 latest_customs_rate=float(latest_rate.customs_rate) if latest_rate else (1.0 if c.is_base_currency else None),
             )
             result.append(c_resp)
+
+        if not search:
+            with _CURRENCY_CACHE_LOCK:
+                _CURRENCIES_CACHE[include_inactive] = (now, list(result))
+
         return result
 
     def get_currency_by_id(self, currency_id: int) -> CurrencyResponse:
@@ -82,23 +111,32 @@ class CurrencyService:
 
     def create_currency(self, data: CurrencyCreate) -> Currency:
         self.validator.validate_no_duplicate_code(data.currency_code)
-        return self.repo.create_currency(data)
+        created = self.repo.create_currency(data)
+        clear_currency_cache()
+        return created
 
     def update_currency(self, currency_id: int, data: CurrencyUpdate) -> Currency:
         currency = self.validator.validate_currency_exists(currency_id)
-        return self.repo.update_currency(currency, data)
+        updated = self.repo.update_currency(currency, data)
+        clear_currency_cache()
+        return updated
 
     def soft_delete_currency(self, currency_id: int) -> Currency:
         currency = self.validator.validate_currency_exists(currency_id)
-        return self.repo.soft_delete_currency(currency)
+        deleted = self.repo.soft_delete_currency(currency)
+        clear_currency_cache()
+        return deleted
 
     def restore_currency(self, currency_id: int) -> Currency:
         currency = self.validator.validate_currency_exists(currency_id)
-        return self.repo.restore_currency(currency)
+        restored = self.repo.restore_currency(currency)
+        clear_currency_cache()
+        return restored
 
     def add_exchange_rate(self, data: ExchangeRateCreate) -> ExchangeRateResponse:
         self.validator.validate_currency_exists(data.currency_id)
         rate = self.repo.add_exchange_rate(data)
+        clear_currency_cache()
         return ExchangeRateResponse(
             rate_id=rate.rate_id,
             currency_id=rate.currency_id,
@@ -120,12 +158,24 @@ class CurrencyService:
         if code == "EGP":
             return 1.0, ref_date, None
 
+        cache_key = (code, rate_type, ref_date)
+        now = time.time()
+        with _CURRENCY_CACHE_LOCK:
+            cached_rate = _RATE_CACHE.get(cache_key)
+            if cached_rate is not None:
+                cached_time, rate_val, eff_date, rate_id = cached_rate
+                if now - cached_time < _CURRENCY_CACHE_TTL:
+                    return rate_val, eff_date, rate_id
+
         fallback_rates = {"USD": 48.50, "EUR": 52.80, "GBP": 61.50, "CNY": 6.75, "SAR": 12.93, "AED": 13.20}
 
         currency = self.repo.get_currency_by_code(code)
         if not currency:
             if code in fallback_rates:
-                return fallback_rates[code], ref_date, None
+                val = fallback_rates[code]
+                with _CURRENCY_CACHE_LOCK:
+                    _RATE_CACHE[cache_key] = (now, val, ref_date, None)
+                return val, ref_date, None
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"العملة الكود '{code}' غير مسجلة في النظام.",
@@ -134,9 +184,13 @@ class CurrencyService:
         rate_obj = self.repo.get_latest_rate(currency.currency_id, target_date=ref_date)
         if not rate_obj:
             rate_val = fallback_rates.get(code, 1.0)
+            with _CURRENCY_CACHE_LOCK:
+                _RATE_CACHE[cache_key] = (now, rate_val, ref_date, None)
             return rate_val, ref_date, None
 
         rate_val = float(rate_obj.commercial_rate) if rate_type == "commercial" else float(rate_obj.customs_rate)
+        with _CURRENCY_CACHE_LOCK:
+            _RATE_CACHE[cache_key] = (now, rate_val, rate_obj.effective_date, rate_obj.rate_id)
         return rate_val, rate_obj.effective_date, rate_obj.rate_id
 
     def convert_currency(

@@ -96,7 +96,7 @@ class CustomsTariff(Base):
     # Notes & Status
     # ==================================================
     notes = Column(Text, nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
 
     # Relationships
     agreements = relationship(

@@ -398,7 +398,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     }
 
     return VerticalStageScaffold(
-      stageCode: '',
+      stageCode: 'PHASE-4: STEP_11',
       titleEn: 'CargoX & ACI Blockchain Dispatch Hub',
       titleAr: context.l10n.cargoxHubTitle,
       headerIcon: Icons.hub_outlined,
@@ -406,6 +406,8 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
       tabs: tabs,
       selectedIndex: _selectedSubTab,
       onTabSelected: (idx) => setState(() => _selectedSubTab = idx),
+      selectedImportFileId: _selectedImportFileId,
+      onShipmentStatusChanged: _refreshData,
       headerActions: [
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(

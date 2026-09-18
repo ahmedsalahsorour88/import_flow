@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
+import '../../../core/widgets/page_header.dart';
+import '../../../core/widgets/action_toolbar.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
-
-import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/helpers/master_data_action_helper.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/row_context_menu.dart';
@@ -149,170 +151,171 @@ ${l10n.supplierTsvHeaderBrands}: ${s.brands ?? '-'}
     final suppliersAsync = ref.watch(suppliersProvider);
     final showInactive = ref.watch(showInactiveSuppliersProvider);
 
+    final density = ref.watch(displayDensityProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: AppTheme.cloudWhite,
+      backgroundColor: isDark ? AppTheme.darkScaffoldBackground : AppTheme.cloudWhite,
+      appBar: PageHeader(
+        icon: Icons.local_shipping_outlined,
+        title: l10n.suppliersScreenTitle,
+        subtitle: l10n.suppliersScreenSubtitle,
+        actions: const [
+          BackToDashboardButton(),
+          SizedBox(width: 8),
+        ],
+      ),
       body: SelectionArea(
         child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Bar Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.suppliersScreenTitle,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.charcoal,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        l10n.suppliersScreenSubtitle,
-                        style: const TextStyle(color: Colors.grey, fontSize: 14),
-                      ),
-                    ],
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ActionToolbar(
+                primaryActions: [
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.cobalt,
+                      foregroundColor: Colors.white,
+                      minimumSize: Size(0, density.buttonHeight),
+                      padding: density.buttonPadding,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    icon: Icon(Icons.add, size: density.buttonIconSize),
+                    label: Text(
+                      l10n.addForeignSupplierBtn,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+                    ),
+                    onPressed: () => _showSupplierDialog(context),
                   ),
-                ),
-                Row(
-                  children: [
-                    const BackToDashboardButton(),
-                    const SizedBox(width: 10),
-                    if (suppliersAsync.valueOrNull != null && suppliersAsync.valueOrNull!.isNotEmpty) ...[
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.table_view_rounded, size: 18),
-                        label: Text(l10n.suppliersExportTsvBtn),
-                        onPressed: () => _copySuppliersTsv(suppliersAsync.valueOrNull!),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.charcoal,
-                          side: const BorderSide(color: AppTheme.charcoal),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                    ],
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                      label: Text(l10n.aiExtractorAndCodingBtn),
-                      onPressed: () => UniversalEntityExtractorDialog.showSupplierExtractor(
-                        context,
-                        onSaved: () => ref.read(suppliersProvider.notifier).fetchSuppliers(),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.emerald,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.emerald,
+                      foregroundColor: Colors.white,
+                      minimumSize: Size(0, density.buttonHeight),
+                      padding: density.buttonPadding,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
-                    const SizedBox(width: 10),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.add, size: 18),
-                      label: Text(l10n.addForeignSupplierBtn),
-                      onPressed: () => _showSupplierDialog(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
+                    icon: Icon(Icons.auto_awesome_rounded, size: density.buttonIconSize),
+                    label: Text(
+                      l10n.aiExtractorAndCodingBtn,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
                     ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Master Data Toolbar
-            MasterDataToolbarWidget(
-              moduleEndpoint: 'suppliers',
-              title: 'Foreign_Suppliers',
-              onRefreshNeeded: () => ref.refresh(suppliersProvider.notifier).fetchSuppliers(),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Search Bar & Filter Switch
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      style: const TextStyle(fontSize: 14),
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.search, color: AppTheme.charcoal),
-                        hintText: l10n.searchSuppliersHint,
-                        filled: false,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: AppTheme.cobalt, width: 2),
-                        ),
-                      ),
-                      onChanged: (val) {
-                        setState(() {
-                          _searchQuery = val.toLowerCase();
-                        });
-                      },
+                    onPressed: () => UniversalEntityExtractorDialog.showSupplierExtractor(
+                      context,
+                      onSaved: () => ref.read(suppliersProvider.notifier).fetchSuppliers(),
                     ),
                   ),
+                ],
+                moreActionItems: MasterDataActionHelper.buildStandardMoreActionItems(
+                  context: context,
+                  includeTsv: suppliersAsync.valueOrNull != null && suppliersAsync.valueOrNull!.isNotEmpty,
                 ),
-                const SizedBox(width: 16),
-
-                // Show Inactive Toggle Switch
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
+                onMoreActionSelected: (val) {
+                  switch (val) {
+                    case 'export_excel':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'suppliers',
+                        actionEndpoint: 'export-excel',
+                        defaultFileName: 'Foreign_Suppliers_Report.xlsx',
+                        dialogTitle: 'تصدير الموردين الأجانب إكسيل',
+                      );
+                      break;
+                    case 'export_pdf':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'suppliers',
+                        actionEndpoint: 'export-pdf',
+                        defaultFileName: 'Foreign_Suppliers_Report.pdf',
+                        dialogTitle: 'تصدير الموردين الأجانب PDF',
+                      );
+                      break;
+                    case 'copy_tsv':
+                      if (suppliersAsync.valueOrNull != null) {
+                        _copySuppliersTsv(suppliersAsync.valueOrNull!);
+                      }
+                      break;
+                    case 'download_template':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'suppliers',
+                        actionEndpoint: 'excel-template',
+                        defaultFileName: 'Foreign_Suppliers_Template.xlsx',
+                        dialogTitle: 'تنزيل نموذج الموردين الأجانب',
+                      );
+                      break;
+                    case 'import_excel':
+                      MasterDataActionHelper.importExcel(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'suppliers',
+                        onImportSuccess: () => ref.read(suppliersProvider.notifier).fetchSuppliers(),
+                      );
+                      break;
+                  }
+                },
+                searchController: _searchController,
+                searchHint: l10n.searchSuppliersHint,
+                onSearchChanged: (val) {
+                  setState(() {
+                    _searchQuery = val.toLowerCase();
+                  });
+                },
+                filters: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         l10n.showInactiveSuppliersLabel,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                        style: TextStyle(
+                          fontSize: density.buttonFontSize - 1,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
+                        ),
                       ),
-                      Switch(
-                        value: showInactive,
-                        activeColor: AppTheme.cobalt,
-                        onChanged: (val) {
-                          ref.read(showInactiveSuppliersProvider.notifier).state = val;
-                        },
+                      const SizedBox(width: 4),
+                      Transform.scale(
+                        scale: 0.8,
+                        child: Switch(
+                          value: showInactive,
+                          activeColor: AppTheme.cobalt,
+                          onChanged: (val) {
+                            ref.read(showInactiveSuppliersProvider.notifier).state = val;
+                          },
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
+                ],
+                quickDataActions: [
+                  IconButton(
+                    icon: Icon(Icons.refresh, size: density.buttonIconSize + 2),
+                    tooltip: l10n.liveRefresh,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: density.buttonHeight,
+                      minHeight: density.buttonHeight,
+                    ),
+                    onPressed: () => ref.read(suppliersProvider.notifier).fetchSuppliers(),
+                  ),
+                  if (suppliersAsync.valueOrNull != null && suppliersAsync.valueOrNull!.isNotEmpty)
+                    IconButton(
+                      icon: Icon(Icons.copy_rounded, size: density.buttonIconSize + 2, color: AppTheme.cobalt),
+                      tooltip: l10n.suppliersExportTsvBtn,
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(
+                        minWidth: density.buttonHeight,
+                        minHeight: density.buttonHeight,
+                      ),
+                      onPressed: () => _copySuppliersTsv(suppliersAsync.valueOrNull!),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
 
             // Data Table Content
             Expanded(

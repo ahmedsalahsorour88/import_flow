@@ -1,3 +1,4 @@
+import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -6,6 +7,8 @@ from database.database import get_db
 from .container_specs import ContainerSpec, get_container_specs_dict
 from .schemas import ContainerLoaderEvaluationResult, ContainerLoaderRequest
 from .service import evaluate_container_loading_service, list_container_specs_service
+
+logger = logging.getLogger(__name__)
 
 container_loader_router = APIRouter(prefix="/api/v1/container-loader", tags=["Container Loader"])
 
@@ -22,7 +25,8 @@ def evaluate_container_loading(request: ContainerLoaderRequest, db: Session = De
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error evaluating container loading: {str(e)}")
+        logger.error(f"Error evaluating container loading: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="حدث خطأ داخلي أثناء تقييم تحميل الحاوية.")
 
 
 @container_loader_router.get("/specs")

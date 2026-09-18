@@ -521,7 +521,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
     ];
 
     return VerticalStageScaffold(
-      stageCode: '',
+      stageCode: 'PHASE-2: STEP_05',
       titleEn: 'Nafeza Advance Cargo Information (ACID)',
       titleAr: 'منظومة نافذة والتسجيل المسبق للشحنات',
       headerIcon: Icons.qr_code_scanner_outlined,

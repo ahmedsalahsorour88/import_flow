@@ -409,6 +409,8 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
               ref.read(bankingDocumentsProvider.notifier).fetchBankingDocuments();
             }
           },
+          selectedImportFileId: _form4ImportFileId,
+          onShipmentStatusChanged: _refreshData,
           headerActions: [
             IconButton(
               key: const Key('searchAndCloneBankForm4Btn'),

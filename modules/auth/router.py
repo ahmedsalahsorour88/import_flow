@@ -1,8 +1,9 @@
 from typing import List
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from database.database import get_db
 from modules.users.model import User
+from .rate_limiter import login_limiter
 from .schemas import (
     LoginRequest,
     TokenResponse,
@@ -68,14 +69,17 @@ def require_manager_or_admin(current_user: User = Depends(get_current_user)) -> 
 # ─── Auth Endpoints ───────────────────────────────────────────────────────────
 
 @router.post("/login", response_model=TokenResponse)
-def login(credentials: LoginRequest, db: Session = Depends(get_db)):
+def login(request: Request, credentials: LoginRequest, db: Session = Depends(get_db)):
+    login_limiter.check_rate_limit(request)
     service = AuthService(db)
     user = service.authenticate_user(credentials.username_or_email, credentials.password)
     if not user:
+        login_limiter.record_failure(request)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="اسم المستخدم أو كلمة المرور غير صحيحة."
         )
+    login_limiter.record_success(request)
     token = service.generate_user_token(user)
     return TokenResponse(access_token=token, user=user)
 

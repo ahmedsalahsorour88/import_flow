@@ -14,5 +14,5 @@ class AuditLog(Base):
     changes_summary = Column(Text)
     old_values = Column(Text)  # JSON string
     new_values = Column(Text)  # JSON string
-    performed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    performed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
     performed_by = Column(String(100), default="System Admin")

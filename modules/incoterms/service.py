@@ -1,4 +1,6 @@
-from typing import List, Optional
+import time
+import threading
+from typing import List, Optional, Dict, Tuple
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -21,6 +23,16 @@ from .validators import (
     validate_no_duplicate_responsibility,
 )
 
+_INCOTERMS_CACHE: Dict[Tuple[int, bool], Tuple[float, List[Incoterm]]] = {}
+_INCOTERMS_LOCK = threading.Lock()
+_INCOTERMS_TTL = 300.0  # 5 minutes
+
+
+def invalidate_incoterms_cache():
+    """Invalidates the in-memory Incoterms cache."""
+    with _INCOTERMS_LOCK:
+        _INCOTERMS_CACHE.clear()
+
 
 # ==================================================
 # Incoterm Services (MD-006)
@@ -28,11 +40,26 @@ from .validators import (
 
 def create_incoterm_service(db: Session, data: IncotermCreate) -> Incoterm:
     validate_no_duplicate_incoterm_code(db, data.incoterm_code)
-    return repository.create_incoterm(db, data.model_dump())
+    created = repository.create_incoterm(db, data.model_dump())
+    invalidate_incoterms_cache()
+    return created
 
 
 def get_all_incoterms_service(db: Session, include_inactive: bool = False) -> List[Incoterm]:
-    return repository.get_all_incoterms(db, include_inactive)
+    now = time.time()
+    bind_id = id(db.get_bind())
+    cache_key = (bind_id, include_inactive)
+    with _INCOTERMS_LOCK:
+        cached = _INCOTERMS_CACHE.get(cache_key)
+        if cached is not None:
+            cached_time, cached_items = cached
+            if now - cached_time < _INCOTERMS_TTL:
+                return [db.merge(item, load=False) for item in cached_items]
+
+    items = repository.get_all_incoterms(db, include_inactive)
+    with _INCOTERMS_LOCK:
+        _INCOTERMS_CACHE[cache_key] = (now, items)
+    return items
 
 
 def get_incoterm_by_id_service(db: Session, incoterm_id: int) -> Incoterm:
@@ -47,21 +74,27 @@ def update_incoterm_service(db: Session, incoterm_id: int, data: IncotermUpdate)
     if not incoterm:
         raise HTTPException(status_code=404, detail="Incoterm not found")
     update_dict = data.model_dump(exclude_unset=True, exclude_none=True)
-    return repository.update_incoterm(db, incoterm_id, update_dict)
+    updated = repository.update_incoterm(db, incoterm_id, update_dict)
+    invalidate_incoterms_cache()
+    return updated
 
 
 def delete_incoterm_service(db: Session, incoterm_id: int) -> Incoterm:
     incoterm = repository.get_incoterm_by_id(db, incoterm_id)
     if not incoterm:
         raise HTTPException(status_code=404, detail="Incoterm not found")
-    return repository.toggle_incoterm_active(db, incoterm_id, is_active=False)
+    toggled = repository.toggle_incoterm_active(db, incoterm_id, is_active=False)
+    invalidate_incoterms_cache()
+    return toggled
 
 
 def restore_incoterm_service(db: Session, incoterm_id: int) -> Incoterm:
     incoterm = repository.get_incoterm_by_id(db, incoterm_id)
     if not incoterm:
         raise HTTPException(status_code=404, detail="Incoterm not found")
-    return repository.toggle_incoterm_active(db, incoterm_id, is_active=True)
+    restored = repository.toggle_incoterm_active(db, incoterm_id, is_active=True)
+    invalidate_incoterms_cache()
+    return restored
 
 
 # ==================================================

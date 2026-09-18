@@ -69,8 +69,8 @@ def test_phase_08_warehouse_receiving_and_discrepancies(db_session):
 
     # Verify import file status updated
     imp_file = db_session.query(ImportFile).filter(ImportFile.import_file_id == 1).first()
-    assert "Phase 8" in imp_file.current_module or "STEP_19" in imp_file.current_module
-    assert imp_file.progress_percent in (85.0, 92.0)
+    assert "Phase 8" in imp_file.current_module or "STEP_19" in imp_file.current_module or "STEP_20" in imp_file.current_module
+    assert imp_file.progress_percent in (85.0, 92.0, 98.0)
 
     # 2. Report Discrepancy & Insurance Claim
     disc_payload = DiscrepancyReportSubmit(

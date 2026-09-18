@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
+import '../../../core/widgets/page_header.dart';
+import '../../../core/widgets/action_toolbar.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/helpers/master_data_action_helper.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/transport_location_model.dart';
@@ -126,185 +129,162 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
     final l10n = context.l10n;
     final locationsAsync = ref.watch(transportLocationsProvider);
 
+    final density = ref.watch(displayDensityProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.grey.shade100,
+      appBar: PageHeader(
+        icon: Icons.place_outlined,
+        title: l10n.transportLocationsScreenTitle,
+        subtitle: l10n.transportLocationsScreenSubtitle,
+        actions: const [
+          BackToDashboardButton(),
+          SizedBox(width: 8),
+        ],
+      ),
       body: SelectionArea(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Title & Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.transportLocationsScreenTitle,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.charcoal,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          l10n.transportLocationsScreenSubtitle,
-                          style: const TextStyle(fontSize: 13, color: Colors.grey),
-                        ),
-                      ],
+              ActionToolbar(
+                primaryActions: [
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.cobalt,
+                      foregroundColor: Colors.white,
+                      minimumSize: Size(0, density.buttonHeight),
+                      padding: density.buttonPadding,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Row(
-                    children: [
-                      const BackToDashboardButton(),
-                      const SizedBox(width: 10),
-                      ElevatedButton.icon(
-                        onPressed: () => _copyLocationsTsv(
-                            context, locationsAsync.asData?.value ?? []),
-                        icon: const Icon(Icons.table_chart_outlined, size: 18),
-                        label: Text(l10n.locationsExportTsvBtn),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.emerald,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 14),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      ElevatedButton.icon(
-                        onPressed: () => _showLocationDialog(context),
-                        icon: const Icon(Icons.add_location_alt, size: 18),
-                        label: Text(l10n.addTransportLocationBtn),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.cobalt,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 14),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                    ],
+                    icon: Icon(Icons.add_location_alt, size: density.buttonIconSize),
+                    label: Text(
+                      l10n.addTransportLocationBtn,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
+                    ),
+                    onPressed: () => _showLocationDialog(context),
                   ),
                 ],
-              ),
-              const SizedBox(height: 16),
-
-              // Data Actions Toolbar
-              MasterDataToolbarWidget(
-                moduleEndpoint: 'transport-locations',
-                title: 'Transport_Locations',
-                onRefreshNeeded: () =>
-                    ref.read(transportLocationsProvider.notifier).fetchLocations(),
-                onImportExcel: () => _handleExcelImport(context, ref),
-                onExportExcel: () {
-                  final list = locationsAsync.asData?.value ?? [];
-                  MasterDataExportService.exportLocationsToExcel(context, list);
-                },
-              ),
-
-            const SizedBox(height: 16),
-
-            // Type Filter Chips & Search Bar
-            Row(
-              children: [
-                // Category Chips
-                Wrap(
-                  spacing: 8,
-                  children: _locationTypes.map((type) {
-                    final isSelected = _selectedType == type;
-                    return ChoiceChip(
-                      label: Text(_getLocationTypeLabel(type, l10n)),
-                      selected: isSelected,
-                      selectedColor: AppTheme.cobalt,
-                      labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : AppTheme.charcoal,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(() {
-                            _selectedType = type;
-                            _currentPage = 1;
-                          });
-                          ref.read(transportLocationsProvider.notifier).fetchLocations(
-                                locationType: type,
-                                search: _searchQuery,
-                              );
-                        }
-                      },
-                    );
-                  }).toList(),
+                moreActionItems: MasterDataActionHelper.buildStandardMoreActionItems(
+                  context: context,
+                  includeTsv: (locationsAsync.asData?.value ?? []).isNotEmpty,
                 ),
-                const Spacer(),
-                // Search Input
-                SizedBox(
-                  width: 320,
-                  child: ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: _searchController,
-                    builder: (context, val, _) {
-                      return TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: l10n.searchTransportLocationsHint,
-                          prefixIcon: const Icon(Icons.search, size: 20),
-                          suffixIcon: val.text.isEmpty
-                              ? null
-                              : IconButton(
-                                  icon: const Icon(Icons.clear, size: 18),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() {
-                                      _searchQuery = '';
-                                      _currentPage = 1;
-                                    });
-                                    ref
-                                        .read(transportLocationsProvider.notifier)
-                                        .fetchLocations(
-                                          locationType: _selectedType,
-                                          search: '',
-                                        );
-                                  },
-                                ),
-                          filled: true,
-                          fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(
-                              vertical: 10, horizontal: 16),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                        ),
-                        onChanged: (v) {
-                          setState(() {
-                            _searchQuery = v;
-                            _currentPage = 1;
-                          });
-                          ref
-                              .read(transportLocationsProvider.notifier)
-                              .fetchLocations(
-                                locationType: _selectedType,
-                                search: v,
-                              );
-                        },
+                onMoreActionSelected: (val) {
+                  switch (val) {
+                    case 'export_excel':
+                      final list = locationsAsync.asData?.value ?? [];
+                      MasterDataExportService.exportLocationsToExcel(context, list);
+                      break;
+                    case 'export_pdf':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'transport-locations',
+                        actionEndpoint: 'export-pdf',
+                        defaultFileName: 'Transport_Locations_Report.pdf',
+                        dialogTitle: 'تصدير الموانئ والمواقع اللوجستية PDF',
                       );
-                    },
+                      break;
+                    case 'copy_tsv':
+                      _copyLocationsTsv(context, locationsAsync.asData?.value ?? []);
+                      break;
+                    case 'download_template':
+                      MasterDataActionHelper.downloadFile(
+                        context: context,
+                        ref: ref,
+                        moduleEndpoint: 'transport-locations',
+                        actionEndpoint: 'excel-template',
+                        defaultFileName: 'Transport_Locations_Template.xlsx',
+                        dialogTitle: 'تنزيل نموذج الموانئ والمواقع',
+                      );
+                      break;
+                    case 'import_excel':
+                      _handleExcelImport(context, ref);
+                      break;
+                  }
+                },
+                searchController: _searchController,
+                searchHint: l10n.searchTransportLocationsHint,
+                onSearchChanged: (v) {
+                  setState(() {
+                    _searchQuery = v;
+                    _currentPage = 1;
+                  });
+                  ref.read(transportLocationsProvider.notifier).fetchLocations(
+                        locationType: _selectedType,
+                        search: v,
+                      );
+                },
+                filters: [
+                  SizedBox(
+                    width: 145,
+                    height: density.buttonHeight,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.black26, width: 0.8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedType,
+                          isExpanded: true,
+                          style: TextStyle(
+                            fontSize: density.buttonFontSize - 1,
+                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                          ),
+                          items: _locationTypes.map((type) => DropdownMenuItem(
+                            value: type,
+                            child: Text(_getLocationTypeLabel(type, l10n)),
+                          )).toList(),
+                          onChanged: (type) {
+                            if (type != null) {
+                              setState(() {
+                                _selectedType = type;
+                                _currentPage = 1;
+                              });
+                              ref.read(transportLocationsProvider.notifier).fetchLocations(
+                                    locationType: type,
+                                    search: _searchQuery,
+                                  );
+                            }
+                          },
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+                ],
+                quickDataActions: [
+                  IconButton(
+                    icon: Icon(Icons.refresh, size: density.buttonIconSize + 2),
+                    tooltip: l10n.liveRefresh,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: density.buttonHeight,
+                      minHeight: density.buttonHeight,
+                    ),
+                    onPressed: () => ref.read(transportLocationsProvider.notifier).fetchLocations(
+                          locationType: _selectedType,
+                          search: _searchQuery,
+                        ),
+                  ),
+                  if ((locationsAsync.asData?.value ?? []).isNotEmpty)
+                    IconButton(
+                      icon: Icon(Icons.copy_rounded, size: density.buttonIconSize + 2, color: AppTheme.cobalt),
+                      tooltip: l10n.locationsExportTsvBtn,
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(
+                        minWidth: density.buttonHeight,
+                        minHeight: density.buttonHeight,
+                      ),
+                      onPressed: () => _copyLocationsTsv(context, locationsAsync.asData?.value ?? []),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
 
             // Table Content
             Expanded(

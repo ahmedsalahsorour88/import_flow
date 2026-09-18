@@ -8,7 +8,10 @@ import zipfile
 import sqlite3
 import threading
 from collections import deque
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, date, timezone, timedelta
+import logging
+
+logger = logging.getLogger(__name__)
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
@@ -389,31 +392,38 @@ class DomainRadarService:
 
         # 1. Expiring ACIDs (< 7 days)
         expiring_acids = []
+        today_date = now_utc.date()
         try:
             from modules.import_documentation.model import AcidRegistrationSession
             sessions = (
                 db.query(AcidRegistrationSession)
                 .filter(
                     AcidRegistrationSession.expiry_date != None,
-                    AcidRegistrationSession.expiry_date <= seven_days_later,
+                    AcidRegistrationSession.expiry_date <= (today_date + timedelta(days=7)),
                     AcidRegistrationSession.is_active == True,
                 )
                 .limit(20)
                 .all()
             )
             for s in sessions:
-                days_left = (s.expiry_date - now_utc).days if s.expiry_date else 0
+                exp_d = s.expiry_date
+                if isinstance(exp_d, datetime):
+                    days_left = (exp_d.date() - today_date).days
+                elif isinstance(exp_d, date):
+                    days_left = (exp_d - today_date).days
+                else:
+                    days_left = 0
                 expiring_acids.append({
                     "acid_id": s.acid_id,
                     "acid_number": s.acid_number,
                     "days_remaining": days_left,
-                    "proforma_invoice": s.proforma_invoice_number,
+                    "proforma_invoice": getattr(s, "proforma_invoice_no", getattr(s, "proforma_invoice_number", "")),
                     "is_expired": days_left < 0,
                 })
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Error checking expiring ACIDs: {e}")
 
-        # 2. Demurrage Risks
+        # 2. Demurrage Risks (< 48h / Overdue)
         demurrage_risks = []
         try:
             from modules.demurrage_detention.model import DemurrageTracking
@@ -421,20 +431,33 @@ class DomainRadarService:
                 db.query(DemurrageTracking)
                 .filter(
                     DemurrageTracking.is_active == True,
-                    DemurrageTracking.container_status != "EMPTY_RETURNED",
+                    DemurrageTracking.status != "Closed",
                 )
                 .limit(20)
                 .all()
             )
             for d in dt_records:
-                demurrage_risks.append({
-                    "tracking_id": d.tracking_id,
-                    "container_number": d.container_number,
-                    "free_days_remaining": getattr(d, "free_days_remaining", 0),
-                    "accrued_demurrage_usd": getattr(d, "total_demurrage_usd", 0.0),
-                })
-        except Exception:
-            pass
+                cntrs = d.containers if isinstance(d.containers, list) else []
+                if cntrs:
+                    for c in cntrs:
+                        c_no = c.get("container_no") or c.get("container_number") or d.tracking_code
+                        free_d = c.get("demurrage_days", 0)
+                        dem_usd = c.get("demurrage_fx", 0.0)
+                        demurrage_risks.append({
+                            "tracking_id": d.tracking_id,
+                            "container_number": c_no,
+                            "free_days_remaining": free_d,
+                            "accrued_demurrage_usd": dem_usd,
+                        })
+                else:
+                    demurrage_risks.append({
+                        "tracking_id": d.tracking_id,
+                        "container_number": getattr(d, "tracking_code", "UNKNOWN"),
+                        "free_days_remaining": 0,
+                        "accrued_demurrage_usd": getattr(d, "total_demurrage_fx", 0.0),
+                    })
+        except Exception as e:
+            logger.warning(f"Error checking demurrage risks: {e}")
 
         # 3. Stuck Shipments (> 10 days inactive)
         stuck_shipments = []
@@ -454,13 +477,13 @@ class DomainRadarService:
             )
             for f in stuck_files:
                 stuck_shipments.append({
-                    "file_id": f.file_id,
-                    "file_code": f.file_code,
+                    "file_id": getattr(f, "import_file_id", getattr(f, "file_id", 0)),
+                    "file_code": getattr(f, "import_file_code", getattr(f, "file_code", "UNKNOWN")),
                     "current_stage": getattr(f, "current_stage", "IN_PROGRESS"),
                     "last_updated": f.updated_at.strftime("%Y-%m-%d") if f.updated_at else "",
                 })
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Error checking stuck shipments: {e}")
 
         # 4. Last Backup Status
         last_backup_time = None

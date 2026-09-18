@@ -100,6 +100,34 @@ class _SystemObservabilityScreenState
     );
   }
 
+  Future<void> _sendTestAlert() async {
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post(
+        '/api/v1/system/observability/alerts/test-trigger',
+        queryParameters: {'channel': 'TOAST'},
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم إرسال إشعار اختباري بنجاح إلى نظام ويندوز!'),
+            backgroundColor: AppTheme.emerald,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('فشل إرسال الإشعار الاختباري: $e'),
+            backgroundColor: AppTheme.crimson,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final metricsAsync = ref.watch(systemMetricsProvider);
@@ -188,6 +216,17 @@ class _SystemObservabilityScreenState
                   onPressed: _refreshAllData,
                   icon: const Icon(Icons.refresh_rounded, size: 15),
                   label: const Text('تحديث الآن', style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    minimumSize: Size.zero,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Test Toast Alert Button
+                OutlinedButton.icon(
+                  onPressed: _sendTestAlert,
+                  icon: const Icon(Icons.notifications_active_outlined, size: 15, color: AppTheme.orange),
+                  label: const Text('اختبار التنبيه (Toast)', style: TextStyle(fontSize: 12, color: AppTheme.charcoal)),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     minimumSize: Size.zero,

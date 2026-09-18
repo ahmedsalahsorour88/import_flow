@@ -1,4 +1,5 @@
-from typing import List
+from typing import List, Optional
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Response, Header
 from sqlalchemy.orm import Session
 from database.database import get_db
@@ -83,3 +84,82 @@ def export_diagnostics_bundle(
             "Content-Disposition": f'attachment; filename="{filename}"',
         },
     )
+
+
+# ==============================================================================
+# Alert Dispatcher Endpoints (Push Notifications: Toast & Email)
+# ==============================================================================
+
+from modules.system_observability.alert_dispatcher import alert_dispatcher, AlertPayload
+
+
+@router.post("/observability/alerts/evaluate")
+def evaluate_system_alerts(
+    force: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Evaluates all 8 health and domain conditions and dispatches alerts via Toast & Email."""
+    results = alert_dispatcher.evaluate_all(db, force=force)
+    return {
+        "status": "success",
+        "evaluated_at": datetime.now(timezone.utc).isoformat(),
+        "total_conditions_evaluated": 8,
+        "alerts_triggered_count": len([r for r in results if r.get("dispatched")]),
+        "results": results,
+    }
+
+
+@router.post("/observability/alerts/test-trigger")
+def trigger_test_alert(
+    title: str = "تنبيه اختباري (Test Alert)",
+    message: str = "تم تفعيل قناة الإشعارات بنجاح عبر نظام Observability.",
+    channel: str = "TOAST",  # TOAST, EMAIL, BOTH
+    severity: str = "HIGH",
+    target_tab: str = "deep-health",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Dispatches a test alert to verify delivery channel functionality."""
+    channels = ["TOAST", "EMAIL"] if channel == "BOTH" else [channel]
+    payload = AlertPayload(
+        condition_key="TEST_ALERT",
+        title=title,
+        message=message,
+        severity=severity,
+        channels=channels,
+        target_tab=target_tab,
+    )
+    res = alert_dispatcher.dispatch_alert(payload, db=db, force=True)
+    return {
+        "status": "success",
+        "dispatched_channels": res.get("channels", []),
+        "details": res,
+    }
+
+
+@router.get("/observability/alerts/history")
+def get_alert_history(
+    current_user: User = Depends(get_current_user),
+):
+    """Returns recent toast and email alert history and active cooldown states."""
+    return {
+        "total_toasts_sent": len(alert_dispatcher.toast_history),
+        "recent_toasts": alert_dispatcher.toast_history[-20:],
+        "total_emails_sent": len(alert_dispatcher.email_history),
+        "recent_emails": alert_dispatcher.email_history[-20:],
+        "cooldown_active": {
+            k: v.isoformat() for k, v in alert_dispatcher._last_fired.items()
+        },
+    }
+
+
+@router.post("/observability/alerts/reset-cooldown")
+def reset_alert_cooldown(
+    condition_key: str = None,
+    current_user: User = Depends(get_current_user),
+):
+    """Resets cooldown timers for alert conditions."""
+    alert_dispatcher.reset_cooldown(condition_key)
+    return {"status": "success", "message": "Alert cooldowns reset successfully."}
+

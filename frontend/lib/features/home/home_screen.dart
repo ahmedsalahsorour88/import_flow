@@ -74,6 +74,7 @@ import '../../core/widgets/ai_assistant_panel.dart';
 import '../../core/providers/ai_assistant_provider.dart';
 import '../../core/widgets/system_live_clock_widget.dart';
 import '../../core/widgets/system_settings_dialog.dart';
+import '../system_observability/screens/system_observability_screen.dart';
 
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -219,6 +220,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // 68: Smart Shipment Inquiry, History & Cloning (KB-INQ-013)
         ShipmentInquiryScreen(),
+
+        // 69: System Observability, Telemetry & Health Center
+        SystemObservabilityScreen(),
       ];
 
   bool _isSidebarCollapsed = false;
@@ -932,6 +936,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   // Step Skip-Risk Classification Settings — Manager / Admin only (Section 10.7)
                   if (user != null && user.canManageStepConfig)
                     _buildMenuItem(Icons.admin_panel_settings_rounded, 'Step Risk & Skip Config', 'إعدادات تصنيف مخاطر المراحل وحوكمة التخطي', 67, selectedIndex),
+                  // System Observability, Telemetry & Health Center — ADMIN and MANAGER
+                  if (user == null || user.isAdmin || user.isManager)
+                    _buildMenuItem(Icons.monitor_heart_outlined, 'System Observability & Health', 'مركز مراقبة وصحة النظام', 69, selectedIndex),
                 ],
               ),
             ],
@@ -1014,7 +1021,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 final versionText = versionAsync.when(
                   data: (info) => 'v${info.version} (Build ${info.buildNumber})',
                   loading: () => 'v... (Loading)',
-                  error: (_, __) => 'v1.0.196 (Build 197)',
+                  error: (_, __) => 'v1.0.198 (Build 199)',
                 );
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

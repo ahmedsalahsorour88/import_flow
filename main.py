@@ -148,8 +148,12 @@ from modules.expense_catalog.router import router as expense_catalog_router
 from modules.experience_guide.router import router as experience_guide_router
 from modules.smart_checklists.router import router as smart_checklists_router
 from modules.recalculation.router import router as recalculation_router
+from modules.system_observability.router import router as system_observability_router
+from modules.system_observability.middleware import ObservabilityMiddleware
+from modules.system_observability.service import setup_query_listener
 
-
+# Setup query execution timing on SQLAlchemy engine
+setup_query_listener(engine)
 
 # ==================================================
 # Create FastAPI Application
@@ -157,8 +161,13 @@ from modules.recalculation.router import router as recalculation_router
 
 app = FastAPI(
     title="Sorour Logistics ERP API",
-    version="1.0.196",
+    version="1.0.198",
 )
+
+# ==================================================
+# Observability & Request Correlation Middleware
+# ==================================================
+app.add_middleware(ObservabilityMiddleware)
 
 # ==================================================
 # Response Compression Middleware (GZip)
@@ -319,6 +328,7 @@ app.include_router(expense_catalog_router)
 app.include_router(experience_guide_router)
 app.include_router(smart_checklists_router)
 app.include_router(recalculation_router)
+app.include_router(system_observability_router)
 
 
 
@@ -345,7 +355,7 @@ SchemaUpgradeService.execute_safe_startup_upgrade(
 def dashboard():
     return {
         "system": "Sorour Logistics ERP",
-        "version": "1.0.196",
+        "version": "1.0.198",
         "status": "running",
     }
 
@@ -376,7 +386,7 @@ def health_check():
     return {
         "status": "OK",
         "system": "Sorour Logistics ERP",
-        "version": "1.0.196",
+        "version": "1.0.198",
         "database": {
             "connected": db_exists,
             "size_kb": db_size_kb,

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../constants/api_constants.dart';
+import '../performance/client_diagnostics_service.dart';
 
 /// Centralized Dio HTTP client provider for Sorour Logistics ERP.
 /// All features must use this provider instead of creating their own Dio().
@@ -27,7 +28,7 @@ final dioProvider = Provider<Dio>((ref) {
     ),
   );
 
-  // ── Auth Token & Role Header Interceptor ──────────────────
+  // ── Auth Token & Role Header & X-Request-ID Interceptor ───────
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) {
@@ -40,8 +41,26 @@ final dioProvider = Provider<Dio>((ref) {
             options.headers['x-user-role'] = authState.user!.role;
             options.headers['x-user-name'] = authState.user!.username;
           }
+          // Inject Correlation ID
+          final reqId = 'req_${DateTime.now().millisecondsSinceEpoch}_${(DateTime.now().microsecondsSinceEpoch % 10000).toString().padLeft(4, '0')}';
+          options.headers['X-Request-ID'] = reqId;
+          options.extra['request_start_time'] = DateTime.now().millisecondsSinceEpoch;
         } catch (_) {}
         handler.next(options);
+      },
+      onResponse: (response, handler) {
+        try {
+          final start = response.requestOptions.extra['request_start_time'] as int?;
+          final durationMs = start != null ? DateTime.now().millisecondsSinceEpoch - start : 0;
+          ClientDiagnosticsService.instance.recordNetworkEvent(
+            method: response.requestOptions.method,
+            path: response.requestOptions.path,
+            statusCode: response.statusCode ?? 200,
+            durationMs: durationMs,
+            requestId: response.requestOptions.headers['X-Request-ID']?.toString(),
+          );
+        } catch (_) {}
+        handler.next(response);
       },
     ),
   );
@@ -59,6 +78,23 @@ final dioProvider = Provider<Dio>((ref) {
   dio.interceptors.add(
     InterceptorsWrapper(
       onError: (DioException error, ErrorInterceptorHandler handler) {
+        try {
+          final start = error.requestOptions.extra['request_start_time'] as int?;
+          final durationMs = start != null ? DateTime.now().millisecondsSinceEpoch - start : 0;
+          ClientDiagnosticsService.instance.recordNetworkEvent(
+            method: error.requestOptions.method,
+            path: error.requestOptions.path,
+            statusCode: error.response?.statusCode ?? 500,
+            durationMs: durationMs,
+            requestId: error.requestOptions.headers['X-Request-ID']?.toString(),
+          );
+          ClientDiagnosticsService.instance.recordError(
+            '${error.requestOptions.method} ${error.requestOptions.path} error',
+            requestId: error.requestOptions.headers['X-Request-ID']?.toString(),
+            error: error.message,
+          );
+        } catch (_) {}
+
         // Normalize error messages for UI display
         if (error.response != null) {
           final data = error.response!.data;

@@ -2,6 +2,8 @@
 
 > **Antigravity Rule:** At the end of every session or task execution, append an entry to this log detailing:
 > `Date & Time` | `Spec Applied` | `Screens / Files Touched` | `Decisions Flagged / Resolved` | `Verification & Tests` | `Remaining Pending Items`
+> 
+> **⚡ Track 1 Safety Habit:** Always run a quick backup before modifying business logic or database code: `python scripts/daily_backup.py --test` (0.05s). Details in [docs/DEV_WORKFLOW.md](../DEV_WORKFLOW.md).
 
 ---
 

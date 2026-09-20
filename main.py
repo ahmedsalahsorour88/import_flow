@@ -166,7 +166,7 @@ setup_query_listener(engine)
 
 app = FastAPI(
     title="Sorour Logistics ERP API",
-    version="2.0.1",
+    version="2.0.2",
 )
 
 # ==================================================
@@ -360,7 +360,7 @@ SchemaUpgradeService.execute_safe_startup_upgrade(
 def dashboard():
     return {
         "system": "Sorour Logistics ERP",
-        "version": "2.0.1",
+        "version": "2.0.2",
         "status": "running",
     }
 
@@ -391,7 +391,7 @@ def health_check():
     return {
         "status": "OK",
         "system": "Sorour Logistics ERP",
-        "version": "2.0.1",
+        "version": "2.0.2",
         "database": {
             "connected": db_exists,
             "size_kb": db_size_kb,

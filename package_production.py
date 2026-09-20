@@ -368,6 +368,12 @@ def main():
     print(f"       Sorour Logistics ERP (v{version} - Build {build_no}) - Production Packaging       ")
     print("================================================================================")
     
+    # Compile Standalone Backend Executable if requested or if missing
+    if "--compile-all" in sys.argv or "--compile-backend" in sys.argv or not BACKEND_EXE.exists():
+        print(f"[*] Compiling Standalone Backend Executable (backend.exe)...")
+        import build_backend_exe
+        build_backend_exe.build_backend()
+
     # Compile Flutter desktop release if requested or if frontend/build does not match
     if "--compile-all" in sys.argv or "--compile-flutter" in sys.argv or not DESKTOP_SRC.exists():
         print(f"[*] Compiling Flutter Desktop Release (v{version} - Build {build_no})...")

@@ -78,6 +78,7 @@ class DocsCustomsApprovalNotifier extends StateNotifier<AsyncValue<List<CustomsD
     required String status,
     String? notes,
     int? importFileId,
+    int? version,
   }) async {
     try {
       final response = await _dio.post(
@@ -86,6 +87,7 @@ class DocsCustomsApprovalNotifier extends StateNotifier<AsyncValue<List<CustomsD
           'reviewer_name': reviewerName,
           'status': status,
           'notes': notes,
+          if (version != null) 'version': version,
         },
       );
       final updated = CustomsDocumentApprovalModel.fromJson(response.data);
@@ -103,6 +105,7 @@ class DocsCustomsApprovalNotifier extends StateNotifier<AsyncValue<List<CustomsD
     required String status,
     String? notes,
     int? importFileId,
+    int? version,
   }) async {
     try {
       final response = await _dio.post(
@@ -112,6 +115,7 @@ class DocsCustomsApprovalNotifier extends StateNotifier<AsyncValue<List<CustomsD
           'reviewer_name': reviewerName,
           'status': status,
           'notes': notes,
+          if (version != null) 'version': version,
         },
       );
       final updated = CustomsDocumentApprovalModel.fromJson(response.data);

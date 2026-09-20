@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/unsaved_changes_guard.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/demurrage_model.dart';
 import '../providers/demurrage_provider.dart';
@@ -193,11 +194,23 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
     }
   }
 
+  bool get _isDirty {
+    if (_selectedImportFileId != widget.initialImportFileId) return true;
+    if (_refController.text.trim().isNotEmpty) return true;
+    if (_notesController.text.trim().isNotEmpty) return true;
+    if (_carrierName != (widget.initialCarrierName ?? 'MSC')) return true;
+    if (_demDays != (widget.initialDemurrageDays ?? 14)) return true;
+    if (_detDays != (widget.initialDetentionDays ?? 7)) return true;
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final importFiles = ref.watch(importFilesProvider).asData?.value ?? [];
 
-    return Dialog(
+    return UnsavedChangesGuard(
+      isDirty: _isDirty,
+      child: Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720, maxHeight: 850),
@@ -251,7 +264,7 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                       ),
                     IconButton(
                       icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
                       tooltip: 'إغلاق',
                     ),
                   ],
@@ -631,7 +644,7 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
-                      onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+                      onPressed: _isSubmitting ? null : () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
                       child: const Text('إلغاء'),
                     ),
                     const SizedBox(width: 12),
@@ -665,6 +678,7 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
           ),
         ),
       ),
+    ),
     );
   }
 

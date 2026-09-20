@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/unsaved_changes_guard.dart';
 import '../models/actual_landed_cost_model.dart';
 import '../providers/financial_settlement_provider.dart';
 
@@ -149,9 +150,18 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
     }
   }
 
+  bool get _isDirty {
+    if (_notesController.text.trim().isNotEmpty) return true;
+    if (_selectedAllocationPreference != 'Value-Based') return true;
+    if (_approvedByController.text.trim() != 'أحمد كمال (مدير الحسابات الختامية)') return true;
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Dialog(
+    return UnsavedChangesGuard(
+      isDirty: _isDirty,
+      child: Dialog(
       backgroundColor: Colors.white,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -186,6 +196,7 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -239,7 +250,7 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
             key: const Key('actualLandedCostCloseBtn'),
             icon: const Icon(Icons.close, color: AppTheme.flatCharcoal),
             tooltip: 'إغلاق',
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
           ),
         ],
       ),
@@ -797,7 +808,9 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
             children: [
               TextButton.icon(
                 key: const Key('actualLandedCostCancelBtn'),
-                onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(false),
+                onPressed: _isSubmitting
+                    ? null
+                    : () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
                 icon: const Icon(Icons.cancel_outlined, size: 18),
                 label: const Text('إلغاء'),
                 style: TextButton.styleFrom(

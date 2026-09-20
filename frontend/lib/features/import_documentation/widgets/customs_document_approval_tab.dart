@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:dio/dio.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
+import '../../../core/widgets/concurrency_conflict_dialog.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -1386,16 +1388,49 @@ class _CommercialReviewDialogState extends State<_CommercialReviewDialog> {
                             status: _selectedStatus,
                             notes: _notesCtrl.text.trim(),
                             importFileId: widget.importFileId,
+                            version: widget.item.version,
                           );
                       if (context.mounted) Navigator.pop(context);
                     } catch (e) {
+                      if (e is DioException && e.response?.statusCode == 409) {
+                        final data = e.response?.data;
+                        final conflict = (data is Map<String, dynamic> && data['detail'] is Map)
+                            ? Map<String, dynamic>.from(data['detail'] as Map)
+                            : (data is Map<String, dynamic> ? data : <String, dynamic>{});
+                        if (context.mounted) {
+                          final resolution = await ConcurrencyConflictDialog.show(
+                            context,
+                            entityName: conflict['entity'] as String? ?? 'CustomsDocumentApproval',
+                            recordId: conflict['record_id'] ?? widget.item.approvalId,
+                            currentVersion: (conflict['current_version'] as num?)?.toInt() ?? (widget.item.version + 1),
+                            submittedVersion: (conflict['submitted_version'] as num?)?.toInt() ?? widget.item.version,
+                            updatedAt: conflict['updated_at'] as String?,
+                            updatedBy: conflict['updated_by'] as String?,
+                            serverMessage: conflict['message'] as String?,
+                            currentDraftData: {
+                              'reviewer_name': _nameCtrl.text.trim(),
+                              'status': _selectedStatus,
+                              'notes': _notesCtrl.text.trim(),
+                            },
+                          );
+                          if (context.mounted && resolution == ConcurrencyResolution.discardAndReload) {
+                            Navigator.pop(context);
+                            if (widget.importFileId != null) {
+                              await ref.read(docsCustomsApprovalProvider.notifier).fetchApprovals(importFileId: widget.importFileId);
+                            }
+                          }
+                        }
+                        return;
+                      }
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text(context.l10n.customsApprovalError(e.toString())), backgroundColor: AppTheme.crimson),
                         );
                       }
                     } finally {
-                      setState(() => _isSubmitting = false);
+                      if (mounted) {
+                        setState(() => _isSubmitting = false);
+                      }
                     }
                   },
             child: _isSubmitting ? const CircularProgressIndicator(color: Colors.white) : Text(context.l10n.customsApprovalSaveApprovalButton),
@@ -1512,16 +1547,50 @@ class _CustomsBrokerReviewDialogState extends State<_CustomsBrokerReviewDialog> 
                             status: _selectedStatus,
                             notes: _notesCtrl.text.trim(),
                             importFileId: widget.importFileId,
+                            version: widget.item.version,
                           );
                       if (context.mounted) Navigator.pop(context);
                     } catch (e) {
+                      if (e is DioException && e.response?.statusCode == 409) {
+                        final data = e.response?.data;
+                        final conflict = (data is Map<String, dynamic> && data['detail'] is Map)
+                            ? Map<String, dynamic>.from(data['detail'] as Map)
+                            : (data is Map<String, dynamic> ? data : <String, dynamic>{});
+                        if (context.mounted) {
+                          final resolution = await ConcurrencyConflictDialog.show(
+                            context,
+                            entityName: conflict['entity'] as String? ?? 'CustomsDocumentApproval',
+                            recordId: conflict['record_id'] ?? widget.item.approvalId,
+                            currentVersion: (conflict['current_version'] as num?)?.toInt() ?? (widget.item.version + 1),
+                            submittedVersion: (conflict['submitted_version'] as num?)?.toInt() ?? widget.item.version,
+                            updatedAt: conflict['updated_at'] as String?,
+                            updatedBy: conflict['updated_by'] as String?,
+                            serverMessage: conflict['message'] as String?,
+                            currentDraftData: {
+                              'broker_name': _brokerCtrl.text.trim(),
+                              'reviewer_name': _reviewerCtrl.text.trim(),
+                              'status': _selectedStatus,
+                              'notes': _notesCtrl.text.trim(),
+                            },
+                          );
+                          if (context.mounted && resolution == ConcurrencyResolution.discardAndReload) {
+                            Navigator.pop(context);
+                            if (widget.importFileId != null) {
+                              await ref.read(docsCustomsApprovalProvider.notifier).fetchApprovals(importFileId: widget.importFileId);
+                            }
+                          }
+                        }
+                        return;
+                      }
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text(context.l10n.customsApprovalError(e.toString())), backgroundColor: AppTheme.crimson),
                         );
                       }
                     } finally {
-                      setState(() => _isSubmitting = false);
+                      if (mounted) {
+                        setState(() => _isSubmitting = false);
+                      }
                     }
                   },
             child: _isSubmitting ? const CircularProgressIndicator(color: Colors.white) : Text(context.l10n.customsApprovalBrokerSaveStampButton),

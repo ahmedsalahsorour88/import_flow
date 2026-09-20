@@ -2,6 +2,7 @@
 Database Repository for Docs Customs Approval Hub (DCA-001)
 """
 
+from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, desc
@@ -67,6 +68,9 @@ def create_approval(db: Session, approval: CustomsDocumentApproval) -> CustomsDo
 
 
 def update_approval(db: Session, approval: CustomsDocumentApproval) -> CustomsDocumentApproval:
+    current_version = getattr(approval, "version", 1) or 1
+    approval.version = current_version + 1
+    approval.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(approval)
     return approval
@@ -190,6 +194,9 @@ def create_session(db: Session, session_obj: DocsCustomsApprovalSession) -> Docs
 
 
 def update_session(db: Session, session_obj: DocsCustomsApprovalSession) -> DocsCustomsApprovalSession:
+    current_version = getattr(session_obj, "version", 1) or 1
+    session_obj.version = current_version + 1
+    session_obj.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(session_obj)
     return session_obj

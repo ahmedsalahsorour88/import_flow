@@ -70,11 +70,32 @@ def create_approval_service(db: Session, payload: CustomsDocumentApprovalCreate)
 
 
 def update_approval_service(
-    db: Session, approval_id: int, payload: CustomsDocumentApprovalUpdate
+    db: Session, approval_id: int, payload: CustomsDocumentApprovalUpdate, current_user_name: Optional[str] = None
 ) -> Optional[CustomsDocumentApproval]:
     approval = repo.get_approval_by_id(db, approval_id)
     if not approval:
         return None
+
+    submitted_version = getattr(payload, "version", None)
+    current_version = getattr(approval, "version", 1) or 1
+    if submitted_version is not None and submitted_version != current_version:
+        from modules.common.concurrency import ConcurrencyConflictException, log_concurrency_conflict
+        log_concurrency_conflict(
+            db=db,
+            entity_name="CustomsDocumentApproval",
+            record_id=approval_id,
+            current_version=current_version,
+            submitted_version=submitted_version,
+            attempted_by=current_user_name,
+            details=f"Conflict detected while updating Approval #{approval.approval_code}",
+        )
+        raise ConcurrencyConflictException(
+            entity="CustomsDocumentApproval",
+            record_id=approval_id,
+            current_version=current_version,
+            submitted_version=submitted_version,
+            updated_at=approval.updated_at,
+        )
 
     if payload.document_reference_no is not None:
         approval.document_reference_no = payload.document_reference_no
@@ -164,6 +185,28 @@ def submit_commercial_review_service(
     if not approval:
         return None
 
+    submitted_version = getattr(payload, "version", None)
+    current_version = getattr(approval, "version", 1) or 1
+    if submitted_version is not None and submitted_version != current_version:
+        from modules.common.concurrency import ConcurrencyConflictException, log_concurrency_conflict
+        log_concurrency_conflict(
+            db=db,
+            entity_name="CustomsDocumentApproval",
+            record_id=approval_id,
+            current_version=current_version,
+            submitted_version=submitted_version,
+            attempted_by=payload.reviewer_name,
+            details=f"Conflict detected during commercial review of Approval #{approval.approval_code}",
+        )
+        raise ConcurrencyConflictException(
+            entity="CustomsDocumentApproval",
+            record_id=approval_id,
+            current_version=current_version,
+            submitted_version=submitted_version,
+            updated_at=approval.updated_at,
+            updated_by=approval.commercial_reviewed_by or approval.customs_reviewed_by,
+        )
+
     approval.commercial_status = payload.status
     approval.commercial_reviewed_by = payload.reviewer_name
     approval.commercial_reviewed_at = datetime.now(timezone.utc)
@@ -186,6 +229,28 @@ def submit_customs_broker_review_service(
     approval = repo.get_approval_by_id(db, approval_id)
     if not approval:
         return None
+
+    submitted_version = getattr(payload, "version", None)
+    current_version = getattr(approval, "version", 1) or 1
+    if submitted_version is not None and submitted_version != current_version:
+        from modules.common.concurrency import ConcurrencyConflictException, log_concurrency_conflict
+        log_concurrency_conflict(
+            db=db,
+            entity_name="CustomsDocumentApproval",
+            record_id=approval_id,
+            current_version=current_version,
+            submitted_version=submitted_version,
+            attempted_by=payload.reviewer_name,
+            details=f"Conflict detected during customs broker review of Approval #{approval.approval_code}",
+        )
+        raise ConcurrencyConflictException(
+            entity="CustomsDocumentApproval",
+            record_id=approval_id,
+            current_version=current_version,
+            submitted_version=submitted_version,
+            updated_at=approval.updated_at,
+            updated_by=approval.customs_reviewed_by or approval.commercial_reviewed_by,
+        )
 
     approval.customs_status = payload.status
     approval.customs_broker_name = payload.broker_name
@@ -587,10 +652,33 @@ def create_customs_approval_session_service(
 
     existing = repo.get_session_by_file_id(db, payload.import_file_id, include_drafts=True)
     if existing and (existing.is_draft or payload.is_draft):
-        for k, v in payload.model_dump(exclude_unset=True).items():
+        submitted_version = getattr(payload, "version", None)
+        current_version = getattr(existing, "version", 1) or 1
+        if submitted_version is not None and submitted_version != current_version:
+            from modules.common.concurrency import ConcurrencyConflictException, log_concurrency_conflict
+            log_concurrency_conflict(
+                db=db,
+                entity_name="DocsCustomsApprovalSession",
+                record_id=existing.session_id,
+                current_version=current_version,
+                submitted_version=submitted_version,
+                attempted_by=payload.created_by,
+                details=f"Conflict detected while updating Customs Approval Session #{existing.session_code}",
+            )
+            raise ConcurrencyConflictException(
+                entity="DocsCustomsApprovalSession",
+                record_id=existing.session_id,
+                current_version=current_version,
+                submitted_version=submitted_version,
+                updated_at=existing.updated_at,
+                updated_by=existing.updated_by,
+            )
+
+        data = payload.model_dump(exclude_unset=True)
+        data.pop("version", None)
+        for k, v in data.items():
             setattr(existing, k, v)
         existing.import_file_code = file_code
-        existing.updated_at = datetime.now(timezone.utc)
         session_res = repo.update_session(db, existing)
     else:
         code = repo.generate_session_code(db)

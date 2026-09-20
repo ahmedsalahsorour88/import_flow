@@ -50,9 +50,9 @@ class CopyHelper {
   }
 }
 
-/// A text widget that can be selected, copied via tap, double-tap, right-click,
-/// or via an optional hover/static icon button.
-class CopyableText extends StatefulWidget {
+/// A text widget that can be copied via right-click (secondary tap), double-tap,
+/// or via an optional static icon button. Lightened for high performance in large data tables.
+class CopyableText extends StatelessWidget {
   final String text;
   final TextStyle? style;
   final TextAlign? textAlign;
@@ -71,93 +71,76 @@ class CopyableText extends StatefulWidget {
     this.overflow,
     this.maxLines,
     this.showIcon = false,
-    this.isSelectable = true,
+    this.isSelectable = false,
     this.tooltip,
     this.copyMessage,
   });
 
   @override
-  State<CopyableText> createState() => _CopyableTextState();
-}
-
-class _CopyableTextState extends State<CopyableText> {
-  bool _isHovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final tooltipText = widget.tooltip ?? l10n.copyTooltip;
+    final Widget textWidget = isSelectable
+        ? SelectableText(
+            text,
+            style: style,
+            textAlign: textAlign,
+            maxLines: maxLines,
+          )
+        : Text(
+            text,
+            style: style,
+            textAlign: textAlign,
+            overflow: overflow ?? TextOverflow.ellipsis,
+            maxLines: maxLines,
+          );
 
-    Widget textWidget;
-    if (widget.isSelectable) {
-      textWidget = SelectableText(
-        widget.text,
-        style: widget.style,
-        textAlign: widget.textAlign,
-        maxLines: widget.maxLines,
-      );
-    } else {
-      textWidget = Text(
-        widget.text,
-        style: widget.style,
-        textAlign: widget.textAlign,
-        overflow: widget.overflow ?? TextOverflow.ellipsis,
-        maxLines: widget.maxLines,
-      );
-    }
+    final content = Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Flexible(child: textWidget),
+        if (showIcon) ...[
+          const SizedBox(width: 4),
+          InkWell(
+            borderRadius: BorderRadius.circular(4),
+            onTap: () => CopyHelper.copy(
+              context,
+              text,
+              customMessage: copyMessage,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(2.0),
+              child: Icon(
+                Icons.copy_rounded,
+                size: (style?.fontSize ?? 14) * 0.95,
+                color: AppTheme.flatCobalt.withOpacity(0.8),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: Tooltip(
-        message: tooltipText,
-        waitDuration: const Duration(milliseconds: 600),
-        child: GestureDetector(
-          onSecondaryTap: () => CopyHelper.copy(
-            context,
-            widget.text,
-            customMessage: widget.copyMessage,
-          ),
-          onDoubleTap: () => CopyHelper.copy(
-            context,
-            widget.text,
-            customMessage: widget.copyMessage,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Flexible(child: textWidget),
-              if (widget.showIcon || _isHovered) ...[
-                const SizedBox(width: 4),
-                InkWell(
-                  borderRadius: BorderRadius.circular(4),
-                  onTap: () => CopyHelper.copy(
-                    context,
-                    widget.text,
-                    customMessage: widget.copyMessage,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(2.0),
-                    child: Icon(
-                      Icons.copy_rounded,
-                      size: (widget.style?.fontSize ?? 14) * 0.95,
-                      color: AppTheme.flatCobalt.withOpacity(0.8),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
+    return GestureDetector(
+      onSecondaryTap: () => CopyHelper.copy(
+        context,
+        text,
+        customMessage: copyMessage,
+      ),
+      onDoubleTap: () => CopyHelper.copy(
+        context,
+        text,
+        customMessage: copyMessage,
+      ),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: content,
       ),
     );
   }
 }
 
 /// A cell wrapper for data tables or key-value summary rows that enables:
-/// 1. Native cell-level text selection (highlight words/numbers with mouse drag and Ctrl+C).
+/// 1. Lightweight text rendering without DOM bloat.
 /// 2. Right-click context menu to copy either cell value or full row formatted as Excel-ready TSV.
 class CopyableTableCell extends StatelessWidget {
   final Widget child;
@@ -230,11 +213,7 @@ class CopyableTableCell extends StatelessWidget {
           }
         }
       },
-      child: Tooltip(
-        message: l10n.copyTooltip,
-        waitDuration: const Duration(milliseconds: 700),
-        child: child,
-      ),
+      child: child,
     );
   }
 }

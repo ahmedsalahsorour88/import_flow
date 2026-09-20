@@ -65,7 +65,7 @@ class PageHeader extends ConsumerWidget implements PreferredSizeWidget {
       ),
       padding: EdgeInsets.symmetric(
         horizontal: density.headerPadding.left,
-        vertical: hasSubtitle ? 2.5 : 6.0,
+        vertical: hasSubtitle ? 2.5 : 3.5,
       ),
       child: SafeArea(
         bottom: false,
@@ -100,10 +100,10 @@ class PageHeader extends ConsumerWidget implements PreferredSizeWidget {
                             fontSize: density.headerTitleFontSize,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.2,
-                            height: 1.15,
+                            height: 1.1,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
+                          maxLines: 2,
                         ),
                         if (subtitle != null) ...[
                           const SizedBox(height: 1),

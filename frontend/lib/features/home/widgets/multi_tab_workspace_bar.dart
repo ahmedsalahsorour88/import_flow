@@ -1,23 +1,11 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/app_localizations_ar.dart';
 import '../../../core/providers/ai_assistant_provider.dart';
-import '../../../core/providers/navigation_provider.dart';
 import '../../../core/providers/workspace_tabs_provider.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../smart_tasks/widgets/smart_email_listener_dialog.dart';
-import '../../smart_tasks/widgets/email_settings_dialog.dart';
-import '../../../core/localization/locale_provider.dart';
-import '../../../core/theme/theme_provider.dart';
-import '../../../core/widgets/command_palette_dialog.dart';
-import '../../../core/widgets/display_density_selector.dart';
-import '../../../core/widgets/keyboard_shortcuts_dialog.dart';
-import '../../../core/widgets/system_settings_dialog.dart';
 import '../../../core/widgets/unsaved_changes_dialog.dart';
 
 String _getLocalizedTabTitle(BuildContext context, int routeIndex, String fallbackTitle) {
@@ -106,7 +94,6 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
     final tabsState = ref.watch(workspaceTabsProvider);
     final tabsNotifier = ref.read(workspaceTabsProvider.notifier);
     final isDark = AppTheme.isDark(context);
-    final isArabic = l10n is AppLocalizationsAr;
 
     return Container(
       height: 42,
@@ -133,13 +120,12 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
                 return GestureDetector(
                   onTap: () {
                     tabsNotifier.selectTab(tab.id);
-                    ref.read(navigationIndexProvider.notifier).state = tab.routeIndex;
                     ref.read(aiAssistantProvider.notifier).updateScreenContext(localizedTitle);
                   },
                   child: Container(
-                    margin: const EdgeInsets.only(top: 4, right: 4, left: 2),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    constraints: const BoxConstraints(maxWidth: 220, minWidth: 100),
+                    margin: const EdgeInsets.only(top: 4, right: 3, left: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    constraints: const BoxConstraints(maxWidth: 160, minWidth: 80),
                     decoration: BoxDecoration(
                       color: isActive
                           ? (isDark ? AppTheme.darkCardBackground : Colors.white)
@@ -161,18 +147,18 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
                       children: [
                         Icon(
                           tab.icon,
-                          size: 15,
+                          size: 14,
                           color: isActive
                               ? AppTheme.cobalt
                               : (isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal.withOpacity(0.7)),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Flexible(
                           child: Text(
                             localizedTitle,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 12.5,
+                              fontSize: 12,
                               fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                               color: isActive
                                   ? (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)
@@ -201,10 +187,6 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
                             onTap: () async {
                               if (!tab.isDirty) {
                                 tabsNotifier.closeTab(tab.id);
-                                final active = ref.read(workspaceTabsProvider).activeTab;
-                                if (active != null) {
-                                  ref.read(navigationIndexProvider.notifier).state = active.routeIndex;
-                                }
                                 return;
                               }
 
@@ -215,10 +197,6 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
                               if (confirmed) {
                                 tabsNotifier.setTabDirty(tab.id, false);
                                 tabsNotifier.closeTab(tab.id);
-                                final active = ref.read(workspaceTabsProvider).activeTab;
-                                if (active != null) {
-                                  ref.read(navigationIndexProvider.notifier).state = active.routeIndex;
-                                }
                               }
                             },
                             child: Padding(
@@ -239,195 +217,6 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
                 );
               },
             ),
-          ),
-          // Command Palette Quick Action Pill (Ctrl + K)
-          InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: () => CommandPaletteDialog.show(context, ref),
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E2631) : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
-                  width: 0.8,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.travel_explore_rounded,
-                    size: 15,
-                    color: isDark ? AppTheme.cobaltLight : AppTheme.cobalt,
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    isArabic ? 'لوحة الأوامر' : 'Commands',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.grey.shade300 : AppTheme.charcoal,
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFE2E8F0),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'Ctrl+K',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? AppTheme.cobaltLight : AppTheme.cobalt,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 2),
-          // Quick Mail Actions
-          IconButton(
-            tooltip: isArabic ? 'المستمع الذكي للبريد وإشعارات الوصول' : 'Smart Email & Arrival Notice Listener',
-            icon: Icon(
-              Icons.mark_email_read_outlined,
-              size: 18,
-              color: isDark ? AppTheme.cobaltLight : AppTheme.cobalt,
-            ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-            splashRadius: 16,
-            onPressed: () => SmartEmailListenerDialog.show(context),
-          ),
-          IconButton(
-            tooltip: isArabic ? 'إعدادات ربط البريد (IMAP/SMTP)' : 'Email Server Settings (IMAP/SMTP)',
-            icon: Icon(
-              Icons.settings_suggest_rounded,
-              size: 18,
-              color: isDark ? Colors.cyanAccent.shade200 : Colors.teal.shade700,
-            ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-            splashRadius: 16,
-            onPressed: () => EmailSettingsDialog.show(context),
-          ),
-          const SizedBox(width: 2),
-          // Language Switcher Pill (EN / عربي)
-          Tooltip(
-            message: isArabic
-                ? 'تبديل لغة الواجهة (English / العربية)'
-                : 'Toggle Interface Language (English / Arabic)',
-            child: InkWell(
-              borderRadius: BorderRadius.circular(6),
-              onTap: () => ref.read(localeProvider.notifier).toggleLocale(),
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E2631) : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
-                    width: 0.8,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.language_rounded, size: 14, color: AppTheme.cobalt),
-                    const SizedBox(width: 4),
-                    Text(
-                      isArabic ? 'EN' : 'عربي',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          // Theme Toggle Button (Light / Dark)
-          IconButton(
-            tooltip: l10n.themeToggleTooltip,
-            icon: Icon(
-              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-              size: 18,
-              color: isDark ? Colors.amber.shade300 : AppTheme.charcoal,
-            ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-            splashRadius: 16,
-            onPressed: () => ref.read(themeModeProvider.notifier).toggleTheme(),
-          ),
-          // Basic System Settings Dialog Button
-          IconButton(
-            tooltip: isArabic ? 'الإعدادات الأساسية للنظام' : 'Basic System Settings',
-            icon: Icon(
-              Icons.settings_outlined,
-              size: 18,
-              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
-            ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-            splashRadius: 16,
-            onPressed: () => SystemSettingsDialog.show(context),
-          ),
-          const SizedBox(width: 2),
-          // Global Display Density Selector
-          const DisplayDensitySelector(compact: true),
-          const SizedBox(width: 2),
-          // Keyboard Shortcuts Guide Button (F1)
-          IconButton(
-            tooltip: l10n.shortcutShowHelp,
-            icon: Icon(
-              Icons.keyboard_outlined,
-              size: 18,
-              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
-            ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-            splashRadius: 16,
-            onPressed: () => KeyboardShortcutsDialog.show(context),
-          ),
-          // Fullscreen Toggle Button (F11)
-          IconButton(
-            tooltip: l10n.shortcutToggleFullscreen,
-            icon: Icon(
-              Icons.fullscreen_rounded,
-              size: 20,
-              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
-            ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-            splashRadius: 16,
-            onPressed: () async {
-              if (!kIsWeb && Platform.isWindows) {
-                try {
-                  final isFull = await windowManager.isFullScreen();
-                  await windowManager.setFullScreen(!isFull);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(!isFull ? l10n.fullscreenEnabledToast : l10n.fullscreenDisabledToast),
-                        duration: const Duration(seconds: 2),
-                        behavior: SnackBarBehavior.floating,
-                        width: 320,
-                      ),
-                    );
-                  }
-                } catch (_) {}
-              }
-            },
           ),
           const SizedBox(width: 4),
           // Tab bar actions menu

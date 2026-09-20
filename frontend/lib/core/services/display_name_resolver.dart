@@ -258,6 +258,80 @@ class DisplayNameResolver {
     return s;
   }
 
+  /// Resolves an internal stage/step code into a human-readable business stage badge title (Task Problem 2 - Option 2).
+  /// Replaces raw codes like 'PHASE-1: STEP_03', 'PHASE-4: STEP_11', 'PHASE-5' with clean descriptive business titles.
+  static String resolveStageBadge(String? stageCode, {bool isArabic = true}) {
+    if (stageCode == null || stageCode.trim().isEmpty) return '';
+    final code = stageCode.trim();
+
+    // Specific sub-codes
+    if (code.contains('TAX')) {
+      return isArabic ? 'الرسوم الجمركية والضرائب' : 'Customs Duty & Taxes';
+    }
+    if (code.contains('INS')) {
+      return isArabic ? 'التأمين البحري' : 'Marine Cargo Insurance';
+    }
+    if (code.contains('MATCH')) {
+      return isArabic ? 'مطابقة الفاتورة والبوليصة' : 'Invoice vs B/L Match';
+    }
+    if (code.contains('COC')) {
+      return isArabic ? 'شهادات الفحص COC' : 'Inspection Review COC';
+    }
+    if (code.contains('_PO')) {
+      return isArabic ? 'مطابقة الفاتورة والتعبئة' : 'PO & Packing Match';
+    }
+    if (code.contains('_BL')) {
+      return isArabic ? 'مسودة بوليصة الشحن' : 'Draft B/L Review';
+    }
+    if (code.contains('_COO')) {
+      return isArabic ? 'مسودة شهادة المنشأ' : 'Draft COO & EUR.1';
+    }
+
+    // Direct step resolution if code contains STEP_XX or STEP-XX
+    final stepMatch = RegExp(r'STEP[_-]0?(\d+)', caseSensitive: false).firstMatch(code);
+    if (stepMatch != null) {
+      final num = int.tryParse(stepMatch.group(1)!);
+      if (num != null) {
+        final key = 'STEP_${num.toString().padLeft(2, '0')}';
+        if (_stepMap.containsKey(key)) {
+          return isArabic ? _stepMap[key]!['ar']! : _stepMap[key]!['en']!;
+        }
+      }
+    }
+
+    // Direct stepMap check
+    if (_stepMap.containsKey(code)) {
+      return isArabic ? _stepMap[code]!['ar']! : _stepMap[code]!['en']!;
+    }
+
+    // Phase-only check (e.g. 'PHASE-5', 'PHASE-3', 'PHASE-4')
+    final phaseMatch = RegExp(r'PHASE[_-]?(\d+)', caseSensitive: false).firstMatch(code);
+    if (phaseMatch != null) {
+      final pNum = int.tryParse(phaseMatch.group(1)!);
+      if (pNum != null) {
+        switch (pNum) {
+          case 1:
+            return isArabic ? 'التخطيط والدراسات المسبقة' : 'Planning & Studies';
+          case 2:
+            return isArabic ? 'الاعتمادات ورقم ACID' : 'Approvals & ACID';
+          case 3:
+            return isArabic ? 'الحجز وتدقيق المستندات' : 'Booking & Draft Docs';
+          case 4:
+            return isArabic ? 'كارجو إكس والنموذج البنكي' : 'CargoX & Banking';
+          case 5:
+            return isArabic ? 'التخليص الجمركي والإفراج' : 'Customs Clearance';
+          case 6:
+            return isArabic ? 'المخازن والتسوية النهائية' : 'Warehouse & Settlement';
+          default:
+            return resolvePhaseName(code, isArabic: isArabic);
+        }
+      }
+    }
+
+    // Fallback to resolveStepName
+    return resolveStepName(code, isArabic: isArabic);
+  }
+
   // ── 6. Task Title Cleaner ──────────────────────────────────────────────────
 
   /// Cleans task titles by stripping raw internal shipment/step codes

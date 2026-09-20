@@ -29,6 +29,7 @@ import '../widgets/departure_confirmation_dialog.dart';
 import '../widgets/search_and_clone_freight_booking_dialog.dart';
 import '../../import_documentation/widgets/draft_bl_review_dialog.dart';
 import '../../import_files/models/import_file_model.dart';
+import '../../audit_logs/widgets/row_history_dialog.dart';
 
 class FreightBookingScreen extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -1903,6 +1904,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
               _buildDuplicateInfoRow(l.freightBookingDuplicateRowConfirmNo, existing.bookingConfirmationNo ?? 'Draft Pending'),
               _buildDuplicateInfoRow(l.freightBookingDuplicateRowLine, existing.shippingLineName ?? 'N/A'),
               _buildDuplicateInfoRow(l.freightBookingDuplicateRowStatus, existing.status),
+              _buildDuplicateInfoRow('المستخدم المسؤول', existing.owner),
+              _buildDuplicateInfoRow('آخر تحديث', existing.updatedAt),
               const Divider(height: 20),
               Text(
                 l.freightBookingDuplicateNotice,
@@ -2234,6 +2237,26 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                   widget.bookingToEdit == null ? l.freightBookingNewDialogTitle : l.freightBookingEditDialogTitle(widget.bookingToEdit!.bookingCode),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
+                if (widget.bookingToEdit != null) ...[
+                  const SizedBox(width: 12),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      visualDensity: VisualDensity.compact,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    icon: const Icon(Icons.history_rounded, size: 15),
+                    label: const Text('سجل التدقيق', style: TextStyle(fontSize: 11)),
+                    onPressed: () {
+                      RowHistoryDialog.show(
+                        context,
+                        entityType: 'ShipmentBooking',
+                        entityId: widget.bookingToEdit!.bookingId,
+                        entityTitle: 'حجز الشحن ${widget.bookingToEdit!.bookingCode}',
+                      );
+                    },
+                  ),
+                ],
               ],
             ),
             IconButton(

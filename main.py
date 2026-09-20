@@ -1,10 +1,13 @@
+import re
 import sys
 import asyncio
 
 if sys.platform == "win32" and sys.version_info < (3, 8):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-from fastapi import FastAPI, Request, Response, Depends
+from typing import Optional
+from fastapi import FastAPI, Request, Response, Depends, Query, Header, HTTPException
+from fastapi.responses import FileResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 # ==================================================
@@ -24,6 +27,7 @@ from modules.suppliers.model import Supplier
 from modules.external_service_providers.model import ExternalServiceProvider
 from modules.users.model import User, Role, Permission, RolePermission, UserPermission
 from modules.auth.revoked_token_model import RevokedToken
+from modules.common.concurrency import ConcurrencyConflictLog
 from modules.audit_logs.model import AuditLog
 from modules.incoterms.model import Incoterm, CostItem, IncotermResponsibility
 from modules.customs_tariff.model import CustomsTariff
@@ -162,7 +166,7 @@ setup_query_listener(engine)
 
 app = FastAPI(
     title="Sorour Logistics ERP API",
-    version="1.0.198",
+    version="2.0.1",
 )
 
 # ==================================================
@@ -356,7 +360,7 @@ SchemaUpgradeService.execute_safe_startup_upgrade(
 def dashboard():
     return {
         "system": "Sorour Logistics ERP",
-        "version": "1.0.198",
+        "version": "2.0.1",
         "status": "running",
     }
 
@@ -387,7 +391,7 @@ def health_check():
     return {
         "status": "OK",
         "system": "Sorour Logistics ERP",
-        "version": "1.0.198",
+        "version": "2.0.1",
         "database": {
             "connected": db_exists,
             "size_kb": db_size_kb,
@@ -400,9 +404,22 @@ def health_check():
 # System Version & Client Update Check
 # ==================================================
 
+def _parse_semver(v_str: str):
+    try:
+        parts = [int(p) for p in re.sub(r"[^\d\.]", "", v_str.strip()).split(".")[:3]]
+        while len(parts) < 3:
+            parts.append(0)
+        return tuple(parts)
+    except Exception:
+        return (0, 0, 0)
+
+
 @app.get("/api/v1/system/version-check")
 @app.get("/api/v1/system/version")
-def system_version_check():
+def system_version_check(
+    client_version: Optional[str] = Query(None, description="Current client app semver"),
+    x_client_version: Optional[str] = Header(None, alias="X-Client-Version"),
+):
     import json
     from pathlib import Path
 
@@ -415,18 +432,40 @@ def system_version_check():
         except Exception:
             pass
 
-    ver_str = ver_data.get("version", "1.0.188")
-    build_num = ver_data.get("build_number", 189)
+    ver_str = ver_data.get("version", "1.0.198")
+    build_num = ver_data.get("build_number", 199)
+    min_compat_str = ver_data.get("min_compatible_version", "1.0.180")
+
+    req_client_ver = client_version or x_client_version
+    parsed_server_ver = _parse_semver(ver_str)
+    parsed_min_compat = _parse_semver(min_compat_str)
+
+    has_update = False
+    is_compatible = True
+    force_update = False
+
+    if req_client_ver:
+        parsed_client_ver = _parse_semver(req_client_ver)
+        if parsed_client_ver < parsed_server_ver:
+            has_update = True
+        if parsed_client_ver < parsed_min_compat:
+            is_compatible = False
+            force_update = True
 
     return {
         "status": "OK",
         "system_name": "Sorour Logistics ERP",
         "current_version": ver_str,
         "latest_version": ver_str,
+        "client_version": req_client_ver,
+        "min_compatible_version": min_compat_str,
         "build_number": build_num,
-        "has_update": False,
-        "check_status": "up_to_date",
+        "has_update": has_update,
+        "is_compatible": is_compatible,
+        "force_update": force_update,
+        "check_status": "update_available" if has_update else "up_to_date",
         "installer_url": ver_data.get("installer_url", f"https://github.com/ahmedsalahsorour88/import_flow/releases/download/v{ver_str}/Sorour_Logistics_Setup_v{ver_str}.exe"),
+        "local_download_url": "/api/v1/system/download-installer",
         "installer_filename": ver_data.get("installer_filename", f"Sorour_Logistics_Setup_v{ver_str}.exe"),
         "installer_size_mb": ver_data.get("installer_size_mb", 198.04),
         "release_notes": ver_data.get("release_notes", [
@@ -435,6 +474,45 @@ def system_version_check():
         ]),
         "updated_at": ver_data.get("updated_at", ""),
     }
+
+
+@app.get("/api/v1/system/download-installer")
+def download_system_installer():
+    from pathlib import Path
+
+    version_file = Path(__file__).resolve().parent / "version.json"
+    ver_data = {}
+    if version_file.exists():
+        try:
+            with open(version_file, "r", encoding="utf-8") as f:
+                ver_data = json.load(f)
+        except Exception:
+            pass
+
+    installer_filename = ver_data.get("installer_filename", "Sorour_Logistics_Setup_v1.0.198.exe")
+    installer_url = ver_data.get("installer_url", "")
+
+    # Look for local compiled installer in dist/releases/
+    releases_dir = Path(__file__).resolve().parent / "dist" / "releases"
+    target_path = releases_dir / installer_filename
+
+    # Fallback to any .exe in dist/releases if exact name not present
+    if not target_path.exists():
+        exe_candidates = list(releases_dir.glob("Sorour_Logistics_Setup_*.exe"))
+        if exe_candidates:
+            target_path = sorted(exe_candidates, key=lambda p: p.stat().st_mtime, reverse=True)[0]
+
+    if target_path.exists():
+        return FileResponse(
+            path=str(target_path),
+            filename=target_path.name,
+            media_type="application/octet-stream",
+        )
+
+    if installer_url:
+        return RedirectResponse(installer_url)
+
+    raise HTTPException(status_code=404, detail="Installer file not found on server.")
 
 
 # ==================================================

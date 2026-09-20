@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../core/constants/api_constants.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/widgets/command_palette_dialog.dart';
 import '../../core/widgets/keyboard_shortcuts_dialog.dart';
@@ -65,6 +66,7 @@ import '../transport_locations/screens/transport_locations_screen.dart';
 import '../warehouse_receiving/screens/inbound_warehouse_hub_screen.dart';
 import '../production_sync/screens/production_sync_screen.dart';
 import '../production_sync/widgets/production_sync_hub_dialog.dart';
+import '../production_sync/widgets/system_update_banner.dart';
 import '../production_sync/providers/production_sync_provider.dart';
 import '../auth/screens/users_management_screen.dart';
 import '../shipment_inquiry/screens/shipment_inquiry_screen.dart';
@@ -85,7 +87,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  List<Widget> get _screens => const [
+  late final List<Widget> _screens = const [
         // 0..3: Core Workspace (Phase 1)
         OperationalDashboardScreen(),
         ImportFilesScreen(),
@@ -249,17 +251,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _onNextTab() {
-    final newTab = ref.read(workspaceTabsProvider.notifier).selectNextTab();
-    if (newTab != null) {
-      ref.read(navigationIndexProvider.notifier).state = newTab.routeIndex;
-    }
+    ref.read(workspaceTabsProvider.notifier).selectNextTab();
   }
 
   void _onPreviousTab() {
-    final newTab = ref.read(workspaceTabsProvider.notifier).selectPreviousTab();
-    if (newTab != null) {
-      ref.read(navigationIndexProvider.notifier).state = newTab.routeIndex;
-    }
+    ref.read(workspaceTabsProvider.notifier).selectPreviousTab();
   }
 
   void _onCloseTab() async {
@@ -274,10 +270,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (!confirmed) return;
       ref.read(workspaceTabsProvider.notifier).setTabDirty(activeTab.id, false);
     }
-    final newTab = ref.read(workspaceTabsProvider.notifier).closeActiveTab();
-    if (newTab != null) {
-      ref.read(navigationIndexProvider.notifier).state = newTab.routeIndex;
-    }
+    ref.read(workspaceTabsProvider.notifier).closeActiveTab();
   }
 
   void _showShortcutsHelp() {
@@ -384,6 +377,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         children: [
                           if (isMobile) _buildMobileTopNav(context),
                           const SystemWorldClocksHeader(),
+                          const SystemUpdateBanner(),
                           const MultiTabWorkspaceBar(),
                           Expanded(
                             child: tabsState.tabs.isEmpty
@@ -1021,7 +1015,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 final versionText = versionAsync.when(
                   data: (info) => 'v${info.version} (Build ${info.buildNumber})',
                   loading: () => 'v... (Loading)',
-                  error: (_, __) => 'v1.0.198 (Build 199)',
+                  error: (_, __) => 'v${ApiConstants.clientVersion} (Build ${ApiConstants.clientBuildNumber})',
                 );
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1278,8 +1272,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       builder: (ctx) => Consumer(
         builder: (context, r, _) {
           final versionAsync = r.watch(systemVersionInfoProvider);
-          final version = versionAsync.whenOrNull(data: (i) => i.version) ?? '1.0.73';
-          final buildNum = versionAsync.whenOrNull(data: (i) => i.buildNumber) ?? 74;
+          final version = versionAsync.whenOrNull(data: (i) => i.version) ?? ApiConstants.clientVersion;
+          final buildNum = versionAsync.whenOrNull(data: (i) => i.buildNumber) ?? ApiConstants.clientBuildNumber;
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             titlePadding: EdgeInsets.zero,

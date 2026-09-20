@@ -249,8 +249,39 @@ class PurchaseOrderRepository:
         self.db.refresh(po)
         return po
 
-    def update(self, po: PurchaseOrder, data: PurchaseOrderUpdate) -> PurchaseOrder:
+    def update(self, po: PurchaseOrder, data: PurchaseOrderUpdate, current_user_name: Optional[str] = None) -> PurchaseOrder:
+        # Optimistic Concurrency Control Check
+        submitted_version = getattr(data, "version", None)
+        fresh_info = (
+            self.db.query(PurchaseOrder.version, PurchaseOrder.updated_at)
+            .filter(PurchaseOrder.po_id == po.po_id)
+            .first()
+        )
+        current_version = fresh_info[0] if fresh_info and fresh_info[0] is not None else (getattr(po, "version", 1) or 1)
+        persisted_updated_at = fresh_info[1] if fresh_info else po.updated_at
+
+        if submitted_version is not None and submitted_version != current_version:
+            from modules.common.concurrency import ConcurrencyConflictException, log_concurrency_conflict
+            log_concurrency_conflict(
+                db=self.db,
+                entity_name="PurchaseOrder",
+                record_id=po.po_id,
+                current_version=current_version,
+                submitted_version=submitted_version,
+                attempted_by=current_user_name,
+                details=f"Conflict detected while updating PO #{po.po_number}",
+            )
+            raise ConcurrencyConflictException(
+                entity="PurchaseOrder",
+                record_id=po.po_id,
+                current_version=current_version,
+                submitted_version=submitted_version,
+                updated_at=persisted_updated_at,
+                updated_by=getattr(po, "updated_by", None),
+            )
+
         update_data = data.model_dump(exclude_unset=True)
+        update_data.pop("version", None)
         items_data = update_data.pop("items", None)
         packing_items_data = update_data.pop("packing_list_items", None)
         pallet_plan_data = update_data.pop("pallet_plan", None)
@@ -428,6 +459,10 @@ class PurchaseOrderRepository:
         po.total_gross_weight_kg = total_gross
         po.total_net_weight_kg = total_net
         po.total_packages_count = total_pkgs
+
+        # Monotonically increment version for optimistic locking
+        po.version = current_version + 1
+        po.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(po)

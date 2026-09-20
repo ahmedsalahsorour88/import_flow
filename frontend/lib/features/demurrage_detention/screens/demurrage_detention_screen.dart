@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
@@ -276,7 +277,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                 border: Border.all(color: const Color(0xFF8E44AD).withOpacity(0.6)),
               ),
               child: Text(
-                'PHASE-5: STEP_18',
+                DisplayNameResolver.resolveStageBadge('STEP_18', isArabic: Directionality.of(context) == TextDirection.rtl),
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: DisplayDensityMode.clampFontSize(11.0),

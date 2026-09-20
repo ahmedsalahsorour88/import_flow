@@ -7,7 +7,7 @@ import time
 import re
 from typing import Optional, Tuple
 
-from settings import SECRET_KEY
+from settings import SECRET_KEY, JWT_ACCESS_TOKEN_EXPIRE_SECONDS, JWT_REFRESH_GRACE_PERIOD_SECONDS
 
 
 def validate_password_strength(password: str) -> Tuple[bool, Optional[str]]:
@@ -75,7 +75,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return hmac.compare_digest(legacy_hash, hashed_password)
 
 
-def create_access_token(data: dict, expires_in_seconds: int = 86400) -> str:
+def create_access_token(data: dict, expires_in_seconds: Optional[int] = None) -> str:
+    if expires_in_seconds is None:
+        expires_in_seconds = JWT_ACCESS_TOKEN_EXPIRE_SECONDS
+
     to_encode = data.copy()
     to_encode.update({"exp": int(time.time()) + expires_in_seconds})
 
@@ -96,7 +99,12 @@ def create_access_token(data: dict, expires_in_seconds: int = 86400) -> str:
     return f"{signature_input}.{signature}"
 
 
-def decode_access_token(token: str, check_revocation: bool = True) -> Optional[dict]:
+def decode_access_token(
+    token: str,
+    check_revocation: bool = True,
+    ignore_expiration: bool = False,
+    max_grace_period_seconds: Optional[int] = None,
+) -> Optional[dict]:
     try:
         parts = token.split(".")
         if len(parts) != 3:
@@ -119,8 +127,17 @@ def decode_access_token(token: str, check_revocation: bool = True) -> Optional[d
         payload_bytes = base64.urlsafe_b64decode(padded_payload)
         payload = json.loads(payload_bytes.decode('utf-8'))
 
-        if payload.get("exp", 0) < int(time.time()):
-            return None  # Expired
+        now = int(time.time())
+        token_exp = payload.get("exp", 0)
+
+        if not ignore_expiration:
+            if token_exp < now:
+                return None  # Expired
+        else:
+            # Enforce max grace period even when ignoring expiration for silent refresh
+            grace = max_grace_period_seconds if max_grace_period_seconds is not None else JWT_REFRESH_GRACE_PERIOD_SECONDS
+            if token_exp + grace < now:
+                return None  # Expired beyond allowed refresh grace window
 
         # Check token revocation
         if check_revocation and token_revocation_manager.is_revoked(token):

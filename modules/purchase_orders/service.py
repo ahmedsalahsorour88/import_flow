@@ -267,6 +267,7 @@ class PurchaseOrderService:
         return PurchaseOrderResponse(
             po_id=po.po_id,
             po_number=po.po_number,
+            version=getattr(po, "version", 1) or 1,
             po_reference=getattr(po, "po_reference", None),
             import_file_id=po.import_file_id,
             import_file_code=import_file_code,
@@ -381,12 +382,40 @@ class PurchaseOrderService:
 
         return self._to_response(po)
 
-    def update(self, po_id: int, data: PurchaseOrderUpdate) -> PurchaseOrderResponse:
+    def update(self, po_id: int, data: PurchaseOrderUpdate, current_user_name: Optional[str] = None) -> PurchaseOrderResponse:
         po = self.repo.get_by_id(po_id)
         if not po:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Purchase Order with ID {po_id} not found.",
+            )
+
+        # Fail-fast Optimistic Concurrency Check
+        submitted_version = getattr(data, "version", None)
+        fresh_version = (
+            self.db.query(PurchaseOrder.version)
+            .filter(PurchaseOrder.po_id == po_id)
+            .scalar()
+        )
+        current_version = fresh_version if fresh_version is not None else (getattr(po, "version", 1) or 1)
+        if submitted_version is not None and submitted_version != current_version:
+            from modules.common.concurrency import ConcurrencyConflictException, log_concurrency_conflict
+            log_concurrency_conflict(
+                db=self.db,
+                entity_name="PurchaseOrder",
+                record_id=po.po_id,
+                current_version=current_version,
+                submitted_version=submitted_version,
+                attempted_by=current_user_name,
+                details=f"Conflict detected while updating PO #{po.po_number}",
+            )
+            raise ConcurrencyConflictException(
+                entity="PurchaseOrder",
+                record_id=po.po_id,
+                current_version=current_version,
+                submitted_version=submitted_version,
+                updated_at=po.updated_at,
+                updated_by=getattr(po, "updated_by", None),
             )
 
         p_id = data.project_id or po.project_id
@@ -408,7 +437,7 @@ class PurchaseOrderService:
             self.validator.validate_line_items(data.items)
 
         old_file_id = po.import_file_id
-        updated_po = self.repo.update(po, data)
+        updated_po = self.repo.update(po, data, current_user_name=current_user_name)
 
         if updated_po.import_file_id:
             self._sync_import_file_po_link(updated_po.import_file_id, updated_po)

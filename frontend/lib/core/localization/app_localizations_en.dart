@@ -2260,7 +2260,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get poRecPackingSectionTitle => '2. Packing List & Physical Cargo Measurements Review';
   @override String get poRecSelectFileToViewPackingItems => 'Please select an import file to view packing list items';
   @override String get poRecColPackageType => 'Package Type';
+  @override String get poRecColPoPackagesCount => 'PO Packages (PO PKG)';
   @override String get poRecColFinalPackagesCount => 'Final Packages Count *';
+  @override String get poRecColPkgVariance => 'Packages Variance';
   @override String get poRecColGrossWeight => 'Gross Weight (kg) *';
   @override String get poRecColNetWeight => 'Net Weight (kg) *';
   @override String get poRecColCbm => 'Volume (CBM m³) *';
@@ -2354,6 +2356,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get poRecCheckFieldInvoiceNumber => 'Final Commercial Invoice Number';
   @override String get poRecCheckFieldAcidNumber => 'Customs ACID Number';
   @override String get poRecCheckFieldTotalAmount => 'Total Commercial Invoice Amount';
+  @override String get poRecCheckFieldTotalPackages => 'Total Packages Count';
+  @override String get poRecCheckFieldGrossWeight => 'Total Gross Weight';
   @override String get poRecCheckMsgInvoiceMatched => 'Commercial invoice number extracted and matched successfully';
   @override String get poRecCheckMsgAcidMatched => 'ACID number fully matches across invoice, packing list, and system';
   @override String get poRecCheckMsgTotalAmountMatched => 'Total invoice amount matches perfectly at 100%';

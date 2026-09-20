@@ -8,6 +8,28 @@ import '../../projects/providers/projects_provider.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 import '../models/purchase_order_model.dart';
 
+class POUpdateResult {
+  final bool isSuccess;
+  final bool isConflict;
+  final String? errorMessage;
+  final Map<String, dynamic>? conflictDetails;
+
+  POUpdateResult.success()
+      : isSuccess = true,
+        isConflict = false,
+        errorMessage = null,
+        conflictDetails = null;
+
+  POUpdateResult.conflict(this.conflictDetails, [this.errorMessage])
+      : isSuccess = false,
+        isConflict = true;
+
+  POUpdateResult.error(this.errorMessage)
+      : isSuccess = false,
+        isConflict = false,
+        conflictDetails = null;
+}
+
 class PurchaseOrdersState {
   final List<PurchaseOrderModel> purchaseOrders;
   final bool isLoading;
@@ -142,15 +164,25 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
     }
   }
 
-  Future<String?> updatePurchaseOrder(int poId, Map<String, dynamic> data) async {
+  Future<POUpdateResult> updatePurchaseOrder(int poId, Map<String, dynamic> data) async {
     try {
       await _dio.put('${ApiConstants.purchaseOrders}/$poId', data: data);
       await fetchPurchaseOrders();
       _ref.read(projectsProvider.notifier).fetchProjects();
       _ref.read(importFilesProvider.notifier).fetchImportFiles();
       _ref.read(shippingScenariosProvider.notifier).fetchSessions();
-      return null;
+      return POUpdateResult.success();
     } on DioException catch (e) {
+      if (e.response?.statusCode == 409) {
+        final responseData = e.response?.data;
+        final detail = responseData is Map ? responseData['detail'] : null;
+        if (detail is Map) {
+          final conflictMap = Map<String, dynamic>.from(detail);
+          final msg = conflictMap['message'] as String? ?? 'تعارض في التعديل المتزامن (409 Conflict)';
+          state = state.copyWith(errorMessage: msg);
+          return POUpdateResult.conflict(conflictMap, msg);
+        }
+      }
       final responseData = e.response?.data;
       final detail = responseData is Map ? responseData['detail'] : null;
       String msg = 'Failed to update purchase order.';
@@ -164,11 +196,11 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
         msg = e.message!;
       }
       state = state.copyWith(errorMessage: msg);
-      return msg;
+      return POUpdateResult.error(msg);
     } catch (e) {
       final msg = 'Failed to update purchase order: ${e.toString()}';
       state = state.copyWith(errorMessage: msg);
-      return msg;
+      return POUpdateResult.error(msg);
     }
   }
 

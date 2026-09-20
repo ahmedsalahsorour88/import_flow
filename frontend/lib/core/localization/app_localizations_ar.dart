@@ -2260,7 +2260,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poRecPackingSectionTitle => '2. مراجعة وتأكيد قائمة التعبئة والأوزان والطرود والأحجام';
   @override String get poRecSelectFileToViewPackingItems => 'يرجى اختيار ملف الشحنة لعرض بنود قائمة التعبئة';
   @override String get poRecColPackageType => 'نوع الطرد';
+  @override String get poRecColPoPackagesCount => 'عبوات أمر الشراء (PO PKG)';
   @override String get poRecColFinalPackagesCount => 'عدد الطرود النهائية *';
+  @override String get poRecColPkgVariance => 'فارق العبوات';
   @override String get poRecColGrossWeight => 'الوزن القائم (كجم) *';
   @override String get poRecColNetWeight => 'الوزن الصافي (كجم) *';
   @override String get poRecColCbm => 'الحجم (م³) *';
@@ -2354,6 +2356,8 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poRecCheckFieldInvoiceNumber => 'رقم الفاتورة التجارية النهائية';
   @override String get poRecCheckFieldAcidNumber => 'رقم القيد الجمركي المبدئي';
   @override String get poRecCheckFieldTotalAmount => 'إجمالي قيمة الفاتورة التجارية';
+  @override String get poRecCheckFieldTotalPackages => 'إجمالي عدد الطرود';
+  @override String get poRecCheckFieldGrossWeight => 'الوزن الإجمالي القائم';
   @override String get poRecCheckMsgInvoiceMatched => 'تم استخراج وتطابق رقم الفاتورة التجارية بنجاح';
   @override String get poRecCheckMsgAcidMatched => 'رقم القيد الجمركي متطابق تماماً بين الفاتورة وكشف التعبئة والمنظومة';
   @override String get poRecCheckMsgTotalAmountMatched => 'إجمالي القيمة متطابق تماماً بنسبة مائة بالمائة';

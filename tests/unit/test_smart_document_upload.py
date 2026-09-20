@@ -745,7 +745,7 @@ class TestValidators:
         assert exc_info.value.status_code == 422
 
     def test_file_size_within_limit(self):
-        content = b"x" * (5 * 1024 * 1024)  # 5 MB
+        content = b"%PDF-1.4\n" + b"x" * (5 * 1024 * 1024)  # 5 MB valid PDF header
         validate_file_size(content, "test.pdf")  # should not raise
 
     def test_file_size_exceeds_limit(self):

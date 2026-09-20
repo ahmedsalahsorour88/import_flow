@@ -1290,7 +1290,7 @@ Best regards,
     ];
 
     return VerticalStageScaffold(
-      stageCode: 'PHASE-1: STEP_03',
+      stageCode: 'STEP_01',
       titleEn: 'Freight Shipping Scenarios & Carrier Evaluation',
       titleAr: 'دراسات وسيناريوهات الشحن والمفاضلة',
       headerIcon: Icons.alt_route_outlined,

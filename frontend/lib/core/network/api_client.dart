@@ -45,9 +45,10 @@ final dioProvider = Provider<Dio>((ref) {
             options.headers['x-user-role'] = authState.user!.role;
             options.headers['x-user-name'] = authState.user!.username;
           }
-          // Inject Correlation ID
+          // Inject Correlation ID & Client Version
           final reqId = 'req_${DateTime.now().millisecondsSinceEpoch}_${(DateTime.now().microsecondsSinceEpoch % 10000).toString().padLeft(4, '0')}';
           options.headers['X-Request-ID'] = reqId;
+          options.headers['X-Client-Version'] = ApiConstants.clientVersion;
           options.extra['request_start_time'] = DateTime.now().millisecondsSinceEpoch;
         } catch (_) {}
         handler.next(options);
@@ -81,7 +82,7 @@ final dioProvider = Provider<Dio>((ref) {
   // ── Error Response Interceptor ────────────────────────────
   dio.interceptors.add(
     InterceptorsWrapper(
-      onError: (DioException error, ErrorInterceptorHandler handler) {
+      onError: (DioException error, ErrorInterceptorHandler handler) async {
         try {
           final start = error.requestOptions.extra['request_start_time'] as int?;
           final durationMs = start != null ? DateTime.now().millisecondsSinceEpoch - start : 0;
@@ -98,6 +99,50 @@ final dioProvider = Provider<Dio>((ref) {
             error: error.message,
           );
         } catch (_) {}
+
+        // Automatically handle 401 Unauthorized (Expired or invalid token)
+        final statusCode = error.response?.statusCode;
+        final path = error.requestOptions.path;
+
+        if (statusCode == 401 && !path.contains('/auth/login')) {
+          final authNotifier = ref.read(authProvider.notifier);
+
+          // If the failing request was not already a refresh attempt, try silent refresh
+          if (!path.contains('/auth/refresh')) {
+            final refreshed = await authNotifier.refreshToken();
+            if (refreshed) {
+              final newToken = ref.read(authProvider).token;
+              if (newToken != null && newToken.isNotEmpty) {
+                final retryOptions = Options(
+                  method: error.requestOptions.method,
+                  headers: Map<String, dynamic>.from(error.requestOptions.headers)
+                    ..['Authorization'] = 'Bearer $newToken',
+                  responseType: error.requestOptions.responseType,
+                  contentType: error.requestOptions.contentType,
+                  extra: error.requestOptions.extra,
+                  sendTimeout: error.requestOptions.sendTimeout,
+                  receiveTimeout: error.requestOptions.receiveTimeout,
+                );
+                try {
+                  final retryResponse = await dio.request<dynamic>(
+                    error.requestOptions.path,
+                    data: error.requestOptions.data,
+                    queryParameters: error.requestOptions.queryParameters,
+                    options: retryOptions,
+                  );
+                  return handler.resolve(retryResponse);
+                } catch (retryErr) {
+                  if (retryErr is DioException) {
+                    error = retryErr;
+                  }
+                }
+              }
+            }
+          }
+
+          // If refresh failed or was not possible, cleanly expire the session
+          await authNotifier.handleSessionExpired();
+        }
 
         // Normalize error messages for UI display
         if (error.response != null) {
@@ -146,8 +191,15 @@ final uploadDioProvider = Provider<Dio>((ref) {
         } catch (_) {}
         handler.next(options);
       },
+      onError: (DioException error, ErrorInterceptorHandler handler) async {
+        if (error.response?.statusCode == 401 && !error.requestOptions.path.contains('/auth/')) {
+          await ref.read(authProvider.notifier).handleSessionExpired();
+        }
+        handler.next(error);
+      },
     ),
   );
 
   return dio;
 });
+

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../theme/app_theme.dart';
 
 /// Top header toolbar for [EnterpriseDataTable].
-class EnterpriseTableHeaderToolbar extends StatelessWidget {
+class EnterpriseTableHeaderToolbar extends StatefulWidget {
   final String? title;
   final Widget? titleLeading;
   final int totalCount;
@@ -37,8 +37,38 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
   });
 
   @override
+  State<EnterpriseTableHeaderToolbar> createState() => _EnterpriseTableHeaderToolbarState();
+}
+
+class _EnterpriseTableHeaderToolbarState extends State<EnterpriseTableHeaderToolbar> {
+  late final TextEditingController _searchCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl = TextEditingController(text: widget.searchQuery);
+  }
+
+  @override
+  void didUpdateWidget(covariant EnterpriseTableHeaderToolbar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.searchQuery != _searchCtrl.text) {
+      _searchCtrl.value = _searchCtrl.value.copyWith(
+        text: widget.searchQuery,
+        selection: TextSelection.collapsed(offset: widget.searchQuery.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final hasSearchFilter = searchQuery.isNotEmpty && filteredCount != totalCount;
+    final hasSearchFilter = widget.searchQuery.isNotEmpty && widget.filteredCount != widget.totalCount;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -67,13 +97,13 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (titleLeading != null) ...[
-                            titleLeading!,
+                          if (widget.titleLeading != null) ...[
+                            widget.titleLeading!,
                             const SizedBox(width: 8),
                           ],
-                          if (title != null) ...[
+                          if (widget.title != null) ...[
                             Text(
-                              title!,
+                              widget.title!,
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -93,8 +123,8 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
                             ),
                             child: Text(
                               hasSearchFilter
-                                  ? '$filteredCount من $totalCount سجل'
-                                  : '$totalCount سجل',
+                                  ? '${widget.filteredCount} من ${widget.totalCount} سجل'
+                                  : '${widget.totalCount} سجل',
                               style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -103,7 +133,7 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
                             ),
                           ),
 
-                          if (selectedCount > 0) ...[
+                          if (widget.selectedCount > 0) ...[
                             const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -118,7 +148,7 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
                                   const Icon(Icons.check_circle, size: 13, color: AppTheme.emerald),
                                   const SizedBox(width: 4),
                                   Text(
-                                    'تم تحديد $selectedCount',
+                                    'تم تحديد ${widget.selectedCount}',
                                     style: const TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
@@ -139,14 +169,14 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           // Bulk Actions if items selected
-                          if (selectedCount > 0 && bulkActions != null) ...[
-                            bulkActions!,
+                          if (widget.selectedCount > 0 && widget.bulkActions != null) ...[
+                            widget.bulkActions!,
                             const SizedBox(width: 8),
                           ],
 
                           // Extra Custom Actions
-                          if (extraActions != null) ...[
-                            ...extraActions!,
+                          if (widget.extraActions != null) ...[
+                            ...widget.extraActions!,
                             const SizedBox(width: 8),
                           ],
 
@@ -158,7 +188,7 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                 side: BorderSide(color: Colors.grey.shade300),
                               ),
-                              onPressed: onOpenColumnPicker,
+                              onPressed: widget.onOpenColumnPicker,
                               icon: const Icon(Icons.view_column_outlined, size: 16, color: AppTheme.charcoal),
                               label: const Text(
                                 'الأعمدة',
@@ -169,7 +199,7 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
                           const SizedBox(width: 8),
 
                           // Export Excel/CSV Button
-                          if (onExportCSV != null) ...[
+                          if (widget.onExportCSV != null) ...[
                             Tooltip(
                               message: 'تصدير الجدول إلى Excel / CSV',
                               child: OutlinedButton.icon(
@@ -178,7 +208,7 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
                                   side: const BorderSide(color: AppTheme.emerald),
                                   foregroundColor: AppTheme.emerald,
                                 ),
-                                onPressed: onExportCSV,
+                                onPressed: widget.onExportCSV,
                                 icon: const Icon(Icons.table_chart_outlined, size: 16, color: AppTheme.emerald),
                                 label: const Text(
                                   'تصدير Excel',
@@ -190,7 +220,7 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
                           ],
 
                           // Export PDF Button
-                          if (onExportPDF != null) ...[
+                          if (widget.onExportPDF != null) ...[
                             Tooltip(
                               message: 'تصدير الجدول إلى مستند PDF رسمي',
                               child: OutlinedButton.icon(
@@ -199,7 +229,7 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
                                   side: const BorderSide(color: AppTheme.crimson),
                                   foregroundColor: AppTheme.crimson,
                                 ),
-                                onPressed: onExportPDF,
+                                onPressed: widget.onExportPDF,
                                 icon: const Icon(Icons.picture_as_pdf_outlined, size: 16, color: AppTheme.crimson),
                                 label: const Text(
                                   'تصدير PDF',
@@ -211,7 +241,7 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
                           ],
 
                           // Copy to Clipboard
-                          if (onCopyToClipboard != null) ...[
+                          if (widget.onCopyToClipboard != null) ...[
                             Tooltip(
                               message: 'نسخ محتويات الجدول للحافظة بتنسيق Excel',
                               child: OutlinedButton.icon(
@@ -220,7 +250,7 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
                                   side: BorderSide(color: Colors.grey.shade400),
                                   foregroundColor: AppTheme.charcoal,
                                 ),
-                                onPressed: onCopyToClipboard,
+                                onPressed: widget.onCopyToClipboard,
                                 icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.charcoal),
                                 label: const Text(
                                   'نسخ للحافظة',
@@ -244,16 +274,22 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
           SizedBox(
             height: 38,
             child: TextField(
-              controller: TextEditingController(text: searchQuery)
-                ..selection = TextSelection.collapsed(offset: searchQuery.length),
+              controller: _searchCtrl,
               decoration: InputDecoration(
                 hintText: 'بحث فوري في كافة أعمدة وبيانات الجدول...',
                 hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
                 prefixIcon: const Icon(Icons.search, size: 18, color: Colors.grey),
-                suffixIcon: searchQuery.isNotEmpty
+                suffixIcon: widget.searchQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear, size: 16),
-                        onPressed: onClearSearch ?? () => onSearchChanged(''),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          if (widget.onClearSearch != null) {
+                            widget.onClearSearch!();
+                          } else {
+                            widget.onSearchChanged('');
+                          }
+                        },
                       )
                     : null,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -274,7 +310,7 @@ class EnterpriseTableHeaderToolbar extends StatelessWidget {
                 fillColor: Colors.grey.shade50,
               ),
               style: const TextStyle(fontSize: 12),
-              onChanged: onSearchChanged,
+              onChanged: widget.onSearchChanged,
             ),
           ),
         ],

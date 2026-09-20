@@ -70,6 +70,7 @@ class PaymentRequestUpdate(BaseModel):
     swift_processing_days: Optional[int] = None
     swift_reconciliation_notes: Optional[str] = None
     notes: Optional[str] = None
+    version: Optional[int] = Field(None, description="Current record version for optimistic concurrency control")
 
 
 class SwiftReconciliationRequest(BaseModel):
@@ -83,6 +84,7 @@ class SwiftReconciliationRequest(BaseModel):
 class PaymentRequestResponse(PaymentRequestBase):
     payment_id: int
     payment_code: str
+    version: int = 1
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
     requested_amount_egp: float
@@ -150,11 +152,13 @@ class ImportBudgetUpdate(BaseModel):
     budget_status: Optional[str] = None
     approved_by: Optional[str] = None
     notes: Optional[str] = None
+    version: Optional[int] = Field(None, description="Current record version for optimistic concurrency control")
 
 
 class ImportBudgetResponse(ImportBudgetBase):
     budget_id: int
     budget_code: str
+    version: int = 1
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
     total_budget_egp: float

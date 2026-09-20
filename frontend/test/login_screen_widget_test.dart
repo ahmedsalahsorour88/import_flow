@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
@@ -74,6 +74,23 @@ void main() {
       expect(find.text(en.loginRoleAdmin), findsOneWidget);
       expect(find.text(en.loginRoleManager), findsOneWidget);
       expect(find.text(en.loginRoleSpecialist), findsOneWidget);
+    });
+
+    testWidgets('Validates empty fields and shows red validation messages', (tester) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(_buildTestApp(locale: const Locale('ar')));
+      await tester.pumpAndSettle();
+
+      final ar = AppLocalizationsAr();
+      // Tap Sign in without filling anything
+      await tester.tap(find.text(ar.loginButtonLabel));
+      await tester.pumpAndSettle();
+
+      expect(find.text(ar.loginUsernameRequired), findsOneWidget);
+      expect(find.text(ar.loginPasswordRequired), findsOneWidget);
     });
   });
 }

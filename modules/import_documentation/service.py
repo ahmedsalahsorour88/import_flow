@@ -1866,22 +1866,64 @@ def create_draft_bl_review_service(db: Session, schema: DraftBLReviewCreate) -> 
         schema.status = "APPROVED"
         schema.stage = "Stage 5: Final"
 
-    existing = repo.get_draft_bl_review_by_file_id(db, schema.import_file_id, include_inactive=False, include_drafts=True)
-    if existing and existing.is_draft and getattr(schema, "is_draft", False):
-        update_schema = DraftBLReviewUpdate(**schema.model_dump(exclude_unset=True))
-        saved_session = repo.update_draft_bl_review(db, existing.bl_review_id, update_schema)
+    is_draft = getattr(schema, "is_draft", False)
+    existing_draft = repo.get_draft_bl_review_by_file_id(db, schema.import_file_id, include_inactive=False, include_drafts=True)
+    is_update = False
+
+    if is_draft:
+        if existing_draft and existing_draft.is_draft:
+            update_schema = DraftBLReviewUpdate(**schema.model_dump(exclude_unset=True))
+            saved_session = repo.update_draft_bl_review(db, existing_draft.bl_review_id, update_schema)
+            is_update = True
+        else:
+            saved_session = repo.create_draft_bl_review(db, schema)
     else:
+        existing_certified = repo.get_draft_bl_review_by_file_id(db, schema.import_file_id, include_inactive=False, include_drafts=False)
+        if existing_certified:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"يوجد بالفعل مراجعة معتمدة لمسودة البوليصة لهذا الملف (رمز المراجعة: {existing_certified.bl_review_code}). "
+                    f"يرجى استعراض المراجعة الحالية أو إنشاء إصدار جديد (Version) بدلاً من إنشاء جلسة مكررة."
+                ),
+            )
         saved_session = repo.create_draft_bl_review(db, schema)
 
+    try:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="DraftBLReviewSession",
+            entity_id=saved_session.bl_review_id,
+            entity_code=saved_session.bl_review_code,
+            action="UPDATE" if is_update else "CREATE",
+            new_data=schema.model_dump(exclude_unset=True),
+            performed_by=schema.approved_by or "Kamal",
+        )
+    except Exception as e:
+        logger.warning("AuditLog for DraftBLReviewSession failed: %s", e)
+
     # If certified and approved (not draft, not revision required), trigger complete workflow
-    if not getattr(schema, "is_draft", False) and saved_session.status == "APPROVED":
+    if not is_draft and saved_session.status == "APPROVED":
         _complete_draft_bl_review_workflow(db, saved_session, approved_by=schema.approved_by)
 
     return saved_session
 
 
 def update_draft_bl_review_service(db: Session, review_id: int, schema: DraftBLReviewUpdate) -> DraftBLReviewSession:
-    return repo.update_draft_bl_review(db, review_id, schema)
+    updated = repo.update_draft_bl_review(db, review_id, schema)
+    try:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="DraftBLReviewSession",
+            entity_id=updated.bl_review_id,
+            entity_code=updated.bl_review_code,
+            action="UPDATE",
+            new_data=schema.model_dump(exclude_unset=True),
+            performed_by=getattr(schema, "approved_by", None) or "Kamal",
+        )
+    except Exception as e:
+        logger.warning("AuditLog for update DraftBLReviewSession failed: %s", e)
+    return updated
 
 
 def update_draft_bl_checklist_service(db: Session, review_id: int, checklist_items: List[DraftBLChecklistItem], reviewer_name: str = "Kamal") -> DraftBLReviewSession:
@@ -4281,36 +4323,71 @@ def extract_and_compare_po_documents_service(
     if request.import_file_id:
         imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == request.import_file_id).first()
         if imp_file:
+            from modules.purchase_orders.model import PurchaseOrder
+            po = db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == request.import_file_id).first()
+            if not po and imp_file.po_number:
+                po = db.query(PurchaseOrder).filter(PurchaseOrder.po_number == imp_file.po_number).first()
+
             tax_no = None
             if imp_file.company and hasattr(imp_file.company, 'tax_card_number'):
                 tax_no = imp_file.company.tax_card_number
+
+            po_curr = "USD"
+            if po and po.currency and hasattr(po.currency, 'currency_code'):
+                po_curr = po.currency.currency_code
+            elif imp_file.estimated_cost_currency:
+                po_curr = imp_file.estimated_cost_currency
+
+            po_amt = float(po.total_amount_fob) if (po and po.total_amount_fob) else float(imp_file.estimated_cost or 0.0)
+            po_pkgs = int(po.total_packages_count) if (po and po.total_packages_count) else 0
+            po_gw = float(po.total_gross_weight_kg) if (po and po.total_gross_weight_kg) else 0.0
+            po_nw = float(po.total_net_weight_kg) if (po and po.total_net_weight_kg) else 0.0
+            po_cbm = float(po.total_cbm) if (po and po.total_cbm) else 0.0
+
             file_metadata = {
                 "import_file_id": imp_file.import_file_id,
                 "import_file_code": imp_file.import_file_code,
                 "acid_number": imp_file.acid_number,
                 "importer_tax_id": tax_no,
-                "total_amount": imp_file.total_amount or 0.0,
-                "currency": imp_file.currency or "EUR",
-                "total_packages": imp_file.total_packages or 0,
-                "total_gross_weight_kg": imp_file.total_gross_weight_kg or 0.0,
+                "po_number": po.po_number if po else imp_file.po_number,
+                "final_invoice_number": po.proforma_invoice_number if (po and po.proforma_invoice_number) else imp_file.po_number,
+                "total_amount": po_amt,
+                "currency": po_curr,
+                "total_packages": po_pkgs,
+                "total_gross_weight_kg": po_gw,
+                "total_net_weight_kg": po_nw,
+                "total_cbm": po_cbm,
             }
             if not system_items:
-                from modules.purchase_orders.model import PurchaseOrder
-                po_records = db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == request.import_file_id).all()
-                for po in po_records:
-                    for itm in po.items:
+                po_records = [po] if po else db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == request.import_file_id).all()
+                for p_rec in po_records:
+                    pkg_map = {}
+                    for p_item in p_rec.packing_list_items:
+                        if p_item.item_code:
+                            pkg_map[p_item.item_code.strip().upper()] = p_item
+
+                    for itm in p_rec.line_items:
+                        code_key = (itm.item_code or "").strip().upper()
+                        pkg_info = pkg_map.get(code_key)
+
+                        pkg_count = float(pkg_info.qty_pkg) if pkg_info else 1.0
+                        net_w = float(pkg_info.total_net_weight_kg) if pkg_info else float(itm.net_weight_kg or 0.0)
+                        gross_w = float(pkg_info.total_gross_weight_kg) if pkg_info else float(itm.gross_weight_kg or 0.0)
+                        cbm_val = float(pkg_info.total_cbm) if pkg_info else float(itm.total_cbm or 0.0)
+                        pkg_type = pkg_info.package_type if (pkg_info and pkg_info.package_type) else "Carton"
+
                         system_items.append({
                             "po_item_id": itm.item_id,
                             "item_code": itm.item_code or str(itm.item_id),
-                            "description": itm.description_ar or itm.description_en or "بند أمر الشراء",
-                            "hs_code": itm.hs_code or "",
-                            "package_type": "Carton",
-                            "initial_quantity": itm.quantity,
-                            "initial_unit_price": itm.unit_price,
-                            "initial_packages_count": 1.0,
-                            "initial_net_weight_kg": itm.net_weight_kg or 0.0,
-                            "initial_gross_weight_kg": itm.gross_weight_kg or 0.0,
-                            "initial_cbm": itm.total_cbm or 0.0,
+                            "description": itm.description_ar or itm.description_en or itm.main_description or "بند أمر الشراء",
+                            "hs_code": (itm.tariff.hs_code if (hasattr(itm, 'tariff') and itm.tariff) else "") or (pkg_info.hs_code if pkg_info else ""),
+                            "package_type": pkg_type,
+                            "initial_quantity": float(itm.quantity),
+                            "initial_unit_price": float(itm.unit_price),
+                            "initial_packages_count": pkg_count,
+                            "initial_net_weight_kg": net_w,
+                            "initial_gross_weight_kg": gross_w,
+                            "initial_cbm": cbm_val,
                         })
 
     if not system_items:
@@ -4419,6 +4496,20 @@ def create_po_reconciliation_session_service(
 
     session = repo.create_po_reconciliation_session(db, schema)
 
+    try:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="POPackingReconciliationSession",
+            entity_id=session.session_id,
+            entity_code=session.session_code,
+            action="CREATE",
+            new_data=schema.model_dump(exclude_unset=True),
+            performed_by=session.certified_by or "Documentation Auditor",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("AuditLog for PO reconciliation create failed: %s", e)
+
     # Advance Central Lifecycle (STEP_08_PO -> STEP_08_BL)
     if session.overall_status in ["MATCHED", "APPROVED", "CERTIFIED", "PASS", "CONFORMING"] or session.is_safe_for_certification:
         try:
@@ -4471,7 +4562,26 @@ def update_po_reconciliation_session_service(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"جلسة المطابقة رقم {session_id} غير موجودة للتحديث.",
         )
+
+    update_data = schema.model_dump(exclude_unset=True, exclude_none=True)
+    old_data = {k: getattr(session, k, None) for k in update_data.keys()}
+
     updated = repo.update_po_reconciliation_session(db, session_id, schema)
+
+    try:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="POPackingReconciliationSession",
+            entity_id=updated.session_id,
+            entity_code=updated.session_code,
+            action="UPDATE",
+            old_data=old_data,
+            new_data=update_data,
+            performed_by=updated.certified_by or "Documentation Auditor",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("AuditLog for PO reconciliation update failed: %s", e)
 
     # Advance Central Lifecycle (STEP_08_PO -> STEP_08_BL)
     if updated.overall_status in ["MATCHED", "APPROVED", "CERTIFIED", "PASS", "CONFORMING"] or updated.is_safe_for_certification:
@@ -4493,12 +4603,25 @@ def update_po_reconciliation_session_service(
 
 
 def delete_po_reconciliation_session_service(db: Session, session_id: int) -> dict:
+    session = repo.get_po_reconciliation_session_by_id(db, session_id)
     ok = repo.delete_po_reconciliation_session(db, session_id)
     if not ok:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"جلسة المطابقة رقم {session_id} غير موجودة للحذف.",
         )
+    if session:
+        try:
+            from modules.audit_logs.service import AuditLogService
+            AuditLogService(db).log_activity(
+                entity_type="POPackingReconciliationSession",
+                entity_id=session.session_id,
+                entity_code=session.session_code,
+                action="DELETE",
+                performed_by=session.certified_by or "Documentation Auditor",
+            )
+        except Exception:
+            pass
     return {"message": f"تم حذف جلسة المطابقة رقم {session_id} بنجاح", "deleted": True}
 
 

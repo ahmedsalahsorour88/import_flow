@@ -20,6 +20,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
+  String? _errorMessage;
+  bool _hasAuthError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final initialError = ref.read(authProvider).errorMessage;
+      if (initialError != null && initialError.isNotEmpty && mounted) {
+        setState(() {
+          _errorMessage = initialError;
+          _hasAuthError = true;
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -28,8 +44,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  void _clearError() {
+    if (_errorMessage != null || _hasAuthError) {
+      setState(() {
+        _errorMessage = null;
+        _hasAuthError = false;
+      });
+    }
+  }
+
   Future<void> _handleLogin() async {
     final l = context.l10n;
+    _clearError();
     if (!_formKey.currentState!.validate()) return;
 
     final username = _usernameCtrl.text.trim();
@@ -42,6 +68,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (err.contains('اسم المستخدم أو كلمة المرور') || err.contains('Invalid credentials') || err.contains('Incorrect username or password')) {
           err = l.loginInvalidCredentials;
         }
+        setState(() {
+          _errorMessage = err;
+          _hasAuthError = true;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -56,17 +86,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
         );
       } else if (ok && mounted) {
+        setState(() {
+          _errorMessage = null;
+          _hasAuthError = false;
+        });
         ref.read(appReloadKeyProvider.notifier).state++;
       }
     } catch (e) {
       if (mounted) {
+        final errStr = e.toString();
+        setState(() {
+          _errorMessage = errStr;
+          _hasAuthError = true;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
                 const Icon(Icons.error_outline, color: Colors.white),
                 const SizedBox(width: 10),
-                Expanded(child: Text(e.toString())),
+                Expanded(child: Text(errStr)),
               ],
             ),
             backgroundColor: AppTheme.crimson,
@@ -78,6 +117,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _quickFill(String user, String pass) {
+    _clearError();
     _usernameCtrl.text = user;
     _passwordCtrl.text = pass;
     _handleLogin();
@@ -176,15 +216,70 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               fontSize: 13,
                             ),
                           ),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 20),
+
+                          // Inline Error Banner
+                          if (_errorMessage != null) ...[
+                            Container(
+                              width: double.infinity,
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                              decoration: BoxDecoration(
+                                color: AppTheme.crimson.withOpacity(0.09),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: AppTheme.crimson.withOpacity(0.45),
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Padding(
+                                    padding: EdgeInsets.only(top: 2),
+                                    child: Icon(
+                                      Icons.error_outline_rounded,
+                                      color: AppTheme.crimson,
+                                      size: 19,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      _errorMessage!,
+                                      style: const TextStyle(
+                                        color: AppTheme.crimson,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
 
                           // Username Field
                           TextFormField(
                             controller: _usernameCtrl,
+                            onChanged: (_) => _clearError(),
                             decoration: InputDecoration(
                               labelText: l.loginUsernameLabel,
                               prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
                               hintText: l.loginUsernameHint,
+                              enabledBorder: _hasAuthError
+                                  ? OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(color: AppTheme.crimson.withOpacity(0.8), width: 1.5),
+                                    )
+                                  : null,
+                              focusedBorder: _hasAuthError
+                                  ? OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: const BorderSide(color: AppTheme.crimson, width: 2.0),
+                                    )
+                                  : null,
                               suffixIcon: IconButton(
                                 icon: const Icon(Icons.copy_rounded, size: 18),
                                 tooltip: l.loginCopyUsernameTooltip,
@@ -203,9 +298,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           TextFormField(
                             controller: _passwordCtrl,
                             obscureText: _obscurePassword,
+                            onChanged: (_) => _clearError(),
                             decoration: InputDecoration(
                               labelText: l.loginPasswordLabel,
                               prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
+                              enabledBorder: _hasAuthError
+                                  ? OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(color: AppTheme.crimson.withOpacity(0.8), width: 1.5),
+                                    )
+                                  : null,
+                              focusedBorder: _hasAuthError
+                                  ? OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: const BorderSide(color: AppTheme.crimson, width: 2.0),
+                                    )
+                                  : null,
                               suffixIcon: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [

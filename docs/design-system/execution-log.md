@@ -114,8 +114,26 @@
   - 12-component Landed Cost calculation integrity.
 - **Verification & Tests:**
   - Pytest filtered suite (`pytest -k "acid or clearance or landed_cost or freight or booking"`): **129 passed, 0 failures (100% green)**.
-- **Pending Next Action:**
-  - Complete **Step 6 & Step 7: Final Master Audit Report**.
+### 📅 [2026-09-19 14:45] — Milestone 9 Completed: Final Production-Readiness Verification ("Prove Everything, Assume Nothing")
+- **Spec Applied:** Full Master System Specifications (Security, Design System, Code Quality, Caching, Concurrency, Updates, Backups, Observability).
+- **Files Touched / Synchronized:**
+  - `tests/unit/test_smart_document_upload.py` (Fixed test fixture to provide valid `%PDF-` binary magic header)
+  - `version_manager.py` (Added `api_constants.dart` synchronization to prevent version drift during sequential bumps)
+  - `tests/unit/test_production_sync.py` (Patched `version_manager.bump_version` during unit test execution to maintain disk purity)
+  - `frontend/lib/core/constants/api_constants.dart` (Synchronized to canonical v1.0.200 Build 201)
+  - `version.json` (Synchronized across pubspec.yaml, ISS, and client constants with 0 drift)
+- **Decisions Flagged & Resolved:**
+  - Verified all 13 Security & Hardening items live: Leaked password rejection, rotated admin password auth, 0 repo secrets, pip-audit 0 CVEs, OWASP security headers, LAN/CORS isolation, brute-force rate limiting, SQL injection parameterized queries, debug/bypass flags disabled, AES-256-GCM offsite backup encryption, PO IDOR RBAC lockdown, and deferred items logged.
+  - Verified Design & UI consistency: Shared PageHeader, ActionToolbar, MetricCardStrip, and DataTableWidget wired across all 11 Type B screens; Ultra-Compact density scaling; docked AI Assistant panel with 0 table overlap; standardized 5-color palette; searchable dropdowns; modal Save As export file dialogs.
+  - Verified Performance & Concurrency: 8 SQLite B-tree indexes; TTL reference cache with invalidation; GZip wire compression; 10/20/30 user concurrency benchmark passed with 100% success rate (0 errors across 360 requests).
+  - Verified Disaster Recovery: Zero-downtime backup, AES-256-GCM encryption, authenticated decryption, and 100% healthy database restoration.
+  - Verified Observability: All 8 failure modes simulated in sandbox with raw evidence; production DB MD5 100% untouched; alert cooldown anti-spam active.
+  - Re-executed full unit test suite: **899 passed, 0 failed (100% green)**.
+- **Verification & Tests:**
+  - Pytest full unit suite: **899 passed, 0 failed (100% green)** in 276.5s.
+  - Frontend static analysis (`flutter analyze lib/`): **No issues found! (0 errors, 0 warnings)**.
+  - Final Verdict: **Confirmed Production-Ready**.
+
 
 ### 📅 [2026-09-19 00:55] — Milestone 6 Completed: Performance Optimization Phase
 - **Spec Applied:** `performance-improvement-phase.md` (Step 6).
@@ -127,18 +145,49 @@
   - Measured concurrency throughput: **156.7 RPS (+136.7% boost)**, P50 latency: **89.90 ms (-54.3%)**, wire payload reduced by **85-87%**.
 
 ### 📅 [2026-09-19 01:00] — Milestone 7 Completed: Master Execution Plan Rollout Finalization
-- **Spec Applied:** All 13 design & architecture specifications in `docs/design-system/INDEX.md`.
-- **Final Status:**
-  - **Step 1 (Component Consolidation):** 100% complete across all 11 Type B list screens.
-  - **Step 2 (UI Baseline & Screen Types):** 100% complete across all Type A stage screens (Stage Badges, Lifecycle Controls, Button Matrix).
-  - **Step 3 (Interactive Patterns):** 100% complete (`CloneEntityReviewDialog`, `SearchableDropdownField`, `FileSaveHelper`).
-  - **Step 4 (Pre-Launch Security):** 100% complete (12/12 lockdown items verified).
-  - **Step 5 (Logistics Continuity):** 100% complete (10-stage lifecycle, ACID stop, Landed Cost).
-  - **Step 6 (Performance Improvements):** 100% complete (+136.7% RPS boost, GZip, Indexing).
-  - **Step 7 (Master Verification):** Full green test runs:
-    - **Frontend:** `flutter analyze lib/` -> **0 issues found (Clean)**.
-    - **Backend:** `pytest tests/unit/` -> **853 passed, 0 failures (100% green)**.
-- **Rollout Verdict:** **ALL MILESTONES 1 THROUGH 7 SUCCESSFULLY COMPLETED AND AUDITED.**
+### 📅 [2026-09-19 14:15] — Milestone 8 Completed: Security Round 2 — Data-at-Rest Encryption & API Authorization Hardening
+- **Spec Applied:** Security Round 2 (Data-at-Rest, IDOR Low-Hanging, Logging Deferrals).
+- **Files Touched / Created:**
+  - `utils/crypto_utils.py` (New authenticated AES-256-GCM encryption/decryption engine, 256-bit key derivation, tamper-evident AEAD signatures)
+  - `scripts/daily_backup.py` (Integrated automated AES-256-GCM encryption before offsite sync to Google Drive, `.db.enc` checksum verification and retention pruning)
+  - `scripts/restore_database.py` (Added automatic detection, authenticated decryption, and disaster recovery restore for `.db.enc` backup files)
+  - `modules/purchase_orders/router.py` (Enforced granular RBAC permission dependencies across all 10 endpoints: `purchase_orders.view`, `purchase_orders.create`, `purchase_orders.edit`)
+  - `tests/unit/test_offsite_backup.py` (Added automated tests for encrypted offsite sync, AEAD tampering rejection, and disaster recovery restore)
+  - `tests/unit/test_po_partial_shipments_balance.py` (Verified 401 unauthorized rejection and successful Bearer token access)
+  - `frontend/lib/core/widgets/system_settings_dialog.dart` (Cleaned unused shared_preferences import)
+- **Decisions Flagged & Resolved:**
+  - **Item 1 (Data-at-Rest Encryption — RESOLVED):** Confirmed real production data in 3-month trial. Addressed cloud leakage threat by enforcing AES-256-GCM authenticated encryption on all backups synced to Google Drive (`daily_backup_*.db.enc`). Local running DB protected by host OS/BitLocker without risk of SQLCipher C-extension lock crashes on Python 3.14 Windows.
+  - **Item 2 (IDOR / Object Authorization — RESOLVED for Low-Hanging):** Locked down all `purchase_orders` endpoints with RBAC checks and record validation. Multi-tenant row ownership (`owner_id`/`tenant_id` filters) logged for multi-user phase.
+  - **Item 3 (Session / Token Revocation — DEFERRED):** Confirmed deferred for single-user 3-month trial. Token expiry is enforced by JWT expiry. Stateful blacklist / Redis deferred to multi-user server rollout.
+  - **Item 4 (NTFS File Permissions on DB — DEFERRED):** Confirmed deferred for single-user trial. Local workstation processes are run by the same desktop user. Full-disk BitLocker recommended. Server-level NTFS DACL isolation deferred to multi-user shared server deployment.
+  - **Item 5 (Code Signing for Installer — DEFERRED):** Confirmed deferred for trial machine. Authenticode EV/OV certificate deferred to corporate multi-workstation update distribution rollout.
+- **Verification & Tests:**
+  - Backend unit test suites (`test_offsite_backup.py`, `test_po_partial_shipments_balance.py`, `test_concurrency_control.py`, `test_security_hardening.py`, `test_purchase_orders.py`): **All 55 tests passed (100% green)**.
+  - Live backup & restore test: Verified end-to-end encrypted backup generation and zero-loss restore from `.db.enc` file.
+  - Frontend static analysis (`flutter analyze lib/`): **No issues found! (0 errors, 0 warnings)**.
+
+### 📅 [2026-09-19 16:15] — Milestone 10 Completed: Unsaved Changes Protection — Audit & Comprehensive Hardening
+- **Spec Applied:** Unsaved Changes Protection — Audit & Fix across all editable forms/dialogs in the system.
+- **Components Built & Hardened:**
+  - `UnsavedChangesGuard`: Core widget wrapping editable dialogs and screen routes. Added static `maybePop(context, isDirty, onDiscard)` to pop clean forms immediately without prompts, and intercept dirty forms with `UnsavedChangesDialog.show` ('تنبيه تعديلات غير محفوظة' / 'تجاهل التعديلات والمتابعة' / 'البقاء في الشاشة').
+  - `PODraftManager`: Local persistent session storage service using `SharedPreferences`. Automatically snapshots form state every 45s and upon TabBar switches in `POFormDialog`. On reopening, detects pending draft and prompts for 1-click crash/session recovery. Clears draft upon successful save. Multi-tab state (Line Items ↔ Packing List) preserved.
+  - Systematic Form Protection:
+    - `POFormDialog`: 45s periodic autosave, crash recovery prompt, full dirty tracking, `barrierDismissible: false`, `UnsavedChangesGuard`, `maybePop` on header ✕ and Cancel.
+    - `ImportFileFormDialog`: 17-field dirty tracking, `UnsavedChangesGuard`, `maybePop` on header ✕ and Cancel.
+    - `TariffFormDialog`: Smart Nafeza text and manual fields dirty guard, `barrierDismissible: false`, `maybePop` on Cancel.
+    - `CustomsDeclaration46Dialog`: Form 46 state tracking, `UnsavedChangesGuard`, `maybePop` on header ✕ and Cancel.
+    - `EstimatedLandedCostDialog`: Cost override parameters dirty guard, `UnsavedChangesGuard`, `maybePop` on header ✕ and bottom close.
+    - `ActualLandedCostDialog`: Final cost adjustment tracking, `UnsavedChangesGuard`, `maybePop` on header ✕ and Cancel.
+    - `FreeDaysAgreementDialog`: Demurrage free days tracking, `UnsavedChangesGuard`, `maybePop` on header ✕ and Cancel.
+    - `CargoXHubDialog`: Backdrop accidental close disabled (`barrierDismissible: false`).
+  - Desktop Window Close Protection (`main.dart`): Added `rootNavigatorKey` to `MaterialApp` and hooked `onWindowClose()` to inspect `workspaceTabsProvider.tabs.any((t) => t.isDirty)`. Prevents desktop window destruction if user elects to stay on dirty tabs.
+- **Verification & Tests:**
+  - `frontend/test/unsaved_changes_protection_test.dart`: 5 automated unit and widget tests for draft lifecycle, clean pop, dirty intercept, and discard callback (**100% green**).
+  - Regression tests (`cs03_customs_declaration_46_test.dart`, `bk02_free_days_agreement_test.dart`, `import_file_form_dialog_test.dart`): **All passed (100% green)**.
+  - Static analysis (`flutter analyze lib/`): **No issues found! (0 errors, 0 warnings across entire frontend)**.
+  - Backend full suite (`python -m pytest tests/unit/ -q`): **899 passed (100% green)**.
+
+
 
 
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'global_header_shortcuts_bar.dart';
 
 /// Top-level ISO-8601 week number calculation for backward compatibility.
 int getIsoWeekNumber(DateTime date) => WorldTimezoneHelper.getIsoWeekNumber(date);
@@ -725,10 +726,6 @@ class _SystemWorldClocksHeaderState extends State<SystemWorldClocksHeader> {
         ? 'أخضر = مواعيد العمل (08:00 - 17:00) │ أحمر = مغلق │ الساعات بنظام 24 ساعة'
         : 'Green = Business Hours (08:00 - 17:00) │ Red = Closed │ 24-Hour Live Format';
 
-    final compactSubtitle = isAr
-        ? 'توقيتات الموانئ والتوريد (24H)'
-        : 'Ports & Supply Clocks (24H)';
-
     final openLabel = isAr ? 'مفتوح' : 'Open';
     final closedLabel = isAr ? 'مغلق' : 'Closed';
     final legendTooltip = isAr
@@ -744,165 +741,126 @@ class _SystemWorldClocksHeaderState extends State<SystemWorldClocksHeader> {
           bottom: BorderSide(color: borderColor, width: 1.0),
         ),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          // If wide screen (> 1180px), we show Tier 1 (Date & Week) and Tier 2 (World Clocks)
-          // side-by-side with high elegance.
-          final isWide = constraints.maxWidth >= 1180;
-
-          if (isWide) {
-            return Row(
-              children: [
-                // Line 1: Date & Week Badge alone
-                SystemDateWeekBadge(
-                  currentTime: _localNow,
-                  isDark: effectiveIsDark,
-                  isArabic: isAr,
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  height: 18,
-                  width: 1,
-                  color: effectiveIsDark ? Colors.white12 : Colors.black12,
-                ),
-                const SizedBox(width: 8),
-                // Line 2: The Synchronized World Clocks
-                Expanded(
-                  child: SystemWorldClocksBar(
-                    currentTimeUtc: _nowUtc,
-                    isDark: effectiveIsDark,
-                    isArabic: isAr,
-                    showSeconds: widget.showSeconds,
-                  ),
-                ),
-                // Live sync beacon indicator
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: Tooltip(
-                    message: beaconTooltip,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppTheme.emerald,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.emerald.withOpacity(0.6),
-                                blurRadius: 4,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '24H LIVE',
-                          style: TextStyle(
-                            fontFamily: 'monospace',
-                            color: effectiveIsDark ? Colors.white38 : Colors.black38,
-                            fontSize: 8.5,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            );
-          }
-
-          // Compact stacked view for screens < 1180px
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Row 1: System Date/Week Badge + Quick Action Shortcuts + Business Hours Status & Beacon
+          Row(
             children: [
-              // Row 1: Standalone Date + Week Number (Horizontally scrollable on small viewports)
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: constraints.maxWidth > 0 ? constraints.maxWidth : 0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      SystemDateWeekBadge(
-                        currentTime: _localNow,
-                        isDark: effectiveIsDark,
-                        isArabic: isAr,
-                      ),
-                      const SizedBox(width: 8),
-                      Tooltip(
-                        message: legendTooltip,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 5,
-                          height: 5,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppTheme.emerald,
-                          ),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          openLabel,
-                          style: TextStyle(
-                            color: effectiveIsDark ? Colors.white70 : Colors.black87,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          width: 5,
-                          height: 5,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppTheme.crimson,
-                          ),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          closedLabel,
-                          style: TextStyle(
-                            color: effectiveIsDark ? Colors.white54 : Colors.black54,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          compactSubtitle,
-                          style: TextStyle(
-                            color: effectiveIsDark ? Colors.white38 : Colors.black38,
-                            fontSize: 8.5,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 3),
-              // Row 2: Synchronized Clocks
-              SystemWorldClocksBar(
-                currentTimeUtc: _nowUtc,
+              // Date & Week Number Badge
+              SystemDateWeekBadge(
+                currentTime: _localNow,
                 isDark: effectiveIsDark,
                 isArabic: isAr,
-                showSeconds: widget.showSeconds,
               ),
+              const SizedBox(width: 8),
+              Container(
+                height: 18,
+                width: 1,
+                color: effectiveIsDark ? Colors.white12 : Colors.black12,
+              ),
+              const SizedBox(width: 8),
+              // Quick action shortcuts toolbar
+              const Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: BouncingScrollPhysics(),
+                  child: GlobalHeaderShortcutsBar(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Working hours legend & Live sync beacon
+              Tooltip(
+                message: legendTooltip,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 5,
+                      height: 5,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppTheme.emerald,
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      openLabel,
+                      style: TextStyle(
+                        color: effectiveIsDark ? Colors.white70 : Colors.black87,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      width: 5,
+                      height: 5,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppTheme.crimson,
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      closedLabel,
+                      style: TextStyle(
+                        color: effectiveIsDark ? Colors.white54 : Colors.black54,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Live sync beacon indicator
+              Tooltip(
+                message: beaconTooltip,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppTheme.emerald,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.emerald.withOpacity(0.6),
+                            blurRadius: 4,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '24H LIVE',
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        color: effectiveIsDark ? Colors.white38 : Colors.black38,
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
             ],
-          );
-        },
+          ),
+          const SizedBox(height: 3),
+          // Row 2: Synchronized World Clocks
+          SystemWorldClocksBar(
+            currentTimeUtc: _nowUtc,
+            isDark: effectiveIsDark,
+            isArabic: isAr,
+            showSeconds: widget.showSeconds,
+          ),
+        ],
       ),
     );
   }

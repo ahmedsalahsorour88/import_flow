@@ -24,6 +24,7 @@ import '../providers/import_files_provider.dart';
 import '../../experience_guide/providers/experience_guide_provider.dart';
 import '../../experience_guide/models/guide_entry_model.dart';
 import '../../../core/services/display_name_resolver.dart';
+import '../../../core/widgets/unsaved_changes_guard.dart';
 
 
 class ImportFileFormDialog extends ConsumerStatefulWidget {
@@ -134,9 +135,35 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     _packingLists = List.from(f?.packingListsData ?? []);
     _selectedProjectIds = List.from(f?.projectIds ?? []);
 
+    _customFileIdController.addListener(_markDirty);
+    _poNoController.addListener(_markDirty);
+    _piNoController.addListener(_markDirty);
+    _estimatedCostController.addListener(_markDirty);
+    _selectedScenarioController.addListener(_markDirty);
+    _pickupAddressController.addListener(_markDirty);
+    _polController.addListener(_markDirty);
+    _podController.addListener(_markDirty);
+    _targetFreeDaysController.addListener(_markDirty);
+    _shippingInstructionsNotesController.addListener(_markDirty);
+    _form4Controller.addListener(_markDirty);
+    _swiftController.addListener(_markDirty);
+    _form46Controller.addListener(_markDirty);
+    _notesController.addListener(_markDirty);
+    _ownerController.addListener(_markDirty);
+    _hsCodeController.addListener(_markDirty);
+    _productCategoryController.addListener(_markDirty);
+
     Future.microtask(() {
       _autoPopulateStageDocuments();
     });
+  }
+
+  bool _isDirty = false;
+
+  void _markDirty() {
+    if (!_isDirty && mounted) {
+      setState(() => _isDirty = true);
+    }
   }
 
   void _autoPopulateStageDocuments() {
@@ -191,6 +218,24 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
 
   @override
   void dispose() {
+    _customFileIdController.removeListener(_markDirty);
+    _poNoController.removeListener(_markDirty);
+    _piNoController.removeListener(_markDirty);
+    _estimatedCostController.removeListener(_markDirty);
+    _selectedScenarioController.removeListener(_markDirty);
+    _pickupAddressController.removeListener(_markDirty);
+    _polController.removeListener(_markDirty);
+    _podController.removeListener(_markDirty);
+    _targetFreeDaysController.removeListener(_markDirty);
+    _shippingInstructionsNotesController.removeListener(_markDirty);
+    _form4Controller.removeListener(_markDirty);
+    _swiftController.removeListener(_markDirty);
+    _form46Controller.removeListener(_markDirty);
+    _notesController.removeListener(_markDirty);
+    _ownerController.removeListener(_markDirty);
+    _hsCodeController.removeListener(_markDirty);
+    _productCategoryController.removeListener(_markDirty);
+
     _customFileIdController.dispose();
     _poNoController.dispose();
     _piNoController.dispose();
@@ -388,6 +433,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
       await ref.read(importFilesProvider.notifier).fetchImportFiles();
 
       if (mounted) {
+        _isDirty = false;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✅ ${l.importFileSavedSuccess}'), backgroundColor: AppTheme.emerald));
         Navigator.pop(context);
       }
@@ -432,33 +478,35 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     final projects = (ref.watch(projectsProvider).valueOrNull ?? []).where((p) => _selectedCompanyId == null || p.companyId == _selectedCompanyId).toList();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return AlertDialog(
-      backgroundColor: isDark ? AppTheme.darkSurface : null,
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                const Icon(Icons.folder, color: AppTheme.cobalt),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    widget.fileToEdit == null ? l.addNewImportFile : '${l.editImportFile}: ${widget.fileToEdit!.displayName}${widget.fileToEdit!.displayName != widget.fileToEdit!.importFileCode ? " (${widget.fileToEdit!.importFileCode})" : ""}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    overflow: TextOverflow.ellipsis,
+    return UnsavedChangesGuard(
+      isDirty: _isDirty,
+      child: AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkSurface : null,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  const Icon(Icons.folder, color: AppTheme.cobalt),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.fileToEdit == null ? l.addNewImportFile : '${l.editImportFile}: ${widget.fileToEdit!.displayName}${widget.fileToEdit!.displayName != widget.fileToEdit!.importFileCode ? " (${widget.fileToEdit!.importFileCode})" : ""}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.grey),
-            tooltip: l.close,
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
-      ),
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.grey),
+              tooltip: l.close,
+              onPressed: () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
+            ),
+          ],
+        ),
       content: SizedBox(
         width: 850,
         height: 600,
@@ -1265,7 +1313,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
             foregroundColor: AppTheme.crimson,
             side: BorderSide(color: Colors.red.shade300),
           ),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
           icon: const Icon(Icons.close, size: 16, color: AppTheme.crimson),
           label: Text(l.cancel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         ),
@@ -1276,7 +1324,8 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
           label: Text(widget.fileToEdit != null ? l.save : l.save, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
-    );
+    ),
+  );
   }
 }
 

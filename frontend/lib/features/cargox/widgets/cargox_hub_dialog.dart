@@ -20,7 +20,7 @@ class CargoXHubDialog extends StatelessWidget {
   ) {
     return showDialog<void>(
       context: context,
-      barrierDismissible: true,
+      barrierDismissible: false,
       builder: (context) => CargoXHubDialog(file: file),
     );
   }

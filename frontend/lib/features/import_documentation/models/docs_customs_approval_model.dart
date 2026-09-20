@@ -22,6 +22,7 @@ class CustomsDocumentApprovalModel {
   final String overallStatus;
   final Map<String, dynamic>? crossCheckSummary;
   final bool isActive;
+  final int version;
   final String createdAt;
   final String updatedAt;
 
@@ -46,6 +47,7 @@ class CustomsDocumentApprovalModel {
     this.overallStatus = 'Draft',
     this.crossCheckSummary,
     this.isActive = true,
+    this.version = 1,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -72,8 +74,9 @@ class CustomsDocumentApprovalModel {
       overallStatus: json['overall_status'] as String? ?? 'Draft',
       crossCheckSummary: json['cross_check_summary'] as Map<String, dynamic>?,
       isActive: json['is_active'] as bool? ?? true,
-      createdAt: json['created_at'] as String? ?? '',
-      updatedAt: json['updated_at'] as String? ?? '',
+      version: json['version'] as int? ?? 1,
+      createdAt: json['created_at']?.toString() ?? '',
+      updatedAt: json['updated_at']?.toString() ?? '',
     );
   }
 
@@ -99,6 +102,7 @@ class CustomsDocumentApprovalModel {
       'overall_status': overallStatus,
       'cross_check_summary': crossCheckSummary,
       'is_active': isActive,
+      'version': version,
     };
   }
 }

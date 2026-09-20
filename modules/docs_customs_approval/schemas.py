@@ -87,12 +87,14 @@ class CustomsDocumentApprovalUpdate(BaseModel):
     customs_broker_name: Optional[str] = None
     customs_notes: Optional[str] = None
     overall_status: Optional[str] = None
+    version: Optional[int] = Field(None, description="Current record version for optimistic concurrency control")
 
 
 class CommercialReviewPayload(BaseModel):
     reviewer_name: str
     status: str = Field(..., description="Approved, Rejected, Under Review")
     notes: Optional[str] = None
+    version: Optional[int] = Field(None, description="Current record version for optimistic concurrency control")
 
 
 class CustomsBrokerReviewPayload(BaseModel):
@@ -100,11 +102,13 @@ class CustomsBrokerReviewPayload(BaseModel):
     reviewer_name: str
     status: str = Field(..., description="Approved, Rejected, Conditionally Approved")
     notes: Optional[str] = None
+    version: Optional[int] = Field(None, description="Current record version for optimistic concurrency control")
 
 
 class CustomsDocumentApprovalResponse(BaseModel):
     approval_id: int
     approval_code: str
+    version: int = 1
     import_file_id: int
     import_file_code: Optional[str] = None
     po_id: Optional[int] = None
@@ -223,11 +227,13 @@ class DocsCustomsApprovalSessionUpdate(BaseModel):
     open_tickets_count: Optional[int] = None
     session_snapshot: Optional[Dict[str, Any]] = None
     notes: Optional[str] = None
+    version: Optional[int] = Field(None, description="Current record version for concurrency check")
 
 
 class DocsCustomsApprovalSessionResponse(DocsCustomsApprovalSessionBase):
     session_id: int
     session_code: str
+    version: int = 1
     import_file_code: Optional[str] = None
     is_active: bool
     created_at: datetime

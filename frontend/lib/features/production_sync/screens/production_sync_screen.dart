@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/constants/api_constants.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
@@ -204,8 +205,8 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     final updateState = ref.watch(updateCheckStateProvider);
     final l = context.l10n;
     final versionInfo = ref.watch(systemVersionInfoProvider);
-    final currentVer = versionInfo.whenOrNull(data: (i) => i.version) ?? '1.0.73';
-    final currentBuild = versionInfo.whenOrNull(data: (i) => i.buildNumber) ?? 74;
+    final currentVer = versionInfo.whenOrNull(data: (i) => i.version) ?? ApiConstants.clientVersion;
+    final currentBuild = versionInfo.whenOrNull(data: (i) => i.buildNumber) ?? ApiConstants.clientBuildNumber;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -373,8 +374,8 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
         if (result == null) {
           final versionInfo = ref.watch(systemVersionInfoProvider);
           return _buildVersionInfoCard(
-            version: versionInfo.whenOrNull(data: (i) => i.version) ?? '1.0.73',
-            buildNumber: versionInfo.whenOrNull(data: (i) => i.buildNumber) ?? 74,
+            version: versionInfo.whenOrNull(data: (i) => i.version) ?? ApiConstants.clientVersion,
+            buildNumber: versionInfo.whenOrNull(data: (i) => i.buildNumber) ?? ApiConstants.clientBuildNumber,
             hasUpdate: false,
             message: l.prodSyncSystemUpToDateMsg,
             l: l,
@@ -390,7 +391,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                     : 'A new system update is available.'));
         return _buildVersionInfoCard(
           version: result.currentVersion,
-          buildNumber: versionInfo.whenOrNull(data: (i) => i.buildNumber) ?? 74,
+          buildNumber: versionInfo.whenOrNull(data: (i) => i.buildNumber) ?? ApiConstants.clientBuildNumber,
           hasUpdate: result.hasUpdate,
           latestVersion: result.latestVersion,
           message: bannerMsg,
@@ -418,8 +419,8 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
         ),
       ),
       error: (e, _) => _buildVersionInfoCard(
-        version: '1.0.52',
-        buildNumber: 53,
+        version: ApiConstants.clientVersion,
+        buildNumber: ApiConstants.clientBuildNumber,
         hasUpdate: false,
         message: l.prodSyncOfflineModeMsg,
         l: l,

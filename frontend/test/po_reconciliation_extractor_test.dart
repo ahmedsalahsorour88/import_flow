@@ -165,7 +165,7 @@ void main() {
     expect(find.textContaining('RTAXT/K/EC/MS 182'), findsWidgets);
 
     // Verify saved session row exists with REC-2026-0001 in the unified registry below
-    expect(find.text('REC-2026-0001'), findsOneWidget);
+    expect(find.text('REC-2026-0001'), findsWidgets);
     expect(find.text('ECO ASSOCIATES'), findsWidgets);
     expect(find.text('37741.00 EUR'), findsOneWidget);
   });

@@ -167,7 +167,7 @@ def create_payment_request_service(
 
 
 def update_payment_request_service(
-    db: Session, payment_id: int, schema: PaymentRequestUpdate
+    db: Session, payment_id: int, schema: PaymentRequestUpdate, current_user_name: Optional[str] = None
 ) -> PaymentRequestSession:
     db_item = repo.get_payment_request_by_id(db, payment_id)
     if not db_item:
@@ -179,7 +179,7 @@ def update_payment_request_service(
     if schema.status and schema.status != db_item.status:
         validate_status_transition(db_item.status, schema.status)
 
-    return repo.update_payment_request(db, db_item, schema)
+    return repo.update_payment_request(db, db_item, schema, current_user_name=current_user_name)
 
 
 def _handle_swift_payment_completion_workflow(
@@ -974,14 +974,16 @@ def get_all_import_budgets_service(db: Session, include_inactive: bool = False, 
 def get_import_budget_by_id_service(db: Session, budget_id: int) -> Optional[ImportBudgetApproval]:
     return repo.get_import_budget_by_id(db, budget_id)
 
-def update_import_budget_service(db: Session, budget_id: int, schema: ImportBudgetUpdate) -> ImportBudgetApproval:
+def update_import_budget_service(
+    db: Session, budget_id: int, schema: ImportBudgetUpdate, current_user_name: Optional[str] = None
+) -> ImportBudgetApproval:
     db_item = repo.get_import_budget_by_id(db, budget_id)
     if not db_item:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Import Budget ID {budget_id} not found.",
         )
-    updated = repo.update_import_budget(db, db_item, schema)
+    updated = repo.update_import_budget(db, db_item, schema, current_user_name=current_user_name)
     if updated.import_file_id:
         try:
             from modules.lifecycle_board.service import sync_budget_lifecycle_stage

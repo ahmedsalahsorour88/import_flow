@@ -177,6 +177,7 @@ class PurchaseOrderUpdate(BaseModel):
     pallet_height_cm: Optional[float] = Field(None, ge=0)
     pallet_plan: Optional[List[PalletPlanItem]] = None
     is_active: Optional[bool] = None
+    version: Optional[int] = Field(None, description="Current version of the record for optimistic concurrency control")
     items: Optional[List[POLineItemCreate]] = None
     packing_list_items: Optional[List[PackingListItemCreate]] = None
 
@@ -184,6 +185,7 @@ class PurchaseOrderUpdate(BaseModel):
 class PurchaseOrderResponse(PurchaseOrderBase):
     po_id: int
     po_number: str
+    version: int = 1
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
     order_date: Optional[datetime] = None

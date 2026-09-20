@@ -155,6 +155,16 @@ def create_settlement_service(db: Session, schema: FinancialSettlementCreate) ->
     if not imp_file:
         raise HTTPException(status_code=404, detail="ملف الشحنة الاستيرادية المرتكز عليه غير موجود أو محذوف.")
 
+    existing = db.query(LandedCostSettlementRecord).filter(
+        LandedCostSettlementRecord.import_file_id == schema.import_file_id,
+        LandedCostSettlementRecord.is_active == True,
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"يوجد بالفعل تسوية مالية وتكلفة وصول (Landed Cost) مسجلة لهذا الملف الاستيرادي (كود التسوية: {existing.settlement_code}). يرجى مراجعة وتحديث التسوية الحالية بدلاً من إنشاء تسوية مكررة.",
+        )
+
     incoterm = (schema.incoterm_code or imp_file.incoterm_code or "FOB").upper()
 
     # ── Auto-fetch: Customs Duty totals → expense_invoices pre-fill ──────────
@@ -270,6 +280,20 @@ def create_settlement_service(db: Session, schema: FinancialSettlementCreate) ->
         import logging
         logging.getLogger(__name__).warning("Lifecycle advance STEP_19→STEP_20 failed: %s", e)
 
+    try:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="LandedCostSettlementRecord",
+            entity_id=record.settlement_id,
+            entity_code=record.settlement_code,
+            action="CREATE",
+            new_data=schema.model_dump(exclude_unset=True),
+            performed_by=record.accountant_name or "Finance Manager",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("AuditLog for LandedCostSettlementRecord create failed: %s", e)
+
     return record
 
 
@@ -294,9 +318,31 @@ def recalculate_settlement_service(db: Session, settlement_id: int) -> LandedCos
     return record
 
 def update_settlement_service(db: Session, settlement_id: int, schema: FinancialSettlementUpdate) -> LandedCostSettlementRecord:
-    get_settlement_by_id(db, settlement_id)
+    existing = get_settlement_by_id(db, settlement_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="سجل التسوية المالية غير موجود.")
+    update_data = schema.model_dump(exclude_unset=True, exclude_none=True)
+    old_data = {k: getattr(existing, k, None) for k in update_data.keys()}
+
     updated = update_settlement(db, settlement_id, schema)
-    return recalculate_settlement_service(db, settlement_id)
+    recalculated = recalculate_settlement_service(db, settlement_id)
+
+    try:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="LandedCostSettlementRecord",
+            entity_id=recalculated.settlement_id,
+            entity_code=recalculated.settlement_code,
+            action="UPDATE",
+            old_data=old_data,
+            new_data=update_data,
+            performed_by=recalculated.accountant_name or "Finance Manager",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("AuditLog for LandedCostSettlementRecord update failed: %s", e)
+
+    return recalculated
 
 def get_settlement_service(db: Session, settlement_id: int) -> LandedCostSettlementRecord:
     record = get_settlement_by_id(db, settlement_id)

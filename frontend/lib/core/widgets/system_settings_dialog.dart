@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../constants/api_constants.dart';
 import '../localization/app_localizations.dart';
 import '../localization/locale_provider.dart';
 import '../theme/app_theme.dart';
@@ -585,7 +586,7 @@ class _SystemSettingsDialogState extends ConsumerState<SystemSettingsDialog>
               children: [
                 _buildInfoRow(
                   isArabic ? 'حالة النظام / الإصدار:' : 'System Version:',
-                  'Sorour Logistics ERP v1.0.194',
+                  'Sorour Logistics ERP v${ApiConstants.clientVersion} (Build ${ApiConstants.clientBuildNumber})',
                   isDark: isDark,
                   trailingIcon: Icons.verified_rounded,
                   iconColor: AppTheme.cobalt,
@@ -593,7 +594,7 @@ class _SystemSettingsDialogState extends ConsumerState<SystemSettingsDialog>
                 const Divider(height: 16),
                 _buildInfoRow(
                   isArabic ? 'خادم الواجهة الخلفية (Backend API):' : 'Backend API Service:',
-                  'http://127.0.0.1:28080 (FastAPI / Uvicorn)',
+                  '${ApiConstants.serverUrl} (FastAPI / Uvicorn)',
                   isDark: isDark,
                   trailingIcon: Icons.cloud_done_rounded,
                   iconColor: AppTheme.emerald,

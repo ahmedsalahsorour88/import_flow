@@ -103,14 +103,17 @@ def copy_standalone_package():
     else:
         print(f"[WARN] backend.exe not found at {BACKEND_EXE}")
 
-    # 3. Copy Database to Standalone Destination and clean destination only for production release
+    # 3. Copy Database to Standalone Destination
     prod_db_file = STANDALONE_DEST / "sorour_logistics.db"
     if DB_SRC.exists():
         safe_copy_file(DB_SRC, prod_db_file)
-        # Only clean operational demo data from the standalone release copy, NEVER the dev source database
-        import clean_and_isolate_databases
-        clean_and_isolate_databases.clean_database(prod_db_file)
-        print(f"      Included clean master sorour_logistics.db into {STANDALONE_DEST}")
+        if "--keep-operational-data" in sys.argv or "--preserve-data" in sys.argv:
+            print(f"      Included FULL real operational sorour_logistics.db into {STANDALONE_DEST} (Preserved real operational data)")
+        else:
+            # Only clean operational demo data from the standalone release copy, NEVER the dev source database
+            import clean_and_isolate_databases
+            clean_and_isolate_databases.clean_database(prod_db_file)
+            print(f"      Included clean master sorour_logistics.db into {STANDALONE_DEST}")
 
     # 4. Copy App Icon & Sync Tools
     if APP_ICON_SRC.exists():

@@ -328,6 +328,21 @@ def create_booking_service(db: Session, payload: ShipmentBookingCreate) -> Shipm
     db.refresh(booking)
 
     _handle_booking_confirmation_workflow(db, booking)
+
+    try:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="ShipmentBooking",
+            entity_id=booking.booking_id,
+            entity_code=booking.booking_code,
+            action="CREATE",
+            new_data=payload.model_dump(exclude_unset=True),
+            performed_by=booking.owner or "Kamal",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("AuditLog for ShipmentBooking create failed: %s", e)
+
     return booking
 
 
@@ -353,6 +368,9 @@ def update_booking_service(db: Session, booking_id: int, payload: ShipmentBookin
     if payload.import_file_id is not None:
         validators.validate_no_duplicate_booking_for_file(db, payload.import_file_id, current_booking_id=booking_id)
 
+    update_data = payload.model_dump(exclude_unset=True, exclude_none=True)
+    old_data = {k: getattr(booking, k, None) for k in update_data.keys()}
+
     updated = repo.update_booking(db, booking_id, payload)
     if updated:
         calculate_transit_time_and_costs(updated, db=db)
@@ -360,6 +378,21 @@ def update_booking_service(db: Session, booking_id: int, payload: ShipmentBookin
         db.refresh(updated)
 
         _handle_booking_confirmation_workflow(db, updated)
+
+        try:
+            from modules.audit_logs.service import AuditLogService
+            AuditLogService(db).log_activity(
+                entity_type="ShipmentBooking",
+                entity_id=updated.booking_id,
+                entity_code=updated.booking_code,
+                action="UPDATE",
+                old_data=old_data,
+                new_data=update_data,
+                performed_by=updated.owner or "Kamal",
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("AuditLog for ShipmentBooking update failed: %s", e)
 
     return updated
 

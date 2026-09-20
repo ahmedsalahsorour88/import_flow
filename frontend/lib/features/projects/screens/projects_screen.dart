@@ -1314,6 +1314,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       nameCtrl.dispose();
       ownerCtrl.dispose();
       budgetCtrl.dispose();
+      targetEndDateCtrl.dispose();
       notesCtrl.dispose();
     });
   }

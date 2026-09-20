@@ -180,6 +180,7 @@ class PaymentRequestModel {
   final String? notes;
   final double? advancePercentage;
   final String? smartTaskCode;
+  final int version;
   final bool isActive;
   final String createdAt;
   final String updatedAt;
@@ -218,6 +219,7 @@ class PaymentRequestModel {
     this.notes,
     this.advancePercentage,
     this.smartTaskCode,
+    this.version = 1,
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
@@ -258,6 +260,7 @@ class PaymentRequestModel {
       notes: json['notes'],
       advancePercentage: (json['advance_percentage'] as num?)?.toDouble(),
       smartTaskCode: json['smart_task_code'],
+      version: json['version'] ?? 1,
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
@@ -299,6 +302,7 @@ class PaymentRequestModel {
       'notes': notes,
       'advance_percentage': advancePercentage,
       'smart_task_code': smartTaskCode,
+      'version': version,
       'is_active': isActive,
     };
   }
@@ -332,6 +336,7 @@ class ImportBudgetModel {
   final String? varianceOverriddenBy;
   final String? upstreamModifiedBy;
   final String? notes;
+  final int version;
   final bool isActive;
   final String createdAt;
   final String updatedAt;
@@ -365,6 +370,7 @@ class ImportBudgetModel {
     this.varianceOverriddenBy,
     this.upstreamModifiedBy,
     this.notes,
+    this.version = 1,
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
@@ -400,6 +406,7 @@ class ImportBudgetModel {
       varianceOverriddenBy: json['variance_overridden_by'],
       upstreamModifiedBy: json['upstream_modified_by'],
       notes: json['notes'],
+      version: json['version'] ?? 1,
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
@@ -436,6 +443,7 @@ class ImportBudgetModel {
       'variance_overridden_by': varianceOverriddenBy,
       'upstream_modified_by': upstreamModifiedBy,
       'notes': notes,
+      'version': version,
       'is_active': isActive,
     };
   }

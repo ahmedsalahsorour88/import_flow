@@ -2,6 +2,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
+import '../../../core/widgets/concurrency_conflict_dialog.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
@@ -103,9 +105,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
   // Edit Mode for Tab 1 (Payment Requests)
   int? _editingPaymentId;
   String? _editingPaymentCode;
+  int? _editingPaymentVersion;
 
   // Edit Mode for Tab 2 (Import Budgets)
   int? _editingBudgetId;
+  int? _editingBudgetVersion;
   late final Set<int> _visitedTabs = {widget.initialIndex};
 
   double _getExchangeRateForCurrency(String currencyCode) {
@@ -492,30 +496,34 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     if (!_paymentFormKey.currentState!.validate()) return;
 
     setState(() => _isSavingPayment = true);
-    try {
-      final amount = double.tryParse(_amountController.text.trim()) ?? 0.0;
-      final rate = double.tryParse(_exchangeRateController.text.trim()) ?? 50.0;
+    final amount = double.tryParse(_amountController.text.trim()) ?? 0.0;
+    final rate = double.tryParse(_exchangeRateController.text.trim()) ?? 50.0;
 
-      final payload = {
-        'title': _payTitleController.text.trim(),
-        'import_file_id': _paySelectedImportFileId,
-        'supplier_id': _selectedSupplierId,
-        'supplier_name': _supplierNameController.text.trim(),
-        'beneficiary_name': _supplierNameController.text.trim(),
-        'payment_type': _paymentType,
-        'requested_amount': amount,
-        'currency_code': _currencyCode,
-        'exchange_rate': rate,
-        'request_date': _requestDate.toString().substring(0, 10),
-        'due_date': _dueDate.toString().substring(0, 10),
-        'bank_name': _bankNameController.text.trim(),
-        'swift_code': _swiftCodeController.text.trim(),
-        'iban_account_no': _ibanController.text.trim(),
-        'notes': _payNotesController.text.trim(),
-        'advance_percentage': _paySelectedPercentage,
-      };
+    final payload = <String, dynamic>{
+      'title': _payTitleController.text.trim(),
+      'import_file_id': _paySelectedImportFileId,
+      'supplier_id': _selectedSupplierId,
+      'supplier_name': _supplierNameController.text.trim(),
+      'beneficiary_name': _supplierNameController.text.trim(),
+      'payment_type': _paymentType,
+      'requested_amount': amount,
+      'currency_code': _currencyCode,
+      'exchange_rate': rate,
+      'request_date': _requestDate.toString().substring(0, 10),
+      'due_date': _dueDate.toString().substring(0, 10),
+      'bank_name': _bankNameController.text.trim(),
+      'swift_code': _swiftCodeController.text.trim(),
+      'iban_account_no': _ibanController.text.trim(),
+      'notes': _payNotesController.text.trim(),
+      'advance_percentage': _paySelectedPercentage,
+    };
+
+    try {
 
       if (_editingPaymentId != null) {
+        if (_editingPaymentVersion != null) {
+          payload['version'] = _editingPaymentVersion;
+        }
         final updated = await ref.read(paymentRequestsProvider.notifier).updatePaymentRequest(_editingPaymentId!, payload);
         if (mounted && updated != null) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -524,6 +532,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
           setState(() {
             _editingPaymentId = null;
             _editingPaymentCode = null;
+            _editingPaymentVersion = null;
           });
           _showPaymentDetailsDialog(updated);
         }
@@ -541,6 +550,34 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         }
       }
     } catch (e) {
+      if (e is DioException && e.response?.statusCode == 409) {
+        final data = e.response?.data;
+        final conflict = (data is Map<String, dynamic> && data['detail'] is Map)
+            ? Map<String, dynamic>.from(data['detail'] as Map)
+            : (data is Map<String, dynamic> ? data : <String, dynamic>{});
+        if (mounted) {
+          final resolution = await ConcurrencyConflictDialog.show(
+            context,
+            entityName: conflict['entity'] as String? ?? 'PaymentRequestSession',
+            recordId: conflict['record_id'] ?? _editingPaymentId,
+            currentVersion: (conflict['current_version'] as num?)?.toInt() ?? ((_editingPaymentVersion ?? 1) + 1),
+            submittedVersion: (conflict['submitted_version'] as num?)?.toInt() ?? (_editingPaymentVersion ?? 1),
+            updatedAt: conflict['updated_at'] as String?,
+            updatedBy: conflict['updated_by'] as String?,
+            serverMessage: conflict['message'] as String?,
+            currentDraftData: payload,
+          );
+          if (mounted && resolution == ConcurrencyResolution.discardAndReload) {
+            setState(() {
+              _editingPaymentId = null;
+              _editingPaymentCode = null;
+              _editingPaymentVersion = null;
+            });
+            await ref.read(paymentRequestsProvider.notifier).fetchPaymentRequests();
+          }
+        }
+        return;
+      }
       if (mounted) {
         await showErrorDetailsDialog(
           context,
@@ -561,6 +598,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       _visitedTabs.add(0);
       _editingPaymentId = p.paymentId;
       _editingPaymentCode = p.paymentCode;
+      _editingPaymentVersion = p.version;
       _paySelectedImportFileId = p.importFileId;
       _payTitleController.text = p.title;
       _selectedSupplierId = p.supplierId;
@@ -590,6 +628,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     setState(() {
       _visitedTabs.add(1);
       _editingBudgetId = b.budgetId;
+      _editingBudgetVersion = b.version;
       _bgtTitleController.text = b.title;
       _bgtSelectedImportFileId = b.importFileId;
       _invoiceForeignController.text = b.invoiceAmountForeign.toStringAsFixed(2);
@@ -1017,6 +1056,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                     _tabController.animateTo(0);
                     _editingPaymentId = null; // Invariant: Forced to Draft!
                     _editingPaymentCode = null;
+                    _editingPaymentVersion = null;
                     _paySelectedImportFileId = copyLineItems ? p.importFileId : null;
                     _payTitleController.text = newTitle;
                     _selectedSupplierId = p.supplierId;
@@ -1747,36 +1787,41 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     if (!_budgetFormKey.currentState!.validate()) return;
 
     setState(() => _isSavingBudget = true);
-    try {
-      final invForeign = double.tryParse(_invoiceForeignController.text.trim()) ?? 0.0;
-      final invEgp = double.tryParse(_invoiceEgpController.text.trim()) ?? 0.0;
-      final frtForeign = double.tryParse(_freightForeignController.text.trim()) ?? 0.0;
-      final frtEgp = double.tryParse(_freightEgpController.text.trim()) ?? 0.0;
-      final custEgp = double.tryParse(_customsEgpController.text.trim()) ?? 0.0;
-      final clrEgp = double.tryParse(_clearanceEgpController.text.trim()) ?? 0.0;
-      final rate = double.tryParse(_bgtExchangeRateController.text.trim()) ?? 50.0;
+    final invForeign = double.tryParse(_invoiceForeignController.text.trim()) ?? 0.0;
+    final invEgp = double.tryParse(_invoiceEgpController.text.trim()) ?? 0.0;
+    final frtForeign = double.tryParse(_freightForeignController.text.trim()) ?? 0.0;
+    final frtEgp = double.tryParse(_freightEgpController.text.trim()) ?? 0.0;
+    final custEgp = double.tryParse(_customsEgpController.text.trim()) ?? 0.0;
+    final clrEgp = double.tryParse(_clearanceEgpController.text.trim()) ?? 0.0;
+    final rate = double.tryParse(_bgtExchangeRateController.text.trim()) ?? 50.0;
 
-      final payload = {
-        'title': _bgtTitleController.text.trim(),
-        'import_file_id': _bgtSelectedImportFileId,
-        'invoice_amount_foreign': invForeign,
-        'invoice_currency': _bgtInvoiceCurrency,
-        'invoice_amount_egp': invEgp,
-        'freight_cost_foreign': frtForeign,
-        'freight_currency': _bgtFreightCurrency,
-        'freight_cost_egp': frtEgp,
-        'customs_duties_egp': custEgp,
-        'clearance_inland_egp': clrEgp,
-        'exchange_rate': rate,
-        'notes': _bgtNotesController.text.trim(),
-      };
+    final payload = <String, dynamic>{
+      'title': _bgtTitleController.text.trim(),
+      'import_file_id': _bgtSelectedImportFileId,
+      'invoice_amount_foreign': invForeign,
+      'invoice_currency': _bgtInvoiceCurrency,
+      'invoice_amount_egp': invEgp,
+      'freight_cost_foreign': frtForeign,
+      'freight_currency': _bgtFreightCurrency,
+      'freight_cost_egp': frtEgp,
+      'customs_duties_egp': custEgp,
+      'clearance_inland_egp': clrEgp,
+      'exchange_rate': rate,
+      'notes': _bgtNotesController.text.trim(),
+    };
+
+    try {
 
       if (_editingBudgetId != null) {
+        if (_editingBudgetVersion != null) {
+          payload['version'] = _editingBudgetVersion;
+        }
         final updated = await ref.read(importBudgetsProvider.notifier).updateImportBudget(_editingBudgetId!, payload);
         if (mounted && updated != null) {
           setState(() {
             _lastSavedBudget = updated;
             _editingBudgetId = null;
+            _editingBudgetVersion = null;
           });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(context.l10n.budgetUpdatedSuccess(updated.budgetCode)), backgroundColor: AppTheme.emerald),
@@ -1794,6 +1839,33 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         }
       }
     } catch (e) {
+      if (e is DioException && e.response?.statusCode == 409) {
+        final data = e.response?.data;
+        final conflict = (data is Map<String, dynamic> && data['detail'] is Map)
+            ? Map<String, dynamic>.from(data['detail'] as Map)
+            : (data is Map<String, dynamic> ? data : <String, dynamic>{});
+        if (mounted) {
+          final resolution = await ConcurrencyConflictDialog.show(
+            context,
+            entityName: conflict['entity'] as String? ?? 'ImportBudgetApproval',
+            recordId: conflict['record_id'] ?? _editingBudgetId,
+            currentVersion: (conflict['current_version'] as num?)?.toInt() ?? ((_editingBudgetVersion ?? 1) + 1),
+            submittedVersion: (conflict['submitted_version'] as num?)?.toInt() ?? (_editingBudgetVersion ?? 1),
+            updatedAt: conflict['updated_at'] as String?,
+            updatedBy: conflict['updated_by'] as String?,
+            serverMessage: conflict['message'] as String?,
+            currentDraftData: payload,
+          );
+          if (mounted && resolution == ConcurrencyResolution.discardAndReload) {
+            setState(() {
+              _editingBudgetId = null;
+              _editingBudgetVersion = null;
+            });
+            await ref.read(importBudgetsProvider.notifier).fetchImportBudgets();
+          }
+        }
+        return;
+      }
       if (mounted) {
         await showErrorDetailsDialog(
           context,
@@ -2677,6 +2749,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                                 setState(() {
                                                   _editingPaymentId = null;
                                                   _editingPaymentCode = null;
+                                                  _editingPaymentVersion = null;
                                                   _payTitleController.clear();
                                                   _supplierNameController.clear();
                                                   _amountController.clear();
@@ -3179,6 +3252,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                               setState(() {
                                                 _editingPaymentId = null;
                                                 _editingPaymentCode = null;
+                                                _editingPaymentVersion = null;
                                                 _paySelectedImportFileId = null;
                                                 _payPrefillData = null;
                                                 _payTitleController.clear();
@@ -3643,6 +3717,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                               onPressed: () {
                                                 setState(() {
                                                   _editingBudgetId = null;
+                                                  _editingBudgetVersion = null;
                                                   _bgtSelectedImportFileId = null;
                                                   _bgtPrefillData = null;
                                                   _bgtNotesController.clear();

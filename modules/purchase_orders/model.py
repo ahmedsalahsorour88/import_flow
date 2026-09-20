@@ -63,7 +63,8 @@ class PurchaseOrder(Base):
     status = Column(String(50), nullable=False, default="Draft", index=True) # Draft, Approved, In Transit, Closed, Cancelled
     notes = Column(Text, nullable=True)
 
-    # Audit Trail
+    # Concurrency Control & Audit Trail
+    version = Column(Integer, default=1, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(

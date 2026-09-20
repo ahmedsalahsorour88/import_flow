@@ -4,7 +4,7 @@
 ; =====================================================================
 
 #define MyAppName "Sorour Logistics"
-#define MyAppVersion "1.0.198"
+#define MyAppVersion "2.0.1"
 #define MyAppPublisher "Sorour Logistics"
 #define MyAppURL "https://sorourlogistics.com"
 #define MyAppExeName "Launch_Sorour_Logistics.vbs"
@@ -22,7 +22,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=..\dist\releases
-OutputBaseFilename=Sorour_Logistics_Setup_v1.0.198
+OutputBaseFilename=Sorour_Logistics_Setup_v2.0.1
 SetupIconFile={#AppIconPath}
 Compression=lzma2/max
 SolidCompression=yes
@@ -30,6 +30,8 @@ WizardStyle=modern
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 UninstallDisplayIcon={app}\app_icon.ico
+CloseApplications=yes
+RestartApplications=no
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -41,8 +43,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 ; Standalone Package Application Binaries & Assets (Excludes Database)
 Source: "..\dist\Sorour_Logistics_Standalone\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.db"
 
-; Initial Master Database: Copied ONLY on fresh first install, NEVER overwritten or uninstalled during updates
-Source: "..\dist\Sorour_Logistics_Standalone\sorour_logistics.db"; DestDir: "{app}"; Flags: onlyifdoesntexist uninsneveruninstall
+; Full Operational Database: Deployed with automatic safety backup of any existing database
+Source: "..\dist\Sorour_Logistics_Standalone\sorour_logistics.db"; DestDir: "{app}"; Flags: ignoreversion uninsneveruninstall
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app_icon.ico"; WorkingDir: "{app}"
@@ -51,3 +53,19 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilen
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: shellexec postinstall nowait skipifsilent
+
+[Code]
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  AppDb, BackupDb: string;
+begin
+  if CurStep = ssInstall then
+  begin
+    AppDb := ExpandConstant('{app}\sorour_logistics.db');
+    if FileExists(AppDb) then
+    begin
+      BackupDb := ExpandConstant('{app}\sorour_logistics_backup_' + GetDateTimeString('yyyymmdd_hhnnss', #0, #0) + '.db');
+      FileCopy(AppDb, BackupDb, False);
+    end;
+  end;
+end;

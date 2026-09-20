@@ -163,6 +163,43 @@ class TestAuthAndRBAC(unittest.TestCase):
         # Should now pass without raising
         limiter.check_rate_limit(req)
 
+    def test_token_refresh_and_grace_period(self):
+        from modules.auth.router import refresh_token
+        from fastapi import HTTPException
+
+        user_in = UserCreate(
+            username="refreshuser",
+            email="refresh@importflow.com",
+            full_name="Refresh User",
+            password="Password123",
+            role="OPERATOR",
+        )
+        user = self.auth_service.register_user(user_in)
+
+        # 1. Test unexpired token refresh
+        token = self.auth_service.generate_user_token(user)
+        res = refresh_token(authorization=f"Bearer {token}", db=self.db)
+        self.assertIsNotNone(res.access_token)
+        self.assertEqual(res.user.username, "refreshuser")
+
+        # 2. Test expired token within grace period (e.g. expired 100 seconds ago)
+        expired_token = create_access_token({"sub": str(user.user_id), "role": user.role}, expires_in_seconds=-100)
+        # Standard decode should fail (expired)
+        self.assertIsNone(decode_access_token(expired_token))
+        # Refresh decode should succeed because it's within grace period
+        res_expired = refresh_token(authorization=f"Bearer {expired_token}", db=self.db)
+        self.assertIsNotNone(res_expired.access_token)
+        # New token is fresh and decodable without ignore_expiration
+        new_payload = decode_access_token(res_expired.access_token)
+        self.assertIsNotNone(new_payload)
+        self.assertEqual(new_payload["sub"], str(user.user_id))
+
+        # 3. Test token expired beyond grace period (e.g. expired 30 days ago)
+        way_too_old = create_access_token({"sub": str(user.user_id), "role": user.role}, expires_in_seconds=-(86400 * 30))
+        with self.assertRaises(HTTPException) as ctx:
+            refresh_token(authorization=f"Bearer {way_too_old}", db=self.db)
+        self.assertEqual(ctx.exception.status_code, 401)
+
 
 if __name__ == "__main__":
     unittest.main()

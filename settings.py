@@ -39,3 +39,7 @@ if not _admin_pass:
         pass
 
 ADMIN_INITIAL_PASSWORD = _admin_pass
+
+# Authentication & Session Lifetime (7 days for Desktop ERP, 14 days refresh grace period)
+JWT_ACCESS_TOKEN_EXPIRE_SECONDS = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_SECONDS", str(86400 * 7)))
+JWT_REFRESH_GRACE_PERIOD_SECONDS = int(os.getenv("JWT_REFRESH_GRACE_PERIOD_SECONDS", str(86400 * 14)))

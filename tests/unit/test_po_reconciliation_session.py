@@ -163,3 +163,47 @@ def test_update_and_delete_po_reconciliation_session(db_session):
     # Verify not in active list
     active_list = service.get_po_reconciliation_sessions_service(db_session)
     assert len(active_list) == 0
+
+
+def test_audit_log_recorded_for_po_reconciliation(db_session):
+    from modules.audit_logs.model import AuditLog
+
+    file = db_session.query(ImportFile).first()
+    schema = POReconciliationSessionCreate(
+        import_file_id=file.import_file_id,
+        final_invoice_number="INV-AUDIT-100",
+        total_invoice_amount=8800.0,
+        currency="USD",
+        certified_by="Auditor Karim",
+    )
+    created = service.create_po_reconciliation_session_service(db_session, schema)
+
+    # Verify CREATE audit log
+    create_log = db_session.query(AuditLog).filter(
+        AuditLog.entity_type == "POPackingReconciliationSession",
+        AuditLog.entity_id == created.session_id,
+        AuditLog.action == "CREATE",
+    ).first()
+    assert create_log is not None
+    assert create_log.entity_code == created.session_code
+    assert create_log.performed_by == "Auditor Karim"
+
+    # Update session
+    update_schema = POReconciliationSessionUpdate(
+        final_invoice_number="INV-AUDIT-200",
+        total_invoice_amount=9500.0,
+        certified_by="Manager Sara",
+    )
+    updated = service.update_po_reconciliation_session_service(db_session, created.session_id, update_schema)
+
+    # Verify UPDATE audit log
+    update_log = db_session.query(AuditLog).filter(
+        AuditLog.entity_type == "POPackingReconciliationSession",
+        AuditLog.entity_id == created.session_id,
+        AuditLog.action == "UPDATE",
+    ).first()
+    assert update_log is not None
+    assert update_log.performed_by == "Manager Sara"
+    assert "INV-AUDIT-100" in (update_log.old_values or "")
+    assert "INV-AUDIT-200" in (update_log.new_values or "")
+

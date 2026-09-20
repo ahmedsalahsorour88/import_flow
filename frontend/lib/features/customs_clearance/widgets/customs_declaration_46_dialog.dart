@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/unsaved_changes_guard.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../providers/customs_clearance_provider.dart';
 
@@ -252,11 +253,21 @@ class _CustomsDeclaration46DialogState
     }
   }
 
+  bool get _isDirty {
+    if (_declaration46Controller.text.trim() != (widget.file.form46No ?? '')) return true;
+    if (_mtsCertController.text.trim().isNotEmpty) return true;
+    if (_inspectionNotesController.text.trim().isNotEmpty) return true;
+    if (_selectedChannel != 'Red Channel') return true;
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Dialog(
+    return UnsavedChangesGuard(
+      isDirty: _isDirty,
+      child: Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -308,7 +319,9 @@ class _CustomsDeclaration46DialogState
                   IconButton(
                     key: const Key('cancelDeclaration46Btn'),
                     icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
                   ),
                 ],
               ),
@@ -338,28 +351,32 @@ class _CustomsDeclaration46DialogState
                             child: TextFormField(
                               key: const Key('declaration46NoField'),
                               controller: _declaration46Controller,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
                               decoration: InputDecoration(
                                 labelText: 'رقم الإقرار الجمركي 46 ك.م *',
-                                hintText: 'مثال: 46-2026-ALX-98124',
-                                prefixIcon: const Icon(Icons.confirmation_number_rounded),
-                                suffixIcon: IconButton(
-                                  key: const Key('generateDeclaration46Btn'),
-                                  tooltip: 'توليد رقم إقرار جديد',
-                                  icon: const Icon(Icons.auto_awesome_rounded, color: AppTheme.cobalt),
-                                  onPressed: _generateDeclaration46Number,
-                                ),
+                                prefixIcon: const Icon(Icons.pin_rounded),
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                helperText: 'صيغة 10 أرقام مميكنة على منظومة نافذة',
                               ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'رقم الإقرار الجمركي 46 ك.م مطلوب';
-                                }
-                                if (value.trim().length < 3) {
-                                  return 'رقم الإقرار يجب ألا يقل عن 3 أحرف/أرقام';
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) {
+                                  return 'رقم الإقرار الجمركي مطلوب';
                                 }
                                 return null;
                               },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Tooltip(
+                            message: 'توليد رقم إقرار جمركي تجريبي مميكن',
+                            child: OutlinedButton.icon(
+                              key: const Key('generateDeclaration46Btn'),
+                              onPressed: _generateDeclaration46Number,
+                              icon: const Icon(Icons.autorenew_rounded, size: 16),
+                              label: const Text('توليد آلي'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 14),
@@ -370,12 +387,12 @@ class _CustomsDeclaration46DialogState
                               borderRadius: BorderRadius.circular(8),
                               child: InputDecorator(
                                 decoration: InputDecoration(
-                                  labelText: 'تاريخ القيد الجمركي *',
-                                  prefixIcon: const Icon(Icons.calendar_today_rounded),
+                                  labelText: 'تاريخ قيد الإقرار *',
+                                  prefixIcon: const Icon(Icons.calendar_month_rounded),
                                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                 ),
                                 child: Text(
-                                  _declarationDate.toIso8601String().substring(0, 10),
+                                  '${_declarationDate.year}-${_declarationDate.month.toString().padLeft(2, '0')}-${_declarationDate.day.toString().padLeft(2, '0')}',
                                   style: const TextStyle(fontWeight: FontWeight.bold),
                                 ),
                               ),
@@ -383,66 +400,43 @@ class _CustomsDeclaration46DialogState
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
 
-                      // Section 2: Customs Office & MTS Certificate
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: SearchableDropdownField<String>(
-                              key: const Key('customsOfficeDropdown'),
-                              labelText: 'الميناء / المركز الجمركي المختص *',
-                              hintText: 'اختر المركز الجمركي...',
-                              items: _customsOffices
-                                  .map(
-                                    (office) => SearchableDropdownItem<String>(
-                                      value: office,
-                                      label: '${_officeLabels[office] ?? office} ($office)',
-                                    ),
-                                  )
-                                  .toList(),
-                              value: _selectedOffice,
-                              decoration: InputDecoration(
-                                prefixIcon: const Icon(Icons.account_balance_rounded),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      // Section 2: Customs Office (Port)
+                      _buildSectionHeader('المجمع / الميناء الجمركي المختص', Icons.account_balance_rounded),
+                      const SizedBox(height: 12),
+                      SearchableDropdownField<String>(
+                        key: const Key('customsOfficeDropdown'),
+                        labelText: 'المجمع الجمركي المنفذ للإقرار *',
+                        hintText: 'اختر أو ابحث عن المجمع الجمركي...',
+                        items: _customsOffices
+                            .map(
+                              (office) => SearchableDropdownItem<String>(
+                                value: office,
+                                label: '${_officeLabels[office] ?? office} ($office)',
                               ),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() {
-                                    _selectedOffice = val;
-                                    _generateDeclaration46Number();
-                                  });
-                                }
-                              },
-                              validator: (val) {
-                                if (val == null || val.isEmpty) {
-                                  return 'يرجى تحديد المركز الجمركي';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              controller: _mtsCertController,
-                              decoration: InputDecoration(
-                                labelText: 'رقم الشهادة / منصة MTS',
-                                hintText: 'مثال: MTS-2026-EG-44910',
-                                prefixIcon: const Icon(Icons.tag_rounded),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                            ),
-                          ),
-                        ],
+                            )
+                            .toList(),
+                        value: _selectedOffice,
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.location_on_rounded),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _selectedOffice = val);
+                          }
+                        },
                       ),
                       const SizedBox(height: 20),
 
                       // Section 3: Channel Selection (Red / Yellow / Green)
-                      _buildSectionHeader('المسار الجمركي المحدد (Customs Channel)', Icons.alt_route_rounded),
+                      _buildSectionHeader('المسار الجمركي المعتمد (Customs Channel)', Icons.alt_route_rounded),
+                      const SizedBox(height: 6),
+                      Text(
+                        'يتم تحديد المسار الجمركي بواسطة خوارزمية إدارة المخاطر بمنظومة نافذة أو مأمور الحركة:',
+                        style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.grey.shade600),
+                      ),
                       const SizedBox(height: 10),
                       _buildChannelSelector(isDark),
                       const SizedBox(height: 20),
@@ -526,15 +520,35 @@ class _CustomsDeclaration46DialogState
                       ),
                       const SizedBox(height: 20),
 
-                      // Section 5: Inspection Notes
-                      _buildSectionHeader('ملاحظات وتوجيهات الكشف والتثمين', Icons.edit_note_rounded),
-                      const SizedBox(height: 8),
+                      // Section 5: MTS / Additional Information
+                      _buildSectionHeader('بيانات إضافية وملاحظات الكشف والمعاينة', Icons.note_alt_rounded),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              key: const Key('mtsCertField'),
+                              controller: _mtsCertController,
+                              decoration: InputDecoration(
+                                labelText: 'رقم شهادة منصة نافذة MTS الرقمية (إن وجد)',
+                                prefixIcon: const Icon(Icons.verified_outlined),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                helperText: 'رقم شهادة الإرسال الإلكتروني الصادرة من النافذة الموحدة',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
                       TextFormField(
+                        key: const Key('declarationNotesField'),
                         controller: _inspectionNotesController,
                         maxLines: 2,
                         decoration: InputDecoration(
-                          hintText: 'أية تعليمات خاصة بمعاينة الحاويات، لجان الفحص المشترك، ساحات الكشف...',
+                          labelText: 'ملاحظات الكشف والتثمين الأولية',
+                          prefixIcon: const Icon(Icons.chat_bubble_outline_rounded),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          hintText: 'أي اشتراطات أو توجيهات خاصة بالكشف أو المعاينة الجمركية...',
                         ),
                       ),
                     ],
@@ -565,7 +579,9 @@ class _CustomsDeclaration46DialogState
                     ),
                   ),
                   TextButton(
-                    onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
                     child: const Text('إلغاء'),
                   ),
                   const SizedBox(width: 12),
@@ -596,6 +612,7 @@ class _CustomsDeclaration46DialogState
           ],
         ),
       ),
+    ),
     );
   }
 

@@ -2379,7 +2379,9 @@ abstract class AppLocalizations {
   String get poRecPackingSectionTitle;
   String get poRecSelectFileToViewPackingItems;
   String get poRecColPackageType;
+  String get poRecColPoPackagesCount;
   String get poRecColFinalPackagesCount;
+  String get poRecColPkgVariance;
   String get poRecColGrossWeight;
   String get poRecColNetWeight;
   String get poRecColCbm;
@@ -2473,6 +2475,8 @@ abstract class AppLocalizations {
   String get poRecCheckFieldInvoiceNumber;
   String get poRecCheckFieldAcidNumber;
   String get poRecCheckFieldTotalAmount;
+  String get poRecCheckFieldTotalPackages;
+  String get poRecCheckFieldGrossWeight;
   String get poRecCheckMsgInvoiceMatched;
   String get poRecCheckMsgAcidMatched;
   String get poRecCheckMsgTotalAmountMatched;

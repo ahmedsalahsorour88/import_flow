@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/widgets/system_live_clock_widget.dart';
 
 void main() {
@@ -399,9 +401,14 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
 
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: SystemWorldClocksHeader(isArabic: false),
+        const ProviderScope(
+          child: MaterialApp(
+            home: AppLocalizationsProvider(
+              locale: Locale('en'),
+              child: Scaffold(
+                body: SystemWorldClocksHeader(isArabic: false),
+              ),
+            ),
           ),
         ),
       );
@@ -449,9 +456,14 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
 
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: SystemWorldClocksHeader(),
+        const ProviderScope(
+          child: MaterialApp(
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Scaffold(
+                body: SystemWorldClocksHeader(),
+              ),
+            ),
           ),
         ),
       );
@@ -472,9 +484,14 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
 
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: SystemWorldClocksHeader(),
+        const ProviderScope(
+          child: MaterialApp(
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Scaffold(
+                body: SystemWorldClocksHeader(),
+              ),
+            ),
           ),
         ),
       );

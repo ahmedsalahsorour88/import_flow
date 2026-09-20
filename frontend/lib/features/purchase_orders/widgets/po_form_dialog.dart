@@ -22,7 +22,11 @@ import '../../suppliers/providers/suppliers_provider.dart';
 import '../../suppliers/models/supplier_model.dart';
 import '../models/purchase_order_model.dart';
 import '../providers/purchase_orders_provider.dart';
+import 'dart:async';
 import 'po_reconciliation_warning_dialog.dart';
+import '../../../core/widgets/concurrency_conflict_dialog.dart';
+import '../../../core/widgets/unsaved_changes_guard.dart';
+import '../services/po_draft_manager.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
 import '../../currencies/models/currency_model.dart';
@@ -1157,10 +1161,163 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         );
       }).toList();
     }
+
+    _poReferenceCtrl.addListener(_markDirty);
+    _piCtrl.addListener(_markDirty);
+    _rateCtrl.addListener(_markDirty);
+    _notesCtrl.addListener(_markDirty);
+
+    _autosaveTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+      if (_isDirty && mounted) {
+        _performAutosave();
+      }
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _checkExistingDraft();
+      }
+    });
+  }
+
+  bool _isDirty = false;
+  DateTime? _lastDraftSavedAt;
+  Timer? _autosaveTimer;
+
+  void _markDirty() {
+    if (!_isDirty && mounted) {
+      setState(() {
+        _isDirty = true;
+      });
+    }
+  }
+
+  Future<void> _performAutosave() async {
+    if (!mounted) return;
+    try {
+      final draftData = {
+        'po_reference': _poReferenceCtrl.text,
+        'pi_number': _piCtrl.text,
+        'exchange_rate': _rateCtrl.text,
+        'notes': _notesCtrl.text,
+        'order_date': _selectedOrderDate.toIso8601String(),
+        'import_file_id': _selectedImportFileId,
+        'project_id': _selectedProjectId,
+        'company_id': _selectedCompanyId,
+        'supplier_id': _selectedSupplierId,
+        'incoterm_id': _selectedIncotermId,
+        'currency_id': _selectedCurrencyId,
+        'country_of_origin': _selectedCountryOfOrigin,
+        'status': _selectedStatus,
+        'payment_terms': _selectedPaymentTerms,
+        'pallet_count': _palletCount,
+        'pallet_type': _selectedPalletType,
+        'is_pallet_stackable': _isPalletStackable,
+        'items': _dialogItems.map((i) => i.toJson()).toList(),
+        'packing_items': _dialogPackingItems.map((p) => p.toJson()).toList(),
+      };
+      await PODraftManager.saveDraft(
+        poId: widget.po?.poId,
+        draftData: draftData,
+      );
+      if (mounted) {
+        setState(() {
+          _lastDraftSavedAt = DateTime.now();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _checkExistingDraft() async {
+    final draft = await PODraftManager.loadDraft(widget.po?.poId);
+    if (draft == null || !mounted) return;
+    final savedAt = draft['saved_at']?.toString() ?? '';
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+
+    if (!mounted) return;
+    final restore = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.history_edu_rounded, color: AppTheme.cobalt),
+            const SizedBox(width: 8),
+            Text(isAr ? 'استعادة مسودة غير محفوظة' : 'Restore Unsaved Draft'),
+          ],
+        ),
+        content: Text(
+          isAr
+              ? 'توجد مسودة غير محفوظة تم حفظها تلقائياً لهذه الشاشة ($savedAt).\nهل ترغب في استعادة البيانات غير المحفوظة؟'
+              : 'An autosaved draft exists for this Purchase Order ($savedAt).\nDo you want to restore the unsaved changes?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              PODraftManager.clearDraft(widget.po?.poId);
+              Navigator.of(ctx).pop(false);
+            },
+            child: Text(isAr ? 'تجاهل وحذف المسودة' : 'Discard Draft'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(isAr ? 'استعادة المسودة' : 'Restore Draft'),
+          ),
+        ],
+      ),
+    );
+
+    if (restore == true && mounted) {
+      _applyDraftData(draft);
+    }
+  }
+
+  void _applyDraftData(Map<String, dynamic> draft) {
+    setState(() {
+      if (draft['po_reference'] != null) _poReferenceCtrl.text = draft['po_reference'];
+      if (draft['pi_number'] != null) _piCtrl.text = draft['pi_number'];
+      if (draft['exchange_rate'] != null) _rateCtrl.text = draft['exchange_rate'].toString();
+      if (draft['notes'] != null) _notesCtrl.text = draft['notes'];
+      if (draft['order_date'] != null) {
+        final d = DateTime.tryParse(draft['order_date']);
+        if (d != null) _selectedOrderDate = d;
+      }
+      if (draft['import_file_id'] != null) _selectedImportFileId = draft['import_file_id'];
+      if (draft['project_id'] != null) _selectedProjectId = draft['project_id'];
+      if (draft['company_id'] != null) _selectedCompanyId = draft['company_id'];
+      if (draft['supplier_id'] != null) _selectedSupplierId = draft['supplier_id'];
+      if (draft['incoterm_id'] != null) _selectedIncotermId = draft['incoterm_id'];
+      if (draft['currency_id'] != null) _selectedCurrencyId = draft['currency_id'];
+      if (draft['country_of_origin'] != null) _selectedCountryOfOrigin = draft['country_of_origin'];
+      if (draft['status'] != null) _selectedStatus = draft['status'];
+      if (draft['payment_terms'] != null) _selectedPaymentTerms = draft['payment_terms'];
+      if (draft['pallet_count'] != null) _palletCount = (draft['pallet_count'] as num).toInt();
+      if (draft['pallet_type'] != null) _selectedPalletType = draft['pallet_type'];
+      if (draft['is_pallet_stackable'] != null) _isPalletStackable = draft['is_pallet_stackable'] as bool;
+
+      if (draft['items'] is List) {
+        _dialogItems = (draft['items'] as List)
+            .map((i) => POLineItemModel.fromJson(Map<String, dynamic>.from(i)))
+            .toList();
+      }
+      if (draft['packing_items'] is List) {
+        _dialogPackingItems = (draft['packing_items'] as List)
+            .map((p) => PackingListItemModel.fromJson(Map<String, dynamic>.from(p)))
+            .toList();
+      }
+      _isDirty = true;
+      _lastDraftSavedAt = DateTime.tryParse(draft['saved_at'] ?? '');
+    });
   }
 
   @override
   void dispose() {
+    _autosaveTimer?.cancel();
+    _poReferenceCtrl.removeListener(_markDirty);
+    _piCtrl.removeListener(_markDirty);
+    _rateCtrl.removeListener(_markDirty);
+    _notesCtrl.removeListener(_markDirty);
     _poReferenceCtrl.dispose();
     _piCtrl.dispose();
     _rateCtrl.dispose();
@@ -1352,51 +1509,89 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       }
     }
 
-    return DefaultTabController(
-      length: 2,
-      child: AlertDialog(
-        titlePadding: EdgeInsets.zero,
-        title: Container(
-          decoration: const BoxDecoration(
-            color: AppTheme.charcoal,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                child: Row(
-                  children: [
-                    const Icon(Icons.receipt_long, color: Colors.white),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        widget.po == null ? context.l10n.newPurchaseOrder : '${context.l10n.editPurchaseOrder} (${widget.po!.displayName})',
-                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
+    return UnsavedChangesGuard(
+      isDirty: _isDirty,
+      onDiscard: () => PODraftManager.clearDraft(widget.po?.poId),
+      child: DefaultTabController(
+        length: 2,
+        child: AlertDialog(
+          titlePadding: EdgeInsets.zero,
+          title: Container(
+            decoration: const BoxDecoration(
+              color: AppTheme.charcoal,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+            ),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.receipt_long, color: Colors.white),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          widget.po == null ? context.l10n.newPurchaseOrder : '${context.l10n.editPurchaseOrder} (${widget.po!.displayName})',
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    SmartUploadButton(
-                      module: SmartUploadModule.purchaseOrder,
-                      label: isArabic ? '🚀 استخلاص ذكي (PI / PL)' : '🚀 Smart Extract (PI / PL)',
-                      compact: false,
-                      onDataExtracted: (result) {
-                        _applyExtractedData(result.extractedFields);
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white70),
-                      tooltip: context.l10n.close,
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
+                      if (_lastDraftSavedAt != null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Tooltip(
+                            message: 'تم حفظ المسودة محلياً في ${_lastDraftSavedAt!.hour.toString().padLeft(2, '0')}:${_lastDraftSavedAt!.minute.toString().padLeft(2, '0')}:${_lastDraftSavedAt!.second.toString().padLeft(2, '0')}',
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.emerald.withOpacity(0.18),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.cloud_done_outlined, size: 14, color: AppTheme.emerald),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    isArabic ? 'مسودة محفوظة' : 'Draft Saved',
+                                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      const SizedBox(width: 8),
+                      SmartUploadButton(
+                        module: SmartUploadModule.purchaseOrder,
+                        label: isArabic ? '🚀 استخلاص ذكي (PI / PL)' : '🚀 Smart Extract (PI / PL)',
+                        compact: false,
+                        onDataExtracted: (result) {
+                          _applyExtractedData(result.extractedFields);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white70),
+                        tooltip: context.l10n.close,
+                        onPressed: () => UnsavedChangesGuard.maybePop(
+                          context,
+                          isDirty: _isDirty,
+                          onDiscard: () => PODraftManager.clearDraft(widget.po?.poId),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              TabBar(
-                labelColor: AppTheme.emerald,
+                TabBar(
+                  onTap: (index) {
+                    if (_isDirty) {
+                      _performAutosave();
+                    }
+                  },
+                  labelColor: AppTheme.emerald,
                 unselectedLabelColor: Colors.white70,
                 indicatorColor: AppTheme.emerald,
                 indicatorWeight: 3,
@@ -3020,7 +3215,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => UnsavedChangesGuard.maybePop(
+              context,
+              isDirty: _isDirty,
+              onDiscard: () => PODraftManager.clearDraft(widget.po?.poId),
+            ),
             child: Text(context.l10n.cancel),
           ),
           OutlinedButton.icon(
@@ -3054,7 +3253,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Future<void> _submitForm(BuildContext context) async {
@@ -3172,6 +3372,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           ),
         );
       } else {
+        await PODraftManager.clearDraft(widget.po?.poId);
+        _isDirty = false;
         messenger.showSnackBar(
           const SnackBar(
             content: Text('تم إنشاء وحفظ أمر الشراء بنجاح!'),
@@ -3449,20 +3651,56 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         'pallet_plan': effectivePalletPlan,
         'status': _selectedStatus,
         'notes': effectiveNotes,
+        'version': widget.po?.version ?? 1,
         'items': _dialogItems.map((i) => i.toJson()).toList(),
         'packing_list_items': _dialogPackingItems.map((i) => i.toJson()).toList(),
       };
-      final errorMsg = await ref.read(purchaseOrdersProvider.notifier).updatePurchaseOrder(widget.po!.poId!, updateData);
-      if (!mounted) return;
-      if (errorMsg != null) {
+      final result = await ref.read(purchaseOrdersProvider.notifier).updatePurchaseOrder(widget.po!.poId!, updateData);
+      if (!mounted || !context.mounted) return;
+
+      if (result.isConflict) {
+        setState(() => _isSubmitting = false);
+        final conflict = result.conflictDetails ?? {};
+        final resolution = await ConcurrencyConflictDialog.show(
+          context,
+          entityName: conflict['entity'] as String? ?? 'PurchaseOrder',
+          recordId: conflict['record_id'] ?? widget.po!.poId!,
+          currentVersion: (conflict['current_version'] as num?)?.toInt() ?? ((widget.po?.version ?? 1) + 1),
+          submittedVersion: (conflict['submitted_version'] as num?)?.toInt() ?? (widget.po?.version ?? 1),
+          updatedAt: conflict['updated_at'] as String?,
+          updatedBy: conflict['updated_by'] as String?,
+          serverMessage: conflict['message'] as String?,
+          currentDraftData: updateData,
+        );
+
+        if (!mounted || !context.mounted) return;
+
+        if (resolution == ConcurrencyResolution.discardAndReload) {
+          await ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+          if (mounted && context.mounted) {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('تم إلغاء المسودة وإعادة تحميل أحدث نسخة من أمر الشراء بنجاح.'),
+                backgroundColor: AppTheme.cobalt,
+              ),
+            );
+          }
+        }
+        return;
+      }
+
+      if (!result.isSuccess) {
         setState(() => _isSubmitting = false);
         messenger.showSnackBar(
           SnackBar(
-            content: Text('خطأ في تحديث أمر الشراء:\n$errorMsg'),
+            content: Text('خطأ في تحديث أمر الشراء:\n${result.errorMessage}'),
             backgroundColor: Colors.red,
           ),
         );
       } else {
+        await PODraftManager.clearDraft(widget.po?.poId);
+        _isDirty = false;
         messenger.showSnackBar(
           const SnackBar(
             content: Text('تم حفظ التعديلات بنجاح!'),

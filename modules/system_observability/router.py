@@ -12,7 +12,10 @@ from modules.system_observability.schemas import (
     DomainObservabilityResponse,
     DeepHealthCheckResponse,
     RecentRequestItem,
+    DailyReportResponse,
+    DailyReportHistoryItem,
 )
+from modules.system_observability.daily_report_service import DailyReportService
 from modules.system_observability.service import (
     metrics_buffer,
     DatabaseHealthService,
@@ -162,4 +165,37 @@ def reset_alert_cooldown(
     """Resets cooldown timers for alert conditions."""
     alert_dispatcher.reset_cooldown(condition_key)
     return {"status": "success", "message": "Alert cooldowns reset successfully."}
+
+
+# ==============================================================================
+# Daily Observability Report Endpoints
+# ==============================================================================
+
+@router.get("/observability/daily-report/latest", response_model=DailyReportResponse)
+def get_latest_daily_report(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Returns today's consolidated observability report (generating it if not present)."""
+    return DailyReportService.generate_report(db, deliver=False)
+
+
+@router.post("/observability/daily-report/generate", response_model=DailyReportResponse)
+def trigger_daily_report_generation(
+    deliver: bool = True,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Manually triggers daily report generation and delivery via email and toast."""
+    return DailyReportService.generate_report(db, deliver=deliver)
+
+
+@router.get("/observability/daily-report/history", response_model=List[DailyReportHistoryItem])
+def get_daily_report_history(
+    limit: int = 30,
+    current_user: User = Depends(get_current_user),
+):
+    """Returns a list of past daily reports stored in logs/daily-reports/."""
+    return DailyReportService.list_history_reports(limit=limit)
+
 

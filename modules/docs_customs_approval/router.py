@@ -3,7 +3,7 @@ FastAPI Router for Docs Customs Approval Hub (DCA-001)
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Header
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -184,8 +184,13 @@ def get_approval(approval_id: int, db: Session = Depends(get_db)):
     response_model=CustomsDocumentApprovalResponse,
     summary="Update document approval record",
 )
-def update_approval(approval_id: int, payload: CustomsDocumentApprovalUpdate, db: Session = Depends(get_db)):
-    approval = service.update_approval_service(db, approval_id, payload)
+def update_approval(
+    approval_id: int,
+    payload: CustomsDocumentApprovalUpdate,
+    db: Session = Depends(get_db),
+    x_user_name: Optional[str] = Header(None),
+):
+    approval = service.update_approval_service(db, approval_id, payload, current_user_name=x_user_name)
     if not approval:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document approval not found.")
     return approval

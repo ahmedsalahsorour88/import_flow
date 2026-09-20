@@ -124,14 +124,37 @@ def get_all_payment_requests(
 
 
 def update_payment_request(
-    db: Session, db_item: PaymentRequestSession, schema: PaymentRequestUpdate
+    db: Session, db_item: PaymentRequestSession, schema: PaymentRequestUpdate, current_user_name: Optional[str] = None
 ) -> PaymentRequestSession:
+    submitted_version = getattr(schema, "version", None)
+    current_version = getattr(db_item, "version", 1) or 1
+    if submitted_version is not None and submitted_version != current_version:
+        from modules.common.concurrency import ConcurrencyConflictException, log_concurrency_conflict
+        log_concurrency_conflict(
+            db=db,
+            entity_name="PaymentRequestSession",
+            record_id=db_item.payment_id,
+            current_version=current_version,
+            submitted_version=submitted_version,
+            attempted_by=current_user_name,
+            details=f"Conflict detected while updating Payment Request #{db_item.payment_code}",
+        )
+        raise ConcurrencyConflictException(
+            entity="PaymentRequestSession",
+            record_id=db_item.payment_id,
+            current_version=current_version,
+            submitted_version=submitted_version,
+            updated_at=db_item.updated_at,
+        )
+
     update_data = schema.model_dump(exclude_unset=True)
+    update_data.pop("version", None)
     for field, value in update_data.items():
         setattr(db_item, field, value)
 
     # Recalculate EGP if amount or rate changed
     db_item.requested_amount_egp = db_item.requested_amount * db_item.exchange_rate
+    db_item.version = current_version + 1
     db_item.updated_at = datetime.now(timezone.utc)
 
     db.commit()
@@ -263,9 +286,31 @@ def get_all_import_budgets(
 
 
 def update_import_budget(
-    db: Session, db_item: ImportBudgetApproval, schema: ImportBudgetUpdate
+    db: Session, db_item: ImportBudgetApproval, schema: ImportBudgetUpdate, current_user_name: Optional[str] = None
 ) -> ImportBudgetApproval:
+    submitted_version = getattr(schema, "version", None)
+    current_version = getattr(db_item, "version", 1) or 1
+    if submitted_version is not None and submitted_version != current_version:
+        from modules.common.concurrency import ConcurrencyConflictException, log_concurrency_conflict
+        log_concurrency_conflict(
+            db=db,
+            entity_name="ImportBudgetApproval",
+            record_id=db_item.budget_id,
+            current_version=current_version,
+            submitted_version=submitted_version,
+            attempted_by=current_user_name,
+            details=f"Conflict detected while updating Budget #{db_item.budget_code}",
+        )
+        raise ConcurrencyConflictException(
+            entity="ImportBudgetApproval",
+            record_id=db_item.budget_id,
+            current_version=current_version,
+            submitted_version=submitted_version,
+            updated_at=db_item.updated_at,
+        )
+
     update_data = schema.model_dump(exclude_unset=True)
+    update_data.pop("version", None)
     for field, value in update_data.items():
         setattr(db_item, field, value)
 
@@ -279,6 +324,7 @@ def update_import_budget(
     if schema.budget_status == "Budget Approved" and not db_item.approved_date:
         db_item.approved_date = date.today()
 
+    db_item.version = current_version + 1
     db_item.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_item)

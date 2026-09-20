@@ -13,6 +13,7 @@ class DocsCustomsApprovalSessionModel {
   final List<String>? recommendations;
   final String? sessionNotes;
   final String createdBy;
+  final int version;
   final String createdAt;
   final String updatedAt;
 
@@ -31,6 +32,7 @@ class DocsCustomsApprovalSessionModel {
     this.recommendations,
     this.sessionNotes,
     this.createdBy = 'system',
+    this.version = 1,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -53,6 +55,7 @@ class DocsCustomsApprovalSessionModel {
           .toList(),
       sessionNotes: json['session_notes'] as String?,
       createdBy: json['created_by'] as String? ?? 'system',
+      version: json['version'] as int? ?? 1,
       createdAt: json['created_at']?.toString() ?? '',
       updatedAt: json['updated_at']?.toString() ?? '',
     );
@@ -73,6 +76,7 @@ class DocsCustomsApprovalSessionModel {
     if (recommendations != null) 'recommendations': recommendations,
     if (sessionNotes != null) 'session_notes': sessionNotes,
     'created_by': createdBy,
+    'version': version,
     'created_at': createdAt,
     'updated_at': updatedAt,
   };

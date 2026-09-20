@@ -3311,6 +3311,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
   void _showPODialog(BuildContext context, PurchaseOrderModel? po, {Map<String, dynamic>? initialExtractedFields}) {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (dialogCtx) => POFormDialog(po: po, initialExtractedFields: initialExtractedFields),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/display_name_resolver.dart';
 import '../theme/app_theme.dart';
 import '../theme/density_provider.dart';
 import 'back_to_dashboard_button.dart';
@@ -63,10 +64,12 @@ class DedicatedStageScaffold extends ConsumerWidget {
             ),
             child: LayoutBuilder(
               builder: (context, headerConstraints) {
-                final isNarrow = headerConstraints.maxWidth < 1000;
+                final isArabic = Directionality.of(context) == TextDirection.rtl;
+                final badgeText = DisplayNameResolver.resolveStageBadge(stageCode, isArabic: isArabic);
 
                 final iconAndTitle = Row(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
                       padding: EdgeInsets.all(density.isUltraCompact ? 5 : (density.isCompact ? 6.5 : 8)),
@@ -85,17 +88,17 @@ class DedicatedStageScaffold extends ConsumerWidget {
                         runSpacing: 4,
                         children: [
                           Text(
-                            Directionality.of(context) == TextDirection.rtl ? titleAr : titleEn,
+                            isArabic ? titleAr : titleEn,
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: density.headerTitleFontSize,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.2,
+                              height: 1.25,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            softWrap: true,
                           ),
-                          if (stageCode.isNotEmpty)
+                          if (badgeText.isNotEmpty)
                             Container(
                               padding: EdgeInsets.symmetric(
                                 horizontal: density.isUltraCompact ? 6 : 8,
@@ -107,7 +110,7 @@ class DedicatedStageScaffold extends ConsumerWidget {
                                 border: Border.all(color: headerColor.withOpacity(0.6)),
                               ),
                               child: Text(
-                                stageCode,
+                                badgeText,
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: DisplayDensityMode.clampFontSize(density.headerSubtitleFontSize),
@@ -121,41 +124,66 @@ class DedicatedStageScaffold extends ConsumerWidget {
                   ],
                 );
 
-                if (isNarrow) {
+                final hasControls = showStageLifecycleControls;
+                final hasActions = headerActions != null && headerActions!.isNotEmpty;
+                final hasButtons = hasControls || hasActions;
+
+                // When action buttons/controls compete with the title on screens < 1280px,
+                // wrap to two clean tiers so the title ALWAYS renders in full without truncation:
+                // Tier 1: Title + Stage Badge + Back to Dashboard Button (Title gets full width)
+                // Tier 2: Lifecycle controls and Action buttons in a compact unified row.
+                final shouldWrapActions = hasButtons && headerConstraints.maxWidth < 1280;
+
+                if (shouldWrapActions) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
+                      Row(
                         children: [
-                          iconAndTitle,
+                          Expanded(child: iconAndTitle),
+                          const SizedBox(width: 12),
                           const BackToDashboardButton(),
                         ],
                       ),
-                      if (showStageLifecycleControls) ...[
-                        const SizedBox(height: 8),
-                        SingleChildScrollView(
+                      const SizedBox(height: 8),
+                      ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                        child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
-                          child: ShipmentStageLifecycleControl(
-                            importFileId: selectedImportFileId,
-                            stageName: Directionality.of(context) == TextDirection.rtl ? titleAr : titleEn,
-                            stageCode: stageCode,
-                            onStatusChanged: onShipmentStatusChanged,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (hasControls) ...[
+                                ShipmentStageLifecycleControl(
+                                  importFileId: selectedImportFileId,
+                                  stageName: Directionality.of(context) == TextDirection.rtl ? titleAr : titleEn,
+                                  stageCode: stageCode,
+                                  onStatusChanged: onShipmentStatusChanged,
+                                ),
+                                if (hasActions) const SizedBox(width: 8),
+                              ],
+                              if (hasActions) ...headerActions!,
+                            ],
                           ),
                         ),
-                      ],
-                      if (headerActions != null && headerActions!.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: headerActions!,
-                        ),
-                      ],
+                      ),
+                    ],
+                  );
+                }
+
+                if (headerConstraints.maxWidth < 700) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: iconAndTitle),
+                          const SizedBox(width: 8),
+                          const BackToDashboardButton(),
+                        ],
+                      ),
                     ],
                   );
                 }

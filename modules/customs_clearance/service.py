@@ -58,8 +58,32 @@ def create_customs_clearance_service(db: Session, schema: CustomsClearanceCreate
         except Exception:
             pass  # If date parse fails, allow through
 
+    existing = db.query(CustomsClearanceRecord).filter(
+        CustomsClearanceRecord.import_file_id == schema.import_file_id,
+        CustomsClearanceRecord.is_active == True,
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"يوجد بالفعل بيان تخليص جمركي مسجل لهذا الملف الاستيرادي (كود البيان: {existing.clearance_code}). يرجى مراجعة وتحديث البيان الحالي بدلاً من إنشاء بيان مكرر.",
+        )
+
     code = generate_customs_clearance_code(db)
     record = create_customs_clearance(db, schema, code)
+
+    try:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="CustomsClearanceRecord",
+            entity_id=record.customs_clearance_id,
+            entity_code=record.clearance_code,
+            action="CREATE",
+            new_data=schema.model_dump(exclude_unset=True),
+            performed_by="Customs Broker",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("AuditLog for CustomsClearanceRecord create failed: %s", e)
 
     # Auto sync declaration 46 code if provided
     if schema.declaration_46_no:
@@ -1829,7 +1853,10 @@ def complete_customs_release_service(db: Session, record_id: int, payload: Compl
 
 
 def update_customs_clearance_service(db: Session, record_id: int, schema: CustomsClearanceUpdate) -> CustomsClearanceRecord:
-    get_customs_clearance_service(db, record_id)
+    existing = get_customs_clearance_service(db, record_id)
+    update_data = schema.model_dump(exclude_unset=True, exclude_none=True)
+    old_data = {k: getattr(existing, k, None) for k in update_data.keys()}
+
     updated = update_customs_clearance(db, record_id, schema)
 
     if schema.declaration_46_no:
@@ -1837,6 +1864,21 @@ def update_customs_clearance_service(db: Session, record_id: int, schema: Custom
         if imp_file:
             imp_file.form46_no = schema.declaration_46_no
             db.commit()
+
+    try:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="CustomsClearanceRecord",
+            entity_id=updated.customs_clearance_id,
+            entity_code=updated.clearance_code,
+            action="UPDATE",
+            old_data=old_data,
+            new_data=update_data,
+            performed_by="Customs Broker",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("AuditLog for CustomsClearanceRecord update failed: %s", e)
 
     return updated
 

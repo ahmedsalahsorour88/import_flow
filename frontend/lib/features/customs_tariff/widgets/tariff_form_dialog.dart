@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
+import '../../../core/widgets/unsaved_changes_guard.dart';
 
   void showTariffDialog(BuildContext context, WidgetRef ref,
       {CustomsTariffModel? tariff, int initialModeIndex = 0}) {
@@ -248,10 +249,22 @@ import '../providers/customs_tariff_provider.dart';
       }
     }
 
+    bool isDirty() {
+      if (rawTextCtrl.text.trim().isNotEmpty) return true;
+      if (hsCtrl.text.trim() != (tariff?.hsCode ?? '')) return true;
+      if (descCtrl.text.trim() != (tariff?.hsDescription ?? '')) return true;
+      if (catCtrl.text.trim() != (tariff?.customsCategory ?? '')) return true;
+      if (notesCtrl.text.trim() != (tariff?.notes ?? '')) return true;
+      return false;
+    }
+
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
+        builder: (ctx, setDialogState) => UnsavedChangesGuard(
+          isDirty: isDirty(),
+          child: AlertDialog(
           title: Row(
             children: [
               const Icon(Icons.receipt_long, color: AppTheme.cobalt),
@@ -937,7 +950,10 @@ import '../providers/customs_tariff_provider.dart';
           ),
         ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
+            TextButton(
+              onPressed: () => UnsavedChangesGuard.maybePop(ctx, isDirty: isDirty()),
+              child: Text(l10n.cancel),
+            ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.cobalt,
@@ -1136,7 +1152,8 @@ import '../providers/customs_tariff_provider.dart';
           ],
         ),
       ),
-    ).then((_) {
+    ),
+  ).then((_) {
       hsCtrl.dispose();
       descCtrl.dispose();
       catCtrl.dispose();

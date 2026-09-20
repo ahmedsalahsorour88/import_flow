@@ -1,8 +1,23 @@
 import 'package:flutter/foundation.dart';
 
 class ApiConstants {
+  static const String clientVersion = '2.0.1';
+  static const int clientBuildNumber = 203;
+
   // ── Server & Base ─────────────────────────────────────────
+  static String customServerUrl = '';
+
+  static void setCustomServerUrl(String url) {
+    customServerUrl = url.trim();
+    if (customServerUrl.endsWith('/')) {
+      customServerUrl = customServerUrl.substring(0, customServerUrl.length - 1);
+    }
+  }
+
   static String get serverUrl {
+    if (customServerUrl.isNotEmpty) {
+      return customServerUrl;
+    }
     if (kIsWeb) {
       final host = Uri.base.host.isNotEmpty ? Uri.base.host : '127.0.0.1';
       return 'http://$host:28080';

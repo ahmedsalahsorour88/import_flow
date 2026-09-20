@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/unsaved_changes_guard.dart';
 import '../models/estimated_landed_cost_model.dart';
 import '../providers/financial_settlement_provider.dart';
 
@@ -210,6 +211,19 @@ class _EstimatedLandedCostDialogState
     );
   }
 
+  bool get _isDirty {
+    final req = widget.initialRequest;
+    if (_fxRateController.text.trim() != (req?.exchangeRateOverride?.toString() ?? '')) return true;
+    if (_freightController.text.trim() != (req?.freightAmountEgpOverride?.toString() ?? '')) return true;
+    if (_insuranceController.text.trim() != (req?.insuranceAmountEgpOverride?.toString() ?? '')) return true;
+    if (_clearanceController.text.trim() != (req?.clearanceFeesEgpOverride?.toString() ?? '')) return true;
+    if (_portController.text.trim() != (req?.portHandlingEgpOverride?.toString() ?? '')) return true;
+    if (_transportController.text.trim() != (req?.inlandTransportEgpOverride?.toString() ?? '')) return true;
+    if (_bankFeesController.text.trim() != (req?.bankFeesEgpOverride?.toString() ?? '')) return true;
+    if (_otherFeesController.text.trim() != (req?.otherExpensesEgpOverride?.toString() ?? '')) return true;
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
@@ -217,7 +231,9 @@ class _EstimatedLandedCostDialogState
     final dialogHeight = (screenSize.height - 48).clamp(500.0, 850.0);
     final isDark = AppTheme.isDark(context);
 
-    return Dialog(
+    return UnsavedChangesGuard(
+      isDirty: _isDirty,
+      child: Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -273,6 +289,7 @@ class _EstimatedLandedCostDialogState
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -318,7 +335,7 @@ class _EstimatedLandedCostDialogState
           ),
           IconButton(
             icon: const Icon(Icons.close, color: Colors.white70),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
             tooltip: 'إغلاق',
           ),
         ],
@@ -877,7 +894,7 @@ class _EstimatedLandedCostDialogState
             ],
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
             child: const Text('إغلاق', style: TextStyle(fontSize: 14)),
           ),
         ],

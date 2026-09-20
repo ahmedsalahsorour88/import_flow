@@ -19,44 +19,189 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT_DIR))
+from utils.crypto_utils import (
+    compute_sha256,
+    encrypt_backup_file,
+    is_encrypted_backup,
+    get_backup_encryption_key,
+)
+
 DB_PATH = ROOT_DIR / "sorour_logistics.db"
 BACKUPS_DIR = ROOT_DIR / "backups"
 DEFAULT_RETENTION_DAYS = 30
 TASK_NAME = "SorourLogistics_DailyBackup"
 
 
-def compute_sha256(file_path: Path) -> str:
-    sha256 = hashlib.sha256()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            sha256.update(chunk)
-    return sha256.hexdigest()
-
-
-def prune_old_backups(retention_days: int = DEFAULT_RETENTION_DAYS):
+def prune_backups_in_dir(directory: Path, retention_days: int = DEFAULT_RETENTION_DAYS) -> int:
     cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
     pruned_count = 0
 
-    for f in BACKUPS_DIR.glob("daily_backup_*.db"):
-        try:
-            mtime = datetime.fromtimestamp(f.stat().st_mtime, tz=timezone.utc)
-            if mtime < cutoff:
-                f.unlink(missing_ok=True)
-                # Also delete associated metadata json if exists
-                meta_json = f.with_suffix(".json")
-                meta_json.unlink(missing_ok=True)
-                pruned_count += 1
-                print(f"  [PRUNED] Removed backup older than {retention_days} days: {f.name}")
-        except Exception as e:
-            print(f"  [WARN] Failed to evaluate/prune {f.name}: {e}")
+    if not directory.exists():
+        return 0
 
+    patterns = ["daily_backup_*.db", "daily_backup_*.db.enc", "daily_backup_*.enc"]
+    seen_files = set()
+    for pattern in patterns:
+        for f in directory.glob(pattern):
+            if f in seen_files:
+                continue
+            seen_files.add(f)
+            try:
+                mtime = datetime.fromtimestamp(f.stat().st_mtime, tz=timezone.utc)
+                if mtime < cutoff:
+                    f.unlink(missing_ok=True)
+                    # Also prune associated json metadata
+                    meta_json = f.parent / f"{f.stem.replace('.db', '')}.json"
+                    meta_json.unlink(missing_ok=True)
+                    f.with_suffix(".json").unlink(missing_ok=True)
+                    pruned_count += 1
+                    print(f"  [PRUNED] Removed backup older than {retention_days} days: {f.name} in {directory}")
+            except Exception as e:
+                print(f"  [WARN] Failed to evaluate/prune {f.name}: {e}")
+
+    return pruned_count
+
+
+def prune_old_backups(retention_days: int = DEFAULT_RETENTION_DAYS):
+    pruned_count = prune_backups_in_dir(BACKUPS_DIR, retention_days)
     if pruned_count > 0:
-        print(f"[OK] Pruned {pruned_count} old backup file(s) exceeding {retention_days} days retention.")
+        print(f"[OK] Pruned {pruned_count} old local backup file(s) exceeding {retention_days} days retention.")
     else:
-        print(f"[OK] Retention check passed: All daily backups are within the {retention_days}-day window.")
+        print(f"[OK] Local retention check passed: All backups within {retention_days}-day window.")
 
 
-def perform_backup(retention_days: int = DEFAULT_RETENTION_DAYS) -> Path:
+def sync_to_google_drive(
+    backup_path: Path,
+    meta_path: Path,
+    offsite_dir: Path = None,
+    retention_days: int = DEFAULT_RETENTION_DAYS,
+    encrypt_offsite: bool = True,
+) -> dict:
+    """
+    Encrypts (AES-256-GCM) and mirrors the validated local backup into the Google Drive Desktop sync folder.
+    Ensures Data-at-Rest protection before files leave the host machine.
+    Verifies existence, byte size, and SHA-256 integrity, then enforces retention.
+    """
+    target_dir = None
+    if offsite_dir:
+        target_dir = Path(offsite_dir)
+    else:
+        env_dir = os.getenv("GOOGLE_DRIVE_BACKUP_DIR")
+        if env_dir:
+            target_dir = Path(env_dir)
+        else:
+            candidates = [
+                Path("G:/My Drive/SorourLogistics-Backups"),
+                Path("G:/Shared drives/SorourLogistics-Backups"),
+                Path(os.path.expanduser("~")) / "Google Drive" / "SorourLogistics-Backups",
+                Path(os.path.expanduser("~")) / "My Drive" / "SorourLogistics-Backups",
+            ]
+            for c in candidates:
+                if c.parent.exists():
+                    target_dir = c
+                    break
+
+    if not target_dir:
+        msg = "Google Drive Desktop sync folder not configured or drive G: not mounted. Local backup is healthy, but offsite copy was skipped."
+        print(f"\n[OFFSITE NOTICE] {msg}")
+        return {"status": "SKIPPED", "reason": "DRIVE_NOT_CONFIGURED", "message": msg}
+
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        msg = f"Failed to access/create Google Drive folder '{target_dir}': {e}"
+        print(f"\n[OFFSITE WARNING] {msg}")
+        return {"status": "FAILED", "reason": "DIRECTORY_ERROR", "message": msg}
+
+    if encrypt_offsite:
+        print(f"\n[5/5] Encrypting backup with AES-256-GCM before offsite sync...")
+        enc_filename = f"{backup_path.name}.enc"
+        temp_enc_path = backup_path.parent / enc_filename
+        try:
+            enc_result = encrypt_backup_file(backup_path, temp_enc_path)
+            file_to_copy = temp_enc_path
+            offsite_backup = target_dir / enc_filename
+            print(f"      [ENCRYPTED] AES-256-GCM sealed ({enc_result['size_bytes']:,} bytes, SHA-256: {enc_result['sha256'][:16]}...)")
+        except Exception as e:
+            msg = f"Encryption failed before sync: {e}"
+            print(f"      [OFFSITE ERROR] {msg}")
+            return {"status": "FAILED", "reason": "ENCRYPTION_ERROR", "message": msg}
+    else:
+        file_to_copy = backup_path
+        offsite_backup = target_dir / backup_path.name
+
+    offsite_json = target_dir / meta_path.name
+
+    print(f"      Mirroring to Google Drive sync folder: {target_dir}...")
+    try:
+        shutil.copy2(file_to_copy, offsite_backup)
+        if meta_path.exists():
+            # Update meta with encryption details
+            import json
+            try:
+                with open(meta_path, "r", encoding="utf-8") as f:
+                    meta_data = json.load(f)
+                meta_data["offsite_encryption"] = {
+                    "enabled": encrypt_offsite,
+                    "algorithm": "AES-256-GCM" if encrypt_offsite else "NONE",
+                    "offsite_file": offsite_backup.name,
+                    "offsite_sha256": compute_sha256(file_to_copy),
+                    "offsite_size_bytes": file_to_copy.stat().st_size,
+                }
+                with open(meta_path, "w", encoding="utf-8") as f:
+                    json.dump(meta_data, f, indent=2)
+            except Exception:
+                pass
+            shutil.copy2(meta_path, offsite_json)
+    except Exception as e:
+        msg = f"Error copying backup to Google Drive sync folder: {e}"
+        print(f"      [OFFSITE ERROR] {msg}")
+        return {"status": "FAILED", "reason": "COPY_ERROR", "message": msg}
+    finally:
+        # Clean up local temporary .enc file if it was created specifically for sync
+        if encrypt_offsite and temp_enc_path.exists():
+            temp_enc_path.unlink(missing_ok=True)
+
+    # Verify existence, size, SHA-256
+    if not offsite_backup.exists():
+        msg = "Offsite copy verification failed: destination file not found."
+        print(f"      [OFFSITE ERROR] {msg}")
+        return {"status": "FAILED", "reason": "FILE_NOT_FOUND", "message": msg}
+
+    local_source_size = file_to_copy.stat().st_size if file_to_copy.exists() else offsite_backup.stat().st_size
+    offsite_size = offsite_backup.stat().st_size
+    if local_source_size != offsite_size:
+        msg = f"Offsite copy verification failed: size mismatch (source={local_source_size}, offsite={offsite_size})"
+        print(f"      [OFFSITE ERROR] {msg}")
+        return {"status": "FAILED", "reason": "SIZE_MISMATCH", "message": msg}
+
+    offsite_sha256 = compute_sha256(offsite_backup)
+
+    print(f"      [VERIFIED] Size match ({offsite_size:,} bytes) & SHA-256 match ({offsite_sha256[:16]}...)")
+    print(f"      [NOTE] Encrypted file confirmed in sync folder. Cloud upload to drive.google.com will be processed by Google Drive Desktop client.")
+
+    # Retention enforcement in Google Drive folder
+    pruned = prune_backups_in_dir(target_dir, retention_days)
+    if pruned > 0:
+        print(f"      [OFFSITE RETENTION] Pruned {pruned} old backup(s) from Drive folder.")
+
+    return {
+        "status": "SUCCESS",
+        "target_path": str(offsite_backup),
+        "size_bytes": offsite_size,
+        "sha256": offsite_sha256,
+        "verified": True,
+        "is_encrypted": encrypt_offsite,
+        "algorithm": "AES-256-GCM" if encrypt_offsite else "NONE",
+    }
+
+
+def perform_backup(
+    retention_days: int = DEFAULT_RETENTION_DAYS,
+    offsite_dir: Path = None,
+    encrypt_offsite: bool = True,
+) -> Path:
     print("================================================================================")
     print("           Sorour Logistics ERP — Automated Daily Online Backup                 ")
     print("================================================================================")
@@ -108,7 +253,10 @@ def perform_backup(retention_days: int = DEFAULT_RETENTION_DAYS) -> Path:
         "size_bytes": file_size,
         "sha256": checksum,
         "integrity": "PASS",
-        "retention_days": retention_days
+        "retention_days": retention_days,
+        "encryption": {
+            "offsite_aes_gcm": encrypt_offsite,
+        }
     }
     meta_path = backup_path.with_suffix(".json")
     import json
@@ -120,6 +268,19 @@ def perform_backup(retention_days: int = DEFAULT_RETENTION_DAYS) -> Path:
     # 4. Retention policy enforcement
     print(f"[4/4] Enforcing {retention_days}-day backup retention policy...")
     prune_old_backups(retention_days)
+
+    # 5. Offsite sync to Google Drive Desktop folder
+    offsite_res = sync_to_google_drive(
+        backup_path,
+        meta_path,
+        offsite_dir=offsite_dir,
+        retention_days=retention_days,
+        encrypt_offsite=encrypt_offsite,
+    )
+    if offsite_res.get("verified"):
+        meta["offsite_sync"] = offsite_res
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2)
 
     print("================================================================================")
     print(f"[SUCCESS] Daily backup successfully finished: {backup_path.name}")
@@ -170,6 +331,8 @@ def unregister_windows_task():
 def main():
     parser = argparse.ArgumentParser(description="Sorour Logistics ERP Automated Daily Backup")
     parser.add_argument("--retention", type=int, default=DEFAULT_RETENTION_DAYS, help="Number of days to keep backups (default: 30)")
+    parser.add_argument("--offsite-dir", type=str, default=None, help="Path to Google Drive Desktop sync folder")
+    parser.add_argument("--no-encrypt", action="store_true", help="Disable AES-256-GCM encryption for offsite sync")
     parser.add_argument("--test", action="store_true", help="Run backup immediately in test mode")
     parser.add_argument("--register-task", action="store_true", help="Register backup in Windows Task Scheduler at 23:00 daily")
     parser.add_argument("--unregister-task", action="store_true", help="Delete Windows Scheduled Task")
@@ -180,8 +343,14 @@ def main():
     elif args.unregister_task:
         unregister_windows_task()
     else:
-        perform_backup(retention_days=args.retention)
+        offsite_p = Path(args.offsite_dir) if args.offsite_dir else None
+        perform_backup(
+            retention_days=args.retention,
+            offsite_dir=offsite_p,
+            encrypt_offsite=not args.no_encrypt,
+        )
 
 
 if __name__ == "__main__":
     main()
+

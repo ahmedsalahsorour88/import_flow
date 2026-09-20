@@ -5,19 +5,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'core/constants/api_constants.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/localization/locale_provider.dart';
 import 'core/network/dio_client.dart';
 import 'core/performance/navigation_perf_tracker.dart';
+import 'core/providers/workspace_tabs_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/density_provider.dart';
 import 'core/theme/theme_provider.dart';
+import 'core/widgets/unsaved_changes_dialog.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/home/home_screen.dart';
 
 final appReloadKeyProvider = StateProvider<int>((ref) => 0);
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> _ensureBackendRunning() async {
   if (!kIsWeb && Platform.isWindows) {
@@ -39,6 +43,15 @@ Future<void> _ensureBackendRunning() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load custom server URL for LAN multi-user mode
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final savedServerUrl = prefs.getString('custom_server_url');
+    if (savedServerUrl != null && savedServerUrl.trim().isNotEmpty) {
+      ApiConstants.setCustomServerUrl(savedServerUrl.trim());
+    }
+  } catch (_) {}
 
   if (!kIsWeb && Platform.isWindows) {
     try {
@@ -213,6 +226,24 @@ class _SorourLogisticsAppState extends ConsumerState<SorourLogisticsApp>
   @override
   void onWindowClose() async {
     if (!kIsWeb && Platform.isWindows) {
+      // Check if any workspace tab has unsaved changes
+      try {
+        final tabsState = ref.read(workspaceTabsProvider);
+        if (tabsState.tabs.any((t) => t.isDirty)) {
+          await windowManager.focus();
+          final ctx = rootNavigatorKey.currentContext;
+          if (ctx != null && ctx.mounted) {
+            final confirmed = await UnsavedChangesDialog.show(
+              ctx,
+              customMessage: 'توجد علامات تبويب بها تعديلات غير محفوظة. هل تريد إغلاق النظام وإهمال التغييرات؟',
+            );
+            if (!confirmed) {
+              return; // Abort window destruction
+            }
+          }
+        }
+      } catch (_) {}
+
       // 1. Auto-backup dev DB on every close (5s timeout, silent)
       try {
         final dio = ref.read(dioProvider);
@@ -248,7 +279,6 @@ class _SorourLogisticsAppState extends ConsumerState<SorourLogisticsApp>
   @override
   Widget build(BuildContext context) {
     final reloadKey = ref.watch(appReloadKeyProvider);
-    final authState = ref.watch(authProvider);
     final locale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
     final density = ref.watch(displayDensityProvider);
@@ -256,38 +286,43 @@ class _SorourLogisticsAppState extends ConsumerState<SorourLogisticsApp>
 
     return KeyedSubtree(
       key: ValueKey(
-          '${reloadKey}_${authState.isAuthenticated}_${locale.languageCode}_${density.name}'),
+          '${reloadKey}_${locale.languageCode}_${density.name}'),
       child: AppLocalizationsProvider(
         locale: locale,
         child: Directionality(
           // Auto RTL for Arabic, LTR for English
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
           child: MaterialApp(
+            navigatorKey: rootNavigatorKey,
             debugShowCheckedModeBanner: false,
-            title: 'Sorour Logistics ERP (v1.0.198)',
+            title: 'Sorour Logistics ERP (v${ApiConstants.clientVersion})',
             theme: AppTheme.lightTheme.copyWith(visualDensity: density.visualDensity),
             darkTheme: AppTheme.darkTheme.copyWith(visualDensity: density.visualDensity),
             themeMode: themeMode,
             scrollBehavior: AppCustomScrollBehavior(),
             locale: locale,
             navigatorObservers: [NavigationPerfTracker.instance],
-            builder: (context, child) {
-              return Overlay(
-                initialEntries: [
-                  OverlayEntry(
-                    builder: (context) => SelectionArea(
-                      child: child ?? const SizedBox.shrink(),
-                    ),
-                  ),
-                ],
-              );
-            },
-            home:
-                authState.isAuthenticated ? const HomeScreen() : const LoginScreen(),
+            builder: (context, child) => child ?? const SizedBox.shrink(),
+            home: const AuthGate(),
           ),
         ),
       ),
     );
+  }
+}
+
+/// Reactive gate that smoothly switches between HomeScreen and LoginScreen
+/// based on authProvider authentication state without Navigator history traps.
+class AuthGate extends ConsumerWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    if (authState.isAuthenticated) {
+      return const HomeScreen();
+    }
+    return const LoginScreen();
   }
 }
 

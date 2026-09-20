@@ -293,9 +293,36 @@ class TestPOPartialShipmentsAndBalance:
         db_session.add(item)
         db_session.commit()
 
-        # POST allocation
+        from modules.users.model import User
+        from modules.auth.security import create_access_token
+
+        # Create authenticated Admin user
+        admin = User(
+            user_id=101,
+            username="admin_tester",
+            email="admin@importflow.com",
+            hashed_password="test_hash",
+            full_name="Admin Tester",
+            role="ADMIN",
+            is_active=True,
+        )
+        db_session.add(admin)
+        db_session.commit()
+
+        token = create_access_token({"sub": "101", "role": "ADMIN"})
+        auth_headers = {"Authorization": f"Bearer {token}"}
+
+        # 1. Verify Invalid/Forged Token Request is rejected with 401 (Security IDOR / Access Control)
+        unauth_resp = client.get(
+            f"/api/v1/purchase-orders/{po.po_id}/balance",
+            headers={"Authorization": "Bearer invalid.fake.token"},
+        )
+        assert unauth_resp.status_code == 401
+
+        # 2. POST allocation with authorized Bearer Token
         resp1 = client.post(
             f"/api/v1/purchase-orders/{po.po_id}/allocations",
+            headers=auth_headers,
             json={
                 "po_item_id": item.item_id,
                 "shipment_ref": "B/L # TOKYO-ALX-01",
@@ -309,8 +336,11 @@ class TestPOPartialShipmentsAndBalance:
         assert data1["shipped_quantity"] == 250.0
         assert data1["shipment_ref"] == "B/L # TOKYO-ALX-01"
 
-        # GET balance
-        resp2 = client.get(f"/api/v1/purchase-orders/{po.po_id}/balance")
+        # 3. GET balance with authorized Bearer Token
+        resp2 = client.get(
+            f"/api/v1/purchase-orders/{po.po_id}/balance",
+            headers=auth_headers,
+        )
         assert resp2.status_code == 200
         data2 = resp2.json()
         assert data2["total_ordered_qty"] == 500.0

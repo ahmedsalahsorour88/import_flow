@@ -53,6 +53,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _initFromStorage();
   }
 
+  static bool isTokenExpired(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return true;
+      final normalized = base64Url.normalize(parts[1]);
+      final payloadBytes = base64Url.decode(normalized);
+      final payload = jsonDecode(utf8.decode(payloadBytes)) as Map<String, dynamic>;
+      final exp = payload['exp'];
+      if (exp == null) return true;
+      final expSec = exp is int ? exp : int.tryParse(exp.toString()) ?? 0;
+      final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      // 15-second buffer to avoid race conditions
+      return nowSec >= (expSec - 15);
+    } catch (_) {
+      return true;
+    }
+  }
+
   Future<void> _initFromStorage() async {
     try {
       final savedToken = await _storage.read(key: _tokenKey);
@@ -62,10 +80,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final userData = jsonDecode(savedUserJson) as Map<String, dynamic>;
         final user = UserModel.fromJson(userData);
 
+        if (!isTokenExpired(savedToken)) {
+          state = state.copyWith(
+            token: savedToken,
+            user: user,
+            isAuthenticated: true,
+          );
+          return;
+        }
+
+        // Token expired -> attempt silent refresh before clearing
+        final refreshed = await _performTokenRefresh(savedToken);
+        if (refreshed) {
+          return;
+        }
+
+        // Refresh failed -> clear stale token and prompt login
+        await _storage.delete(key: _tokenKey);
+        await _storage.delete(key: _userKey);
         state = state.copyWith(
-          token: savedToken,
-          user: user,
-          isAuthenticated: true,
+          user: null,
+          token: null,
+          isAuthenticated: false,
+          errorMessage: 'انتهت صلاحية جلسة العمل السابقة. يرجى تسجيل الدخول مجددًا.',
         );
       } else {
         // No valid token stored -> stay unauthenticated, display LoginScreen
@@ -82,6 +119,60 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isAuthenticated: false,
       );
     }
+  }
+
+  Future<bool> refreshToken() async {
+    final currentToken = state.token;
+    if (currentToken == null || currentToken.isEmpty) {
+      final savedToken = await _storage.read(key: _tokenKey);
+      if (savedToken == null || savedToken.isEmpty) return false;
+      return _performTokenRefresh(savedToken);
+    }
+    return _performTokenRefresh(currentToken);
+  }
+
+  Future<bool> _performTokenRefresh(String token) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/auth/refresh',
+        options: Options(headers: {
+          'Authorization': 'Bearer $token',
+        }),
+      );
+
+      final newToken = response.data['access_token'] as String?;
+      final userJson = response.data['user'] as Map<String, dynamic>?;
+
+      if (newToken != null && newToken.isNotEmpty && userJson != null) {
+        final user = UserModel.fromJson(userJson);
+        await _storage.write(key: _tokenKey, value: newToken);
+        await _storage.write(key: _userKey, value: jsonEncode(userJson));
+
+        state = state.copyWith(
+          user: user,
+          token: newToken,
+          isAuthenticated: true,
+          errorMessage: null,
+        );
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> handleSessionExpired() async {
+    try {
+      await _storage.delete(key: _tokenKey);
+      await _storage.delete(key: _userKey);
+    } catch (_) {}
+    state = const AuthState(
+      isAuthenticated: false,
+      user: null,
+      token: null,
+      errorMessage: 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.',
+    );
   }
 
   Future<bool> login(String usernameOrEmail, String password) async {

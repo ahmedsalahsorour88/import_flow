@@ -138,6 +138,11 @@ void main() {
         routeIndex: 2,
       );
 
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
@@ -163,6 +168,49 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(container.read(workspaceTabsProvider).activeTabId, 'dashboard');
+    });
+
+    testWidgets('Renders 10 open workspace tabs simultaneously across the full width without overflow', (tester) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(workspaceTabsProvider.notifier);
+      // Open 9 additional tabs (total 10 with dashboard)
+      for (int i = 1; i <= 9; i++) {
+        notifier.openTab(
+          id: 'tab_screen_$i',
+          title: 'شاشة رقم $i',
+          icon: Icons.tab,
+          routeIndex: i,
+        );
+      }
+
+      tester.view.physicalSize = const Size(1366, 768);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Scaffold(
+                body: MultiTabWorkspaceBar(),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      final state = container.read(workspaceTabsProvider);
+      expect(state.tabs.length, 10);
+      expect(find.byType(MultiTabWorkspaceBar), findsOneWidget);
+      // Verify overflow action button is present
+      expect(find.byIcon(Icons.more_horiz), findsOneWidget);
     });
   });
 }

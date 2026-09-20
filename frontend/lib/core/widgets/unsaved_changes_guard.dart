@@ -13,6 +13,7 @@ class UnsavedChangesGuard extends ConsumerStatefulWidget {
   final String? tabId;
   final String? customMessage;
   final VoidCallback? onSave;
+  final VoidCallback? onDiscard;
 
   const UnsavedChangesGuard({
     super.key,
@@ -21,7 +22,37 @@ class UnsavedChangesGuard extends ConsumerStatefulWidget {
     this.tabId,
     this.customMessage,
     this.onSave,
+    this.onDiscard,
   });
+
+  /// Safely attempts to pop the route.
+  /// If [isDirty] is false, pops immediately without prompting.
+  /// If [isDirty] is true, prompts with [UnsavedChangesDialog].
+  /// Returns `true` if the route was popped, `false` otherwise.
+  static Future<bool> maybePop(
+    BuildContext context, {
+    required bool isDirty,
+    dynamic result,
+    String? customMessage,
+    VoidCallback? onSave,
+    VoidCallback? onDiscard,
+  }) async {
+    if (!isDirty) {
+      Navigator.of(context).pop(result);
+      return true;
+    }
+    final shouldPop = await UnsavedChangesDialog.show(
+      context,
+      customMessage: customMessage,
+      onSave: onSave,
+    );
+    if (shouldPop && context.mounted) {
+      onDiscard?.call();
+      Navigator.of(context).pop(result);
+      return true;
+    }
+    return false;
+  }
 
   @override
   ConsumerState<UnsavedChangesGuard> createState() => _UnsavedChangesGuardState();
@@ -51,12 +82,16 @@ class _UnsavedChangesGuardState extends ConsumerState<UnsavedChangesGuard> {
   void _syncDirtyState(bool dirty) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final targetTabId = widget.tabId;
-      final notifier = ref.read(workspaceTabsProvider.notifier);
-      if (targetTabId != null) {
-        notifier.setTabDirty(targetTabId, dirty);
-      } else {
-        notifier.setActiveTabDirty(dirty);
+      try {
+        final targetTabId = widget.tabId;
+        final notifier = ref.read(workspaceTabsProvider.notifier);
+        if (targetTabId != null) {
+          notifier.setTabDirty(targetTabId, dirty);
+        } else {
+          notifier.setActiveTabDirty(dirty);
+        }
+      } catch (_) {
+        // Safe fallback if used outside ProviderScope
       }
     });
   }
@@ -73,6 +108,7 @@ class _UnsavedChangesGuardState extends ConsumerState<UnsavedChangesGuard> {
           onSave: widget.onSave,
         );
         if (shouldPop && context.mounted) {
+          widget.onDiscard?.call();
           Navigator.of(context).pop(result);
         }
       },
@@ -80,3 +116,4 @@ class _UnsavedChangesGuardState extends ConsumerState<UnsavedChangesGuard> {
     );
   }
 }
+

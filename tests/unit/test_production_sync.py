@@ -3,6 +3,7 @@ Unit Tests for Production Sync Module
 Tests comparison, backup creation, and push/pull sync logic.
 """
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -63,7 +64,8 @@ class TestProductionSyncBackend(unittest.TestCase):
         self.assertIsInstance(backups_resp, BackupsListResponseSchema)
         self.assertGreaterEqual(backups_resp.total_backups, 1)
 
-    def test_sync_dev_to_prod(self):
+    @patch("version_manager.bump_version")
+    def test_sync_dev_to_prod(self, mock_bump):
         res = self.service.sync_dev_to_prod()
         self.assertIsInstance(res, SyncActionResponseSchema)
         self.assertTrue(res.success)

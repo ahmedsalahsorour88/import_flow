@@ -1,17 +1,18 @@
 {
-  "major": 1,
+  "major": 2,
   "minor": 0,
-  "patch": 198,
-  "version": "1.0.198",
-  "build_number": 199,
-  "updated_at": "2026-09-19 02:25:19",
-  "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v1.0.188/Sorour_Logistics_Setup_v1.0.188.exe",
-  "installer_filename": "Sorour_Logistics_Setup_v1.0.188.exe",
-  "installer_size_mb": 198.04,
+  "patch": 1,
+  "version": "2.0.1",
+  "build_number": 203,
+  "min_compatible_version": "1.0.180",
+  "updated_at": "2026-09-20 11:15:55",
+  "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v2.0.1/Sorour_Logistics_Setup_v2.0.1.exe",
+  "installer_filename": "Sorour_Logistics_Setup_v2.0.1.exe",
+  "installer_size_mb": 202.78,
   "release_notes": [
+    "POFormDialog: Dirty tracking on all controllers, barrierDismissible: false, UnsavedChangesGuard, maybePop on header ✕ and bottom Cancel, autosave badge (\"مسودة محفوظة\").",
     "Checklist Item: #46 (The 46th and Final Task of ImportFlow ERP Checklist — إتمام كامل بنود النظام بنسبة 100%)",
     "Stage: المرحلة 9: تكلفة الوصول والإغلاق (Stage 9/10: Landed Cost & File Closure)",
-    "CLO-04: Official File Closure & Digital Archive — الإغلاق الرسمي والأرشفة الرقمية المكتملة للملف",
-    "إنجاز متكامل للإغلاق النهائي والأرشفة الرقمية للشحنة مع استيفاء بوابة التدقيق المسبقة المرتكزة على ركائز التدقيق الستة (6 Core Pillars)."
+    "CLO-04: Official File Closure & Digital Archive — الإغلاق الرسمي والأرشفة الرقمية المكتملة للملف"
   ]
 }

@@ -86,7 +86,7 @@ class AlertDispatcher:
         """Standardized cooldown rules per condition."""
         if condition_key == "DISK_SPACE_CRITICAL":
             return 900  # 15 minutes for critical disk space
-        elif condition_key in ("BACKUP_OVERDUE", "DISK_SPACE_WARNING", "DB_HEALTH_UNHEALTHY"):
+        elif condition_key in ("BACKUP_OVERDUE", "OFFSITE_BACKUP_OVERDUE", "DISK_SPACE_WARNING", "DB_HEALTH_UNHEALTHY"):
             return 3600  # 1 hour for operational high alerts
         else:
             return 86400  # 24 hours for daily digest alerts (ACID, Demurrage, Stuck, Slow queries)
@@ -311,10 +311,11 @@ class AlertDispatcher:
         force: bool = False,
         disk_free_gb_override: Optional[float] = None,
         backup_age_hours_override: Optional[float] = None,
+        offsite_age_hours_override: Optional[float] = None,
         probe_override: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """
-        Runs deep health and domain radar probes, evaluates all 8 conditions,
+        Runs deep health and domain radar probes, evaluates all conditions (including offsite backup),
         and fires mapped alerts for any detected failure state.
         """
         results = []
@@ -330,7 +331,7 @@ class AlertDispatcher:
         verdict = probe_override.get("verdict", probe_res.verdict) if probe_override else probe_res.verdict
         probe_issues = probe_override.get("issues", probe_res.issues) if probe_override else probe_res.issues
 
-        # Calculate backup age
+        # Calculate local backup age
         backup_age = 0.0
         if backup_age_hours_override is not None:
             backup_age = backup_age_hours_override
@@ -346,7 +347,35 @@ class AlertDispatcher:
             else:
                 backup_age = 999.0
 
-        # ── Rule 1: Backup missing/failed (>26h) ────────────────────
+        # Calculate offsite backup age (Google Drive Desktop sync folder)
+        offsite_age = None
+        if offsite_age_hours_override is not None:
+            offsite_age = offsite_age_hours_override
+        else:
+            env_offsite = os.getenv("GOOGLE_DRIVE_BACKUP_DIR")
+            offsite_dir = None
+            if env_offsite and Path(env_offsite).exists():
+                offsite_dir = Path(env_offsite)
+            else:
+                candidates = [
+                    ROOT_DIR / "backups" / "sandbox_drive" / "SorourLogistics-Backups",
+                    Path("G:/My Drive/SorourLogistics-Backups"),
+                    Path(os.path.expanduser("~")) / "Google Drive" / "SorourLogistics-Backups",
+                ]
+                for c in candidates:
+                    if c.exists():
+                        offsite_dir = c
+                        break
+
+            if offsite_dir and offsite_dir.exists():
+                offsite_files = sorted(offsite_dir.glob("daily_backup_*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
+                if offsite_files:
+                    mtime = datetime.fromtimestamp(offsite_files[0].stat().st_mtime, tz=timezone.utc)
+                    offsite_age = (datetime.now(timezone.utc) - mtime).total_seconds() / 3600.0
+                else:
+                    offsite_age = 999.0
+
+        # ── Rule 1: Local Backup missing/failed (>26h) ──────────────
         if backup_age > 26.0:
             payload = AlertPayload(
                 condition_key="BACKUP_OVERDUE",
@@ -356,6 +385,19 @@ class AlertDispatcher:
                 channels=["TOAST", "EMAIL"],
                 target_tab="deep-health",
                 details={"backup_age_hours": backup_age},
+            )
+            results.append(self.dispatch_alert(payload, db=db, force=force))
+
+        # ── Rule 1b: Offsite Backup missing/failed (>26h) ───────────
+        if offsite_age is not None and offsite_age > 26.0:
+            payload = AlertPayload(
+                condition_key="OFFSITE_BACKUP_OVERDUE",
+                title="النسخ الاحتياطي السحابي الخارجي متأخر (Offsite Backup Overdue)",
+                message=f"مر أكثر من {offsite_age:.1f} ساعة دون مزامنة نسخة احتياطية جديدة في مجلد Google Drive (>26h). يرجى التحقق من اتصال برنامج المزامنة وسير عملية النسخ.",
+                severity="HIGH",
+                channels=["TOAST", "EMAIL"],
+                target_tab="deep-health",
+                details={"offsite_age_hours": offsite_age},
             )
             results.append(self.dispatch_alert(payload, db=db, force=force))
 

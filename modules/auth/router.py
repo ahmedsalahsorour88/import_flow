@@ -85,6 +85,51 @@ def login(request: Request, credentials: LoginRequest, db: Session = Depends(get
     return TokenResponse(access_token=token, user=user)
 
 
+@router.post("/refresh", response_model=TokenResponse)
+def refresh_token(
+    authorization: str = Header(None),
+    db: Session = Depends(get_db),
+):
+    """
+    Refreshes an access token without requiring password re-entry.
+    Accepts valid unexpired tokens, as well as recently expired tokens (within the 14-day refresh grace period),
+    provided the cryptographic HMAC signature is valid and the token has not been revoked via logout.
+    """
+    token_revocation_manager.init_from_db(db)
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Authorization header."
+        )
+
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Authorization header format. Expected 'Bearer <token>'."
+        )
+
+    token = parts[1]
+    payload = decode_access_token(token, check_revocation=True, ignore_expiration=True)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or revoked token."
+        )
+
+    user_id = int(payload.get("sub", 0))
+    user = db.get(User, user_id)
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account is inactive or not found."
+        )
+
+    service = AuthService(db)
+    new_token = service.generate_user_token(user)
+    return TokenResponse(access_token=new_token, user=user)
+
+
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user

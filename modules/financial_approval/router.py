@@ -259,8 +259,9 @@ def update_payment_request(
     payment_id: int,
     payload: PaymentRequestUpdate,
     db: Session = Depends(get_db),
+    x_user_name: Optional[str] = Header(None),
 ):
-    return service.update_payment_request_service(db, payment_id, payload)
+    return service.update_payment_request_service(db, payment_id, payload, current_user_name=x_user_name)
 
 
 @router.post(
@@ -484,8 +485,9 @@ def update_import_budget(
     budget_id: int,
     payload: ImportBudgetUpdate,
     db: Session = Depends(get_db),
+    x_user_name: Optional[str] = Header(None),
 ):
-    return service.update_import_budget_service(db, budget_id, payload)
+    return service.update_import_budget_service(db, budget_id, payload, current_user_name=x_user_name)
 
 
 @router.delete("/import-budgets/{budget_id}", status_code=status.HTTP_204_NO_CONTENT)

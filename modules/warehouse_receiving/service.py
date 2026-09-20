@@ -29,10 +29,34 @@ def create_warehouse_receiving_service(db: Session, schema: WarehouseReceivingCr
     if not imp_file:
         raise HTTPException(status_code=404, detail="ملف الشحنة الاستيرادية المرتكز عليه غير موجود أو محذوف.")
 
+    existing = db.query(WarehouseReceivingRecord).filter(
+        WarehouseReceivingRecord.import_file_id == schema.import_file_id,
+        WarehouseReceivingRecord.is_active == True,
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"يوجد بالفعل إذن استلام مخزني مسجل لهذا الملف الاستيرادي (رقم الإذن: {existing.grn_number}). يرجى مراجعة وتحديث الإذن الحالي بدلاً من إنشاء إذن مكرر.",
+        )
+
     validate_seal_integrity(schema.seal_intact, schema.seal_number or "")
 
     code = generate_grn_code(db)
     record = create_warehouse_receiving(db, schema, code)
+
+    try:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="WarehouseReceivingRecord",
+            entity_id=record.receiving_id,
+            entity_code=record.grn_number,
+            action="CREATE",
+            new_data=schema.model_dump(exclude_unset=True),
+            performed_by="Warehouse Manager",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("AuditLog for WarehouseReceivingRecord create failed: %s", e)
 
     # LOG-BOND-003: Check if shipment is Under-Bond Released (Quarantine Lock Active)
     from modules.customs_clearance.model import CustomsClearanceRecord
@@ -187,8 +211,28 @@ def report_receiving_discrepancy_service(db: Session, record_id: int, payload: D
     return record
 
 def update_warehouse_receiving_service(db: Session, record_id: int, schema: WarehouseReceivingUpdate) -> WarehouseReceivingRecord:
-    get_warehouse_receiving_service(db, record_id)
-    return update_warehouse_receiving(db, record_id, schema)
+    existing = get_warehouse_receiving_service(db, record_id)
+    update_data = schema.model_dump(exclude_unset=True, exclude_none=True)
+    old_data = {k: getattr(existing, k, None) for k in update_data.keys()}
+
+    updated = update_warehouse_receiving(db, record_id, schema)
+
+    try:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="WarehouseReceivingRecord",
+            entity_id=updated.receiving_id,
+            entity_code=updated.grn_number,
+            action="UPDATE",
+            old_data=old_data,
+            new_data=update_data,
+            performed_by="Warehouse Manager",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("AuditLog for WarehouseReceivingRecord update failed: %s", e)
+
+    return updated
 
 def soft_delete_warehouse_receiving_service(db: Session, record_id: int) -> bool:
     get_warehouse_receiving_service(db, record_id)

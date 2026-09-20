@@ -464,6 +464,7 @@ class PurchaseOrderModel {
   final double palletHeightCm;
   final String status;
   final String? notes;
+  final int version;
   final bool isActive;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -511,6 +512,7 @@ class PurchaseOrderModel {
     this.palletHeightCm = 150.0,
     this.status = 'Draft',
     this.notes,
+    this.version = 1,
     this.isActive = true,
     this.createdAt,
     this.updatedAt,
@@ -529,6 +531,7 @@ class PurchaseOrderModel {
     return PurchaseOrderModel(
       poId: json['po_id'] != null ? _numToInt(json['po_id']) : null,
       poNumber: json['po_number'] as String? ?? '',
+      version: _numToInt(json['version'], 1),
       poReference: json['po_reference'] as String?,
       proformaInvoiceNumber: json['proforma_invoice_number'] as String?,
       countryOfOrigin: json['country_of_origin'] as String?,
@@ -603,6 +606,7 @@ class PurchaseOrderModel {
       'pallet_height_cm': palletHeightCm,
       'status': status,
       if (notes != null) 'notes': notes,
+      'version': version,
       'is_active': isActive,
       'items': items.map((i) => i.toJson()).toList(),
       'packing_list_items': packingListItems.map((i) => i.toJson()).toList(),

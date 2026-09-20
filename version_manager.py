@@ -162,6 +162,15 @@ def bump_version(bump_type="patch"):
         main_cpp_path.write_text(content, encoding="utf-8")
         print(f"  [+] Updated windows/runner/main.cpp -> v{new_version}")
 
+    # 7. Update frontend/lib/core/constants/api_constants.dart
+    api_constants_path = ROOT_DIR / "frontend" / "lib" / "core" / "constants" / "api_constants.dart"
+    if api_constants_path.exists():
+        content = api_constants_path.read_text(encoding="utf-8")
+        content = re.sub(r"static const String clientVersion\s*=\s*'[^']+';", f"static const String clientVersion = '{new_version}';", content)
+        content = re.sub(r"static const int clientBuildNumber\s*=\s*\d+;", f"static const int clientBuildNumber = {info['build_number']};", content)
+        api_constants_path.write_text(content, encoding="utf-8")
+        print(f"  [+] Updated frontend/lib/core/constants/api_constants.dart -> v{new_version} (Build {info['build_number']})")
+
     return info
 
 

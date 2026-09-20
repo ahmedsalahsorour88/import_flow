@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'navigation_provider.dart';
+
 class WorkspaceTab {
   final String id;
   final String title;
@@ -72,8 +74,9 @@ class WorkspaceTabsState {
 
 class WorkspaceTabsNotifier extends StateNotifier<WorkspaceTabsState> {
   static const int maxTabs = 10;
+  final Ref? _ref;
 
-  WorkspaceTabsNotifier()
+  WorkspaceTabsNotifier([this._ref])
       : super(
           const WorkspaceTabsState(
             tabs: [
@@ -102,7 +105,11 @@ class WorkspaceTabsNotifier extends StateNotifier<WorkspaceTabsState> {
 
     if (existingIndex != -1) {
       // Tab already open — just switch to it
-      state = state.copyWith(activeTabId: state.tabs[existingIndex].id);
+      final targetTab = state.tabs[existingIndex];
+      if (_ref != null && state.activeTabId != targetTab.id) {
+        _ref.read(navigationIndexProvider.notifier).state = targetTab.routeIndex;
+      }
+      state = state.copyWith(activeTabId: targetTab.id);
       return;
     }
 
@@ -122,6 +129,9 @@ class WorkspaceTabsNotifier extends StateNotifier<WorkspaceTabsState> {
       routeIndex: routeIndex,
       isClosable: isClosable,
     );
+    if (_ref != null) {
+      _ref.read(navigationIndexProvider.notifier).state = routeIndex;
+    }
     state = state.copyWith(
       tabs: [...tabs, newTab],
       activeTabId: id,
@@ -129,7 +139,14 @@ class WorkspaceTabsNotifier extends StateNotifier<WorkspaceTabsState> {
   }
 
   void selectTab(String tabId) {
+    final target = state.tabs.firstWhere(
+      (t) => t.id == tabId,
+      orElse: () => state.tabs.first,
+    );
     if (state.tabs.any((t) => t.id == tabId)) {
+      if (_ref != null && state.activeTabId != tabId) {
+        _ref.read(navigationIndexProvider.notifier).state = target.routeIndex;
+      }
       state = state.copyWith(activeTabId: tabId);
     }
   }
@@ -159,10 +176,23 @@ class WorkspaceTabsNotifier extends StateNotifier<WorkspaceTabsState> {
     if (newTabs.isEmpty) return;
 
     String newActiveId = state.activeTabId;
+    int newRouteIndex = 0;
     if (state.activeTabId == tabId) {
       final oldIndex = state.tabs.indexWhere((t) => t.id == tabId);
       final newIndex = (oldIndex - 1).clamp(0, newTabs.length - 1);
       newActiveId = newTabs[newIndex].id;
+      newRouteIndex = newTabs[newIndex].routeIndex;
+    } else {
+      final currentActive = newTabs.firstWhere(
+        (t) => t.id == newActiveId,
+        orElse: () => newTabs.first,
+      );
+      newRouteIndex = currentActive.routeIndex;
+    }
+
+    // Atomic update: synchronize navigationIndex atomically to prevent double rebuild
+    if (_ref != null && state.activeTabId == tabId) {
+      _ref.read(navigationIndexProvider.notifier).state = newRouteIndex;
     }
 
     state = state.copyWith(
@@ -177,6 +207,9 @@ class WorkspaceTabsNotifier extends StateNotifier<WorkspaceTabsState> {
       orElse: () => state.tabs.first,
     );
     final unclosable = state.tabs.where((t) => !t.isClosable && t.id != keepTabId).toList();
+    if (_ref != null) {
+      _ref.read(navigationIndexProvider.notifier).state = keepTab.routeIndex;
+    }
     state = state.copyWith(
       tabs: [...unclosable, keepTab],
       activeTabId: keepTab.id,
@@ -186,6 +219,9 @@ class WorkspaceTabsNotifier extends StateNotifier<WorkspaceTabsState> {
   void closeAllTabs() {
     final unclosable = state.tabs.where((t) => !t.isClosable).toList();
     if (unclosable.isNotEmpty) {
+      if (_ref != null) {
+        _ref.read(navigationIndexProvider.notifier).state = unclosable.first.routeIndex;
+      }
       state = state.copyWith(
         tabs: unclosable,
         activeTabId: unclosable.first.id,
@@ -198,6 +234,9 @@ class WorkspaceTabsNotifier extends StateNotifier<WorkspaceTabsState> {
     final currentIdx = state.tabs.indexWhere((t) => t.id == state.activeTabId);
     final nextIdx = (currentIdx + 1) % state.tabs.length;
     final nextTab = state.tabs[nextIdx];
+    if (_ref != null) {
+      _ref.read(navigationIndexProvider.notifier).state = nextTab.routeIndex;
+    }
     state = state.copyWith(activeTabId: nextTab.id);
     return nextTab;
   }
@@ -207,6 +246,9 @@ class WorkspaceTabsNotifier extends StateNotifier<WorkspaceTabsState> {
     final currentIdx = state.tabs.indexWhere((t) => t.id == state.activeTabId);
     final prevIdx = (currentIdx - 1 + state.tabs.length) % state.tabs.length;
     final prevTab = state.tabs[prevIdx];
+    if (_ref != null) {
+      _ref.read(navigationIndexProvider.notifier).state = prevTab.routeIndex;
+    }
     state = state.copyWith(activeTabId: prevTab.id);
     return prevTab;
   }
@@ -222,5 +264,5 @@ class WorkspaceTabsNotifier extends StateNotifier<WorkspaceTabsState> {
 }
 
 final workspaceTabsProvider = StateNotifierProvider<WorkspaceTabsNotifier, WorkspaceTabsState>(
-  (ref) => WorkspaceTabsNotifier(),
+  (ref) => WorkspaceTabsNotifier(ref),
 );

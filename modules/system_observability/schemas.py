@@ -83,3 +83,27 @@ class DeepHealthCheckResponse(BaseModel):
     disk_status: str = "OK"
     backup_freshness: str = "OK"
     issues: List[str] = Field(default_factory=list)
+
+
+class DailyReportResponse(BaseModel):
+    report_date: str
+    generated_at: str
+    headline_verdict: str  # ALL_NORMAL, NEEDS_ATTENTION, DEGRADED
+    headline_message: str  # e.g., "✅ All normal" or "⚠️ 2 items need attention"
+    needs_attention_items: List[str] = Field(default_factory=list)
+    markdown_content: str
+    html_content: str
+    delivered_channels: List[str] = Field(default_factory=list)
+    report_file: Optional[str] = None
+    summary_data: Dict[str, Any] = Field(default_factory=dict)
+
+
+class DailyReportHistoryItem(BaseModel):
+    report_date: str
+    filename: str
+    headline_verdict: str
+    headline_message: str
+    needs_attention_count: int = 0
+    generated_at: str
+    file_size_bytes: int = 0
+

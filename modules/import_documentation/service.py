@@ -4329,8 +4329,12 @@ def extract_and_compare_po_documents_service(
                 po = db.query(PurchaseOrder).filter(PurchaseOrder.po_number == imp_file.po_number).first()
 
             tax_no = None
-            if imp_file.company and hasattr(imp_file.company, 'tax_card_number'):
-                tax_no = imp_file.company.tax_card_number
+            if imp_file.company:
+                tax_no = (
+                    getattr(imp_file.company, 'vat_id', None)
+                    or getattr(imp_file.company, 'tax_card_number', None)
+                    or getattr(imp_file.company, 'tax_id', None)
+                )
 
             po_curr = "USD"
             if po and po.currency and hasattr(po.currency, 'currency_code'):
@@ -4343,6 +4347,32 @@ def extract_and_compare_po_documents_service(
             po_gw = float(po.total_gross_weight_kg) if (po and po.total_gross_weight_kg) else 0.0
             po_nw = float(po.total_net_weight_kg) if (po and po.total_net_weight_kg) else 0.0
             po_cbm = float(po.total_cbm) if (po and po.total_cbm) else 0.0
+
+            # Resolve supplier name
+            supplier_name_val = ""
+            if po and po.supplier:
+                supplier_name_val = (getattr(po.supplier, 'company_name', '') or getattr(po.supplier, 'name', '') or "").strip()
+
+            # Resolve importer name
+            importer_name_val = ""
+            if imp_file.company:
+                importer_name_val = (
+                    getattr(imp_file.company, 'importer_name', '')
+                    or getattr(imp_file.company, 'company_name', '')
+                    or getattr(imp_file.company, 'name', '')
+                    or ""
+                ).strip()
+            if not importer_name_val:
+                importer_name_val = (imp_file.company_name or "").strip()
+
+            # Resolve primary HS Code (from first PO item)
+            hs_code_val = ""
+            if po and po.line_items:
+                first_item = po.line_items[0]
+                if hasattr(first_item, 'tariff') and first_item.tariff:
+                    hs_code_val = getattr(first_item.tariff, 'hs_code', '') or ""
+                if not hs_code_val and po.packing_list_items:
+                    hs_code_val = po.packing_list_items[0].hs_code or ""
 
             file_metadata = {
                 "import_file_id": imp_file.import_file_id,
@@ -4357,6 +4387,9 @@ def extract_and_compare_po_documents_service(
                 "total_gross_weight_kg": po_gw,
                 "total_net_weight_kg": po_nw,
                 "total_cbm": po_cbm,
+                "supplier_name": supplier_name_val,
+                "importer_name": importer_name_val,
+                "hs_code": hs_code_val,
             }
             if not system_items:
                 po_records = [po] if po else db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == request.import_file_id).all()
@@ -4390,6 +4423,25 @@ def extract_and_compare_po_documents_service(
                             "initial_cbm": cbm_val,
                         })
 
+            # Always build system_packing_items from DB packing_list_items (real weights, not dummy PO line item values)
+            if not system_packing_items:
+                po_records_for_packing = [po] if po else db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == request.import_file_id).all()
+                for p_rec in po_records_for_packing:
+                    if p_rec and p_rec.packing_list_items:
+                        for p_item in p_rec.packing_list_items:
+                            system_packing_items.append({
+                                "po_item_id": p_item.packing_item_id,
+                                "item_code": p_item.item_code or "",
+                                "description": p_item.description or p_item.item_code or "",
+                                "hs_code": p_item.hs_code or "",
+                                "package_type": p_item.package_type or "Carton",
+                                "initial_quantity": float(p_item.qty_pcs or 0.0),
+                                "initial_packages_count": float(p_item.qty_pkg or 0.0),
+                                "initial_net_weight_kg": float(p_item.total_net_weight_kg or 0.0),
+                                "initial_gross_weight_kg": float(p_item.total_gross_weight_kg or 0.0),
+                                "initial_cbm": float(p_item.total_cbm or 0.0),
+                            })
+
     if not system_items:
         inv_itms = inv_data.get("items", [])
         for idx, itm in enumerate(inv_itms, 1):
@@ -4407,8 +4459,12 @@ def extract_and_compare_po_documents_service(
                 "initial_cbm": 0.0,
             })
 
-    # 4. Perform 3-Way Reconciliation
-    reconciled = reconcile_po_documents_with_system(inv_data, pl_data, system_items, file_metadata)
+    # Use system_items as packing fallback if no dedicated packing items found
+    if not system_packing_items:
+        system_packing_items = system_items
+
+    # 4. Perform 4-Way Reconciliation
+    reconciled = reconcile_po_documents_with_system(inv_data, pl_data, system_items, file_metadata, system_packing_items=system_packing_items)
 
     return POExtractAndCompareResponse(
         import_file_id=request.import_file_id,

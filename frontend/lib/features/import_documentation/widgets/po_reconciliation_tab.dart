@@ -50,6 +50,14 @@ class POReconciliationTabState extends ConsumerState<POReconciliationTab> {
         return l.poRecCheckFieldTotalPackages;
       case 'gross_weight':
         return l.poRecCheckFieldGrossWeight;
+      case 'supplier_name':
+        return l.poRecCheckFieldSupplierName;
+      case 'importer_name':
+        return l.poRecCheckFieldImporterName;
+      case 'hs_code':
+        return l.poRecCheckFieldHsCode;
+      case 'tax_id':
+        return l.poRecCheckFieldTaxId;
       default:
         return fieldNameAr ?? fieldName;
     }
@@ -462,6 +470,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           'invoice_raw_text': invText,
           'packing_list_raw_text': plText,
           'system_items': _invoiceItems.map((i) => i.toJson()).toList(),
+          'system_packing_items': _packingItems.map((i) => i.toJson()).toList(),
         };
       }
 
@@ -612,6 +621,66 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           : (grossMatched ? 'الوزن القائم متطابق بنجاح' : 'فارق في الوزن القائم: المستخرج ($totalPlGross) مقابل السستم ($sysGrossWt)'),
     });
 
+    // Check Supplier Name
+    final String? extractedSupplier = (invData['supplier_name'] as String?)?.trim().isNotEmpty == true
+        ? invData['supplier_name'] as String
+        : (invData['shipper_name'] as String?)?.trim();
+    final String sysSupplier = linkedPO?.supplierName?.trim() ?? '';
+    final bool supplierMatched = extractedSupplier != null && sysSupplier.isNotEmpty
+        ? extractedSupplier.toLowerCase().contains(sysSupplier.toLowerCase()) ||
+          sysSupplier.toLowerCase().contains(extractedSupplier.toLowerCase())
+        : true;
+    headerDiscrepancies.add({
+      'field_name': 'supplier_name',
+      'field_name_ar': 'اسم المورد الأجنبي',
+      'system_value': sysSupplier.isNotEmpty ? sysSupplier : 'غير محدد بالسستم',
+      'extracted_value': extractedSupplier ?? 'لم يتم الاستخراج',
+      'status': extractedSupplier == null ? 'WARNING' : (supplierMatched ? 'MATCH' : 'DISCREPANCY'),
+      'message': extractedSupplier == null
+          ? 'تعذر قراءة اسم المورد من المستند'
+          : (supplierMatched ? 'اسم المورد متطابق' : 'اسم المورد المستخرج ($extractedSupplier) يختلف عن المسجل ($sysSupplier)'),
+    });
+
+    // Check Importer Name
+    final String? extractedImporter = (invData['importer_name'] as String?)?.trim().isNotEmpty == true
+        ? invData['importer_name'] as String
+        : (invData['consignee_name'] as String?)?.trim();
+    final String sysImporter = currentFile?.companyName.trim() ?? '';
+    final bool importerMatched = extractedImporter != null && sysImporter.isNotEmpty
+        ? extractedImporter.toLowerCase().contains(sysImporter.toLowerCase()) ||
+          sysImporter.toLowerCase().contains(extractedImporter.toLowerCase())
+        : true;
+    headerDiscrepancies.add({
+      'field_name': 'importer_name',
+      'field_name_ar': 'اسم الشركة المستوردة',
+      'system_value': sysImporter.isNotEmpty ? sysImporter : 'غير محدد بالسستم',
+      'extracted_value': extractedImporter ?? 'لم يتم الاستخراج',
+      'status': extractedImporter == null ? 'WARNING' : (importerMatched ? 'MATCH' : 'DISCREPANCY'),
+      'message': extractedImporter == null
+          ? 'تعذر قراءة اسم المستورد من المستند'
+          : (importerMatched ? 'اسم المستورد متطابق' : 'اسم المستورد المستخرج ($extractedImporter) يختلف عن المسجل ($sysImporter)'),
+    });
+
+    // Check HS Code
+    final String? extractedHs = (invData['hs_code'] as String?)?.trim().isNotEmpty == true
+        ? invData['hs_code'] as String
+        : null;
+    final String sysHs = _packingItems.isNotEmpty ? (_packingItems.first.hsCode?.trim() ?? '') : '';
+    final bool hsMatched = extractedHs != null && sysHs.isNotEmpty
+        ? extractedHs.replaceAll('.', '') == sysHs.replaceAll('.', '') ||
+          extractedHs.contains(sysHs) || sysHs.contains(extractedHs)
+        : true;
+    headerDiscrepancies.add({
+      'field_name': 'hs_code',
+      'field_name_ar': 'البند الجمركي (HS Code)',
+      'system_value': sysHs.isNotEmpty ? sysHs : 'غير محدد بالسستم',
+      'extracted_value': extractedHs ?? 'لم يتم الاستخراج',
+      'status': extractedHs == null ? 'WARNING' : (hsMatched ? 'MATCH' : 'DISCREPANCY'),
+      'message': extractedHs == null
+          ? 'تعذر قراءة البند الجمركي من المستند'
+          : (hsMatched ? 'البند الجمركي متطابق' : 'البند الجمركي المستخرج ($extractedHs) يختلف عن المسجل ($sysHs)'),
+    });
+
     // Reconciled items from loaded system data
     final List<Map<String, dynamic>> reconciledInvItems = _invoiceItems.map((i) => i.toJson()).toList();
     final List<Map<String, dynamic>> reconciledPackingItems = _packingItems.map((i) => i.toJson()).toList();
@@ -758,9 +827,23 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     List<POReconciliationItemModel> plList = [];
 
     for (var po in linkedPOs) {
+      // Build a quick lookup map: itemCode -> packing list item
+      final pkgMap = <String, dynamic>{};
+      for (var plItm in po.packingListItems) {
+        final code = plItm.itemCode.trim().toLowerCase();
+        if (code.isNotEmpty) pkgMap[code] = plItm;
+      }
+
       for (var itm in po.items) {
         final itmCode = itm.itemCode ?? 'ITEM-${itm.itemId ?? 0}';
         final itmDesc = itm.descriptionAr.isNotEmpty ? itm.descriptionAr : (itm.descriptionEn ?? 'PO Line Item');
+
+        // Look up packing qty from matching packing list item
+        final matchedPl = pkgMap[itmCode.trim().toLowerCase()];
+        final double pkgCountFromPl = (matchedPl != null && matchedPl.qtyPkg > 0)
+            ? matchedPl.qtyPkg.toDouble()
+            : 0.0;
+
         final recItem = POReconciliationItemModel(
           poItemId: itm.itemId ?? 0,
           itemCode: itmCode,
@@ -771,8 +854,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           initialUnitPrice: itm.unitPrice,
           unitPrice: itm.unitPrice,
           finalUnitPrice: itm.unitPrice,
-          initialPackagesCount: 1,
-          finalPackagesCount: 1,
+          initialPackagesCount: pkgCountFromPl,
+          finalPackagesCount: pkgCountFromPl,
           initialGrossWeightKg: itm.grossWeightKg,
           finalGrossWeightKg: itm.grossWeightKg,
           initialNetWeightKg: itm.netWeightKg,
@@ -1436,6 +1519,13 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         'extracted_packing_data': session.extractedPackingData,
       };
     });
+
+    // Auto-repair: if session packing data looks corrupted (all items sum < 100 kg total gross),
+    // reload from system PO packing list
+    final totalGwFromSession = _packingItems.fold<double>(0.0, (sum, i) => sum + i.initialGrossWeightKg);
+    if (totalGwFromSession < 100.0 && _selectedImportFileId != null) {
+      _loadPOItems(_selectedImportFileId!);
+    }
 
     if (_mainScrollController.hasClients) {
       _mainScrollController.animateTo(
@@ -4419,8 +4509,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               columnSpacing: 20,
               columns: [
                 DataColumn(label: Text(l.poRecColCheckItem)),
-                DataColumn(label: Text(l.poRecColSystemValue)),
-                DataColumn(label: Text(l.poRecColExtractedValue)),
+                const DataColumn(label: Text('System Value\n(Invoice)')),
+                const DataColumn(label: Text('System Value\n(Packing List)')),
+                const DataColumn(label: Text('Uploaded Value\n(Invoice)')),
+                const DataColumn(label: Text('Uploaded Value\n(Packing List)')),
                 DataColumn(label: Text(l.poRecColMatchStatus)),
                 DataColumn(label: Text(l.poRecColDetails)),
               ],
@@ -4428,17 +4520,27 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 final map = d as Map<String, dynamic>;
                 final status = map['status'] as String? ?? 'MATCH';
                 final fieldName = map['field_name'] as String? ?? '';
-                final localizedFieldName = _getLocalizedCheckField(context, fieldName);
+                final fieldNameAr = map['field_name_ar'] as String? ?? '';
+                final localizedFieldName = _getLocalizedCheckField(context, fieldName, fieldNameAr);
                 final systemVal = map['system_value']?.toString() ?? '—';
                 final extractedVal = map['extracted_value']?.toString() ?? '—';
-                final localizedMsg = _getLocalizedCheckMessage(context, fieldName, status, map['message'] as String?);
+                final rawMsg = (map['message'] ?? map['details'])?.toString();
+                final localizedMsg = _getLocalizedCheckMessage(context, fieldName, status, rawMsg);
                 final localizedStatus = _getLocalizedSessionStatus(context, status);
                 final rowSummary = [localizedFieldName, systemVal, extractedVal, localizedStatus, localizedMsg].join('\t');
 
+                // Extract 4-way values (fall back to system_value / extracted_value for backwards compatibility)
+                final sysInvVal = (map['system_invoice_value'] ?? map['system_value'] ?? '—').toString();
+                final sysPlVal  = (map['system_packing_value']  ?? map['system_value'] ?? '—').toString();
+                final uplInvVal = (map['uploaded_invoice_value'] ?? map['extracted_value'] ?? '—').toString();
+                final uplPlVal  = (map['uploaded_packing_value']  ?? map['extracted_value'] ?? '—').toString();
+
                 return DataRow(cells: [
                   DataCell(CopyableTableCell(value: localizedFieldName, rowSummary: rowSummary, child: Text(localizedFieldName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)))),
-                  DataCell(CopyableTableCell(value: systemVal, rowSummary: rowSummary, child: Text(systemVal, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800, fontSize: 12)))),
-                  DataCell(CopyableTableCell(value: extractedVal, rowSummary: rowSummary, child: Text(extractedVal, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)))),
+                  DataCell(CopyableTableCell(value: sysInvVal, rowSummary: rowSummary, child: Text(sysInvVal, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800, fontSize: 12)))),
+                  DataCell(CopyableTableCell(value: sysPlVal,  rowSummary: rowSummary, child: Text(sysPlVal,  style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700, fontSize: 12)))),
+                  DataCell(CopyableTableCell(value: uplInvVal, rowSummary: rowSummary, child: Text(uplInvVal, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)))),
+                  DataCell(CopyableTableCell(value: uplPlVal,  rowSummary: rowSummary, child: Text(uplPlVal,  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)))),
                   DataCell(CopyableTableCell(value: localizedStatus, rowSummary: rowSummary, child: _buildMatchStatusBadge(status))),
                   DataCell(CopyableTableCell(value: localizedMsg, rowSummary: rowSummary, child: Text(localizedMsg, style: TextStyle(fontSize: 12, color: status == 'MATCH' ? Colors.green.shade800 : Colors.red.shade800)))),
                 ]);

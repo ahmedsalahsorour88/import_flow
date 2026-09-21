@@ -1080,28 +1080,60 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
     if m_inco_loc:
         parsed["incoterm_location"] = m_inco_loc.group(1).strip()
 
-    # 9. Shipper / Exporter
+    # 9. Shipper / Exporter / Foreign Supplier
     m_shp = re.search(
-        r'(?:G\.I\.\s*INDUSTRIAL\s+HOLDING\s+SPA|Shaw\s+Europe\s+Limited|ShawContract|[A-Za-z0-9\s.,-]+(?:Limited|Ltd|S\.p\.A|SPA|LLC|GmbH|GMBH))',
+        r'(?:G\.I\.\s*INDUSTRIAL\s+HOLDING\s+SPA|Shaw\s+Europe\s+Limited|ShawContract|[A-Za-z0-9\s.,&-]+(?:Co\.?,?\s*Ltd\.?|Limited|Ltd\.?|S\.p\.A|SPA|LLC|GmbH|GMBH|Inc\.?|Corp\.?))',
         raw_text,
         re.IGNORECASE,
     )
+    clean_shp = ""
     if m_shp:
         clean_shp = m_shp.group(0).strip()
         clean_shp = re.sub(r'^(?:---\s*(?:PAGE|INVOICE\s*PAGE|INVOICE\s*FILE)\s*\d+[^\n]*---\s*)', '', clean_shp, flags=re.IGNORECASE).strip()
-        parsed["shipper"] = clean_shp
-    else:
+    if not clean_shp:
         lines = [ln.strip() for ln in raw_text.split('\n') if ln.strip() and len(ln.strip()) > 3]
-        if lines:
-            parsed["shipper"] = re.sub(r'^(?:---\s*(?:PAGE|INVOICE\s*PAGE|INVOICE\s*FILE)\s*\d+[^\n]*---\s*)', '', lines[0], flags=re.IGNORECASE).strip()
+        for candidate in lines[:6]:
+            cand_clean = re.sub(r'^(?:---\s*(?:PAGE|INVOICE\s*PAGE|INVOICE\s*FILE)\s*\d+[^\n]*---\s*)', '', candidate, flags=re.IGNORECASE).strip()
+            if cand_clean and not any(kw in cand_clean.upper() for kw in ["COMMERCIAL INVOICE", "INVOICE", "ACID", "PAGE", "SOLD TO", "DATE", "INV.", "BILL TO"]):
+                clean_shp = cand_clean
+                break
 
-    # 10. Consignee / Importer (Messrs / Bill To / Ship To / Notify)
-    m_csg = re.search(r'(?:Messers|Messrs|Bill\s+To|Ship\s+To|NOTIFY)[:\s\n]+([A-Z0-9\s.,&-]{3,60})', raw_text, re.IGNORECASE)
-    if m_csg:
-        clean_c = m_csg.group(1).strip()
-        clean_c = re.sub(r'(?:7 HOSNI|44 Street|Maadi|Cairo|Egypt|Egitto|DUNS|Tax ID).*', '', clean_c, flags=re.IGNORECASE).strip()
-        if len(clean_c) > 3 and not any(kw in clean_c.upper() for kw in ["AREA MANAGER", "PAYMENT CONDITION", "DIRECT SALE"]):
-            parsed["consignee"] = clean_c
+    if clean_shp:
+        parsed["shipper"] = clean_shp
+        parsed["supplier_name"] = clean_shp
+        parsed["shipper_name"] = clean_shp
+        parsed["exporter_name"] = clean_shp
+
+    # 10. Consignee / Importer / Sold To (SOLD TO / Messers / Bill To / Ship To / Buyer / Customer / Importer)
+    clean_c = ""
+    m_sold = re.search(
+        r'(?:SOLD\s+TO|BILL\s+TO|SHIP\s+TO|BUYER|CONSIGNEE|IMPORTER|CUSTOMER|MESSERS|MESSRS|NOTIFY)[\s:]*\n?(?:To:?\s*)?([A-Za-z0-9\u0600-\u06FF\s.,&-]{3,100})',
+        raw_text,
+        re.IGNORECASE,
+    )
+    if m_sold:
+        raw_c = m_sold.group(1).strip()
+        first_line_c = raw_c.split('\n')[0].strip()
+        first_line_c = re.sub(r'^(?:To:?\s*|Messrs:?\s*|Messers:?\s*)', '', first_line_c, flags=re.IGNORECASE).strip()
+        first_line_c = re.sub(r'(?:Address:|Addr:|44\s*RD|7\s*HOSNI|Maadi|Cairo|Egypt|Egitto|DUNS|Tax\s*ID|VAT\s*ID).*', '', first_line_c, flags=re.IGNORECASE).strip()
+        first_line_c = first_line_c.rstrip(',.- ')
+        if len(first_line_c) > 3 and not any(kw in first_line_c.upper() for kw in ["AREA MANAGER", "PAYMENT CONDITION", "DIRECT SALE", "COMMERCIAL"]):
+            clean_c = first_line_c
+
+    if not clean_c:
+        m_csg = re.search(r'(?:Messers|Messrs|Bill\s+To|Ship\s+To|NOTIFY)[:\s\n]+([A-Z0-9\s.,&-]{3,60})', raw_text, re.IGNORECASE)
+        if m_csg:
+            c_cand = m_csg.group(1).strip()
+            c_cand = re.sub(r'(?:7 HOSNI|44 Street|Maadi|Cairo|Egypt|Egitto|DUNS|Tax ID).*', '', c_cand, flags=re.IGNORECASE).strip()
+            if len(c_cand) > 3 and not any(kw in c_cand.upper() for kw in ["AREA MANAGER", "PAYMENT CONDITION", "DIRECT SALE"]):
+                clean_c = c_cand
+
+    if clean_c:
+        parsed["consignee"] = clean_c
+        parsed["importer_name"] = clean_c
+        parsed["consignee_name"] = clean_c
+        parsed["buyer"] = clean_c
+        parsed["customer_name"] = clean_c
 
     # 11. Containers & Seals
     m_cntr = re.search(r'(?:Container:?\s*([A-Z]{4}\d{7}))(?:\s*Seal:?\s*([A-Z0-9]+))?', raw_text, re.IGNORECASE)
@@ -1308,14 +1340,22 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
     parsed["items"] = items
 
     # 14. HS Codes
+    m_hs_explicit = re.search(r'(?:HS\s*CODE|H\.S\.?\s*CODE|TARIFF\s*CODE|CUSTOMS\s*CODE|COMMODITY\s*CODE)[:\s]*([0-9]{4,10})', raw_text, re.IGNORECASE)
     all_hs = [it["hs_code"] for it in items if it.get("hs_code")]
+    if m_hs_explicit:
+        all_hs.append(m_hs_explicit.group(1).strip())
     if not all_hs:
         hs_matches = re.findall(r'\b(\d{10}|\d{8})\b', raw_text)
         all_hs = [
             h for h in set(hs_matches)
             if not h.startswith('20018') and not h.startswith('019825') and not h.startswith('0020') and len(h) in [8, 10]
         ]
-    parsed["hs_codes"] = list(set(all_hs))
+    unique_hs = list(set(all_hs))
+    parsed["hs_codes"] = unique_hs
+    if unique_hs:
+        parsed["hs_code"] = unique_hs[0]
+    elif m_hs_explicit:
+        parsed["hs_code"] = m_hs_explicit.group(1).strip()
 
     return parsed
 
@@ -1349,21 +1389,59 @@ def extract_packing_list_data(raw_text: str) -> dict:
     if m_tax:
         parsed["importer_tax_id"] = m_tax.group(1).strip()
 
-    # Shipper
+    # Shipper / Foreign Supplier
+    clean_pl_shp = ""
     m_shp = re.search(r'(?:SHIPPER|EXPORTER|SUPPLIER)[:\s]*([^\n\r]+)', raw_text, re.IGNORECASE)
     if m_shp:
-        parsed["shipper"] = m_shp.group(1).strip()
-
-    # Consignee / Customer
-    m_csg = re.search(r'(?:CONSIGNEE|IMPORTER|BUYER|CUSTOMER)[:\s]*([^\n\r]+)', raw_text, re.IGNORECASE)
-    if m_csg:
-        parsed["consignee"] = m_csg.group(1).strip()
-        parsed["customer_name"] = m_csg.group(1).strip()
+        clean_pl_shp = m_shp.group(1).strip()
     else:
-        m_csg_auto = re.search(r'(?:ECO\s+ASSOCIATES|ARCHI\s+BRANDS|[A-Za-z0-9\s.,-]+(?:LIMITED|LTD|LLC|ASSOCIATES|TRADING))', raw_text, re.IGNORECASE)
-        if m_csg_auto:
-            parsed["customer_name"] = m_csg_auto.group(0).strip()
-            parsed["consignee"] = m_csg_auto.group(0).strip()
+        m_shp_auto = re.search(
+            r'(?:G\.I\.\s*INDUSTRIAL\s+HOLDING\s+SPA|Shaw\s+Europe\s+Limited|ShawContract|[A-Za-z0-9\s.,&-]+(?:Co\.?,?\s*Ltd\.?|Limited|Ltd\.?|S\.p\.A|SPA|LLC|GmbH|GMBH|Inc\.?|Corp\.?))',
+            raw_text,
+            re.IGNORECASE,
+        )
+        if m_shp_auto:
+            clean_pl_shp = m_shp_auto.group(0).strip()
+    if not clean_pl_shp:
+        lines = [ln.strip() for ln in raw_text.split('\n') if ln.strip() and len(ln.strip()) > 3]
+        for candidate in lines[:5]:
+            cand_clean = re.sub(r'^(?:---\s*(?:PAGE|PACKING\s*PAGE|PACKING\s*FILE)\s*\d+[^\n]*---\s*)', '', candidate, flags=re.IGNORECASE).strip()
+            if cand_clean and not any(kw in cand_clean.upper() for kw in ["PACKING LIST", "WEIGHT LIST", "ACID", "PAGE", "SOLD TO", "DATE", "INV.", "BILL TO"]):
+                clean_pl_shp = cand_clean
+                break
+    if clean_pl_shp:
+        parsed["shipper"] = clean_pl_shp
+        parsed["supplier_name"] = clean_pl_shp
+        parsed["shipper_name"] = clean_pl_shp
+
+    # Consignee / Customer / Importer
+    clean_pl_csg = ""
+    m_sold_pl = re.search(
+        r'(?:SOLD\s+TO|BILL\s+TO|SHIP\s+TO|BUYER|CONSIGNEE|IMPORTER|CUSTOMER|MESSERS|MESSRS|NOTIFY)[\s:]*\n?(?:To:?\s*)?([A-Za-z0-9\u0600-\u06FF\s.,&-]{3,100})',
+        raw_text,
+        re.IGNORECASE,
+    )
+    if m_sold_pl:
+        raw_c = m_sold_pl.group(1).strip()
+        first_line_c = raw_c.split('\n')[0].strip()
+        first_line_c = re.sub(r'^(?:To:?\s*|Messrs:?\s*|Messers:?\s*)', '', first_line_c, flags=re.IGNORECASE).strip()
+        first_line_c = re.sub(r'(?:Address:|Addr:|44\s*RD|7\s*HOSNI|Maadi|Cairo|Egypt|Egitto|DUNS|Tax\s*ID|VAT\s*ID).*', '', first_line_c, flags=re.IGNORECASE).strip()
+        first_line_c = first_line_c.rstrip(',.- ')
+        if len(first_line_c) > 3 and not any(kw in first_line_c.upper() for kw in ["AREA MANAGER", "PAYMENT CONDITION", "DIRECT SALE", "PACKING"]):
+            clean_pl_csg = first_line_c
+    if not clean_pl_csg:
+        m_csg = re.search(r'(?:CONSIGNEE|IMPORTER|BUYER|CUSTOMER)[:\s]*([^\n\r]+)', raw_text, re.IGNORECASE)
+        if m_csg:
+            clean_pl_csg = m_csg.group(1).strip()
+        else:
+            m_csg_auto = re.search(r'(?:SCAS|ECO\s+ASSOCIATES|ARCHI\s+BRANDS|[A-Za-z0-9\s.,-]+(?:LIMITED|LTD|LLC|ASSOCIATES|TRADING))', raw_text, re.IGNORECASE)
+            if m_csg_auto:
+                clean_pl_csg = m_csg_auto.group(0).strip()
+    if clean_pl_csg:
+        parsed["consignee"] = clean_pl_csg
+        parsed["importer_name"] = clean_pl_csg
+        parsed["customer_name"] = clean_pl_csg
+        parsed["consignee_name"] = clean_pl_csg
 
     # Containers
     cntrs = re.findall(r'([A-Z]{4}\d{7})', raw_text)
@@ -1558,7 +1636,8 @@ def reconcile_po_documents_with_system(
     invoice_data: dict,
     pl_data: dict,
     system_po_items: List[dict],
-    file_metadata: Optional[dict] = None
+    file_metadata: Optional[dict] = None,
+    system_packing_items: Optional[List[dict]] = None,
 ) -> dict:
     """
     Executes 3-way reconciliation comparing:
@@ -1585,9 +1664,14 @@ def reconcile_po_documents_with_system(
     discrepancies.append({
         "category": "HEADER",
         "check_code": "CHK_INVOICE_NO",
+        "field_name": "invoice_number",
         "field_name_ar": "رقم الفاتورة التجارية (Commercial Invoice No)",
         "system_value": sys_inv_num or "غير مسجل بالسستم",
         "extracted_value": inv_num or "غير متوفر بالمستند",
+        "system_invoice_value": sys_inv_num or "غير مسجل بالسستم",
+        "system_packing_value": file_meta.get("packing_list_number") or sys_inv_num or "غير مسجل بالسستم",
+        "uploaded_invoice_value": inv_num or "غير متوفر بالمستند",
+        "uploaded_packing_value": pl_data.get("packing_list_number") or pl_data.get("order_number") or inv_num or "غير متوفر بالمستند",
         "status": "MATCH" if inv_num_match else "MAJOR_VARIANCE",
         "details": "رقم الفاتورة مطابق تماماً لأمر الشراء والمنظومة" if inv_num_match else f"❌ رقم الفاتورة بالمستند ({inv_num}) يختلف عن رقم الفاتورة بالسستم ({sys_inv_num})!",
     })
@@ -1603,9 +1687,14 @@ def reconcile_po_documents_with_system(
     discrepancies.append({
         "category": "HEADER",
         "check_code": "CHK_ACID",
+        "field_name": "acid_number",
         "field_name_ar": "رقم القيد الجمركي المسبق (ACID)",
         "system_value": sys_acid or "غير مسجل بالسستم",
         "extracted_value": inv_acid or "غير متوفر بالمستند",
+        "system_invoice_value": sys_acid or "غير مسجل بالسستم",
+        "system_packing_value": sys_acid or "غير مسجل بالسستم",
+        "uploaded_invoice_value": invoice_data.get("acid_number") or "غير متوفر بالمستند",
+        "uploaded_packing_value": pl_data.get("acid_number") or invoice_data.get("acid_number") or "غير متوفر بالمستند",
         "status": "MATCH" if acid_match else "CRITICAL_VARIANCE",
         "details": "رقم ACID مطابق تماماً" if acid_match else "❌ رقم ACID في الفاتورة يختلف عن رقم ACID المسجل بالسستم!",
     })
@@ -1621,14 +1710,95 @@ def reconcile_po_documents_with_system(
     discrepancies.append({
         "category": "HEADER",
         "check_code": "CHK_TAX_ID",
+        "field_name": "tax_id",
         "field_name_ar": "البطاقة الضريبية للمستورد (Tax ID)",
         "system_value": sys_tax or "غير مسجل",
         "extracted_value": inv_tax or "غير متوفر",
+        "system_invoice_value": sys_tax or "غير مسجل بالسستم",
+        "system_packing_value": sys_tax or "غير مسجل بالسستم",
+        "uploaded_invoice_value": invoice_data.get("importer_tax_id") or "غير متوفر بالمستند",
+        "uploaded_packing_value": pl_data.get("importer_tax_id") or invoice_data.get("importer_tax_id") or "غير متوفر بالمستند",
         "status": "MATCH" if tax_match else "CRITICAL_VARIANCE",
         "details": "الرقم الضريبي مطابق" if tax_match else "❌ اختلاف في الرقم الضريبي للمستورد.",
     })
 
-    # 1.3 Total Amount & Currency Check
+    # 1.3 Supplier Name Check
+    inv_supplier = (invoice_data.get("supplier_name") or invoice_data.get("shipper_name") or "").strip()
+    sys_supplier = (file_meta.get("supplier_name") or "").strip()
+    supplier_match = True
+    if sys_supplier and inv_supplier:
+        s1 = re.sub(r'[^\w]', '', sys_supplier).upper()
+        s2 = re.sub(r'[^\w]', '', inv_supplier).upper()
+        supplier_match = (s1 == s2) or (s1 in s2) or (s2 in s1)
+        if not supplier_match:
+            has_warning = True
+    discrepancies.append({
+        "category": "HEADER",
+        "check_code": "CHK_SUPPLIER_NAME",
+        "field_name": "supplier_name",
+        "field_name_ar": "اسم المورد الأجنبي (Foreign Supplier)",
+        "system_value": sys_supplier or "غير مسجل بالسستم",
+        "extracted_value": inv_supplier or "غير متوفر بالمستند",
+        "system_invoice_value": sys_supplier or "غير مسجل بالسستم",
+        "system_packing_value": sys_supplier or "غير مسجل بالسستم",
+        "uploaded_invoice_value": (invoice_data.get("supplier_name") or invoice_data.get("shipper") or invoice_data.get("shipper_name") or "").strip() or "غير متوفر بالمستند",
+        "uploaded_packing_value": (pl_data.get("supplier_name") or pl_data.get("shipper") or pl_data.get("shipper_name") or invoice_data.get("supplier_name") or "").strip() or "غير متوفر بالمستند",
+        "status": "MATCH" if (supplier_match or not sys_supplier or not inv_supplier) else "MINOR_VARIANCE",
+        "details": "اسم المورد مطابق" if (supplier_match or not sys_supplier or not inv_supplier)
+                   else f"⚠️ اسم المورد المستخرج ({inv_supplier}) يختلف عن المسجل بالسستم ({sys_supplier})",
+    })
+
+    # 1.4 Importer / Consignee Name Check
+    inv_importer = (invoice_data.get("importer_name") or invoice_data.get("consignee_name") or "").strip()
+    sys_importer = (file_meta.get("importer_name") or "").strip()
+    importer_match = True
+    if sys_importer and inv_importer:
+        i1 = re.sub(r'[^\w]', '', sys_importer).upper()
+        i2 = re.sub(r'[^\w]', '', inv_importer).upper()
+        importer_match = (i1 == i2) or (i1 in i2) or (i2 in i1)
+        if not importer_match:
+            has_warning = True
+    discrepancies.append({
+        "category": "HEADER",
+        "check_code": "CHK_IMPORTER_NAME",
+        "field_name": "importer_name",
+        "field_name_ar": "اسم الشركة المستوردة (Importing Company)",
+        "system_value": sys_importer or "غير مسجل بالسستم",
+        "extracted_value": inv_importer or "غير متوفر بالمستند",
+        "system_invoice_value": sys_importer or "غير مسجل بالسستم",
+        "system_packing_value": sys_importer or "غير مسجل بالسستم",
+        "uploaded_invoice_value": (invoice_data.get("importer_name") or invoice_data.get("consignee") or invoice_data.get("consignee_name") or invoice_data.get("buyer") or "").strip() or "غير متوفر بالمستند",
+        "uploaded_packing_value": (pl_data.get("importer_name") or pl_data.get("consignee") or pl_data.get("consignee_name") or pl_data.get("customer_name") or invoice_data.get("importer_name") or "").strip() or "غير متوفر بالمستند",
+        "status": "MATCH" if (importer_match or not sys_importer or not inv_importer) else "MINOR_VARIANCE",
+        "details": "اسم المستورد مطابق" if (importer_match or not sys_importer or not inv_importer)
+                   else f"⚠️ اسم المستورد المستخرج ({inv_importer}) يختلف عن المسجل ({sys_importer})",
+    })
+
+    # 1.5 HS Code Check (first item)
+    inv_hs = (invoice_data.get("hs_code") or (invoice_data.get("items", [{}])[0].get("hs_code") if invoice_data.get("items") else "") or "").strip()
+    sys_hs = (file_meta.get("hs_code") or "").strip()
+    hs_match = True
+    if sys_hs and inv_hs:
+        hs_match = sys_hs.replace(".", "") == inv_hs.replace(".", "") or sys_hs in inv_hs or inv_hs in sys_hs
+        if not hs_match:
+            has_warning = True
+    discrepancies.append({
+        "category": "HEADER",
+        "check_code": "CHK_HS_CODE",
+        "field_name": "hs_code",
+        "field_name_ar": "البند الجمركي (HS Code)",
+        "system_value": sys_hs or "غير مسجل بالسستم",
+        "extracted_value": inv_hs or "غير متوفر بالمستند",
+        "system_invoice_value": sys_hs or "غير مسجل بالسستم",
+        "system_packing_value": sys_hs or "غير مسجل بالسستم",
+        "uploaded_invoice_value": inv_hs or "غير متوفر بالمستند",
+        "uploaded_packing_value": (pl_data.get("hs_code") or (pl_data.get("items", [{}])[0].get("hs_code") if pl_data.get("items") else "") or inv_hs or "").strip() or "غير متوفر بالمستند",
+        "status": "MATCH" if (hs_match or not sys_hs or not inv_hs) else "MINOR_VARIANCE",
+        "details": "البند الجمركي مطابق" if (hs_match or not sys_hs or not inv_hs)
+                   else f"⚠️ البند الجمركي المستخرج ({inv_hs}) يختلف عن المسجل ({sys_hs})",
+    })
+
+    # 1.6 Total Amount & Currency Check
     inv_tot = float(invoice_data.get("total_amount") or 0.0)
     sys_tot = float(file_meta.get("total_amount") or 0.0)
     sys_curr = file_meta.get("currency") or "USD"
@@ -1649,23 +1819,40 @@ def reconcile_po_documents_with_system(
     discrepancies.append({
         "category": "HEADER",
         "check_code": "CHK_TOTAL_AMOUNT",
+        "field_name": "total_amount",
         "field_name_ar": "إجمالي قيمة الفاتورة (Total Invoice Amount)",
         "system_value": f"{sys_tot:,.2f} {sys_curr}",
         "extracted_value": f"{inv_tot:,.2f} {inv_curr}",
+        "system_invoice_value": f"{sys_tot:,.2f} {sys_curr}",
+        "system_packing_value": "— (غير مدرج بالباكينج)",
+        "uploaded_invoice_value": f"{inv_tot:,.2f} {inv_curr}",
+        "uploaded_packing_value": "—",
         "status": "MATCH" if is_amount_matched else "MINOR_VARIANCE",
         "details": details_msg,
     })
 
     # Total Packages Check
+    # Compute packing-based totals from system_packing_items (real physical values)
+    eff_packing = system_packing_items or system_po_items
+    sys_pl_pkgs = int(sum(float(p.get("initial_packages_count") or 0) for p in eff_packing))
+    sys_pl_gw   = sum(float(p.get("initial_gross_weight_kg") or 0) for p in eff_packing)
+    sys_pl_nw   = sum(float(p.get("initial_net_weight_kg") or 0) for p in eff_packing)
+    sys_pl_cbm  = sum(float(p.get("initial_cbm") or 0) for p in eff_packing)
+
     pl_pkgs = pl_data.get("total_packages") or invoice_data.get("qty_pkg", 0)
     sys_pkgs = file_meta.get("total_packages", 0)
     pkg_match = bool(pl_pkgs == sys_pkgs or sys_pkgs == 0)
     discrepancies.append({
         "category": "HEADER",
         "check_code": "CHK_PACKAGES",
+        "field_name": "total_packages",
         "field_name_ar": "إجمالي عدد الطرود (Total Packages / Colli)",
         "system_value": f"{sys_pkgs} طرد",
         "extracted_value": f"{pl_pkgs} طرد",
+        "system_invoice_value": f"{sys_pkgs} طرد",
+        "system_packing_value": f"{sys_pl_pkgs} طرد",
+        "uploaded_invoice_value": f"{int(invoice_data.get('qty_pkg') or 0)} طرد" if invoice_data.get('qty_pkg') else "غير مذكور بالفاتورة",
+        "uploaded_packing_value": f"{pl_pkgs} طرد",
         "status": "MATCH" if pkg_match else "MINOR_VARIANCE",
         "details": "عدد الطرود متطابق" if pkg_match else f"فارق عدد الطرود: {abs(pl_pkgs - sys_pkgs)} طرد",
     })
@@ -1677,11 +1864,54 @@ def reconcile_po_documents_with_system(
     discrepancies.append({
         "category": "HEADER",
         "check_code": "CHK_GROSS_WEIGHT",
+        "field_name": "gross_weight",
         "field_name_ar": "الوزن القائم الإجمالي (Total Gross Weight KG)",
         "system_value": f"{sys_gw:,.2f} كجم",
         "extracted_value": f"{pl_gw:,.2f} كجم",
+        "system_invoice_value": f"{sys_gw:,.2f} كجم",
+        "system_packing_value": f"{sys_pl_gw:,.2f} كجم",
+        "uploaded_invoice_value": f"{float(invoice_data.get('total_gross_weight_kg') or 0):,.2f} كجم" if invoice_data.get('total_gross_weight_kg') else "غير مذكور بالفاتورة",
+        "uploaded_packing_value": f"{pl_gw:,.2f} كجم",
         "status": "MATCH" if (gw_match or sys_gw == 0) else "MINOR_VARIANCE",
         "details": "الوزن القائم متطابق" if (gw_match or sys_gw == 0) else f"فارق الوزن: {gw_diff:,.2f} كجم ({gw_pct:.2f}%)",
+    })
+
+    # Net Weight Check
+    pl_nw = pl_data.get("total_net_weight_kg") or 0.0
+    sys_nw = file_meta.get("total_net_weight_kg", 0.0)
+    nw_match, nw_pct, nw_diff = _numeric_tolerance_match(sys_nw, pl_nw, tolerance_pct=2.0)
+    discrepancies.append({
+        "category": "HEADER",
+        "check_code": "CHK_NET_WEIGHT",
+        "field_name": "net_weight",
+        "field_name_ar": "الوزن الصافي الإجمالي (Total Net Weight KG)",
+        "system_value": f"{sys_nw:,.2f} كجم",
+        "extracted_value": f"{pl_nw:,.2f} كجم",
+        "system_invoice_value": f"{sys_nw:,.2f} كجم",
+        "system_packing_value": f"{sys_pl_nw:,.2f} كجم",
+        "uploaded_invoice_value": f"{float(invoice_data.get('total_net_weight_kg') or 0):,.2f} كجم" if invoice_data.get('total_net_weight_kg') else "غير مذكور بالفاتورة",
+        "uploaded_packing_value": f"{pl_nw:,.2f} كجم",
+        "status": "MATCH" if (nw_match or sys_nw == 0) else "MINOR_VARIANCE",
+        "details": "الوزن الصافي متطابق" if (nw_match or sys_nw == 0) else f"فارق الوزن الصافي: {nw_diff:,.2f} كجم ({nw_pct:.2f}%)",
+    })
+
+    # Total CBM Check
+    pl_cbm = pl_data.get("total_cbm") or 0.0
+    sys_cbm_val = file_meta.get("total_cbm", 0.0)
+    cbm_match, cbm_pct, cbm_diff = _numeric_tolerance_match(sys_cbm_val, pl_cbm, tolerance_pct=3.0)
+    discrepancies.append({
+        "category": "HEADER",
+        "check_code": "CHK_TOTAL_CBM",
+        "field_name": "total_cbm",
+        "field_name_ar": "الحجم الإجمالي (Total Volume CBM)",
+        "system_value": f"{sys_cbm_val:,.2f} م\u00B3",
+        "extracted_value": f"{pl_cbm:,.2f} م\u00B3",
+        "system_invoice_value": f"{sys_cbm_val:,.2f} م\u00B3",
+        "system_packing_value": f"{sys_pl_cbm:,.2f} م\u00B3",
+        "uploaded_invoice_value": "— (غير مدرج بالفاتورة)",
+        "uploaded_packing_value": f"{pl_cbm:,.2f} م\u00B3",
+        "status": "MATCH" if (cbm_match or sys_cbm_val == 0) else "MINOR_VARIANCE",
+        "details": "الحجم الإجمالي متطابق" if (cbm_match or sys_cbm_val == 0) else f"فارق الحجم: {cbm_diff:,.2f} م³ ({cbm_pct:.2f}%)",
     })
 
     # 2. Line Items Reconciliation
@@ -1697,7 +1927,8 @@ def reconcile_po_documents_with_system(
         s_desc = sys_itm.get("description", "")
         s_qty = float(sys_itm.get("initial_quantity") or sys_itm.get("quantity") or 1.0)
         s_price = float(sys_itm.get("initial_unit_price") or sys_itm.get("unit_price") or 0.0)
-        s_pkg = float(sys_itm.get("initial_packages_count") or 1.0)
+        _raw_pkg = sys_itm.get("initial_packages_count")
+        s_pkg = float(_raw_pkg) if (_raw_pkg is not None and float(_raw_pkg) > 0) else 1.0
         s_net = float(sys_itm.get("initial_net_weight_kg") or 0.0)
         s_gross = float(sys_itm.get("initial_gross_weight_kg") or 0.0)
         s_cbm = float(sys_itm.get("initial_cbm") or 0.0)
@@ -1791,28 +2022,69 @@ def reconcile_po_documents_with_system(
             "total_amount": round(final_qty * (final_price if final_price > 0 else s_price), 2),
         })
 
+        # pl_items will be built separately from system_packing_items below
+        pass
+
+    # Build reconciled_pl_items from system_packing_items (real physical cargo data)
+    pl_source = system_packing_items if (system_packing_items and len(system_packing_items) > 0) else system_po_items
+    for p_idx, sys_pl in enumerate(pl_source, 1):
+        p_code = sys_pl.get("item_code") or str(p_idx)
+        p_desc = sys_pl.get("description") or p_code
+        p_qty = float(sys_pl.get("initial_quantity") or sys_pl.get("quantity") or 0.0)
+        p_pkg = float(sys_pl.get("initial_packages_count") or sys_pl.get("qty_pkg") or 0.0)
+        p_net = float(sys_pl.get("initial_net_weight_kg") or sys_pl.get("total_net_weight_kg") or 0.0)
+        p_gross = float(sys_pl.get("initial_gross_weight_kg") or sys_pl.get("total_gross_weight_kg") or 0.0)
+        p_cbm = float(sys_pl.get("initial_cbm") or sys_pl.get("total_cbm") or 0.0)
+        p_type = sys_pl.get("package_type") or "Carton"
+        p_hs = sys_pl.get("hs_code") or ""
+
+        # Try to match with uploaded packing list item
+        matched_upl = None
+        p_norm = re.sub(r'[\s/_-]', '', p_code).upper()
+        for pl_i in pl_items:
+            pl_norm = re.sub(r'[\s/_-]', '', pl_i.get("item_code", "")).upper()
+            if p_norm and pl_norm and (p_norm == pl_norm or p_norm in pl_norm or pl_norm in p_norm):
+                matched_upl = pl_i
+                break
+        if not matched_upl and p_idx <= len(pl_items):
+            matched_upl = pl_items[p_idx - 1]
+
+        final_p_pkgs  = float(matched_upl.get("packages_count") or p_pkg) if matched_upl else p_pkg
+        final_p_qty   = float(matched_upl.get("quantity") or p_qty) if matched_upl else p_qty
+        final_p_net   = float(matched_upl.get("net_weight_kg") or p_net) if matched_upl else p_net
+        final_p_gross = float(matched_upl.get("gross_weight_kg") or p_gross) if matched_upl else p_gross
+        final_p_cbm   = float(matched_upl.get("calculated_cbm") or matched_upl.get("cbm") or p_cbm) if matched_upl else p_cbm
+        final_p_type  = matched_upl.get("package_type") or p_type if matched_upl else p_type
+
+        p_pkg_var = round(((final_p_pkgs - p_pkg) / p_pkg) * 100.0, 2) if p_pkg > 0 else 0.0
+        p_gw_var  = round(((final_p_gross - p_gross) / p_gross) * 100.0, 2) if p_gross > 0 else 0.0
+
+        if abs(p_pkg_var) > 5.0 or abs(p_gw_var) > 5.0:
+            has_warning = True
+
         reconciled_pl_items.append({
-            "po_item_id": sys_itm.get("po_item_id") or idx,
-            "item_code": s_code,
-            "description": f"{s_code} - {inv_desc}",
-            "hs_code": inv_hs,
-            "package_type": pkg_type,
-            "initial_quantity": s_qty,
-            "final_quantity": pl_qty,
+            "po_item_id": sys_pl.get("po_item_id") or sys_pl.get("packing_item_id") or p_idx,
+            "item_code": p_code,
+            "description": p_desc,
+            "hs_code": p_hs,
+            "package_type": final_p_type,
+            "initial_quantity": p_qty,
+            "final_quantity": final_p_qty,
             "initial_unit_price": 0.0,
             "unit_price": 0.0,
             "final_unit_price": 0.0,
-            "initial_packages_count": s_pkg,
-            "final_packages_count": final_pkgs,
-            "initial_net_weight_kg": s_net,
-            "final_net_weight_kg": final_net,
-            "initial_gross_weight_kg": s_gross,
-            "final_gross_weight_kg": final_gross,
-            "initial_cbm": s_cbm,
-            "final_cbm": final_cbm,
-            "variance_percentage": pl_qty_var,
+            "initial_packages_count": p_pkg,
+            "final_packages_count": final_p_pkgs,
+            "initial_net_weight_kg": p_net,
+            "final_net_weight_kg": final_p_net,
+            "initial_gross_weight_kg": p_gross,
+            "final_gross_weight_kg": final_p_gross,
+            "initial_cbm": p_cbm,
+            "final_cbm": final_p_cbm,
+            "variance_percentage": p_pkg_var,
             "price_variance_percentage": 0.0,
-            "weight_variance_percentage": weight_var,
+            "weight_variance_percentage": p_gw_var,
+            "total_amount": 0.0,
         })
 
     overall_status = "FULLY_MATCHED" if (not has_critical and not has_warning) else ("ACCEPTED_WITH_WARNINGS" if not has_critical else "CRITICAL_VARIANCE")

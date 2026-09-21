@@ -830,6 +830,10 @@ class POHeaderDiscrepancyItem(BaseModel):
     field_name_ar: str
     system_value: Any
     extracted_value: Any
+    system_invoice_value: Optional[Any] = None
+    system_packing_value: Optional[Any] = None
+    uploaded_invoice_value: Optional[Any] = None
+    uploaded_packing_value: Optional[Any] = None
     status: str  # 'MATCH', 'MINOR_VARIANCE', 'CRITICAL_VARIANCE'
     details: str
 
@@ -841,6 +845,7 @@ class POExtractAndCompareRequest(BaseModel):
     invoice_data: Optional[Dict[str, Any]] = None
     packing_data: Optional[Dict[str, Any]] = None
     system_items: Optional[List[Dict[str, Any]]] = None
+    system_packing_items: Optional[List[Dict[str, Any]]] = None
 
 
 class POExtractAndCompareResponse(BaseModel):

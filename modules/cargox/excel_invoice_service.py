@@ -463,16 +463,24 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
         ws[f"P{totals_start_row+4}"].number_format = "#,##0.00"
         ws[f"P{totals_start_row+4}"].alignment = Alignment(horizontal="right", vertical="center")
 
-        wb.defined_names.add(DefinedName("TotalInvoiceLinesNo", attr_text=f"'{ws.title}'!$C${totals_start_row}"))
-        wb.defined_names.add(DefinedName("InvoiceSubtotal", attr_text=f"'{ws.title}'!$P${totals_start_row}"))
-        wb.defined_names.add(DefinedName("FreightCost", attr_text=f"'{ws.title}'!$P${totals_start_row+1}"))
-        wb.defined_names.add(DefinedName("InsuranceCost", attr_text=f"'{ws.title}'!$P${totals_start_row+2}"))
-        wb.defined_names.add(DefinedName("OtherCosts", attr_text=f"'{ws.title}'!$P${totals_start_row+3}"))
-        wb.defined_names.add(DefinedName("TotalAmount", attr_text=f"'{ws.title}'!$P${totals_start_row+4}"))
+        # 7. Upsert DefinedNames — delete first if already present in template to avoid duplicates
+        _defined_names_to_set = {
+            "TotalInvoiceLinesNo": f"'{ws.title}'!$C${totals_start_row}",
+            "InvoiceSubtotal":     f"'{ws.title}'!$P${totals_start_row}",
+            "FreightCost":         f"'{ws.title}'!$P${totals_start_row+1}",
+            "InsuranceCost":       f"'{ws.title}'!$P${totals_start_row+2}",
+            "OtherCosts":          f"'{ws.title}'!$P${totals_start_row+3}",
+            "TotalAmount":         f"'{ws.title}'!$P${totals_start_row+4}",
+        }
+        for _dn_name, _dn_ref in _defined_names_to_set.items():
+            if _dn_name in wb.defined_names:
+                del wb.defined_names[_dn_name]
+            wb.defined_names[_dn_name] = DefinedName(_dn_name, attr_text=_dn_ref)
 
         output = io.BytesIO()
         wb.save(output)
         return output.getvalue()
+
 
     # Programmatic full fallback
     wb = openpyxl.Workbook()

@@ -91,8 +91,20 @@ class WebFileSaver {
         js_util.setProperty(pickerOptions, 'types', js_util.jsify([typeObj]));
       }
 
-      // Call window.showSaveFilePicker(options)
+      // ⚡ CRITICAL FIX — User Gesture Chain Rule:
+      // showSaveFilePicker() MUST be called synchronously within the browser user-gesture
+      // handler (onClick). Any await BEFORE this call causes the browser to lose the gesture
+      // context → SecurityError: "Must be handling a user gesture to show a file picker."
+      //
+      // Correct pattern:
+      //   1. Call JS method synchronously (no prior await) → gesture chain satisfied ✅
+      //   2. Await the returned Promise → browser allows this ✅
+      //   3. Write data to the obtained FileHandle stream → safe ✅
+      //
+      // NEVER do: await someAsyncWork(); then showSaveFilePicker() — this breaks the chain ❌
       final handlePromise = js_util.callMethod(html.window, 'showSaveFilePicker', [pickerOptions]);
+
+      // Safe to await from here — gesture chain was honoured by the synchronous JS call above.
       final fileHandle = await js_util.promiseToFuture(handlePromise);
 
       // Create writable stream
@@ -120,19 +132,21 @@ class WebFileSaver {
       return fileName;
     } catch (e) {
       final errStr = e.toString();
-      bool isAbort = errStr.contains('AbortError');
+      // AbortError  → user cancelled the dialog → return null silently
+      // SecurityError → gesture chain was already broken upstream (caller did await before
+      //                 invoking FileSaveHelper) → fall back gracefully without crashing
+      bool isGestureCancellation = errStr.contains('AbortError') || errStr.contains('SecurityError');
       try {
-        if (!isAbort && js_util.hasProperty(e, 'name')) {
-          final errName = js_util.getProperty(e, 'name');
-          if (errName == 'AbortError') {
-            isAbort = true;
+        if (js_util.hasProperty(e, 'name')) {
+          final errName = js_util.getProperty(e, 'name').toString();
+          if (errName == 'AbortError' || errName == 'SecurityError') {
+            isGestureCancellation = true;
           }
         }
       } catch (_) {}
 
-      if (isAbort) {
-        // User intentionally cancelled — return null (do NOT fall back to <a download>)
-        return null;
+      if (isGestureCancellation) {
+        return null; // Caller will fall back to triggerFallbackDownload
       }
       rethrow;
     }

@@ -96,11 +96,41 @@ class FileSaveHelper {
             fileName: sanitizedDefaultName,
             allowedExtensions: allowedExtensions,
           );
-          // If user cancelled the picker (AbortError), savedName is null -> stop silently
+          // null means: user cancelled (AbortError) OR SecurityError (gesture chain broken by prior await).
+          // In both cases we fall through to the fallback download below.
           if (savedName == null) {
-            return null;
+            // Trigger anchor fallback download so the file is still saved
+            WebFileSaver.triggerFallbackDownload(
+              bytes: bytes,
+              fileName: sanitizedDefaultName,
+            );
+            finalPath = sanitizedDefaultName;
+
+            // Inform user (only if SecurityError — we can't distinguish, so always show a gentle note)
+            if (context != null && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  backgroundColor: Color(0xFFE67E22), // AppTheme.orange
+                  behavior: SnackBarBehavior.floating,
+                  duration: Duration(seconds: 4),
+                  content: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'تم حفظ الملف في مجلد التنزيلات (Downloads) — متصفحك لا يدعم اختيار مجلد الحفظ في هذا السياق',
+                          style: TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+          } else {
+            finalPath = savedName;
           }
-          finalPath = savedName;
         } else {
           // Unsupported Web Browser (Firefox, Safari, Mobile) -> fallback to <a download>
           WebFileSaver.triggerFallbackDownload(

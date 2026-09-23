@@ -952,34 +952,44 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                IconButton(
-                                  key: const Key('copyTicketsBtn'),
-                                  icon: const Icon(Icons.copy_outlined, size: 18),
-                                  onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
-                                      ? null
-                                      : () => _copyTicketsAsTsv(ticketsState.valueOrNull!),
-                                  tooltip: context.l10n.isArabic ? 'نسخ التذاكر كـ TSV' : 'Copy Tickets as TSV',
-                                ),
-                                IconButton(
-                                  key: const Key('exportTicketsExcelBtn'),
-                                  icon: const Icon(Icons.table_chart_outlined, size: 18),
-                                  onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
-                                      ? null
-                                      : () => _exportTicketsToExcel(ticketsState.valueOrNull!),
-                                  tooltip: context.l10n.isArabic ? 'تصدير إكسيل' : 'Export Excel',
-                                ),
-                                IconButton(
-                                  key: const Key('exportTicketsPdfBtn'),
-                                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                                  onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
-                                      ? null
-                                      : () => _exportTicketsToPdf(ticketsState.valueOrNull!),
-                                  tooltip: context.l10n.isArabic ? 'تصدير PDF' : 'Export PDF',
-                                ),
-                                TextButton.icon(
-                                  icon: const Icon(Icons.add, size: 16),
-                                  label: Text(context.l10n.customsApprovalNewTicketButton),
-                                  onPressed: () => _showRaiseTicketDialog(),
+                                Flexible(
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          key: const Key('copyTicketsBtn'),
+                                          icon: const Icon(Icons.copy_outlined, size: 18),
+                                          onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
+                                              ? null
+                                              : () => _copyTicketsAsTsv(ticketsState.valueOrNull!),
+                                          tooltip: context.l10n.isArabic ? 'نسخ التذاكر كـ TSV' : 'Copy Tickets as TSV',
+                                        ),
+                                        IconButton(
+                                          key: const Key('exportTicketsExcelBtn'),
+                                          icon: const Icon(Icons.table_chart_outlined, size: 18),
+                                          onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
+                                              ? null
+                                              : () => _exportTicketsToExcel(ticketsState.valueOrNull!),
+                                          tooltip: context.l10n.isArabic ? 'تصدير إكسيل' : 'Export Excel',
+                                        ),
+                                        IconButton(
+                                          key: const Key('exportTicketsPdfBtn'),
+                                          icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                                          onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
+                                              ? null
+                                              : () => _exportTicketsToPdf(ticketsState.valueOrNull!),
+                                          tooltip: context.l10n.isArabic ? 'تصدير PDF' : 'Export PDF',
+                                        ),
+                                        TextButton.icon(
+                                          icon: const Icon(Icons.add, size: 16),
+                                          label: Text(context.l10n.customsApprovalNewTicketButton),
+                                          onPressed: () => _showRaiseTicketDialog(),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),

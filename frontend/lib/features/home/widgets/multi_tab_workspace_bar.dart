@@ -6,9 +6,10 @@ import '../../../core/localization/app_localizations_ar.dart';
 import '../../../core/providers/ai_assistant_provider.dart';
 import '../../../core/providers/workspace_tabs_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/unsaved_changes_dialog.dart';
 
-String _getLocalizedTabTitle(BuildContext context, int routeIndex, String fallbackTitle) {
+String getLocalizedTabTitle(BuildContext context, int routeIndex, String fallbackTitle) {
   final l10n = AppLocalizations.of(context);
 
   final isArabic = l10n is AppLocalizationsAr;
@@ -94,9 +95,10 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
     final tabsState = ref.watch(workspaceTabsProvider);
     final tabsNotifier = ref.read(workspaceTabsProvider.notifier);
     final isDark = AppTheme.isDark(context);
+    final density = ref.watch(displayDensityProvider);
 
     return Container(
-      height: 42,
+      height: density.tabBarHeight,
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF141A22) : const Color(0xFFF1F4F8),
         border: Border(
@@ -115,7 +117,7 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
               itemBuilder: (context, index) {
                 final tab = tabsState.tabs[index];
                 final isActive = tab.id == tabsState.activeTabId;
-                final localizedTitle = _getLocalizedTabTitle(context, tab.routeIndex, tab.title);
+                final localizedTitle = getLocalizedTabTitle(context, tab.routeIndex, tab.title);
 
                 return GestureDetector(
                   onTap: () {
@@ -123,9 +125,12 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
                     ref.read(aiAssistantProvider.notifier).updateScreenContext(localizedTitle);
                   },
                   child: Container(
-                    margin: const EdgeInsets.only(top: 4, right: 3, left: 2),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    constraints: const BoxConstraints(maxWidth: 160, minWidth: 80),
+                    margin: EdgeInsets.only(top: density.isUltraCompact ? 1 : 2, right: 2, left: 2),
+                    padding: EdgeInsets.symmetric(horizontal: density.isUltraCompact ? 6 : 8),
+                    constraints: BoxConstraints(
+                      maxWidth: density.isUltraCompact ? 130 : 155,
+                      minWidth: 60,
+                    ),
                     decoration: BoxDecoration(
                       color: isActive
                           ? (isDark ? AppTheme.darkCardBackground : Colors.white)
@@ -147,18 +152,18 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
                       children: [
                         Icon(
                           tab.icon,
-                          size: 14,
+                          size: density.isUltraCompact ? 12 : 13.5,
                           color: isActive
                               ? AppTheme.cobalt
                               : (isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal.withOpacity(0.7)),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 5),
                         Flexible(
                           child: Text(
                             localizedTitle,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: DisplayDensityMode.clampFontSize(density.isUltraCompact ? 11.0 : 11.8),
                               fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                               color: isActive
                                   ? (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)

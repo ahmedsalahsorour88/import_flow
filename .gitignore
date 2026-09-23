@@ -40,6 +40,9 @@ backend.spec
 # Scratch / Temp
 scratch/
 scratch*.txt
+test_*.xlsx
+test_*.xls
+*.xlsx.tmp
 
 # Secrets / Environment
 .env

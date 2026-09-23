@@ -110,6 +110,17 @@ class PurchaseOrderService:
             hs_map[hs]["total_gross_weight_kg"] += t_gross
             hs_map[hs]["total_cbm"] += t_cbm
 
+        if abs(tot_net - round(tot_net)) < 0.005:
+            tot_net = float(round(tot_net))
+        if abs(tot_gross - round(tot_gross)) < 0.005:
+            tot_gross = float(round(tot_gross))
+
+        for hs_val in hs_map.values():
+            if abs(hs_val["total_net_weight_kg"] - round(hs_val["total_net_weight_kg"])) < 0.005:
+                hs_val["total_net_weight_kg"] = float(round(hs_val["total_net_weight_kg"]))
+            if abs(hs_val["total_gross_weight_kg"] - round(hs_val["total_gross_weight_kg"])) < 0.005:
+                hs_val["total_gross_weight_kg"] = float(round(hs_val["total_gross_weight_kg"]))
+
         # Invoice HS Code Map
         invoice_hs_map = {}
         po_total_pcs = 0.0

@@ -6,6 +6,7 @@ import '../../import_documentation/widgets/smart_invoice_bl_extractor_dialog.dar
 import '../../simulation/widgets/what_if_simulator_dialog.dart';
 import '../../lifecycle_board/widgets/skip_step_dialog_helper.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
+import '../../../core/widgets/compact_table_pagination_footer.dart';
 import '../../../core/widgets/directional_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -205,7 +206,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
     final l = context.l10n;
     try {
       final report = await ref.read(importFilesProvider.notifier).fetchMasterReport();
-      final poState = ref.read(purchaseOrdersProvider);
+      var poState = ref.read(purchaseOrdersProvider);
+      if (poState.purchaseOrders.isEmpty) {
+        await ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+        poState = ref.read(purchaseOrdersProvider);
+      }
       final allPOs = poState.purchaseOrders;
 
       if (!mounted) return;
@@ -763,57 +768,12 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                               const SizedBox(height: 12),
 
                               ...displayFiles.map((file) {
-                            final linkedPOs = allPOs.where((p) => p.importFileId == file.importFileId || (p.importFileCode != null && p.importFileCode == file.importFileCode)).toList();
-
-                            double fileTotalCbm = 0.0;
-                            double fileTotalWeight = 0.0;
-                            int totalPlCount = 0;
-
-                            for (var po in linkedPOs) {
-                              final double poPalletCbm = po.palletPlanItems.isNotEmpty
-                                  ? po.palletPlanItems.fold<double>(0.0, (s, p) => s + (p.calculatedCbm > 0 ? p.calculatedCbm : (p.lengthCm * p.widthCm * p.heightCm / 1000000.0) * p.palletCount))
-                                  : (po.palletCount > 0 && po.palletLengthCm > 0 && po.palletWidthCm > 0 && po.palletHeightCm > 0
-                                      ? (po.palletLengthCm * po.palletWidthCm * po.palletHeightCm / 1000000.0) * po.palletCount
-                                      : (po.palletCount > 0 && po.totalCbm > 0 ? po.totalCbm : 0.0));
-                              final double poPalletGross = po.palletPlanItems.isNotEmpty
-                                  ? po.palletPlanItems.fold<double>(0.0, (s, p) => s + (p.grossWeightPerPalletKg * p.palletCount))
-                                  : (po.palletCount > 0 && po.totalGrossWeightKg > 0 ? po.totalGrossWeightKg : 0.0);
-                              final int poPalletCount = po.palletPlanItems.isNotEmpty
-                                  ? po.palletPlanItems.fold<int>(0, (s, p) => s + p.palletCount)
-                                  : po.palletCount;
-
-                              if (poPalletCbm > 0) {
-                                fileTotalCbm += poPalletCbm;
-                                fileTotalWeight += poPalletGross > 0 ? poPalletGross : (po.totalGrossWeightKg > 0 ? po.totalGrossWeightKg : 0.0);
-                                totalPlCount += poPalletCount > 0 ? poPalletCount : (po.packingListItems.isNotEmpty ? po.packingListItems.length : 1);
-                              } else if (po.totalCbm > 0 && po.packingListItems.isEmpty) {
-                                fileTotalCbm += po.totalCbm;
-                                fileTotalWeight += po.totalGrossWeightKg;
-                                totalPlCount += po.totalPackagesCount > 0 ? po.totalPackagesCount : 1;
-                              } else if (po.packingListItems.isNotEmpty) {
-                                totalPlCount += po.packingListItems.length;
-                                for (var pl in po.packingListItems) {
-                                  fileTotalCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
-                                  fileTotalWeight += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg));
-                                }
-                              } else {
-                                fileTotalCbm += po.totalCbm;
-                                fileTotalWeight += po.totalGrossWeightKg;
-                              }
-                            }
-
-                            final invoiceNumbers = <String>{};
-                            if (file.piNumber != null && file.piNumber!.isNotEmpty) {
-                              invoiceNumbers.add(file.piNumber!);
-                            }
-                            for (var inv in file.invoicesData) {
-                              if (inv.invoiceNo.isNotEmpty) invoiceNumbers.add(inv.invoiceNo);
-                            }
-                            for (var po in linkedPOs) {
-                              if (po.proformaInvoiceNumber != null && po.proformaInvoiceNumber!.isNotEmpty) {
-                                invoiceNumbers.add(po.proformaInvoiceNumber!);
-                              }
-                            }
+                            final linkedPOs = ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs);
+                            final metrics = ImportFilePoLinker.computeMetrics(file: file, linkedPOs: linkedPOs);
+                            final fileTotalCbm = metrics.cbm;
+                            final fileTotalWeight = metrics.weightKg;
+                            final totalPlCount = metrics.plCount;
+                            final invoiceNumbers = metrics.invoices;
 
                             return Container(
                               margin: const EdgeInsets.only(bottom: 20),
@@ -1256,22 +1216,32 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
     );
   }
 
-  void _showImportFileDetailsDialog(BuildContext context, ImportFileModel file) {
-    final allPOs = ref.read(purchaseOrdersProvider).purchaseOrders;
+  void _showImportFileDetailsDialog(BuildContext context, ImportFileModel file) async {
+    var poState = ref.read(purchaseOrdersProvider);
+    if (poState.purchaseOrders.isEmpty) {
+      await ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+      poState = ref.read(purchaseOrdersProvider);
+    }
+    final allPOs = poState.purchaseOrders;
     final linkedPOs = ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs);
     final metrics = ImportFilePoLinker.computeMetrics(file: file, linkedPOs: linkedPOs);
+    final currentLocale = ref.read(localeProvider);
+    if (!context.mounted) return;
 
     showDialog(
       context: context,
       builder: (context) {
-        return ImportFileDetailsDialog(
-          file: file,
-          linkedPOs: linkedPOs,
-          invoiceNumbers: metrics.invoices,
-          totalPackingListCbm: metrics.cbm,
-          totalPackingListWeight: metrics.weightKg,
-          totalPackingListsCount: metrics.plCount,
-          onEditPressed: () => _showAddEditFileDialog(file),
+        return Directionality(
+          textDirection: currentLocale.languageCode == 'ar' ? TextDirection.rtl : TextDirection.ltr,
+          child: ImportFileDetailsDialog(
+            file: file,
+            linkedPOs: linkedPOs,
+            invoiceNumbers: metrics.invoices,
+            totalPackingListCbm: metrics.cbm,
+            totalPackingListWeight: metrics.weightKg,
+            totalPackingListsCount: metrics.plCount,
+            onEditPressed: () => _showAddEditFileDialog(file),
+          ),
         );
       },
     );
@@ -1351,9 +1321,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
         builder: (context, screenConstraints) {
           final isMobile = screenConstraints.maxWidth < AppTheme.tabletBreakpoint;
           return Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: isMobile ? 8 : 16,
-              vertical: isMobile ? 6 : 8,
+            padding: EdgeInsets.only(
+              left: isMobile ? 8 : 16,
+              right: isMobile ? 8 : 16,
+              top: isMobile ? 4 : 6,
+              bottom: 2,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1363,7 +1335,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                   _buildMobileToolbar(context, isDark, l)
                 else
                   _buildDesktopCompactToolbar(context, isDark, l),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
 
                 // Files Data Table
             Expanded(
@@ -1375,13 +1347,18 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                     ? Center(child: Text(l.noImportFilesFound, style: const TextStyle(fontSize: 16)))
                     : Card(
                       elevation: isDark ? 0 : 2,
+                      margin: EdgeInsets.zero,
                       color: isDark ? AppTheme.darkCardBackground : Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                         side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
                       ),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
                           if (constraints.maxWidth < 768) {
                             return _buildMobileStackedCardsList(
                               context,
@@ -1468,7 +1445,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                               controller: _horizontalTableScrollController,
                               scrollDirection: Axis.horizontal,
                               child: SizedBox(
-                                width: tableTotalWidth + 72, // 72px clearance buffer for floating widgets
+                                width: tableTotalWidth,
                                 height: constraints.maxHeight,
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1876,84 +1853,35 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                   },
                 ),
               ),
-            ),
-
-
-            
-            // Pagination controls
-            if (!paginatedState.isLoading && paginatedState.items.isNotEmpty)
-              Container(
-                margin: EdgeInsets.only(top: isMobile ? 6 : 12),
-                padding: EdgeInsets.symmetric(vertical: 8, horizontal: isMobile ? 8 : 16),
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                ),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        icon: const DirectionalIcon(Icons.first_page),
-                        tooltip: l.firstPageTooltip,
-                        padding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(8),
-                        constraints: isMobile ? const BoxConstraints(minWidth: 32, minHeight: 32) : null,
-                        onPressed: paginatedState.page > 1 
-                            ? () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(1, search: _searchController.text, status: _selectedStatusFilter)
-                            : null,
-                      ),
-                      IconButton(
-                        icon: const DirectionalIcon(Icons.chevron_left),
-                        tooltip: l.previousPageTooltip,
-                        padding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(8),
-                        constraints: isMobile ? const BoxConstraints(minWidth: 32, minHeight: 32) : null,
-                        onPressed: paginatedState.page > 1 
-                            ? () => ref.read(paginatedImportFilesProvider.notifier).prevPage() 
-                            : null,
-                      ),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 16),
-                        child: Text(
-                          isMobile
-                              ? '${paginatedState.page} / ${paginatedState.totalPages}'
-                              : '${paginatedState.page} / ${paginatedState.totalPages} (${paginatedState.pageSize} / ${paginatedState.total})',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const DirectionalIcon(Icons.chevron_right),
-                        tooltip: l.nextPageTooltip,
-                        padding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(8),
-                        constraints: isMobile ? const BoxConstraints(minWidth: 32, minHeight: 32) : null,
-                        onPressed: paginatedState.page < paginatedState.totalPages 
-                            ? () => ref.read(paginatedImportFilesProvider.notifier).nextPage() 
-                            : null,
-                      ),
-                      IconButton(
-                        icon: const DirectionalIcon(Icons.last_page),
-                        tooltip: l.lastPageTooltip,
-                        padding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(8),
-                        constraints: isMobile ? const BoxConstraints(minWidth: 32, minHeight: 32) : null,
-                        onPressed: paginatedState.page < paginatedState.totalPages 
-                            ? () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.totalPages, search: _searchController.text, status: _selectedStatusFilter)
-                            : null,
-                      ),
-                    ],
+                // Seamless Integrated Compact Pagination Footer
+                if (!paginatedState.isLoading && paginatedState.items.isNotEmpty)
+                  CompactTablePaginationFooter(
+                    currentPage: paginatedState.page,
+                    totalPages: paginatedState.totalPages,
+                    totalCount: paginatedState.total,
+                    pageSize: paginatedState.pageSize,
+                    isMobile: isMobile,
+                    onPageChanged: (newPage) => ref.read(paginatedImportFilesProvider.notifier).fetchPage(
+                      newPage,
+                      search: _searchController.text,
+                      status: _selectedStatusFilter,
+                    ),
                   ),
-                ),
-              ),
-          ],
+              ],
+            ),
+          ),
         ),
-      );
-    },
-  ),
+      ],
+    ),
+  );
+},
+),
 ),
 ),
 ),
 );
-  }
+}
+
 
   // ─── Mobile Stacked Cards Layout (<768px Viewport) ─────────────────────────
 

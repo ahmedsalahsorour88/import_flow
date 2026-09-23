@@ -11,6 +11,7 @@ import '../../import_files/models/import_file_model.dart';
 import '../../shipment_updates/models/shipment_update_model.dart';
 import '../../warehouse_receiving/models/warehouse_receiving_model.dart';
 import '../models/comprehensive_dossier_model.dart';
+import '../../purchase_orders/utils/po_packing_matcher.dart';
 
 /// Central export and dossier generation service for the Comprehensive Import File Report (Screen 47).
 /// Provides TSV, unmerged Excel (CSV with UTF-8 BOM), vector A4 Cairo PDF, and plain text clipboard dossier.
@@ -92,9 +93,9 @@ class ComprehensiveReportExportService {
       double totalCbm = file.packingListsData.fold(0.0, (s, p) => s + p.cbm);
       double totalWeight = file.packingListsData.fold(0.0, (s, p) => s + p.grossWeightKg);
       int totalPkgs = file.packingListsData.fold(0, (s, p) => s + p.totalPackages);
-      sb.writeln('${l.compReportTotalPackages}: $totalPkgs | ${l.compReportTotalWeight}: ${totalWeight.toStringAsFixed(1)} KG | ${l.compReportTotalCbm}: ${totalCbm.toStringAsFixed(2)} m³');
+      sb.writeln('${l.compReportTotalPackages}: $totalPkgs | ${l.compReportTotalWeight}: ${PoPackingMatcher.formatWeight(totalWeight)} KG | ${l.compReportTotalCbm}: ${totalCbm.toStringAsFixed(2)} m³');
       for (final pl in file.packingListsData) {
-        sb.writeln('• ${pl.plNo} | ${pl.totalPackages} pkgs | ${pl.grossWeightKg.toStringAsFixed(1)} KG | ${pl.cbm.toStringAsFixed(2)} CBM');
+        sb.writeln('• ${pl.plNo} | ${pl.totalPackages} pkgs | ${PoPackingMatcher.formatWeight(pl.grossWeightKg)} KG | ${pl.cbm.toStringAsFixed(2)} CBM');
       }
     }
     sb.writeln();
@@ -344,7 +345,7 @@ class ComprehensiveReportExportService {
                   border: pw.TableBorder.all(color: PdfColors.grey300),
                   children: [
                     _pdfTableRow(l.compReportTotalInvoicesVal, '${totalInvoicesValue.toStringAsFixed(2)} USD', l.compReportEstimatedCostVal, '${file.estimatedCost.toStringAsFixed(2)} USD'),
-                    _pdfTableRow(l.compReportEstimatedVariance, '${(file.estimatedCost - totalInvoicesValue).toStringAsFixed(2)} USD', l.compReportTotalPackages, '$totalPkgs (${totalWeight.toStringAsFixed(1)} KG, ${totalCbm.toStringAsFixed(2)} m³)'),
+                    _pdfTableRow(l.compReportEstimatedVariance, '${(file.estimatedCost - totalInvoicesValue).toStringAsFixed(2)} USD', l.compReportTotalPackages, '$totalPkgs (${PoPackingMatcher.formatWeight(totalWeight)} KG, ${totalCbm.toStringAsFixed(2)} m³)'),
                   ],
                 ),
                 pw.SizedBox(height: 12),
@@ -549,7 +550,7 @@ class ComprehensiveReportExportService {
                   border: pw.TableBorder.all(color: PdfColors.grey300),
                   children: [
                     _pdfTableRow(l.compReportTotalInvoicesVal, '${totalInvoicesValue.toStringAsFixed(2)} USD', l.compReportEstimatedCostVal, '${file.estimatedCost.toStringAsFixed(2)} USD'),
-                    _pdfTableRow(l.compReportTotalPackages, '$totalPkgs pkgs (${totalWeight.toStringAsFixed(1)} KG)', l.compReportTotalCbm, '${totalCbm.toStringAsFixed(2)} m³'),
+                    _pdfTableRow(l.compReportTotalPackages, '$totalPkgs pkgs (${PoPackingMatcher.formatWeight(totalWeight)} KG)', l.compReportTotalCbm, '${totalCbm.toStringAsFixed(2)} m³'),
                     if (file.actualLandedCostTotalEgp > 0 || (dossier != null && dossier.actualLandedCostTotalEgp > 0)) ...[
                       _pdfTableRow('Actual Landed Cost', '${(dossier?.actualLandedCostTotalEgp ?? file.actualLandedCostTotalEgp).toStringAsFixed(2)} EGP', 'Markup Factor', '${(dossier?.actualLandedCostMarkupFactor ?? file.actualLandedCostMarkupFactor).toStringAsFixed(3)}x'),
                       _pdfTableRow('Variance', '${(dossier?.actualLandedCostVarianceEgp ?? file.actualLandedCostVarianceEgp).toStringAsFixed(2)} EGP (${(dossier?.actualLandedCostVariancePct ?? file.actualLandedCostVariancePct).toStringAsFixed(2)}%)', 'Settlement Status', file.financialSettlementStatus ?? 'COST_ALLOCATED'),

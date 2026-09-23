@@ -67,7 +67,8 @@ void main() async {
         await windowManager.focus();
       });
     } catch (_) {}
-    await _ensureBackendRunning();
+    // Asynchronously verify backend without blocking runApp or freezing UI
+    _ensureBackendRunning();
   }
 
   // Custom friendly error widget — prevents red screen of death

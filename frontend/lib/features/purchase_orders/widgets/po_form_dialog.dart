@@ -29,8 +29,13 @@ import '../../../core/widgets/unsaved_changes_guard.dart';
 import '../services/po_draft_manager.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
+import '../../../core/services/container_load_plan_export_service.dart';
 import '../../currencies/models/currency_model.dart';
 import 'po_report_preview_dialog.dart';
+import '../utils/po_packing_matcher.dart';
+import '../../experience_guide/models/guide_entry_model.dart';
+import '../../experience_guide/providers/experience_guide_provider.dart';
+import '../../experience_guide/widgets/experience_guide_alert_banner.dart';
 
 
 class POFormDialog extends ConsumerStatefulWidget {
@@ -690,8 +695,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
   static String _formatDecimalInput(double val) {
     if (val.isNaN || val.isInfinite) return '0';
     if (val == 0.0) return '0';
-    if (val == val.roundToDouble()) return val.toInt().toString();
-    var s = val.toString();
+    final rounded = val.roundToDouble();
+    if ((val - rounded).abs() < 0.0005) {
+      return rounded.toInt().toString();
+    }
+    var s = val.toStringAsFixed(3);
     if (s.contains('.')) {
       s = s.replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
     }
@@ -1176,6 +1184,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _checkExistingDraft();
+        _loadPoGuide();
       }
     });
   }
@@ -1309,6 +1318,45 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       _isDirty = true;
       _lastDraftSavedAt = DateTime.tryParse(draft['saved_at'] ?? '');
     });
+  }
+
+  GuideMatchResultModel? _poGuideMatchResult;
+
+  Future<void> _loadPoGuide() async {
+    final suppliers = ref.read(suppliersProvider).valueOrNull ?? [];
+    final supplier = _selectedSupplierId != null
+        ? suppliers.where((s) => s.supplierId == _selectedSupplierId).firstOrNull
+        : null;
+
+    final incoterms = ref.read(incotermsProvider).valueOrNull ?? [];
+    final incoterm = _selectedIncotermId != null
+        ? incoterms.where((i) => i.incotermId == _selectedIncotermId).firstOrNull
+        : null;
+
+    final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+    final file = _selectedImportFileId != null
+        ? importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull
+        : null;
+
+    final firstItemHs = _dialogItems.isNotEmpty ? _dialogItems.first.hsCode : null;
+
+    if (supplier == null && _selectedCountryOfOrigin == null && firstItemHs == null && file == null) {
+      if (mounted) setState(() => _poGuideMatchResult = null);
+      return;
+    }
+
+    try {
+      final res = await ref.read(experienceGuideProvider.notifier).matchShipment(
+        supplier: supplier?.companyName,
+        countryOfOrigin: _selectedCountryOfOrigin,
+        incoterm: incoterm?.incotermCode,
+        hsCode: firstItemHs,
+        importFileReference: file?.importFileCode,
+      );
+      if (mounted) {
+        setState(() => _poGuideMatchResult = res);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -1624,6 +1672,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            if (_poGuideMatchResult != null && _poGuideMatchResult!.matchedEntries.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: ExperienceGuideAlertBanner(
+                                  matchResult: _poGuideMatchResult!,
+                                ),
+                              ),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               margin: const EdgeInsets.only(bottom: 12),
@@ -1682,7 +1737,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                       label: '${f.primaryNameWithCode} - ${f.companyName}',
                                     )),
                               ],
-                              onChanged: (v) => setState(() => _selectedImportFileId = v),
+                              onChanged: (v) {
+                                setState(() => _selectedImportFileId = v);
+                                _loadPoGuide();
+                              },
                             ),
                             const SizedBox(height: 12),
                             TextFormField(
@@ -1818,7 +1876,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                 ))
                                             .toList(),
                                         onChanged: (v) {
-                                          if (v != null) setState(() => _selectedSupplierId = v);
+                                          if (v != null) {
+                                            setState(() => _selectedSupplierId = v);
+                                            _loadPoGuide();
+                                          }
                                         },
                                       ),
                                       const SizedBox(height: 3),
@@ -1867,7 +1928,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                             ))
                                         .toList(),
                                     onChanged: (v) {
-                                      if (v != null) setState(() => _selectedIncotermId = v);
+                                      if (v != null) {
+                                        setState(() => _selectedIncotermId = v);
+                                        _loadPoGuide();
+                                      }
                                     },
                                   ),
                                 ),
@@ -1913,7 +1977,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                             label: c['name']!,
                                           )),
                                     ],
-                                    onChanged: (v) => setState(() => _selectedCountryOfOrigin = v),
+                                    onChanged: (v) {
+                                      setState(() => _selectedCountryOfOrigin = v);
+                                      _loadPoGuide();
+                                    },
                                   ),
                                 ),
                                 const SizedBox(width: 12),
@@ -3827,6 +3894,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       return;
     }
 
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final GlobalKey formPlannerRepaintKey = GlobalKey();
+    final poNumber = _poReferenceCtrl.text.trim().isNotEmpty ? _poReferenceCtrl.text.trim() : (widget.po?.poNumber ?? 'Draft');
+    final displayName = 'PO $poNumber';
     String viewProjection = 'both';
     bool showDetailedCoordinates = false;
     bool? activeStackingMode = cargoItems.any((i) => !i.isStackable) ? null : true;
@@ -3896,7 +3967,45 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                             ),
                           ],
                         ),
-                        IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(dialogCtx)),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.image_outlined, color: AppTheme.cobalt),
+                              tooltip: isArabic ? 'تنزيل صور المحاكاة (PNG)' : 'Download Simulation Image (PNG)',
+                              onPressed: () async {
+                                await ContainerLoadPlanExportService.exportSimulationImage(
+                                  context: dialogCtx,
+                                  repaintKey: formPlannerRepaintKey,
+                                  displayName: '$displayName - 3D Simulation',
+                                  isArabic: isArabic,
+                                );
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.picture_as_pdf_outlined, color: AppTheme.crimson),
+                              tooltip: isArabic ? 'تنزيل مخطط التحميل (PDF)' : 'Download Loading Plan (PDF)',
+                              onPressed: () async {
+                                await ContainerLoadPlanExportService.exportLoadingPlanPdf(
+                                  context: dialogCtx,
+                                  repaintKey: formPlannerRepaintKey,
+                                  displayName: displayName,
+                                  poNumber: poNumber,
+                                  companyName: widget.po?.companyName,
+                                  supplierName: widget.po?.supplierName,
+                                  plan: plan,
+                                  fleetSummary: fleetSummary,
+                                  totalPlanWeight: totalPlanWeight,
+                                  totalPlanVolume: totalPlanVolume,
+                                  totalPkgs: totalPkgs,
+                                  isArabic: isArabic,
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(dialogCtx)),
+                          ],
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -4080,7 +4189,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                             children: [
                               const Icon(Icons.scale_outlined, color: AppTheme.emerald, size: 18),
                               const SizedBox(width: 6),
-                              Text(context.l10n.totalWeightSummary(totalPlanWeight.toStringAsFixed(1)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                              Text(context.l10n.totalWeightSummary(PoPackingMatcher.formatWeight(totalPlanWeight)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                             ],
                           ),
                           Row(
@@ -4097,7 +4206,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
                     // Plan Containers List
                     Expanded(
-                      child: ListView.builder(
+                      child: RepaintBoundary(
+                        key: formPlannerRepaintKey,
+                        child: ListView.builder(
                         itemCount: plan.length,
                         itemBuilder: (ctx, pIdx) {
                           final res = plan[pIdx];
@@ -4281,7 +4392,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                          child: Text('${g.count}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt), textAlign: TextAlign.center),
                                                        ),
                                                      ),
-                                                     Padding(padding: const EdgeInsets.all(6), child: Text('${g.totalWeight.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                                                     Padding(padding: const EdgeInsets.all(6), child: Text('${PoPackingMatcher.formatWeight(g.totalWeight)} kg', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
                                                      Padding(padding: const EdgeInsets.all(6), child: Text('${g.volumeM3.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
                                                      Padding(padding: const EdgeInsets.all(6), child: Text(g.isStackable ? '📦 نعم' : '🚫 أرضي', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: g.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
                                                    ],
@@ -4320,7 +4431,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                      Padding(padding: const EdgeInsets.all(6), child: Text('$idx', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
                                                      Padding(padding: const EdgeInsets.all(6), child: Text(item.item.description ?? item.item.itemId, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                                                      Padding(padding: const EdgeInsets.all(6), child: Text('${item.length.toStringAsFixed(0)} × ${item.width.toStringAsFixed(0)} × ${item.height.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
-                                                     Padding(padding: const EdgeInsets.all(6), child: Text(item.item.weight.toStringAsFixed(1), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                                                     Padding(padding: const EdgeInsets.all(6), child: Text(PoPackingMatcher.formatWeight(item.item.weight), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
                                                      Padding(padding: const EdgeInsets.all(6), child: Text('X: ${item.x.toStringAsFixed(0)} | Y: ${item.y.toStringAsFixed(0)} | Z: ${item.z.toStringAsFixed(0)}', style: const TextStyle(fontSize: 10.5, fontFamily: 'monospace'), textAlign: TextAlign.center)),
                                                      Padding(padding: const EdgeInsets.all(6), child: Text(item.item.isStackable ? '📦 نعم' : '🚫 أرضي', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: item.item.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
                                                    ],
@@ -4337,6 +4448,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                           );
                         },
                       ),
+                     ),
                     ),
                   ],
                 ),

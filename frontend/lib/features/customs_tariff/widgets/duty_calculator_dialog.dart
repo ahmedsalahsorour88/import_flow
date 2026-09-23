@@ -6,10 +6,10 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
+import '../../smart_tasks/providers/smart_tasks_provider.dart';
 
   void showDutyCalculatorDialog(BuildContext context, WidgetRef ref,
       {String? initialHsCode, int? initialImportFileId}) {
-    final isArabic = Directionality.of(context) == TextDirection.rtl;
     String selectedCurrency = 'USD';
     String selectedFreightCurrency = 'USD';
 
@@ -121,6 +121,7 @@ import '../providers/customs_tariff_provider.dart';
         'inspection': TextEditingController(text: '0.00'),
         'origin': 'CN',
         'exemption': null,
+        'is_exemption_conditions_met': false,
       },
       {
         'hs': TextEditingController(text: '8537.10.90'),
@@ -128,6 +129,7 @@ import '../providers/customs_tariff_provider.dart';
         'inspection': TextEditingController(text: '8514.81'),
         'origin': 'TR',
         'exemption': null,
+        'is_exemption_conditions_met': false,
       },
       {
         'hs': TextEditingController(text: '8537.10.90'),
@@ -135,6 +137,7 @@ import '../providers/customs_tariff_provider.dart';
         'inspection': TextEditingController(text: '69772.09'),
         'origin': 'DE',
         'exemption': null,
+        'is_exemption_conditions_met': false,
       },
     ];
 
@@ -208,6 +211,9 @@ import '../providers/customs_tariff_provider.dart';
                   'origin': lineMap['origin_country']?.toString() ?? 'CN',
                   'exemption':
                       lineMap['preferential_agreement_applied']?.toString(),
+                  'is_exemption_conditions_met': lineMap['is_exemption_applied'] == true ||
+                      (lineMap['preferential_agreement_applied'] != null &&
+                          lineMap['preferential_agreement_applied'].toString().isNotEmpty),
                 };
               }).toList();
             }
@@ -228,6 +234,8 @@ import '../providers/customs_tariff_provider.dart';
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setCalcState) {
+          final isArabic = Localizations.localeOf(ctx).languageCode == 'ar';
+          final isDark = Theme.of(ctx).brightness == Brightness.dark;
           if (initialImportFileId != null && !didAutoSimulate) {
             didAutoSimulate = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -295,9 +303,11 @@ import '../providers/customs_tariff_provider.dart';
                                     horizontal: 10, vertical: 8),
                               ),
                               icon: const Icon(Icons.downloading, size: 14),
-                              label: const Text(
-                                  'تحميل مثال نافذة الفعلي (2026-612-1-94731)',
-                                  style: TextStyle(fontSize: 11)),
+                              label: Text(
+                                  isArabic
+                                      ? 'تحميل مثال نافذة الفعلي (2026-612-1-94731)'
+                                      : 'Load Actual Nafeza Sample (2026-612-1-94731)',
+                                  style: const TextStyle(fontSize: 11)),
                               onPressed: () {
                                 setCalcState(() {
                                   selectedCurrency = 'USD';
@@ -352,23 +362,23 @@ import '../providers/customs_tariff_provider.dart';
                         flex: 2,
                         child: SearchableDropdownField<String>(
                           value: selectedCurrency,
-                          labelText: 'عملة الفاتورة *',
-                          searchHintText: 'ابحث عن عملة الفاتورة...',
-                          items: const [
+                          labelText: isArabic ? 'عملة الفاتورة *' : 'Invoice Currency *',
+                          searchHintText: isArabic ? 'ابحث عن عملة الفاتورة...' : 'Search currency...',
+                          items: [
                             SearchableDropdownItem(
-                                value: 'USD', label: 'USD - دولار (\$)'),
+                                value: 'USD', label: isArabic ? 'USD - دولار (\$)' : 'USD - US Dollar (\$)'),
                             SearchableDropdownItem(
-                                value: 'EUR', label: 'EUR - يورو (€)'),
+                                value: 'EUR', label: isArabic ? 'EUR - يورو (€)' : 'EUR - Euro (€)'),
                             SearchableDropdownItem(
-                                value: 'GBP', label: 'GBP - إسترليني (£)'),
+                                value: 'GBP', label: isArabic ? 'GBP - إسترليني (£)' : 'GBP - Sterling (£)'),
                             SearchableDropdownItem(
-                                value: 'CNY', label: 'CNY - يوان (¥)'),
+                                value: 'CNY', label: isArabic ? 'CNY - يوان (¥)' : 'CNY - Yuan (¥)'),
                             SearchableDropdownItem(
-                                value: 'SAR', label: 'SAR - ريال (ر.س)'),
+                                value: 'SAR', label: isArabic ? 'SAR - ريال (ر.س)' : 'SAR - Riyal (SAR)'),
                             SearchableDropdownItem(
-                                value: 'AED', label: 'AED - درهم (د.إ)'),
+                                value: 'AED', label: isArabic ? 'AED - درهم (د.إ)' : 'AED - Dirham (AED)'),
                             SearchableDropdownItem(
-                                value: 'EGP', label: 'EGP - جنيه (ج.م)'),
+                                value: 'EGP', label: isArabic ? 'EGP - جنيه (ج.م)' : 'EGP - Pound (EGP)'),
                           ],
                           onChanged: (val) {
                             if (val == null) return;
@@ -395,7 +405,9 @@ import '../providers/customs_tariff_provider.dart';
                           onChanged: (_) =>
                               syncCalculatedFields(setCalcState, multiLines),
                           decoration: InputDecoration(
-                            labelText: 'سعر التحويل (EGP/$selectedCurrency) *',
+                            labelText: isArabic
+                                ? 'سعر التحويل (EGP/$selectedCurrency) *'
+                                : 'Exchange Rate (EGP/$selectedCurrency) *',
                             hintText: '50.7917',
                             isDense: true,
                           ),
@@ -408,9 +420,12 @@ import '../providers/customs_tariff_provider.dart';
                           controller: totalInvoiceFcCtrl,
                           readOnly: true,
                           decoration: InputDecoration(
-                            labelText:
-                                'إجمالي قيمة الفاتورة المقر عنها ($selectedCurrency)',
-                            helperText: 'حاصل جمع قيم جميع السطور بالعملة',
+                            labelText: isArabic
+                                ? 'إجمالي قيمة الفاتورة المقر عنها ($selectedCurrency)'
+                                : 'Total Declared Invoice Value ($selectedCurrency)',
+                            helperText: isArabic
+                                ? 'حاصل جمع قيم جميع السطور بالعملة'
+                                : 'Sum of all invoice lines in currency',
                             helperStyle: const TextStyle(fontSize: 9),
                             isDense: true,
                             filled: true,
@@ -431,11 +446,14 @@ import '../providers/customs_tariff_provider.dart';
                         child: TextField(
                           controller: declaredCifCtrl,
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'إجمالي القيمة المقرة CIF (EGP)',
-                            helperText:
-                                'محسوبة تلقائياً: (FOB + تأمين + نولون)',
-                            helperStyle: TextStyle(fontSize: 9),
+                          decoration: InputDecoration(
+                            labelText: isArabic
+                                ? 'إجمالي القيمة المقرة CIF (EGP)'
+                                : 'Declared CIF Value (EGP)',
+                            helperText: isArabic
+                                ? 'محسوبة تلقائياً: (FOB + تأمين + نولون)'
+                                : 'Calculated: (FOB + Insurance + Freight)',
+                            helperStyle: const TextStyle(fontSize: 9),
                             isDense: true,
                           ),
                         ),
@@ -445,8 +463,10 @@ import '../providers/customs_tariff_provider.dart';
                         child: TextField(
                           controller: additionalFeesCtrl,
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'رسوم أساسية/إضافية (EGP)',
+                          decoration: InputDecoration(
+                            labelText: isArabic
+                                ? 'رسوم أساسية/إضافية (EGP)'
+                                : 'Basic / Additional Fees (EGP)',
                             hintText: '1329.50',
                             isDense: true,
                           ),
@@ -488,15 +508,15 @@ import '../providers/customs_tariff_provider.dart';
                                   : AppTheme.orange,
                             ),
                             const SizedBox(width: 6),
-                            const Text('التأمين:',
-                                style: TextStyle(
+                            Text(isArabic ? 'التأمين:' : 'Insurance:',
+                                style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                     color: AppTheme.charcoal)),
                             const SizedBox(width: 12),
                             ChoiceChip(
-                              label: const Text('فعلي ✔',
-                                  style: TextStyle(fontSize: 11)),
+                              label: Text(isArabic ? 'فعلي ✔' : 'Actual ✔',
+                                  style: const TextStyle(fontSize: 11)),
                               selected: insuranceType == 'actual',
                               selectedColor: AppTheme.cobalt.withOpacity(0.2),
                               onSelected: (_) {
@@ -510,8 +530,8 @@ import '../providers/customs_tariff_provider.dart';
                             ),
                             const SizedBox(width: 6),
                             ChoiceChip(
-                              label: const Text('حكمي 2.5% ⚡',
-                                  style: TextStyle(fontSize: 11)),
+                              label: Text(isArabic ? 'حكمي 2.5% ⚡' : 'Deemed 2.5% ⚡',
+                                  style: const TextStyle(fontSize: 11)),
                               selected: insuranceType == 'deemed',
                               selectedColor: AppTheme.orange.withOpacity(0.2),
                               onSelected: (_) {
@@ -537,8 +557,10 @@ import '../providers/customs_tariff_provider.dart';
                                   keyboardType: TextInputType.number,
                                   onChanged: (_) => syncCalculatedFields(
                                       setCalcState, multiLines),
-                                  decoration: const InputDecoration(
-                                    labelText: 'مبلغ التأمين الفعلي (EGP)',
+                                  decoration: InputDecoration(
+                                    labelText: isArabic
+                                        ? 'مبلغ التأمين الفعلي (EGP)'
+                                        : 'Actual Insurance Amount (EGP)',
                                     hintText: '14902.793',
                                     isDense: true,
                                   ),
@@ -550,8 +572,9 @@ import '../providers/customs_tariff_provider.dart';
                                   controller: deemedInsuranceCtrl,
                                   readOnly: true,
                                   decoration: InputDecoration(
-                                    labelText:
-                                        'التأمين الحكمي المحتسب (EGP) — 2.5% من إجمالي FOB',
+                                    labelText: isArabic
+                                        ? 'التأمين الحكمي المحتسب (EGP) — 2.5% من إجمالي FOB'
+                                        : 'Deemed Insurance (EGP) — 2.5% of FOB',
                                     isDense: true,
                                     filled: true,
                                     fillColor:
@@ -569,12 +592,15 @@ import '../providers/customs_tariff_provider.dart';
                                   controller: insuranceCtrl,
                                   readOnly: true,
                                   decoration: InputDecoration(
-                                    labelText:
-                                        'التأمين الفعلي (EGP) — يُضبط صفراً',
+                                    labelText: isArabic
+                                        ? 'التأمين الفعلي (EGP) — يُضبط صفراً'
+                                        : 'Actual Insurance (EGP) — set to 0',
                                     isDense: true,
                                     filled: true,
                                     fillColor: Colors.grey.withOpacity(0.08),
-                                    helperText: 'صفر لتجنب الاحتساب المزدوج',
+                                    helperText: isArabic
+                                        ? 'صفر لتجنب الاحتساب المزدوج'
+                                        : 'Zero to prevent double counting',
                                     helperStyle: const TextStyle(
                                         fontSize: 9, color: Colors.grey),
                                   ),
@@ -620,15 +646,15 @@ import '../providers/customs_tariff_provider.dart';
                                   : AppTheme.orange,
                             ),
                             const SizedBox(width: 6),
-                            const Text('النولون:',
-                                style: TextStyle(
+                            Text(isArabic ? 'النولون:' : 'Freight:',
+                                style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                     color: AppTheme.charcoal)),
                             const SizedBox(width: 12),
                             ChoiceChip(
-                              label: const Text('فعلي ✔',
-                                  style: TextStyle(fontSize: 11)),
+                              label: Text(isArabic ? 'فعلي ✔' : 'Actual ✔',
+                                  style: const TextStyle(fontSize: 11)),
                               selected: freightType == 'actual',
                               selectedColor: AppTheme.cobalt.withOpacity(0.2),
                               onSelected: (_) {
@@ -642,8 +668,8 @@ import '../providers/customs_tariff_provider.dart';
                             ),
                             const SizedBox(width: 6),
                             ChoiceChip(
-                              label: const Text('حكمي 2.0% ⚡',
-                                  style: TextStyle(fontSize: 11)),
+                              label: Text(isArabic ? 'حكمي 2.0% ⚡' : 'Deemed 2.0% ⚡',
+                                  style: const TextStyle(fontSize: 11)),
                               selected: freightType == 'deemed',
                               selectedColor: AppTheme.orange.withOpacity(0.2),
                               onSelected: (_) {
@@ -666,28 +692,32 @@ import '../providers/customs_tariff_provider.dart';
                                 flex: 2,
                                 child: SearchableDropdownField<String>(
                                   value: selectedFreightCurrency,
-                                  labelText: 'عملة النولون الفعلي *',
-                                  searchHintText: 'ابحث عن عملة النولون...',
-                                  items: const [
+                                  labelText: isArabic
+                                      ? 'عملة النولون الفعلي *'
+                                      : 'Actual Freight Currency *',
+                                  searchHintText: isArabic
+                                      ? 'ابحث عن عملة النولون...'
+                                      : 'Search freight currency...',
+                                  items: [
                                     SearchableDropdownItem(
                                         value: 'USD',
-                                        label: 'USD - دولار (\$)'),
+                                        label: isArabic ? 'USD - دولار (\$)' : 'USD - Dollar (\$)'),
                                     SearchableDropdownItem(
-                                        value: 'EUR', label: 'EUR - يورو (€)'),
+                                        value: 'EUR', label: isArabic ? 'EUR - يورو (€)' : 'EUR - Euro (€)'),
                                     SearchableDropdownItem(
                                         value: 'GBP',
-                                        label: 'GBP - إسترليني (£)'),
+                                        label: isArabic ? 'GBP - إسترليني (£)' : 'GBP - Sterling (£)'),
                                     SearchableDropdownItem(
-                                        value: 'CNY', label: 'CNY - يوان (¥)'),
+                                        value: 'CNY', label: isArabic ? 'CNY - يوان (¥)' : 'CNY - Yuan (¥)'),
                                     SearchableDropdownItem(
                                         value: 'SAR',
-                                        label: 'SAR - ريال (ر.س)'),
+                                        label: isArabic ? 'SAR - ريال (ر.س)' : 'SAR - Riyal (SAR)'),
                                     SearchableDropdownItem(
                                         value: 'AED',
-                                        label: 'AED - درهم (د.إ)'),
+                                        label: isArabic ? 'AED - درهم (د.إ)' : 'AED - Dirham (AED)'),
                                     SearchableDropdownItem(
                                         value: 'EGP',
-                                        label: 'EGP - جنيه (ج.م)'),
+                                        label: isArabic ? 'EGP - جنيه (ج.م)' : 'EGP - Pound (EGP)'),
                                   ],
                                   onChanged: (val) {
                                     if (val == null) return;
@@ -711,8 +741,9 @@ import '../providers/customs_tariff_provider.dart';
                                   onChanged: (_) => syncCalculatedFields(
                                       setCalcState, multiLines),
                                   decoration: InputDecoration(
-                                    labelText:
-                                        'مبلغ النولون ($selectedFreightCurrency) *',
+                                    labelText: isArabic
+                                        ? 'مبلغ النولون ($selectedFreightCurrency) *'
+                                        : 'Freight Amount ($selectedFreightCurrency) *',
                                     hintText: '234.72',
                                     isDense: true,
                                   ),
@@ -727,8 +758,10 @@ import '../providers/customs_tariff_provider.dart';
                                     keyboardType: TextInputType.number,
                                     onChanged: (_) => syncCalculatedFields(
                                         setCalcState, multiLines),
-                                    decoration: const InputDecoration(
-                                      labelText: 'معامل تحويل عملة النولون *',
+                                    decoration: InputDecoration(
+                                      labelText: isArabic
+                                          ? 'معامل تحويل عملة النولون *'
+                                          : 'Freight Conversion Rate *',
                                       hintText: '50.7917',
                                       isDense: true,
                                     ),
@@ -742,10 +775,14 @@ import '../providers/customs_tariff_provider.dart';
                                   controller: multiFreightCtrl,
                                   readOnly: true,
                                   decoration: InputDecoration(
-                                    labelText: 'إجمالي النولون الفعلي (EGP)',
+                                    labelText: isArabic
+                                        ? 'إجمالي النولون الفعلي (EGP)'
+                                        : 'Total Actual Freight (EGP)',
                                     helperText: selectedFreightCurrency == 'EGP'
-                                        ? 'نولون بالجنيه'
-                                        : '= النولون ($selectedFreightCurrency) × معامل التحويل',
+                                        ? (isArabic ? 'نولون بالجنيه' : 'Freight in EGP')
+                                        : (isArabic
+                                            ? '= النولون ($selectedFreightCurrency) × معامل التحويل'
+                                            : '= Freight ($selectedFreightCurrency) × FX Rate'),
                                     helperStyle: const TextStyle(fontSize: 9),
                                     isDense: true,
                                     filled: true,
@@ -764,8 +801,9 @@ import '../providers/customs_tariff_provider.dart';
                                   controller: deemedFreightCtrl,
                                   readOnly: true,
                                   decoration: InputDecoration(
-                                    labelText:
-                                        'النولون الحكمي المحتسب (EGP) — 2.0% من إجمالي FOB',
+                                    labelText: isArabic
+                                        ? 'النولون الحكمي المحتسب (EGP) — 2.0% من إجمالي FOB'
+                                        : 'Deemed Freight (EGP) — 2.0% of FOB',
                                     isDense: true,
                                     filled: true,
                                     fillColor:
@@ -783,12 +821,15 @@ import '../providers/customs_tariff_provider.dart';
                                   controller: multiFreightCtrl,
                                   readOnly: true,
                                   decoration: InputDecoration(
-                                    labelText:
-                                        'النولون الفعلي (EGP) — يُضبط صفراً',
+                                    labelText: isArabic
+                                        ? 'النولون الفعلي (EGP) — يُضبط صفراً'
+                                        : 'Actual Freight (EGP) — set to 0',
                                     isDense: true,
                                     filled: true,
                                     fillColor: Colors.grey.withOpacity(0.08),
-                                    helperText: 'صفر لتجنب الاحتساب المزدوج',
+                                    helperText: isArabic
+                                        ? 'صفر لتجنب الاحتساب المزدوج'
+                                        : 'Zero to prevent double counting',
                                     helperStyle: const TextStyle(
                                         fontSize: 9, color: Colors.grey),
                                   ),
@@ -806,9 +847,11 @@ import '../providers/customs_tariff_provider.dart';
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'سطور الفاتورة (Invoice Line Items):',
-                        style: TextStyle(
+                      Text(
+                        isArabic
+                            ? 'سطور الفاتورة (Invoice Line Items):'
+                            : 'Invoice Line Items:',
+                        style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: AppTheme.charcoal,
                             fontSize: 13),
@@ -820,8 +863,9 @@ import '../providers/customs_tariff_provider.dart';
                               horizontal: 10, vertical: 6),
                         ),
                         icon: const Icon(Icons.add, size: 16),
-                        label: const Text('إضافة صنف +',
-                            style: TextStyle(fontSize: 11)),
+                        label: Text(
+                            isArabic ? 'إضافة صنف +' : 'Add Item +',
+                            style: const TextStyle(fontSize: 11)),
                         onPressed: () {
                           setCalcState(() {
                             multiLines.add({
@@ -830,6 +874,7 @@ import '../providers/customs_tariff_provider.dart';
                               'inspection': TextEditingController(text: '0.00'),
                               'origin': 'CN',
                               'exemption': null,
+                              'is_exemption_conditions_met': false,
                             });
                             syncCalculatedFields(setCalcState, multiLines);
                           });
@@ -849,8 +894,9 @@ import '../providers/customs_tariff_provider.dart';
                         .map((t) => SearchableDropdownItem<String>(
                               value: t.hsCode,
                               label: '[${t.hsCode}] ${t.hsDescription}',
-                              subtitle:
-                                  'الوارد: ${t.customsDutyRate}% | ض.م: ${t.vatRate}%',
+                              subtitle: isArabic
+                                  ? 'الوارد: ${t.customsDutyRate}% | ض.م: ${t.vatRate}%'
+                                  : 'Duty: ${t.customsDutyRate}% | VAT: ${t.vatRate}%',
                             ))
                         .toList();
 
@@ -894,10 +940,12 @@ import '../providers/customs_tariff_provider.dart';
                                 flex: 3,
                                 child: SearchableDropdownField<String>(
                                   value: currentHs.isEmpty ? null : currentHs,
-                                  labelText:
-                                      'HS Code (بند التعريفة الجمركية) *',
-                                  searchHintText:
-                                      'ابحث برقم البند أو الوصف الجمركي...',
+                                  labelText: isArabic
+                                      ? 'HS Code (بند التعريفة الجمركية) *'
+                                      : 'HS Code (Customs Tariff) *',
+                                  searchHintText: isArabic
+                                      ? 'ابحث برقم البند أو الوصف الجمركي...'
+                                      : 'Search HS code or description...',
                                   items: [
                                     if (currentHs.isNotEmpty &&
                                         !registeredTariffs
@@ -905,7 +953,7 @@ import '../providers/customs_tariff_provider.dart';
                                       SearchableDropdownItem<String>(
                                         value: currentHs,
                                         label: currentHs,
-                                        subtitle: 'بند غير مسجل / حرة',
+                                        subtitle: isArabic ? 'بند غير مسجل / حرة' : 'Unregistered / Free',
                                       ),
                                     ...hsDropdownItems,
                                   ],
@@ -929,7 +977,7 @@ import '../providers/customs_tariff_provider.dart';
                                   onChanged: (_) => syncCalculatedFields(
                                       setCalcState, multiLines),
                                   decoration: InputDecoration(
-                                    labelText: 'القيمة ($selectedCurrency)',
+                                    labelText: isArabic ? 'القيمة ($selectedCurrency)' : 'Value ($selectedCurrency)',
                                     hintText: '1000',
                                     isDense: true,
                                   ),
@@ -940,38 +988,38 @@ import '../providers/customs_tariff_provider.dart';
                                 flex: 2,
                                 child: SearchableDropdownField<String>(
                                   value: m['origin'] as String?,
-                                  labelText: 'المنشأ',
-                                  searchHintText: 'ابحث عن بلد المنشأ...',
-                                  items: const [
+                                  labelText: isArabic ? 'المنشأ' : 'Origin',
+                                  searchHintText: isArabic ? 'ابحث عن بلد المنشأ...' : 'Search origin...',
+                                  items: [
                                     SearchableDropdownItem(
-                                        value: 'CN', label: 'الصين - CN'),
+                                        value: 'CN', label: isArabic ? 'الصين - CN' : 'China - CN'),
                                     SearchableDropdownItem(
                                         value: 'TR',
-                                        label: 'تركيا (اتفاقية) - TR'),
+                                        label: isArabic ? 'تركيا (اتفاقية) - TR' : 'Turkey (Agreement) - TR'),
                                     SearchableDropdownItem(
                                         value: 'DE',
-                                        label: 'ألمانيا (شراكة) - DE'),
+                                        label: isArabic ? 'ألمانيا (شراكة) - DE' : 'Germany (Partnership) - DE'),
                                     SearchableDropdownItem(
                                         value: 'IT',
-                                        label: 'إيطاليا (شراكة) - IT'),
+                                        label: isArabic ? 'إيطاليا (شراكة) - IT' : 'Italy (Partnership) - IT'),
                                     SearchableDropdownItem(
-                                        value: 'EG', label: 'مصر - EG'),
+                                        value: 'EG', label: isArabic ? 'مصر - EG' : 'Egypt - EG'),
                                     SearchableDropdownItem(
                                         value: 'GB',
-                                        label: 'المملكة المتحدة - GB'),
+                                        label: isArabic ? 'المملكة المتحدة - GB' : 'United Kingdom - GB'),
                                     SearchableDropdownItem(
-                                        value: 'US', label: 'أمريكا - US'),
+                                        value: 'US', label: isArabic ? 'أمريكا - US' : 'United States - US'),
                                     SearchableDropdownItem(
-                                        value: 'IN', label: 'الهند - IN'),
+                                        value: 'IN', label: isArabic ? 'الهند - IN' : 'India - IN'),
                                     SearchableDropdownItem(
                                         value: 'BR',
-                                        label: 'البرازيل (ميركوسور) - BR'),
+                                        label: isArabic ? 'البرازيل (ميركوسور) - BR' : 'Brazil (Mercosur) - BR'),
                                     SearchableDropdownItem(
                                         value: 'RS',
-                                        label: 'صربيا (اتفاقية) - RS'),
+                                        label: isArabic ? 'صربيا (اتفاقية) - RS' : 'Serbia (Agreement) - RS'),
                                     SearchableDropdownItem(
                                         value: 'CH',
-                                        label: 'سويسرا (إفتا) - CH'),
+                                        label: isArabic ? 'سويسرا (إفتا) - CH' : 'Switzerland (EFTA) - CH'),
                                   ],
                                   onChanged: (val) {
                                     setCalcState(() {
@@ -985,23 +1033,23 @@ import '../providers/customs_tariff_provider.dart';
                                 flex: 2,
                                 child: SearchableDropdownField<String?>(
                                   value: m['exemption'] as String?,
-                                  labelText: 'الإعفاء',
-                                  searchHintText: 'ابحث عن كود الإعفاء...',
-                                  items: const [
+                                  labelText: isArabic ? 'الإعفاء' : 'Exemption',
+                                  searchHintText: isArabic ? 'ابحث عن كود الإعفاء...' : 'Search exemption...',
+                                  items: [
                                     SearchableDropdownItem(
-                                        value: null, label: 'لا يوجد إعفاء'),
+                                        value: null, label: isArabic ? 'لا يوجد إعفاء' : 'No Exemption'),
                                     SearchableDropdownItem(
                                         value: 'INV-LAW-EXEMPT-01',
-                                        label: 'قانون الاستثمار (100%)'),
+                                        label: isArabic ? 'قانون الاستثمار (100%)' : 'Investment Law (100%)'),
                                     SearchableDropdownItem(
                                         value: 'FREEZONE-EXEMPT-02',
-                                        label: 'منطقة حرة (100%)'),
+                                        label: isArabic ? 'منطقة حرة (100%)' : 'Free Zone (100%)'),
                                     SearchableDropdownItem(
                                         value: 'DIPLO-EXEMPT-03',
-                                        label: 'إعفاء دبلوماسي (100%)'),
+                                        label: isArabic ? 'إعفاء دبلوماسي (100%)' : 'Diplomatic Exemption (100%)'),
                                     SearchableDropdownItem(
                                         value: 'PARTIAL-50-EXEMPT',
-                                        label: 'إعفاء جزئي (50%)'),
+                                        label: isArabic ? 'إعفاء جزئي (50%)' : 'Partial Exemption (50%)'),
                                   ],
                                   onChanged: (val) {
                                     setCalcState(() {
@@ -1017,8 +1065,8 @@ import '../providers/customs_tariff_provider.dart';
                                   controller:
                                       m['inspection'] as TextEditingController,
                                   keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(
-                                    labelText: 'خدمات جمركية (EGP)',
+                                  decoration: InputDecoration(
+                                    labelText: isArabic ? 'خدمات جمركية (EGP)' : 'Customs Services (EGP)',
                                     hintText: '0.00',
                                     isDense: true,
                                   ),
@@ -1061,7 +1109,9 @@ import '../providers/customs_tariff_provider.dart';
                                           size: 16),
                                       const SizedBox(width: 6),
                                       Text(
-                                        '⚠️ تنبيه إعفاء وشروط مستندية مطلوبة للمورد الخارجي (HS Code: ${matchedTariff.hsCode}):',
+                                        isArabic
+                                            ? '⚠️ تنبيه إعفاء وشروط مستندية مطلوبة للمورد الخارجي (HS Code: ${matchedTariff.hsCode}):'
+                                            : '⚠️ Exemption & Documentary Requirements for Foreign Supplier (HS Code: ${matchedTariff.hsCode}):',
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 11,
@@ -1072,7 +1122,9 @@ import '../providers/customs_tariff_provider.dart';
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '• توجد اتفاقيات وشروط مستندية يجب طلب استيفائها من المورد الخارجي (مثل شهادة EUR.1 الأصلي أو منشأ الميركسور) قبل تطبيق الإعفاء الجمركي:',
+                                    isArabic
+                                        ? '• توجد اتفاقيات وشروط مستندية يجب طلب استيفائها من المورد الخارجي (مثل شهادة EUR.1 الأصلي أو منشأ الميركسور) قبل تطبيق الإعفاء الجمركي:'
+                                        : '• Documentary requirements must be requested from foreign supplier (e.g. Original EUR.1 or Mercosur origin) prior to tariff exemption:',
                                     style: TextStyle(
                                         fontSize: 10.5,
                                         color: Colors.amber.shade900),
@@ -1090,6 +1142,99 @@ import '../providers/customs_tariff_provider.dart';
                               ),
                             ),
                           ],
+                          // Interactive Exemption Checklist Checkbox (Requirements 3 & 4)
+                          Container(
+                            margin: const EdgeInsets.only(top: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: (m['is_exemption_conditions_met'] == true)
+                                  ? AppTheme.emerald.withOpacity(isDark ? 0.2 : 0.08)
+                                  : (isDark ? AppTheme.darkSurface : Colors.grey.withOpacity(0.04)),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: (m['is_exemption_conditions_met'] == true)
+                                    ? AppTheme.emerald
+                                    : (isDark ? AppTheme.darkBorder : Colors.grey.withOpacity(0.25)),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Checkbox(
+                                  value: m['is_exemption_conditions_met'] == true,
+                                  activeColor: AppTheme.emerald,
+                                  onChanged: (bool? val) async {
+                                    final isChecked = val ?? false;
+                                    setCalcState(() {
+                                      m['is_exemption_conditions_met'] = isChecked;
+                                    });
+
+                                    // Task Automation (Requirement 4):
+                                    if (isChecked && initialImportFileId != null) {
+                                      final hsCodeStr = (m['hs'] as TextEditingController).text.trim();
+                                      try {
+                                        await ref.read(smartTasksProvider.notifier).createTask({
+                                          'title': 'مهمة إلزامية: يلزم استيفاء شروط الإعفاء للبند [$hsCodeStr] (توفير شهادة المنشأ المطابقة / استيفاء اشتراطات الاتفاقية / المستندات المطلوبة) لتفادي دفع ضريبة الوارد المقررة.',
+                                          'description': 'تم تفعيل خيار استيفاء شروط الإعفاء الجمركي في حاسبة ودراسة الجمارك للبند $hsCodeStr. يلزم استيفاء شروط الاتفاقية وتوفير شهادة المنشأ المطابقة وكافة المستندات المطلوبة لتفادي دفع ضريبة الوارد المقررة.',
+                                          'task_type': 'System Generated',
+                                          'priority': 'Critical',
+                                          'reminder_type': 'Document',
+                                          'status': 'Pending',
+                                          'import_file_id': initialImportFileId,
+                                        });
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              backgroundColor: AppTheme.emerald,
+                                              content: Text(
+                                                isArabic
+                                                    ? '✅ مهمة إلزامية: تم تسجيل مهمة في قائمة مهام الشحنة لاستيفاء شروط ومستندات إعفاء البند [$hsCodeStr]'
+                                                    : '✅ Mandatory task created in shipment checklist for HS [$hsCodeStr] exemption conditions',
+                                              ),
+                                              duration: const Duration(seconds: 4),
+                                            ),
+                                          );
+                                        }
+                                      } catch (_) {}
+                                    }
+                                  },
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    isArabic
+                                        ? 'هل سيتم استيفاء وتطبيق شروط الإعفاء الجمركي لهذا البند؟ (اتفاقية شراكة / تصنيع / شهادة منشأ مستوفاة)'
+                                        : 'Will customs exemption conditions be fulfilled for this item? (Partnership / Manufacturing / COO fulfilled)',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: (m['is_exemption_conditions_met'] == true)
+                                          ? FontWeight.bold
+                                          : FontWeight.w500,
+                                      color: (m['is_exemption_conditions_met'] == true)
+                                          ? (isDark ? Colors.green.shade300 : AppTheme.emerald)
+                                          : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                    ),
+                                  ),
+                                ),
+                                if (m['is_exemption_conditions_met'] == true)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.emerald.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: AppTheme.emerald.withOpacity(0.5)),
+                                    ),
+                                    child: Text(
+                                      isArabic ? 'معفى (0% جمرك)' : 'Exempt (0% Duty)',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? Colors.green.shade300 : AppTheme.emerald,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     );
@@ -1111,9 +1256,11 @@ import '../providers/customs_tariff_provider.dart';
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: Colors.white))
                           : const Icon(Icons.bolt, size: 20),
-                      label: const Text(
-                        'حساب إجمالي الجمارك والإقرار الرسمي (Calculate Nafeza Duties)',
-                        style: TextStyle(
+                      label: Text(
+                        isArabic
+                            ? 'حساب إجمالي الجمارك والإقرار الرسمي (Calculate Nafeza Duties)'
+                            : 'Calculate Nafeza Duties & Official Statement',
+                        style: const TextStyle(
                             fontSize: 13, fontWeight: FontWeight.bold),
                       ),
                       onPressed: isMultiCalculating
@@ -1166,6 +1313,7 @@ import '../providers/customs_tariff_provider.dart';
                                       0,
                                   'origin_country': m['origin'],
                                   'exemption_code': m['exemption'],
+                                  'is_exemption_conditions_met': m['is_exemption_conditions_met'] == true,
                                 });
                               }
 
@@ -1267,17 +1415,17 @@ import '../providers/customs_tariff_provider.dart';
                         dataRowMaxHeight: 32,
                         headingRowColor: WidgetStateProperty.all(
                             AppTheme.charcoal.withOpacity(0.05)),
-                        columns: const [
-                          DataColumn(label: Text('سطر')),
-                          DataColumn(label: Text('HS Code')),
-                          DataColumn(label: Text('المنشأ / الاتفاقية')),
-                          DataColumn(label: Text('CIF (EGP)')),
-                          DataColumn(label: Text('جمرك')),
-                          DataColumn(label: Text('ض.جدول')),
-                          DataColumn(label: Text('أ.ن.ص (1%)')),
-                          DataColumn(label: Text('VAT (14%)')),
+                        columns: [
+                          DataColumn(label: Text(isArabic ? 'سطر' : 'Line')),
+                          const DataColumn(label: Text('HS Code')),
+                          DataColumn(label: Text(isArabic ? 'المنشأ / الاتفاقية' : 'Origin / Agreement')),
+                          const DataColumn(label: Text('CIF (EGP)')),
+                          DataColumn(label: Text(isArabic ? 'جمرك' : 'Duty')),
+                          DataColumn(label: Text(isArabic ? 'ض.جدول' : 'Schedule Tax')),
+                          DataColumn(label: Text(isArabic ? 'أ.ن.ص (1%)' : 'Service Fee (1%)')),
+                          const DataColumn(label: Text('VAT (14%)')),
                           DataColumn(
-                              label: Text('ملاحظات الإعفاء والاتفاقيات')),
+                              label: Text(isArabic ? 'ملاحظات الإعفاء والاتفاقيات' : 'Exemption / Agreement Notes')),
                         ],
                         rows: (multiResult!['lines'] as List).map((l) {
                           return DataRow(cells: [
@@ -1285,11 +1433,41 @@ import '../providers/customs_tariff_provider.dart';
                             DataCell(Text(l['hs_code'].toString())),
                             DataCell(Text(
                                 l['preferential_agreement_applied'] != null
-                                    ? '${l['origin_country']} (تفضيل 0%)'
+                                    ? '${l['origin_country']} (${isArabic ? "تفضيل 0%" : "Pref. 0%"})'
                                     : '${l['origin_country'] ?? "-"}')),
                             DataCell(Text('${l['cif_value_egp']} EGP')),
-                            DataCell(Text(
-                                '${l['duty_egp']} EGP (${l['customs_duty_rate']}%)')),
+                            DataCell(Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                    '${l['duty_egp']} EGP (${l['customs_duty_rate']}%)'),
+                                if (_numToDouble(l['customs_duty_rate']) == 0.0 ||
+                                    l['is_exemption_applied'] == true) ...[
+                                  const SizedBox(width: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 4, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.emerald.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                          color: AppTheme.emerald
+                                              .withOpacity(0.5)),
+                                    ),
+                                    child: Text(
+                                      isArabic
+                                          ? 'معفى بموجب اتفاقية / استيفاء الشروط'
+                                          : 'Exempt per agreement',
+                                      style: const TextStyle(
+                                        fontSize: 8.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.emerald,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            )),
                             DataCell(Text('${l['schedule_tax_egp']} EGP')),
                             DataCell(Text(
                                 '${l['customs_service_fee_egp']} EGP (1%)')),
@@ -1297,7 +1475,7 @@ import '../providers/customs_tariff_provider.dart';
                             DataCell(Text(
                                 l['exemption_applied_details'] ??
                                     l['preferential_agreement_applied'] ??
-                                    'خاضع بالكامل',
+                                    (isArabic ? 'خاضع بالكامل' : 'Fully Taxable'),
                                 style: TextStyle(
                                     fontSize: 10,
                                     color: (l['exemption_applied_details'] !=
@@ -1417,7 +1595,10 @@ import '../providers/customs_tariff_provider.dart';
                                                   MainAxisAlignment
                                                       .spaceBetween,
                                               children: [
-                                                Text('تحصيل $groupName',
+                                                Text(
+                                                    isArabic
+                                                        ? 'تحصيل $groupName'
+                                                        : 'Collection: $groupName',
                                                     style: const TextStyle(
                                                         fontWeight:
                                                             FontWeight.bold,
@@ -1425,7 +1606,7 @@ import '../providers/customs_tariff_provider.dart';
                                                         color:
                                                             AppTheme.charcoal)),
                                                 Text(
-                                                    '${_numToDouble(groupSum).toStringAsFixed(2)} ج.م',
+                                                    '${_numToDouble(groupSum).toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}',
                                                     style: const TextStyle(
                                                         fontWeight:
                                                             FontWeight.bold,
@@ -1452,10 +1633,10 @@ import '../providers/customs_tariff_provider.dart';
                                             final amt = _numToDouble(
                                                 itemMap['calculated_amount']);
                                             final typeLabel = calcType == 'flat'
-                                                ? 'قطعي'
+                                                ? (isArabic ? 'قطعي' : 'Flat')
                                                 : (calcType == 'reference'
-                                                    ? 'مرجعي'
-                                                    : 'مشتق');
+                                                    ? (isArabic ? 'مرجعي' : 'Ref')
+                                                    : (isArabic ? 'مشتق' : 'Derived'));
 
                                             return Padding(
                                               padding:
@@ -1502,7 +1683,7 @@ import '../providers/customs_tariff_provider.dart';
                                                   SizedBox(
                                                     width: 95,
                                                     child: Text(
-                                                        '${amt.toStringAsFixed(2)} ج.م',
+                                                        '${amt.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}',
                                                         textAlign:
                                                             TextAlign.end,
                                                         style: const TextStyle(
@@ -1538,8 +1719,9 @@ import '../providers/customs_tariff_provider.dart';
                               padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
                             icon: const Icon(Icons.print, size: 16),
-                            label: const Text('طباعة التقرير 🖨️',
-                                style: TextStyle(fontSize: 12)),
+                            label: Text(
+                                isArabic ? 'طباعة التقرير 🖨️' : 'Print Statement 🖨️',
+                                style: const TextStyle(fontSize: 12)),
                             onPressed: () async {
                               final rate = double.tryParse(
                                       exchangeRateCtrl.text.trim()) ??
@@ -1577,11 +1759,11 @@ import '../providers/customs_tariff_provider.dart';
                                 additionalFeesEgp: addEgp,
                                 totalCifEgp: cifEgp,
                                 insuranceMode: insuranceType == 'deemed'
-                                    ? 'حكمي 2.5%'
-                                    : 'فعلي',
+                                    ? (isArabic ? 'حكمي 2.5%' : 'Deemed 2.5%')
+                                    : (isArabic ? 'فعلي' : 'Actual'),
                                 freightMode: freightType == 'deemed'
-                                    ? 'حكمي 2.0%'
-                                    : 'فعلي',
+                                    ? (isArabic ? 'حكمي 2.0%' : 'Deemed 2.0%')
+                                    : (isArabic ? 'فعلي' : 'Actual'),
                                 result: multiResult!,
                               );
                             },
@@ -1595,8 +1777,9 @@ import '../providers/customs_tariff_provider.dart';
                               padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
                             icon: const Icon(Icons.picture_as_pdf, size: 16),
-                            label: const Text('تنزيل PDF 📄',
-                                style: TextStyle(fontSize: 12)),
+                            label: Text(
+                                isArabic ? 'تنزيل PDF 📄' : 'Download PDF 📄',
+                                style: const TextStyle(fontSize: 12)),
                             onPressed: () async {
                               final rate = double.tryParse(
                                       exchangeRateCtrl.text.trim()) ??
@@ -1635,11 +1818,11 @@ import '../providers/customs_tariff_provider.dart';
                                 additionalFeesEgp: addEgp,
                                 totalCifEgp: cifEgp,
                                 insuranceMode: insuranceType == 'deemed'
-                                    ? 'حكمي 2.5%'
-                                    : 'فعلي',
+                                    ? (isArabic ? 'حكمي 2.5%' : 'Deemed 2.5%')
+                                    : (isArabic ? 'فعلي' : 'Actual'),
                                 freightMode: freightType == 'deemed'
-                                    ? 'حكمي 2.0%'
-                                    : 'فعلي',
+                                    ? (isArabic ? 'حكمي 2.0%' : 'Deemed 2.0%')
+                                    : (isArabic ? 'فعلي' : 'Actual'),
                                 result: multiResult!,
                               );
 
@@ -1647,7 +1830,9 @@ import '../providers/customs_tariff_provider.dart';
                                 ScaffoldMessenger.of(ctx).showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                        'تم حفظ البيان بصيغة PDF بنجاح:\n$savedPath'),
+                                        isArabic
+                                            ? 'تم حفظ البيان بصيغة PDF بنجاح:\n$savedPath'
+                                            : 'Statement saved as PDF successfully:\n$savedPath'),
                                     backgroundColor: AppTheme.emerald,
                                   ),
                                 );

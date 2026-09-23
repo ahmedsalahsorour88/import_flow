@@ -61,14 +61,21 @@ if getattr(sys, 'frozen', False):
     def _frontend_watchdog():
         import time
         import subprocess
-        time.sleep(12)  # Grace period during application startup
+        frontend_seen = False
+        startup_grace_until = time.time() + 120.0
         while True:
-            time.sleep(2.5)
+            time.sleep(3.0)
             try:
                 cmd = 'tasklist /FI "IMAGENAME eq frontend.exe"'
                 flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
                 output = subprocess.check_output(cmd, shell=True, creationflags=flags).decode("utf-8", errors="ignore")
-                if "frontend.exe" not in output:
+                if "frontend.exe" in output:
+                    frontend_seen = True
+                elif frontend_seen:
+                    # Frontend was running and has now closed
+                    os._exit(0)
+                elif time.time() > startup_grace_until:
+                    # Frontend never launched within generous 2-minute grace period
                     os._exit(0)
             except Exception:
                 pass

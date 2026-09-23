@@ -34,7 +34,7 @@ class PageHeader extends ConsumerWidget implements PreferredSizeWidget {
   });
 
   @override
-  Size get preferredSize => Size.fromHeight(subtitle != null && subtitle!.isNotEmpty ? 58.0 : 54.0);
+  Size get preferredSize => Size.fromHeight(subtitle != null && subtitle!.isNotEmpty ? 66.0 : 54.0);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

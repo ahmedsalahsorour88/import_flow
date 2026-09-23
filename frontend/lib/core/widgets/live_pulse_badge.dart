@@ -28,6 +28,8 @@ enum PulseBadgeSize {
 /// High-visibility animated badge featuring a rhythmic breathing pulse effect
 /// for critical alerts, Egyptian customs ACID validity warnings, and Demurrage countdowns.
 class LivePulseBadge extends StatefulWidget {
+  /// Test hook to disable repeating animation controller in unit/widget tests.
+  static bool enableAnimation = true;
   final String label;
   final IconData? icon;
   final Color color;
@@ -203,7 +205,7 @@ class _LivePulseBadgeState extends State<LivePulseBadge>
       CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
 
-    if (widget.isPulsing) {
+    if (widget.isPulsing && LivePulseBadge.enableAnimation) {
       _controller.repeat();
     }
   }
@@ -212,7 +214,7 @@ class _LivePulseBadgeState extends State<LivePulseBadge>
   void didUpdateWidget(covariant LivePulseBadge oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isPulsing != oldWidget.isPulsing) {
-      if (widget.isPulsing) {
+      if (widget.isPulsing && LivePulseBadge.enableAnimation) {
         _controller.repeat();
       } else {
         _controller.stop();

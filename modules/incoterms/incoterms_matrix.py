@@ -85,25 +85,27 @@ class IncotermsMatrix:
     # ---- التحميل (Loading) ----
     @classmethod
     def from_json_file(cls, path: str | Path | None = None) -> "IncotermsMatrix":
-        target_path: Path
+        import sys
+        candidates = []
         if path is not None:
-            target_path = Path(path)
-            if not target_path.exists():
-                candidate1 = Path(__file__).parent / path
-                candidate2 = Path(__file__).parent / "incoterms_data.json"
-                if candidate1.exists():
-                    target_path = candidate1
-                elif candidate2.exists():
-                    target_path = candidate2
-        else:
-            candidate1 = Path(__file__).parent / "incoterms_data.json"
-            candidate2 = Path("incoterms_data.json")
-            if candidate1.exists():
-                target_path = candidate1
-            elif candidate2.exists():
-                target_path = candidate2
-            else:
-                target_path = Path("incoterms_data.json")
+            candidates.append(Path(path))
+            candidates.append(Path(__file__).parent / path)
+        candidates.append(Path(__file__).parent / "incoterms_data.json")
+        candidates.append(Path.cwd() / "incoterms_data.json")
+        candidates.append(Path(__file__).resolve().parent.parent.parent / "incoterms_data.json")
+        if getattr(sys, "frozen", False):
+            candidates.append(Path(sys.executable).parent / "incoterms_data.json")
+            if hasattr(sys, "_MEIPASS"):
+                candidates.append(Path(sys._MEIPASS) / "incoterms_data.json")
+
+        target_path = None
+        for candidate in candidates:
+            if candidate and candidate.exists():
+                target_path = candidate
+                break
+
+        if target_path is None:
+            target_path = Path("incoterms_data.json")
 
         raw = json.loads(target_path.read_text(encoding="utf-8"))
 

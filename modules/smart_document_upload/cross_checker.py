@@ -15,101 +15,189 @@ def cross_check_invoice_vs_bl(
     invoice_data: Dict[str, Any],
     bl_data: Dict[str, Any],
     weight_tolerance_pct: float = 3.0,
+    system_data: Optional[Dict[str, Any]] = None,
+    packing_list_data: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    Performs 10-point cross-comparison between Commercial Invoice and Draft B/L.
+    Performs 10-point cross-comparison between System, Commercial Invoice, Packing List, and Draft B/L.
     Returns audit matrix, critical discrepancies, warnings, and auto-generated correction notices.
     """
     matrix: List[Dict[str, Any]] = []
     critical_errors: List[str] = []
     warnings: List[str] = []
 
-    # ─── 1. ACID Number (19 Digits) — Strict 0% ───────────────────────────────
-    inv_acid = _clean_acid(invoice_data.get("acid_number"))
-    bl_acid = _clean_acid(bl_data.get("acid_number"))
-    acid_match = bool(inv_acid and bl_acid and inv_acid == bl_acid)
+    sys_d = system_data or {}
+    pl_d = packing_list_data or {}
 
-    if not acid_match:
-        critical_errors.append("عدم تطابق رقم القيد الجمركي المسبق (ACID) بين الفاتورة والبوليصة")
+    # ─── 1. ACID Number (19 Digits) — Strict 0% ───────────────────────────────
+    sys_acid = _clean_acid(sys_d.get("acid_number"))
+    inv_acid = _clean_acid(invoice_data.get("acid_number"))
+    pl_acid = _clean_acid(pl_d.get("acid_number")) or inv_acid
+    bl_acid = _clean_acid(bl_data.get("acid_number"))
+
+    sources_acid = {}
+    if sys_acid: sources_acid["System"] = sys_acid
+    if inv_acid: sources_acid["Invoice"] = inv_acid
+    if pl_acid: sources_acid["Packing List"] = pl_acid
+    if bl_acid: sources_acid["B/L"] = bl_acid
+
+    disagreeing_acid = _get_disagreeing_sources(sources_acid)
+
+    if not inv_acid and not bl_acid:
+        acid_status = "EXTRACTION_FAILED"
+        acid_match = False
+        acid_severity = "WARNING"
+        acid_details = "⚠️ تعذر استخراج رقم ACID من الفاتورة والبوليصة المرفوعة."
+    else:
+        acid_match = bool(inv_acid and bl_acid and inv_acid == bl_acid)
+        if sys_acid and inv_acid and sys_acid != inv_acid:
+            acid_match = False
+        if not acid_match:
+            critical_errors.append("عدم تطابق رقم القيد الجمركي المسبق (ACID) بين الفاتورة والبوليصة")
+            acid_status = "CRITICAL"
+            acid_severity = "BLOCKING"
+            acid_details = "❌ عدم تطابق رقم ACID يؤدي لرفض الشحنة وإلزام إعادة التصدير من الجمارك المصرية."
+        else:
+            acid_status = "PASS"
+            acid_severity = "NONE"
+            acid_details = "رقم ACID مطابق تماماً بنسبة 100%"
+
     matrix.append({
         "check_code": "CHK_ACID",
         "title_ar": "رقم القيد الجمركي المسبق (ACID)",
         "title_en": "ACID Number (19 Digits)",
+        "system_value": sys_acid or "غير مسجل بالسستم",
+        "packing_list_value": pl_acid or "غير موجود بالباكينج",
         "invoice_value": inv_acid or "غير موجود بالفاتورة",
         "bl_value": bl_acid or "غير موجود بالبوليصة",
-        "status": "PASS" if acid_match else "CRITICAL",
-        "severity": "BLOCKING" if not acid_match else "NONE",
-        "details_ar": "رقم ACID مطابق تماماً بنسبة 100%" if acid_match else "❌ عدم تطابق رقم ACID يؤدي لرفض الشحنة وإلزام إعادة التصدير من الجمارك المصرية.",
+        "status": acid_status,
+        "match_status": "MATCH" if acid_status == "PASS" else ("EXTRACTION_FAILED" if acid_status == "EXTRACTION_FAILED" else "MISMATCH_CRITICAL"),
+        "severity": acid_severity,
+        "disagreeing_sources": disagreeing_acid or None,
+        "details_ar": acid_details,
     })
 
     # ─── 2. Importer Tax ID (9 Digits) ────────────────────────────────────────
+    sys_tax = _clean_numeric(sys_d.get("importer_tax_id") or sys_d.get("vat_id"))
     inv_tax = _clean_numeric(invoice_data.get("importer_tax_id"))
+    pl_tax = _clean_numeric(pl_d.get("importer_tax_id")) or inv_tax
     bl_tax = _clean_numeric(bl_data.get("importer_tax_id") or bl_data.get("consignee_tax_id"))
-    tax_match = bool(inv_tax and bl_tax and inv_tax == bl_tax)
-    if not tax_match and inv_tax and bl_tax:
-        critical_errors.append("عدم تطابق البطاقة الضريبية للمستورد المصري")
+
+    sources_tax = {}
+    if sys_tax: sources_tax["System"] = sys_tax
+    if inv_tax: sources_tax["Invoice"] = inv_tax
+    if pl_tax: sources_tax["Packing List"] = pl_tax
+    if bl_tax: sources_tax["B/L"] = bl_tax
+
+    disagreeing_tax = _get_disagreeing_sources(sources_tax)
+
+    if not inv_tax and not bl_tax:
+        tax_status = "EXTRACTION_FAILED"
+        tax_severity = "WARNING"
+        tax_details = "⚠️ لم يتم العثور على رقم التسجيل الضريبي في المستندات المستخرجة."
+    else:
+        tax_match = bool(inv_tax and bl_tax and inv_tax == bl_tax)
+        if not tax_match and inv_tax and bl_tax:
+            critical_errors.append("عدم تطابق البطاقة الضريبية للمستورد المصري")
+        tax_status = "PASS" if tax_match else ("WARNING" if not bl_tax else "CRITICAL")
+        tax_severity = "WARNING" if not bl_tax else ("NONE" if tax_match else "BLOCKING")
+        tax_details = "رقم التسجيل الضريبي للمستورد مطابق" if tax_match else "ينصح بتضمين البطاقة الضريبية للمستورد في خانة Consignee بالبوليصة لتسريع الربط بنافذة."
 
     matrix.append({
         "check_code": "CHK_IMPORTER_TAX_ID",
         "title_ar": "البطاقة الضريبية للمستورد (Tax ID)",
         "title_en": "Importer Tax ID (9 Digits)",
-        "invoice_value": inv_tax or "غير متوفر",
+        "system_value": sys_tax or "غير متوفر بالسستم",
+        "packing_list_value": pl_tax or "غير متوفر بالباكينج",
+        "invoice_value": inv_tax or "غير متوفر بالفاتورة",
         "bl_value": bl_tax or "غير مسجل بالبوليصة",
-        "status": "PASS" if tax_match else ("WARNING" if not bl_tax else "CRITICAL"),
-        "severity": "WARNING" if not bl_tax else ("NONE" if tax_match else "BLOCKING"),
-        "details_ar": "رقم التسجيل الضريبي للمستورد مطابق" if tax_match else "ينصح بتضمين البطاقة الضريبية للمستورد في خانة Consignee بالبوليصة لتسريع الربط بنافذة.",
+        "status": tax_status,
+        "match_status": "MATCH" if tax_status == "PASS" else ("EXTRACTION_FAILED" if tax_status == "EXTRACTION_FAILED" else "MISMATCH_CRITICAL"),
+        "severity": tax_severity,
+        "disagreeing_sources": disagreeing_tax or None,
+        "details_ar": tax_details,
     })
 
     # ─── 3. Exporter / Shipper Name ───────────────────────────────────────────
+    sys_shp = sys_d.get("supplier_name") or sys_d.get("shipper") or ""
     inv_shp = invoice_data.get("supplier_name") or invoice_data.get("shipper") or ""
+    pl_shp = pl_d.get("supplier_name") or pl_d.get("shipper") or inv_shp
     bl_shp = bl_data.get("shipper") or ""
     shp_match, shp_sim = _fuzzy_match(inv_shp, bl_shp)
     if not shp_match and inv_shp and bl_shp:
         warnings.append(f"اختلاف مسمى المصدر/الشاحن (نسبة التطابق {int(shp_sim * 100)}%)")
 
+    sources_shp = {}
+    if sys_shp: sources_shp["System"] = sys_shp
+    if inv_shp: sources_shp["Invoice"] = inv_shp
+    if pl_shp: sources_shp["Packing List"] = pl_shp
+    if bl_shp: sources_shp["B/L"] = bl_shp
+    disagreeing_shp = _get_disagreeing_sources(sources_shp, is_fuzzy=True)
+
     matrix.append({
         "check_code": "CHK_SHIPPER",
         "title_ar": "اسم وبيانات المصدر / الشاحن (Shipper)",
         "title_en": "Shipper / Exporter Name",
-        "invoice_value": inv_shp or "غير محدد",
-        "bl_value": bl_shp or "غير محدد",
+        "system_value": sys_shp or "غير محدد بالسستم",
+        "packing_list_value": pl_shp or "غير محدد بالباكينج",
+        "invoice_value": inv_shp or "غير محدد بالفاتورة",
+        "bl_value": bl_shp or "غير محدد بالبوليصة",
         "status": "PASS" if shp_match else "WARNING",
+        "match_status": "MATCH" if shp_match else "MISMATCH_MINOR",
         "severity": "NONE" if shp_match else "WARNING",
+        "disagreeing_sources": disagreeing_shp or None,
         "details_ar": f"تطابق المسمى بنسبة {int(shp_sim * 100)}%" if shp_match else "يجب التأكد من أن الشاحن في البوليصة هو نفسه المورد بالفاتورة أو وكيل شحن معتمد باسمه.",
     })
 
     # ─── 4. Consignee / Importer Name ─────────────────────────────────────────
+    sys_cns = sys_d.get("importer_name") or sys_d.get("consignee") or ""
     inv_cns = invoice_data.get("importer_name") or invoice_data.get("consignee") or ""
+    pl_cns = pl_d.get("importer_name") or pl_d.get("consignee") or inv_cns
     bl_cns = bl_data.get("consignee") or ""
     cns_match, cns_sim = _fuzzy_match(inv_cns, bl_cns)
     if not cns_match and inv_cns and bl_cns:
         warnings.append(f"اختلاف مسمى المستورد / المرسل إليه (نسبة التطابق {int(cns_sim * 100)}%)")
 
+    sources_cns = {}
+    if sys_cns: sources_cns["System"] = sys_cns
+    if inv_cns: sources_cns["Invoice"] = inv_cns
+    if pl_cns: sources_cns["Packing List"] = pl_cns
+    if bl_cns: sources_cns["B/L"] = bl_cns
+    disagreeing_cns = _get_disagreeing_sources(sources_cns, is_fuzzy=True)
+
     matrix.append({
         "check_code": "CHK_CONSIGNEE",
         "title_ar": "اسم وبيانات المستورد / المرسل إليه (Consignee)",
         "title_en": "Consignee / Importer Name",
-        "invoice_value": inv_cns or "غير محدد",
-        "bl_value": bl_cns or "غير محدد",
+        "system_value": sys_cns or "غير محدد بالسستم",
+        "packing_list_value": pl_cns or "غير محدد بالباكينج",
+        "invoice_value": inv_cns or "غير محدد بالفاتورة",
+        "bl_value": bl_cns or "غير محدد بالبوليصة",
         "status": "PASS" if cns_match else "WARNING",
+        "match_status": "MATCH" if cns_match else "MISMATCH_MINOR",
         "severity": "NONE" if cns_match else "WARNING",
+        "disagreeing_sources": disagreeing_cns or None,
         "details_ar": f"تطابق المرسل إليه بنسبة {int(cns_sim * 100)}%" if cns_match else "يجب تطابق اسم الشركة المستوردة أو كتابة 'TO ORDER' حسب شروط الاعتماد/التحصيل المستندي.",
     })
 
     # ─── 5. Gross Weight Discrepancy (Tolerance Check) ────────────────────────
+    sys_gw = _parse_float(sys_d.get("total_gross_weight_kg") or sys_d.get("gross_weight_kg"))
     inv_gw = _parse_float(invoice_data.get("total_gross_weight_kg"))
+    pl_gw = _parse_float(pl_d.get("total_gross_weight_kg")) or inv_gw
     bl_gw = _parse_float(bl_data.get("total_gross_weight_kg"))
 
     weight_status = "PASS"
     weight_diff_kg = 0.0
     weight_var_pct = 0.0
     weight_details = "الوزن القائم مطابق"
+    disagreeing_gw: List[str] = []
 
     if inv_gw and bl_gw:
         weight_diff_kg = round(bl_gw - inv_gw, 2)
         weight_var_pct = round((abs(weight_diff_kg) / inv_gw) * 100, 2)
         if weight_var_pct > weight_tolerance_pct:
             weight_status = "CRITICAL"
+            disagreeing_gw = ["Invoice", "B/L"]
             critical_errors.append(f"انحراف في الوزن الإجمالي بمقدار {weight_diff_kg} كجم ({weight_var_pct}%) يتجاوز النسبة المسموحة ({weight_tolerance_pct}%)")
             weight_details = f"❌ تجاوز نسبة التفاوت المسموحة ({weight_tolerance_pct}%): فرق الوزن {weight_diff_kg} كجم قد يسبب محاضر فرق وزن وتعديل الإقرار الجمركي."
         elif weight_var_pct > 0:
@@ -121,21 +209,30 @@ def cross_check_invoice_vs_bl(
     elif not inv_gw and bl_gw:
         weight_status = "INFO"
         weight_details = f"الوزن محدد في البوليصة فقط ({bl_gw} كجم)، ولم يذكر إجمالي الوزن في الفاتورة."
+    elif not inv_gw and not bl_gw:
+        weight_status = "EXTRACTION_FAILED"
+        weight_details = "لم يتم استخراج الوزن القائم من المستندات المرفوعة."
 
     matrix.append({
         "check_code": "CHK_GROSS_WEIGHT",
         "title_ar": "مطابقة الوزن الإجمالي القائم (Gross Weight KG)",
         "title_en": "Total Gross Weight Matching",
+        "system_value": f"{sys_gw:,.2f} KG" if sys_gw else "غير مسجل",
+        "packing_list_value": f"{pl_gw:,.2f} KG" if pl_gw else "غير مسجل",
         "invoice_value": f"{inv_gw:,.2f} KG" if inv_gw else "غير مسجل",
         "bl_value": f"{bl_gw:,.2f} KG" if bl_gw else "غير مسجل",
         "status": weight_status,
+        "match_status": "MATCH" if weight_status == "PASS" else ("MISMATCH_CRITICAL" if weight_status == "CRITICAL" else ("EXTRACTION_FAILED" if weight_status == "EXTRACTION_FAILED" else "MISMATCH_MINOR")),
         "severity": "BLOCKING" if weight_status == "CRITICAL" else ("WARNING" if weight_status == "WARNING" else "NONE"),
         "variance_kg": weight_diff_kg,
         "variance_percentage": weight_var_pct,
+        "disagreeing_sources": disagreeing_gw or None,
         "details_ar": weight_details,
     })
 
     # ─── 6. Port of Loading & Port of Discharge ───────────────────────────────
+    sys_pol = sys_d.get("loading_port") or sys_d.get("port_of_loading") or ""
+    sys_pod = sys_d.get("discharge_port") or sys_d.get("port_of_discharge") or ""
     inv_pol = invoice_data.get("loading_port") or ""
     bl_pol = bl_data.get("loading_port") or ""
     pol_match = _ports_match(inv_pol, bl_pol)
@@ -152,17 +249,24 @@ def cross_check_invoice_vs_bl(
         "check_code": "CHK_PORTS",
         "title_ar": "موانئ الشحن والتفريغ (POL & POD)",
         "title_en": "Ports of Loading & Discharge",
+        "system_value": f"POL: {sys_pol or '-'} | POD: {sys_pod or '-'}",
+        "packing_list_value": f"POL: {inv_pol or '-'} | POD: {inv_pod or '-'}",
         "invoice_value": f"POL: {inv_pol or '-'} | POD: {inv_pod or '-'}",
         "bl_value": f"POL: {bl_pol or '-'} | POD: {bl_pod or '-'}",
         "status": "PASS" if ports_ok else "WARNING",
+        "match_status": "MATCH" if ports_ok else "MISMATCH_MINOR",
         "severity": "NONE" if ports_ok else "WARNING",
+        "disagreeing_sources": ["Invoice", "B/L"] if not ports_ok else None,
         "details_ar": "الموانئ متطابقة" if ports_ok else "يجب التأكد من أن ميناء الوصول بالبوليصة يطابق الميناء المذكور في نافذة ونموذج 4.",
     })
 
     # ─── 7. Incoterms vs Freight Terms (FOB vs Prepaid) ───────────────────────
-    incoterm = str(invoice_data.get("incoterms") or "").upper()
+    sys_inco = str(sys_d.get("incoterms") or sys_d.get("incoterm_code") or "").upper()
+    inv_inco = str(invoice_data.get("incoterms") or "").upper()
+    pl_inco = str(pl_d.get("incoterms") or inv_inco or "").upper()
     freight_term = str(bl_data.get("freight_payment_term") or "").upper()
 
+    incoterm = inv_inco or sys_inco
     incoterm_conflict = False
     incoterm_details = "شرط التجارة متوافق مع طريقة سداد النولون"
 
@@ -185,16 +289,22 @@ def cross_check_invoice_vs_bl(
         "check_code": "CHK_INCOTERMS_FREIGHT",
         "title_ar": "توافق شرط التجارة والنولون (Incoterms vs Freight Payment)",
         "title_en": "Incoterms & Freight Terms Consistency",
-        "invoice_value": f"Incoterm: {incoterm or 'غير محدد'}",
+        "system_value": f"Incoterm: {sys_inco or 'غير محدد'}",
+        "packing_list_value": f"Incoterm: {pl_inco or 'غير محدد'}",
+        "invoice_value": f"Incoterm: {inv_inco or 'غير محدد'}",
         "bl_value": f"Freight: {freight_term or 'غير محدد'}",
         "status": "CRITICAL" if incoterm_conflict else "PASS",
+        "match_status": "MISMATCH_CRITICAL" if incoterm_conflict else "MATCH",
         "severity": "BLOCKING" if incoterm_conflict else "NONE",
+        "disagreeing_sources": ["Invoice", "B/L"] if incoterm_conflict else None,
         "details_ar": incoterm_details,
     })
 
     # ─── 8. Packaging & Package Count ─────────────────────────────────────────
-    inv_pkgs = invoice_data.get("total_packages_count")
-    bl_pkgs = bl_data.get("total_packages_count")
+    sys_pkgs = sys_d.get("total_packages_count") or sys_d.get("total_packages")
+    inv_pkgs = invoice_data.get("total_packages_count") or invoice_data.get("total_packages")
+    pl_pkgs = pl_d.get("total_packages_count") or pl_d.get("total_packages") or inv_pkgs
+    bl_pkgs = bl_data.get("total_packages_count") or bl_data.get("total_packages")
     pkgs_match = True
     if inv_pkgs and bl_pkgs and inv_pkgs != bl_pkgs:
         pkgs_match = False
@@ -204,38 +314,54 @@ def cross_check_invoice_vs_bl(
         "check_code": "CHK_PACKAGES",
         "title_ar": "عدد ونوع الطرود (Package Count & Type)",
         "title_en": "Total Packages & Unit Type",
+        "system_value": str(sys_pkgs or "غير محدد"),
+        "packing_list_value": str(pl_pkgs or "غير محدد"),
         "invoice_value": str(inv_pkgs or "غير محدد"),
         "bl_value": f"{bl_pkgs or 'غير محدد'} ({bl_data.get('package_type') or 'Pkgs'})",
         "status": "PASS" if pkgs_match else "WARNING",
+        "match_status": "MATCH" if pkgs_match else "MISMATCH_MINOR",
         "severity": "NONE" if pkgs_match else "WARNING",
+        "disagreeing_sources": ["Invoice", "B/L"] if not pkgs_match else None,
         "details_ar": "عدد الطرود متطابق" if pkgs_match else "يجب مراجعة بيان العبوة (Packing List) لتوحيد عدد الطرود في الفاتورة والبوليصة.",
     })
 
     # ─── 9. Currency Consistency ──────────────────────────────────────────────
+    sys_curr = str(sys_d.get("currency") or "USD").upper()
     inv_curr = str(invoice_data.get("currency") or "USD").upper()
+    pl_curr = str(pl_d.get("currency") or inv_curr).upper()
     matrix.append({
         "check_code": "CHK_CURRENCY",
         "title_ar": "عملة المعاملة والتقييم (Currency)",
         "title_en": "Transaction Currency",
+        "system_value": sys_curr,
+        "packing_list_value": pl_curr,
         "invoice_value": inv_curr,
         "bl_value": "حسب البوليصة / النولون",
         "status": "PASS",
+        "match_status": "MATCH",
         "severity": "NONE",
+        "disagreeing_sources": None,
         "details_ar": f"عملة الفاتورة المعتمدة هي {inv_curr}.",
     })
 
     # ─── 10. Date Plausibility ────────────────────────────────────────────────
+    sys_date = sys_d.get("po_date") or sys_d.get("created_at") or "-"
     inv_date = invoice_data.get("invoice_date")
+    pl_date = pl_d.get("packing_date") or inv_date
     bl_date = bl_data.get("issue_date") or bl_data.get("etd")
     date_ok = True
     matrix.append({
         "check_code": "CHK_DATES",
         "title_ar": "التسلسل الزمني للإصدار والإبحار (Dates Sequence)",
         "title_en": "Chronological Issue Dates Sequence",
+        "system_value": f"تاريخ السستم: {sys_date}",
+        "packing_list_value": f"تاريخ الباكينج: {pl_date or '-'}",
         "invoice_value": f"تاريخ الفاتورة: {inv_date or '-'}",
         "bl_value": f"تاريخ البوليصة: {bl_date or '-'}",
         "status": "PASS" if date_ok else "WARNING",
+        "match_status": "MATCH" if date_ok else "MISMATCH_MINOR",
         "severity": "NONE",
+        "disagreeing_sources": None,
         "details_ar": "التسلسل الزمني منطقي لإجراءات التصدير والشحن.",
     })
 
@@ -276,6 +402,24 @@ def cross_check_invoice_vs_bl(
         "correction_notice_en": correction_letters["en"],
         "correction_notice_ar": correction_letters["ar"],
     }
+
+
+def _get_disagreeing_sources(sources: Dict[str, str], is_fuzzy: bool = False) -> List[str]:
+    """Helper to detect which sources have differing values."""
+    if len(sources) <= 1:
+        return []
+    items = list(sources.items())
+    disagreeing = []
+    base_name, base_val = items[0]
+    for name, val in items[1:]:
+        if is_fuzzy:
+            match, _ = _fuzzy_match(base_val, val)
+            if not match:
+                disagreeing.extend([base_name, name])
+        else:
+            if base_val != val:
+                disagreeing.extend([base_name, name])
+    return list(dict.fromkeys(disagreeing))
 
 
 def _clean_acid(raw: Any) -> Optional[str]:

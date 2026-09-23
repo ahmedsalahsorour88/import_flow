@@ -793,7 +793,6 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
           child: SingleChildScrollView(
             controller: _radarVerticalScrollController,
             scrollDirection: Axis.vertical,
-            padding: const EdgeInsets.only(bottom: 72),
             child: SingleChildScrollView(
               controller: _radarHorizontalScrollController,
               scrollDirection: Axis.horizontal,
@@ -1557,7 +1556,6 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
           child: SingleChildScrollView(
             controller: _verticalScrollController,
             scrollDirection: Axis.vertical,
-            padding: const EdgeInsets.only(bottom: 72),
             child: SingleChildScrollView(
               controller: _horizontalScrollController,
               scrollDirection: Axis.horizontal,

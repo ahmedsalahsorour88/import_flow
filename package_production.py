@@ -120,7 +120,7 @@ def copy_standalone_package():
         safe_copy_file(APP_ICON_SRC, STANDALONE_DEST / "app_icon.ico")
         print(f"      Included app_icon.ico into {STANDALONE_DEST}")
 
-    for util_file in ["sync_to_production.py", "version_manager.py", "version.json", "reset_clean_production_db.py", "clean_and_isolate_databases.py"]:
+    for util_file in ["sync_to_production.py", "version_manager.py", "version.json", "reset_clean_production_db.py", "clean_and_isolate_databases.py", "incoterms_data.json"]:
         if (ROOT_DIR / util_file).exists():
             safe_copy_file(ROOT_DIR / util_file, STANDALONE_DEST / util_file)
             print(f"      Included {util_file} into {STANDALONE_DEST}")

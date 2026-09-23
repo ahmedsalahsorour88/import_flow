@@ -8,8 +8,21 @@ class AddGuideEntryDialog extends ConsumerStatefulWidget {
   final String? initialHsCode;
   final String? initialCategory;
   final String? initialDestinationPort;
+  final String? initialPortOfLoading;
   final String? initialSupplier;
+  final String? initialCountryOfOrigin;
   final String? initialShippingLine;
+  final String? initialIncoterm;
+  final String? initialPaymentMethod;
+  final String? initialCertificateType;
+  final String? initialCustomsBroker;
+  final String? initialSeasonTiming;
+  final String? initialImportFileReference;
+
+  final String? initialTitle;
+  final String? initialContent;
+  final String? initialSeverity;
+  final String? initialDepartment;
   final VoidCallback? onSuccess;
 
   const AddGuideEntryDialog({
@@ -17,8 +30,20 @@ class AddGuideEntryDialog extends ConsumerStatefulWidget {
     this.initialHsCode,
     this.initialCategory,
     this.initialDestinationPort,
+    this.initialPortOfLoading,
     this.initialSupplier,
+    this.initialCountryOfOrigin,
     this.initialShippingLine,
+    this.initialIncoterm,
+    this.initialPaymentMethod,
+    this.initialCertificateType,
+    this.initialCustomsBroker,
+    this.initialSeasonTiming,
+    this.initialImportFileReference,
+    this.initialTitle,
+    this.initialContent,
+    this.initialSeverity,
+    this.initialDepartment,
     this.onSuccess,
   });
 
@@ -32,35 +57,63 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
   late final TextEditingController _contentController;
   String _entryType = 'required_document';
   String _severity = 'critical';
+  String _department = 'Logistics';
+  DateTime? _expiresAt;
   bool _isSubmitting = false;
 
   final List<Map<String, String>> _scopes = [];
 
+  static const List<Map<String, String>> _scopeTypes = [
+    {'value': 'supplier', 'label': 'المورد الأجنبي (Supplier)'},
+    {'value': 'hs_code', 'label': 'البند الجمركي (HS Code)'},
+    {'value': 'product_category', 'label': 'فئة المنتج (Category)'},
+    {'value': 'country_of_origin', 'label': 'بلد المنشأ (Country of Origin)'},
+    {'value': 'port_of_loading', 'label': 'ميناء الشحن (POL)'},
+    {'value': 'port_of_discharge', 'label': 'ميناء الوصول (POD)'},
+    {'value': 'shipping_line', 'label': 'الخط الملاحي (Carrier)'},
+    {'value': 'incoterm', 'label': 'شرط التسليم (Incoterm)'},
+    {'value': 'payment_method', 'label': 'طريقة الدفع (Payment Method)'},
+    {'value': 'certificate_type', 'label': 'نوع الشهادة (Certificate)'},
+    {'value': 'customs_broker', 'label': 'المخلص الجمركي (Broker)'},
+    {'value': 'season_timing', 'label': 'الموسم / التوقيت (Season)'},
+    {'value': 'import_file_reference', 'label': 'ملف الاستيراد (Import File)'},
+  ];
+
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController();
-    _contentController = TextEditingController();
+    _titleController = TextEditingController(text: widget.initialTitle ?? '');
+    _contentController = TextEditingController(text: widget.initialContent ?? '');
+    if (widget.initialSeverity != null && widget.initialSeverity!.isNotEmpty) {
+      _severity = widget.initialSeverity!;
+    }
+    if (widget.initialDepartment != null && widget.initialDepartment!.isNotEmpty) {
+      _department = widget.initialDepartment!;
+    }
 
     // Pre-seed scopes from shipment parameters if provided
-    if (widget.initialHsCode != null && widget.initialHsCode!.trim().isNotEmpty) {
-      _scopes.add({'scope_type': 'hs_code', 'scope_value': widget.initialHsCode!.trim()});
-    }
-    if (widget.initialCategory != null && widget.initialCategory!.trim().isNotEmpty) {
-      _scopes.add({'scope_type': 'product_category', 'scope_value': widget.initialCategory!.trim()});
-    }
-    if (widget.initialDestinationPort != null && widget.initialDestinationPort!.trim().isNotEmpty) {
-      _scopes.add({'scope_type': 'destination_port', 'scope_value': widget.initialDestinationPort!.trim()});
-    }
-    if (widget.initialSupplier != null && widget.initialSupplier!.trim().isNotEmpty) {
-      _scopes.add({'scope_type': 'supplier', 'scope_value': widget.initialSupplier!.trim()});
-    }
-    if (widget.initialShippingLine != null && widget.initialShippingLine!.trim().isNotEmpty) {
-      _scopes.add({'scope_type': 'shipping_line', 'scope_value': widget.initialShippingLine!.trim()});
+    void addIfValid(String type, String? val) {
+      if (val != null && val.trim().isNotEmpty) {
+        _scopes.add({'scope_type': type, 'scope_value': val.trim()});
+      }
     }
 
+    addIfValid('supplier', widget.initialSupplier);
+    addIfValid('hs_code', widget.initialHsCode);
+    addIfValid('product_category', widget.initialCategory);
+    addIfValid('country_of_origin', widget.initialCountryOfOrigin);
+    addIfValid('port_of_loading', widget.initialPortOfLoading);
+    addIfValid('port_of_discharge', widget.initialDestinationPort);
+    addIfValid('shipping_line', widget.initialShippingLine);
+    addIfValid('incoterm', widget.initialIncoterm);
+    addIfValid('payment_method', widget.initialPaymentMethod);
+    addIfValid('certificate_type', widget.initialCertificateType);
+    addIfValid('customs_broker', widget.initialCustomsBroker);
+    addIfValid('season_timing', widget.initialSeasonTiming);
+    addIfValid('import_file_reference', widget.initialImportFileReference);
+
     if (_scopes.isEmpty) {
-      _scopes.add({'scope_type': 'hs_code', 'scope_value': ''});
+      _scopes.add({'scope_type': 'supplier', 'scope_value': ''});
     }
   }
 
@@ -83,6 +136,19 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
     });
   }
 
+  Future<void> _pickExpiryDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _expiresAt ?? now.add(const Duration(days: 180)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 1825)), // 5 years
+    );
+    if (picked != null) {
+      setState(() => _expiresAt = picked);
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -103,6 +169,8 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
         'content': _contentController.text.trim(),
         'entry_type': _entryType,
         'severity': _severity,
+        'department': _department,
+        if (_expiresAt != null) 'expires_at': _expiresAt!.toIso8601String(),
         'created_by': 'المستخدم الحالي',
         'scopes': validScopes,
       };
@@ -143,7 +211,7 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 620, maxHeight: 720),
+        constraints: const BoxConstraints(maxWidth: 680, maxHeight: 780),
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Form(
@@ -158,15 +226,24 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.bookmark_add_outlined, color: AppTheme.flatCobalt, size: 24),
-                        const SizedBox(width: 8),
-                        Text(
-                          l10n.addGuideEntryBtn,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.flatCharcoal,
-                          ),
+                        const Icon(Icons.psychology_outlined, color: AppTheme.flatCobalt, size: 26),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l10n.addGuideEntryBtn,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.flatCharcoal,
+                              ),
+                            ),
+                            const Text(
+                              'توثيق تجربة تشغيلية أو درس مستفاد في بنك المعرفة المؤسسية',
+                              style: TextStyle(fontSize: 11, color: Colors.grey),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -189,7 +266,7 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                           controller: _titleController,
                           decoration: InputDecoration(
                             labelText: l10n.guideEntryTitleLabel,
-                            hintText: 'مثال: اشتراطات صنف الأكوستيك وإلزامية ميناء الإسكندرية',
+                            hintText: 'مثال: اشتراطات المورد سوزو يوهينغ أو ميناء الإسكندرية',
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.title),
                           ),
@@ -203,7 +280,7 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
 
                         // Content
                         TextFormField(
@@ -211,7 +288,7 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                           maxLines: 3,
                           decoration: InputDecoration(
                             labelText: l10n.guideEntryContentLabel,
-                            hintText: 'اكتب تفاصيل التوجيه، والمستندات الإلزامية مثل شهادة المنشأ الأصلية أو الميناء المحدد...',
+                            hintText: 'اكتب تفاصيل الدرس المستفاد أو التوجيه، والمستندات الإلزامية أو المشكلات السابقة...',
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.description_outlined),
                           ),
@@ -222,31 +299,14 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
 
-                        // Dropdowns: Type & Severity
+                        // Dropdowns: Severity, Type, Department
                         Row(
                           children: [
+                            // Severity
                             Expanded(
-                              child: DropdownButtonFormField<String>(
-                                value: _entryType,
-                                decoration: InputDecoration(
-                                  labelText: l10n.guideEntryTypeLabel,
-                                  border: const OutlineInputBorder(),
-                                ),
-                                items: const [
-                                  DropdownMenuItem(value: 'required_document', child: Text('مستند إلزامي مسبق')),
-                                  DropdownMenuItem(value: 'alert', child: Text('تنبيه إجرائي حرج')),
-                                  DropdownMenuItem(value: 'task', child: Text('مهمة متابعة إجبارية')),
-                                  DropdownMenuItem(value: 'info', child: Text('معلومة استرشادية')),
-                                ],
-                                onChanged: (val) {
-                                  if (val != null) setState(() => _entryType = val);
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
+                              flex: 3,
                               child: DropdownButtonFormField<String>(
                                 value: _severity,
                                 decoration: InputDecoration(
@@ -258,9 +318,9 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                                     value: 'critical',
                                     child: Row(
                                       children: [
-                                        Icon(Icons.warning, color: AppTheme.flatCrimson, size: 16),
+                                        Icon(Icons.dangerous_rounded, color: AppTheme.flatCrimson, size: 16),
                                         SizedBox(width: 6),
-                                        Text('حرج وإلزامي'),
+                                        Text('حرج / مانع للخطأ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                       ],
                                     ),
                                   ),
@@ -268,9 +328,9 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                                     value: 'warning',
                                     child: Row(
                                       children: [
-                                        Icon(Icons.error_outline, color: AppTheme.flatOrange, size: 16),
+                                        Icon(Icons.warning_amber_rounded, color: AppTheme.flatOrange, size: 16),
                                         SizedBox(width: 6),
-                                        Text('تحذير هام'),
+                                        Text('تحذير تشغيلي', style: TextStyle(fontSize: 12)),
                                       ],
                                     ),
                                   ),
@@ -280,7 +340,17 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                                       children: [
                                         Icon(Icons.info_outline, color: AppTheme.flatCobalt, size: 16),
                                         SizedBox(width: 6),
-                                        Text('توجيه استرشادي'),
+                                        Text('معلومة إرشادية', style: TextStyle(fontSize: 12)),
+                                      ],
+                                    ),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'positive',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.verified_rounded, color: AppTheme.flatEmerald, size: 16),
+                                        SizedBox(width: 6),
+                                        Text('أفضل ممارسة / نجاح', style: TextStyle(fontSize: 12)),
                                       ],
                                     ),
                                   ),
@@ -290,21 +360,109 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                                 },
                               ),
                             ),
+                            const SizedBox(width: 10),
+                            // Type
+                            Expanded(
+                              flex: 3,
+                              child: DropdownButtonFormField<String>(
+                                value: _entryType,
+                                decoration: InputDecoration(
+                                  labelText: l10n.guideEntryTypeLabel,
+                                  border: const OutlineInputBorder(),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: 'required_document', child: Text('مستند إلزامي مسبق', style: TextStyle(fontSize: 12))),
+                                  DropdownMenuItem(value: 'alert', child: Text('تنبيه إجرائي', style: TextStyle(fontSize: 12))),
+                                  DropdownMenuItem(value: 'task', child: Text('مهمة متابعة إجبارية', style: TextStyle(fontSize: 12))),
+                                  DropdownMenuItem(value: 'info', child: Text('معلومة استرشادية', style: TextStyle(fontSize: 12))),
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _entryType = val);
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            // Department
+                            Expanded(
+                              flex: 2,
+                              child: DropdownButtonFormField<String>(
+                                value: _department,
+                                decoration: const InputDecoration(
+                                  labelText: 'القسم المعني',
+                                  border: OutlineInputBorder(),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: 'Logistics', child: Text('اللوجستيات', style: TextStyle(fontSize: 12))),
+                                  DropdownMenuItem(value: 'Customs', child: Text('الجمارك', style: TextStyle(fontSize: 12))),
+                                  DropdownMenuItem(value: 'Finance', child: Text('المالية', style: TextStyle(fontSize: 12))),
+                                  DropdownMenuItem(value: 'Quality', child: Text('الجودة', style: TextStyle(fontSize: 12))),
+                                  DropdownMenuItem(value: 'Management', child: Text('الإدارة', style: TextStyle(fontSize: 12))),
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _department = val);
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Expiry Date (Optional)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: InkWell(
+                                onTap: _pickExpiryDate,
+                                borderRadius: BorderRadius.circular(6),
+                                child: InputDecorator(
+                                  decoration: InputDecoration(
+                                    labelText: 'تاريخ انتهاء السريان (اختياري)',
+                                    hintText: 'صالح دائماً (غير محدد)',
+                                    border: const OutlineInputBorder(),
+                                    prefixIcon: const Icon(Icons.event_outlined),
+                                    suffixIcon: _expiresAt != null
+                                        ? IconButton(
+                                            icon: const Icon(Icons.clear, size: 18),
+                                            onPressed: () => setState(() => _expiresAt = null),
+                                          )
+                                        : null,
+                                  ),
+                                  child: Text(
+                                    _expiresAt != null
+                                        ? '${_expiresAt!.year}-${_expiresAt!.month.toString().padLeft(2, '0')}-${_expiresAt!.day.toString().padLeft(2, '0')}'
+                                        : 'صالح دائماً وبلا تاريخ انتهاء',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: _expiresAt != null ? AppTheme.flatCharcoal : Colors.grey,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 20),
 
-                        // Scopes Section
+                        // Scopes Section (Multi-Dimensional Tagging)
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              l10n.guideScopesHeader,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.flatCharcoal,
-                              ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l10n.guideScopesHeader,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.flatCharcoal,
+                                  ),
+                                ),
+                                const Text(
+                                  'أبعاد وشروط التطابق الذاتي (13 بعداً تشغيلياً)',
+                                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                                ),
+                              ],
                             ),
                             TextButton.icon(
                               icon: const Icon(Icons.add_circle_outline, size: 16),
@@ -324,20 +482,23 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                             child: Row(
                               children: [
                                 SizedBox(
-                                  width: 170,
+                                  width: 210,
                                   child: DropdownButtonFormField<String>(
                                     value: scope['scope_type'],
                                     decoration: const InputDecoration(
                                       contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                       border: OutlineInputBorder(),
                                     ),
-                                    items: const [
-                                      DropdownMenuItem(value: 'hs_code', child: Text('بند التعريفة')),
-                                      DropdownMenuItem(value: 'product_category', child: Text('تصنيف الصنف')),
-                                      DropdownMenuItem(value: 'destination_port', child: Text('ميناء الوصول')),
-                                      DropdownMenuItem(value: 'supplier', child: Text('المورد الأجنبي')),
-                                      DropdownMenuItem(value: 'shipping_line', child: Text('الخط الملاحي')),
-                                    ],
+                                    items: _scopeTypes.map((st) {
+                                      return DropdownMenuItem(
+                                        value: st['value'],
+                                        child: Text(
+                                          st['label']!,
+                                          style: const TextStyle(fontSize: 11),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      );
+                                    }).toList(),
                                     onChanged: (val) {
                                       if (val != null) {
                                         setState(() {
@@ -352,7 +513,7 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                                   child: TextFormField(
                                     initialValue: scope['scope_value'],
                                     decoration: const InputDecoration(
-                                      hintText: 'قيمة النطاق (مثال: 8520 أو الإسكندرية)',
+                                      hintText: 'قيمة النطاق (مثال: سوزو يوهينغ، الإسكندرية...)',
                                       contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                       border: OutlineInputBorder(),
                                     ),

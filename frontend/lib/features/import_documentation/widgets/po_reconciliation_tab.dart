@@ -4,11 +4,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/helpers/file_picker_helper.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/models/import_file_model.dart';
@@ -24,6 +26,7 @@ import '../../../core/services/table_export_service.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import 'search_and_clone_po_reconciliation_dialog.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
+import '../../purchase_orders/utils/po_packing_matcher.dart';
 
 class POReconciliationTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -34,6 +37,7 @@ class POReconciliationTab extends ConsumerStatefulWidget {
 }
 
 class POReconciliationTabState extends ConsumerState<POReconciliationTab> {
+  static String _formatWeight(double val) => PoPackingMatcher.formatWeight(val);
   String _getLocalizedCheckField(BuildContext context, String fieldName, [String? fieldNameAr]) {
     final l = context.l10n;
     if (l.isArabic && fieldNameAr != null && fieldNameAr.isNotEmpty) {
@@ -50,6 +54,14 @@ class POReconciliationTabState extends ConsumerState<POReconciliationTab> {
         return l.poRecCheckFieldTotalPackages;
       case 'gross_weight':
         return l.poRecCheckFieldGrossWeight;
+      case 'supplier_name':
+        return l.poRecCheckFieldSupplierName;
+      case 'importer_name':
+        return l.poRecCheckFieldImporterName;
+      case 'hs_code':
+        return l.poRecCheckFieldHsCode;
+      case 'tax_id':
+        return l.poRecCheckFieldTaxId;
       default:
         return fieldNameAr ?? fieldName;
     }
@@ -249,16 +261,17 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
+        final fileBytes = FilePickerHelper.getBytes(file);
         final ext = (file.name.split('.').last).toLowerCase();
         final isTextFormat = ['txt', 'csv', 'json', 'xml', 'log'].contains(ext);
 
         setState(() {
           if (isInvoice) {
             _selectedInvoiceFileName = file.name;
-            _invoiceFileBytes = file.bytes;
-            if (isTextFormat && file.bytes != null) {
+            _invoiceFileBytes = fileBytes;
+            if (isTextFormat && fileBytes != null) {
               try {
-                _invoiceTextCtrl.text = utf8.decode(file.bytes!, allowMalformed: true);
+                _invoiceTextCtrl.text = utf8.decode(fileBytes, allowMalformed: true);
               } catch (_) {
                 _invoiceTextCtrl.text = '';
               }
@@ -267,10 +280,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             }
           } else {
             _selectedPackingFileName = file.name;
-            _packingFileBytes = file.bytes;
-            if (isTextFormat && file.bytes != null) {
+            _packingFileBytes = fileBytes;
+            if (isTextFormat && fileBytes != null) {
               try {
-                _packingTextCtrl.text = utf8.decode(file.bytes!, allowMalformed: true);
+                _packingTextCtrl.text = utf8.decode(fileBytes, allowMalformed: true);
               } catch (_) {
                 _packingTextCtrl.text = '';
               }
@@ -462,6 +475,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           'invoice_raw_text': invText,
           'packing_list_raw_text': plText,
           'system_items': _invoiceItems.map((i) => i.toJson()).toList(),
+          'system_packing_items': _packingItems.map((i) => i.toJson()).toList(),
         };
       }
 
@@ -549,6 +563,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       'field_name_ar': 'رقم الفاتورة التجارية النهائية',
       'system_value': sysInvNum,
       'extracted_value': extractedInvNum ?? 'لم يتم الاستخراج',
+      'system_invoice_value': sysInvNum,
+      'system_packing_value': sysInvNum,
+      'uploaded_invoice_value': extractedInvNum ?? 'لم يتم الاستخراج',
+      'uploaded_packing_value': (plData['invoice_number'] as String?) ?? '—',
       'status': extractedInvNum == null ? 'WARNING' : (invNumMatched ? 'MATCH' : 'DISCREPANCY'),
       'message': extractedInvNum == null
           ? 'تعذر قراءة رقم الفاتورة من الملف المرفوع'
@@ -563,6 +581,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       'field_name_ar': 'رقم القيد الجمركي المبدئي (ACID)',
       'system_value': sysAcid,
       'extracted_value': extractedAcid ?? 'لم يتم الاستخراج',
+      'system_invoice_value': sysAcid,
+      'system_packing_value': sysAcid,
+      'uploaded_invoice_value': (invData['acid_number'] as String?) ?? 'لم يتم الاستخراج',
+      'uploaded_packing_value': (plData['acid_number'] as String?) ?? 'لم يتم الاستخراج',
       'status': extractedAcid == null ? 'WARNING' : (acidMatched ? 'MATCH' : 'DISCREPANCY'),
       'message': extractedAcid == null
           ? 'تعذر قراءة رقم ACID من المستندات المرفوعة'
@@ -578,6 +600,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       'field_name_ar': 'إجمالي قيمة الفاتورة التجارية',
       'system_value': '${sysTotalAmt.toStringAsFixed(2)} $sysCurrency',
       'extracted_value': totalInvAmt != null ? '${totalInvAmt.toStringAsFixed(2)} $extCurr' : 'لم يتم الاستخراج',
+      'system_invoice_value': '${sysTotalAmt.toStringAsFixed(2)} $sysCurrency',
+      'system_packing_value': '— (غير مدرج بالباكينج)',
+      'uploaded_invoice_value': totalInvAmt != null ? '${totalInvAmt.toStringAsFixed(2)} $extCurr' : 'لم يتم الاستخراج',
+      'uploaded_packing_value': '—',
       'status': totalInvAmt == null ? 'WARNING' : (amtMatched ? 'MATCH' : 'DISCREPANCY'),
       'message': totalInvAmt == null
           ? 'تعذر قراءة إجمالي القيمة من المستند'
@@ -592,6 +618,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       'field_name_ar': 'إجمالي عدد الطرود',
       'system_value': '${sysTotalPkgs.toInt()} طرد',
       'extracted_value': totalPlPkgs != null ? '${totalPlPkgs.toInt()} طرد' : 'لم يتم الاستخراج',
+      'system_invoice_value': '${sysTotalPkgs.toInt()} طرد',
+      'system_packing_value': '${sysTotalPkgs.toInt()} طرد',
+      'uploaded_invoice_value': invData['qty_pkg'] != null ? '${invData['qty_pkg']} طرد' : '—',
+      'uploaded_packing_value': totalPlPkgs != null ? '${totalPlPkgs.toInt()} طرد' : 'لم يتم الاستخراج',
       'status': totalPlPkgs == null ? 'WARNING' : (pkgsMatched ? 'MATCH' : 'DISCREPANCY'),
       'message': totalPlPkgs == null
           ? 'تعذر قراءة عدد الطرود من كشف التعبئة'
@@ -604,12 +634,88 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     headerDiscrepancies.add({
       'field_name': 'gross_weight',
       'field_name_ar': 'الوزن الإجمالي القائم',
-      'system_value': '${sysGrossWt.toStringAsFixed(2)} كجم',
-      'extracted_value': totalPlGross != null ? '${totalPlGross.toStringAsFixed(2)} كجم' : 'لم يتم الاستخراج',
+      'system_value': '${_formatWeight(sysGrossWt)} كجم',
+      'extracted_value': totalPlGross != null ? '${_formatWeight(totalPlGross)} كجم' : 'لم يتم الاستخراج',
+      'system_invoice_value': '${_formatWeight(sysGrossWt)} كجم',
+      'system_packing_value': '${_formatWeight(sysGrossWt)} كجم',
+      'uploaded_invoice_value': invData['total_gross_weight_kg'] != null ? '${invData['total_gross_weight_kg']} كجم' : '—',
+      'uploaded_packing_value': totalPlGross != null ? '${_formatWeight(totalPlGross)} كجم' : 'لم يتم الاستخراج',
       'status': totalPlGross == null ? 'WARNING' : (grossMatched ? 'MATCH' : 'DISCREPANCY'),
       'message': totalPlGross == null
           ? 'تعذر قراءة الوزن القائم من كشف التعبئة'
           : (grossMatched ? 'الوزن القائم متطابق بنجاح' : 'فارق في الوزن القائم: المستخرج ($totalPlGross) مقابل السستم ($sysGrossWt)'),
+    });
+
+    // Check Supplier Name
+    final String? extractedSupplier = (invData['supplier_name'] as String?)?.trim().isNotEmpty == true
+        ? invData['supplier_name'] as String
+        : (invData['shipper_name'] as String?)?.trim();
+    final String sysSupplier = linkedPO?.supplierName?.trim() ?? '';
+    final bool supplierMatched = extractedSupplier != null && sysSupplier.isNotEmpty
+        ? extractedSupplier.toLowerCase().contains(sysSupplier.toLowerCase()) ||
+          sysSupplier.toLowerCase().contains(extractedSupplier.toLowerCase())
+        : true;
+    headerDiscrepancies.add({
+      'field_name': 'supplier_name',
+      'field_name_ar': 'اسم المورد الأجنبي',
+      'system_value': sysSupplier.isNotEmpty ? sysSupplier : 'غير محدد بالسستم',
+      'extracted_value': extractedSupplier ?? 'لم يتم الاستخراج',
+      'system_invoice_value': sysSupplier.isNotEmpty ? sysSupplier : 'غير محدد بالسستم',
+      'system_packing_value': sysSupplier.isNotEmpty ? sysSupplier : 'غير محدد بالسستم',
+      'uploaded_invoice_value': extractedSupplier ?? 'لم يتم الاستخراج',
+      'uploaded_packing_value': (plData['supplier_name'] ?? plData['shipper_name']) as String? ?? '—',
+      'status': extractedSupplier == null ? 'WARNING' : (supplierMatched ? 'MATCH' : 'DISCREPANCY'),
+      'message': extractedSupplier == null
+          ? 'تعذر قراءة اسم المورد من المستند'
+          : (supplierMatched ? 'اسم المورد متطابق' : 'اسم المورد المستخرج ($extractedSupplier) يختلف عن المسجل ($sysSupplier)'),
+    });
+
+    // Check Importer Name
+    final String? extractedImporter = (invData['importer_name'] as String?)?.trim().isNotEmpty == true
+        ? invData['importer_name'] as String
+        : (invData['consignee_name'] as String?)?.trim();
+    final String sysImporter = currentFile?.companyName.trim() ?? '';
+    final bool importerMatched = extractedImporter != null && sysImporter.isNotEmpty
+        ? extractedImporter.toLowerCase().contains(sysImporter.toLowerCase()) ||
+          sysImporter.toLowerCase().contains(extractedImporter.toLowerCase())
+        : true;
+    headerDiscrepancies.add({
+      'field_name': 'importer_name',
+      'field_name_ar': 'اسم الشركة المستوردة',
+      'system_value': sysImporter.isNotEmpty ? sysImporter : 'غير محدد بالسستم',
+      'extracted_value': extractedImporter ?? 'لم يتم الاستخراج',
+      'system_invoice_value': sysImporter.isNotEmpty ? sysImporter : 'غير محدد بالسستم',
+      'system_packing_value': sysImporter.isNotEmpty ? sysImporter : 'غير محدد بالسستم',
+      'uploaded_invoice_value': extractedImporter ?? 'لم يتم الاستخراج',
+      'uploaded_packing_value': (plData['importer_name'] ?? plData['consignee_name']) as String? ?? '—',
+      'status': extractedImporter == null ? 'WARNING' : (importerMatched ? 'MATCH' : 'DISCREPANCY'),
+      'message': extractedImporter == null
+          ? 'تعذر قراءة اسم المستورد من المستند'
+          : (importerMatched ? 'اسم المستورد متطابق' : 'اسم المستورد المستخرج ($extractedImporter) يختلف عن المسجل ($sysImporter)'),
+    });
+
+    // Check HS Code
+    final String? extractedHs = (invData['hs_code'] as String?)?.trim().isNotEmpty == true
+        ? invData['hs_code'] as String
+        : null;
+    final String sysHs = _packingItems.isNotEmpty ? (_packingItems.first.hsCode?.trim() ?? '') : '';
+    final bool hsMatched = extractedHs != null && sysHs.isNotEmpty
+        ? extractedHs.replaceAll('.', '') == sysHs.replaceAll('.', '') ||
+          extractedHs.contains(sysHs) || sysHs.contains(extractedHs)
+        : true;
+    headerDiscrepancies.add({
+      'field_name': 'hs_code',
+      'field_name_ar': 'البند الجمركي (HS Code)',
+      'system_value': sysHs.isNotEmpty ? sysHs : 'غير محدد بالسستم',
+      'extracted_value': extractedHs ?? 'لم يتم الاستخراج',
+      'system_invoice_value': sysHs.isNotEmpty ? sysHs : 'غير محدد بالسستم',
+      'system_packing_value': sysHs.isNotEmpty ? sysHs : 'غير محدد بالسستم',
+      'uploaded_invoice_value': extractedHs ?? 'لم يتم الاستخراج',
+      'uploaded_packing_value': (plData['hs_code'] as String?) ?? '—',
+      'status': extractedHs == null ? 'WARNING' : (hsMatched ? 'MATCH' : 'DISCREPANCY'),
+      'message': extractedHs == null
+          ? 'تعذر قراءة البند الجمركي من المستند'
+          : (hsMatched ? 'البند الجمركي متطابق' : 'البند الجمركي المستخرج ($extractedHs) يختلف عن المسجل ($sysHs)'),
     });
 
     // Reconciled items from loaded system data
@@ -758,9 +864,23 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     List<POReconciliationItemModel> plList = [];
 
     for (var po in linkedPOs) {
+      // Build a quick lookup map: itemCode -> packing list item
+      final pkgMap = <String, dynamic>{};
+      for (var plItm in po.packingListItems) {
+        final code = plItm.itemCode.trim().toLowerCase();
+        if (code.isNotEmpty) pkgMap[code] = plItm;
+      }
+
       for (var itm in po.items) {
         final itmCode = itm.itemCode ?? 'ITEM-${itm.itemId ?? 0}';
         final itmDesc = itm.descriptionAr.isNotEmpty ? itm.descriptionAr : (itm.descriptionEn ?? 'PO Line Item');
+
+        // Look up packing qty from matching packing list item
+        final matchedPl = pkgMap[itmCode.trim().toLowerCase()];
+        final double pkgCountFromPl = (matchedPl != null && matchedPl.qtyPkg > 0)
+            ? matchedPl.qtyPkg.toDouble()
+            : 0.0;
+
         final recItem = POReconciliationItemModel(
           poItemId: itm.itemId ?? 0,
           itemCode: itmCode,
@@ -771,8 +891,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           initialUnitPrice: itm.unitPrice,
           unitPrice: itm.unitPrice,
           finalUnitPrice: itm.unitPrice,
-          initialPackagesCount: 1,
-          finalPackagesCount: 1,
+          initialPackagesCount: pkgCountFromPl,
+          finalPackagesCount: pkgCountFromPl,
           initialGrossWeightKg: itm.grossWeightKg,
           finalGrossWeightKg: itm.grossWeightKg,
           initialNetWeightKg: itm.netWeightKg,
@@ -1437,6 +1557,13 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       };
     });
 
+    // Auto-repair: if session packing data looks corrupted (all items sum < 100 kg total gross),
+    // reload from system PO packing list
+    final totalGwFromSession = _packingItems.fold<double>(0.0, (sum, i) => sum + i.initialGrossWeightKg);
+    if (totalGwFromSession < 100.0 && _selectedImportFileId != null) {
+      _loadPOItems(_selectedImportFileId!);
+    }
+
     if (_mainScrollController.hasClients) {
       _mainScrollController.animateTo(
         0,
@@ -1482,7 +1609,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           'رقم قائمة التعبئة': sourceSession.finalPackingListNumber ?? '—',
           'إجمالي القيمة': '${sourceSession.totalInvoiceAmount.toStringAsFixed(2)} ${sourceSession.currency}',
           'إجمالي الطرود': '${sourceSession.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}',
-          'إجمالي الوزن': '${sourceSession.totalGrossWeightKg.toStringAsFixed(1)} ${l.poRecKgUnit}',
+          'إجمالي الوزن': '${_formatWeight(sourceSession.totalGrossWeightKg)} ${l.poRecKgUnit}',
           'الحجم الكلي': '${sourceSession.totalCbm.toStringAsFixed(2)} ${l.poRecCbmUnit}',
         },
         mandatorilyResetFields: [
@@ -1629,7 +1756,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         '${sess.importFileCode ?? ""} - ${sess.importerName ?? ""}',
         '${sess.finalInvoiceNumber ?? ""} | ${sess.finalPackingListNumber ?? ""}',
         '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}',
-        '${sess.totalPackages.toStringAsFixed(0)} | ${sess.totalGrossWeightKg.toStringAsFixed(0)} kg',
+        '${sess.totalPackages.toStringAsFixed(0)} | ${_formatWeight(sess.totalGrossWeightKg)} kg',
         '${sess.totalCbm.toStringAsFixed(3)} m³',
         _getLocalizedSessionStatus(context, sess.overallStatus),
         dateStr,
@@ -1662,7 +1789,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         '${sess.importFileCode ?? ""} - ${sess.importerName ?? ""}',
         '${sess.finalInvoiceNumber ?? ""} | ${sess.finalPackingListNumber ?? ""}',
         '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}',
-        '${sess.totalPackages.toStringAsFixed(0)} | ${sess.totalGrossWeightKg.toStringAsFixed(0)} kg',
+        '${sess.totalPackages.toStringAsFixed(0)} | ${_formatWeight(sess.totalGrossWeightKg)} kg',
         '${sess.totalCbm.toStringAsFixed(3)} m³',
         _getLocalizedSessionStatus(context, sess.overallStatus),
         dateStr,
@@ -1924,8 +2051,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         '${totalPoPkgs.toInt() == totalPoPkgs ? totalPoPkgs.toInt() : totalPoPkgs}',
         '${totalPkgs.toInt() == totalPkgs ? totalPkgs.toInt() : totalPkgs}',
         '${overallVar.toStringAsFixed(1)}%',
-        totalGross.toStringAsFixed(2),
-        totalNet.toStringAsFixed(2),
+        _formatWeight(totalGross),
+        _formatWeight(totalNet),
         totalCbm.toStringAsFixed(3),
       ]);
     }
@@ -1961,8 +2088,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         '${initP.toInt() == initP ? initP.toInt() : initP}',
         '${finP.toInt() == finP ? finP.toInt() : finP}',
         '${varPct.toStringAsFixed(1)}%',
-        '${itm.finalGrossWeightKg} kg',
-        '${itm.finalNetWeightKg} kg',
+        '${_formatWeight(itm.finalGrossWeightKg)} kg',
+        '${_formatWeight(itm.finalNetWeightKg)} kg',
         '${itm.finalCbm} m³',
       ];
     }).toList();
@@ -1979,8 +2106,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         '${totalPoPkgs.toInt() == totalPoPkgs ? totalPoPkgs.toInt() : totalPoPkgs}',
         '${totalPkgs.toInt() == totalPkgs ? totalPkgs.toInt() : totalPkgs}',
         '${overallVar.toStringAsFixed(1)}%',
-        '${totalGross.toStringAsFixed(2)} kg',
-        '${totalNet.toStringAsFixed(2)} kg',
+        '${_formatWeight(totalGross)} kg',
+        '${_formatWeight(totalNet)} kg',
         '${totalCbm.toStringAsFixed(3)} m³',
       ]);
     }
@@ -1996,6 +2123,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   @override
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDark(context);
+    final density = ref.watch(displayDensityProvider);
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final sessionsState = ref.watch(poReconciliationSessionsProvider);
     final sessionsList = sessionsState.valueOrNull ?? [];
@@ -2014,7 +2142,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         autofocus: true,
         child: SingleChildScrollView(
           controller: _mainScrollController,
-          padding: const EdgeInsets.all(24),
+          padding: density.contentPadding,
           child: SelectionArea(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2260,8 +2388,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               final kpiCards = [
                 _buildSummaryCard(l.poRecKpiTotalInvoice, '${totalAmount.toStringAsFixed(2)} \$', Icons.monetization_on, AppTheme.cobalt, isDark),
                 _buildSummaryCard(l.poRecKpiTotalPackages, '${totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', Icons.all_inbox, AppTheme.charcoal, isDark),
-                _buildSummaryCard(l.poRecKpiTotalGrossWeight, '${totalGrossWeight.toStringAsFixed(2)} ${l.poRecKgUnit}', Icons.scale, AppTheme.orange, isDark),
-                _buildSummaryCard(l.poRecKpiTotalNetWeight, '${totalNetWeight.toStringAsFixed(2)} ${l.poRecKgUnit}', Icons.fitness_center, AppTheme.emerald, isDark),
+                _buildSummaryCard(l.poRecKpiTotalGrossWeight, '${_formatWeight(totalGrossWeight)} ${l.poRecKgUnit}', Icons.scale, AppTheme.orange, isDark),
+                _buildSummaryCard(l.poRecKpiTotalNetWeight, '${_formatWeight(totalNetWeight)} ${l.poRecKgUnit}', Icons.fitness_center, AppTheme.emerald, isDark),
                 _buildSummaryCard(l.poRecKpiTotalCbm, '${totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}', Icons.view_in_ar, AppTheme.cobalt, isDark),
               ];
               if (isDesktop) {
@@ -2418,7 +2546,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: DataTable(
-                        columnSpacing: 16,
+                        dataRowMinHeight: ref.watch(displayDensityProvider).tableRowHeight - 4,
+                        dataRowMaxHeight: ref.watch(displayDensityProvider).tableRowHeight + 6,
+                        headingRowHeight: ref.watch(displayDensityProvider).tableHeadingHeight,
+                        columnSpacing: ref.watch(displayDensityProvider).isUltraCompact ? 10 : (ref.watch(displayDensityProvider).isCompact ? 12 : 16),
+                        horizontalMargin: ref.watch(displayDensityProvider).isUltraCompact ? 8 : (ref.watch(displayDensityProvider).isCompact ? 12 : 16),
                         columns: [
                           DataColumn(label: Text(l.actions, style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(l.poRecColItemCode)),
@@ -2674,7 +2806,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: DataTable(
-                        columnSpacing: 16,
+                        dataRowMinHeight: ref.watch(displayDensityProvider).tableRowHeight - 4,
+                        dataRowMaxHeight: ref.watch(displayDensityProvider).tableRowHeight + 6,
+                        headingRowHeight: ref.watch(displayDensityProvider).tableHeadingHeight,
+                        columnSpacing: ref.watch(displayDensityProvider).isUltraCompact ? 10 : (ref.watch(displayDensityProvider).isCompact ? 12 : 16),
+                        horizontalMargin: ref.watch(displayDensityProvider).isUltraCompact ? 8 : (ref.watch(displayDensityProvider).isCompact ? 12 : 16),
                         columns: [
                           DataColumn(label: Text(l.actions, style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(l.poRecColItemCode)),
@@ -2848,8 +2984,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                   DataCell(Text('${totalPoPkgs.toStringAsFixed(0)} ${l.poRecPackagesUnit}', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal, fontSize: 13))),
                                   DataCell(Text('${totalPkgs.toStringAsFixed(0)} ${l.poRecPackagesUnit}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13))),
                                   DataCell(_buildVarianceBadge(overallPkgVar)),
-                                  DataCell(Text('${totalGross.toStringAsFixed(2)} ${l.poRecKgUnit}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 13))),
-                                  DataCell(Text('${totalNet.toStringAsFixed(2)} ${l.poRecKgUnit}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13))),
+                                  DataCell(Text('${_formatWeight(totalGross)} ${l.poRecKgUnit}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 13))),
+                                  DataCell(Text('${_formatWeight(totalNet)} ${l.poRecKgUnit}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13))),
                                   DataCell(Text('${totalCbmVal.toStringAsFixed(3)} ${l.poRecCbmUnit}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange, fontSize: 13))),
                                 ],
                               );
@@ -3166,7 +3302,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
-                      columnSpacing: 18,
+                      dataRowMinHeight: ref.watch(displayDensityProvider).tableRowHeight - 4,
+                      dataRowMaxHeight: ref.watch(displayDensityProvider).tableRowHeight + 6,
+                      headingRowHeight: ref.watch(displayDensityProvider).tableHeadingHeight,
+                      columnSpacing: ref.watch(displayDensityProvider).isUltraCompact ? 10 : (ref.watch(displayDensityProvider).isCompact ? 14 : 18),
+                      horizontalMargin: ref.watch(displayDensityProvider).isUltraCompact ? 8 : (ref.watch(displayDensityProvider).isCompact ? 12 : 16),
                       headingRowColor: WidgetStateProperty.all(isDark ? Colors.white.withOpacity(0.06) : AppTheme.charcoal.withOpacity(0.04)),
                       columns: [
                         DataColumn(label: Text(l.poRecHistoryColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -3193,7 +3333,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                             : '$shipmentTitle - ${sess.importerName ?? ""}';
                         final invPlSummary = '${sess.finalInvoiceNumber ?? ""} | ${sess.finalPackingListNumber ?? ""}';
                         final totalValSummary = '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}';
-                        final pkgGrossSummary = '${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit} | ${sess.totalGrossWeightKg.toStringAsFixed(0)} ${l.poRecKgUnit}';
+                        final pkgGrossSummary = '${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit} | ${_formatWeight(sess.totalGrossWeightKg)} ${l.poRecKgUnit}';
                         final cbmSummary = '${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}';
                         final dateStr = (sess.createdAt != null && sess.createdAt!.length >= 10) ? sess.createdAt!.substring(0, 10) : '—';
                         final localizedStatus = _getLocalizedSessionStatus(context, sess.overallStatus);
@@ -3370,7 +3510,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text('${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', style: const TextStyle(fontSize: 12)),
-                                    Text('${l.poRecGrossPrefix} ${sess.totalGrossWeightKg.toStringAsFixed(0)} ${l.poRecKgUnit}', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                    Text('${l.poRecGrossPrefix} ${_formatWeight(sess.totalGrossWeightKg)} ${l.poRecKgUnit}', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
                                   ],
                                 )),
                             ),
@@ -3680,7 +3820,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                       final mCards = [
                         _buildSummaryCard(l.poRecKpiTotalInvoice, '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}', Icons.monetization_on, AppTheme.cobalt, isDark),
                         _buildSummaryCard(l.poRecKpiTotalPackages, '${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', Icons.all_inbox, AppTheme.charcoal, isDark),
-                        _buildSummaryCard(l.poRecKpiTotalGrossWeight, '${sess.totalGrossWeightKg.toStringAsFixed(1)} ${l.poRecKgUnit}', Icons.scale, AppTheme.orange, isDark),
+                        _buildSummaryCard(l.poRecKpiTotalGrossWeight, '${_formatWeight(sess.totalGrossWeightKg)} ${l.poRecKgUnit}', Icons.scale, AppTheme.orange, isDark),
                         _buildSummaryCard(l.poRecKpiTotalCbm, '${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}', Icons.view_in_ar, AppTheme.emerald, isDark),
                       ];
                       if (constraints.maxWidth >= 750) {
@@ -3779,8 +3919,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                               Padding(padding: const EdgeInsets.all(6), child: CopyableText(map['item_code']?.toString() ?? '—', isSelectable: false, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                               Padding(padding: const EdgeInsets.all(6), child: CopyableText(map['package_type']?.toString() ?? '—', isSelectable: false, style: const TextStyle(fontSize: 11))),
                               Padding(padding: const EdgeInsets.all(6), child: CopyableText('${pkgs.toStringAsFixed(0)} ${l.poRecPackagesUnit}', isSelectable: false, style: const TextStyle(fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(6), child: CopyableText('${gross.toStringAsFixed(2)} ${l.poRecKgUnit}', isSelectable: false, style: const TextStyle(fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(6), child: CopyableText('${net.toStringAsFixed(2)} ${l.poRecKgUnit}', isSelectable: false, style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: CopyableText('${_formatWeight(gross)} ${l.poRecKgUnit}', isSelectable: false, style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: CopyableText('${_formatWeight(net)} ${l.poRecKgUnit}', isSelectable: false, style: const TextStyle(fontSize: 11))),
                               Padding(padding: const EdgeInsets.all(6), child: CopyableText('${cbm.toStringAsFixed(3)} ${l.poRecCbmUnit}', isSelectable: false, style: const TextStyle(fontSize: 11))),
                             ],
                           );
@@ -3791,8 +3931,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                             Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecTotalSummaryRow, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.emerald))),
                             Padding(padding: const EdgeInsets.all(6), child: Text('${sess.reconciledPackingItems!.length} items', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                             Padding(padding: const EdgeInsets.all(6), child: Text('${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt))),
-                            Padding(padding: const EdgeInsets.all(6), child: Text('${sess.totalGrossWeightKg.toStringAsFixed(2)} ${l.poRecKgUnit}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.emerald))),
-                            Padding(padding: const EdgeInsets.all(6), child: Text('${sess.totalNetWeightKg.toStringAsFixed(2)} ${l.poRecKgUnit}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text('${_formatWeight(sess.totalGrossWeightKg)} ${l.poRecKgUnit}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.emerald))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text('${_formatWeight(sess.totalNetWeightKg)} ${l.poRecKgUnit}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt))),
                             Padding(padding: const EdgeInsets.all(6), child: Text('${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.orange))),
                           ],
                         ),
@@ -3840,7 +3980,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     buffer.writeln('${l.poRecReportShipper}: ${sess.shipperName ?? "N/A"} | ${l.poRecReportAcid}: ${sess.acidNumber ?? "N/A"}');
     buffer.writeln('${l.poRecReportInvoiceNo}: ${sess.finalInvoiceNumber ?? "N/A"} | ${l.poRecReportPackingNo}: ${sess.finalPackingListNumber ?? "N/A"}');
     buffer.writeln('${l.poRecReportTotalValue}: ${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}');
-    buffer.writeln('${l.poRecReportPackages}: ${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit} | ${l.poRecReportGrossWeight}: ${sess.totalGrossWeightKg.toStringAsFixed(1)} ${l.poRecKgUnit} | ${l.poRecReportNetWeight}: ${sess.totalNetWeightKg.toStringAsFixed(1)} ${l.poRecKgUnit}');
+    buffer.writeln('${l.poRecReportPackages}: ${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit} | ${l.poRecReportGrossWeight}: ${_formatWeight(sess.totalGrossWeightKg)} ${l.poRecKgUnit} | ${l.poRecReportNetWeight}: ${_formatWeight(sess.totalNetWeightKg)} ${l.poRecKgUnit}');
     buffer.writeln('${l.poRecReportTotalCbm}: ${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}');
     buffer.writeln('${l.poRecReportOverallStatus}: ${_getLocalizedSessionStatus(context, sess.overallStatus)} | ${l.poRecReportCertifiedBy}: ${sess.certifiedBy ?? "N/A"}');
     buffer.writeln('================================================================\n');
@@ -3862,7 +4002,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         buffer.writeln('"${map['item_code']}","${map['package_type'] ?? ''}",${map['final_packages_count'] ?? 0},${map['final_gross_weight_kg'] ?? 0},${map['final_net_weight_kg'] ?? 0},${map['final_cbm'] ?? 0}');
       }
       buffer.writeln('----------------------------------------------------------------');
-      buffer.writeln('TOTAL PACKAGES: ${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit} | TOTAL GROSS WT: ${sess.totalGrossWeightKg.toStringAsFixed(2)} ${l.poRecKgUnit} | TOTAL NET WT: ${sess.totalNetWeightKg.toStringAsFixed(2)} ${l.poRecKgUnit} | TOTAL CBM: ${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}');
+      buffer.writeln('TOTAL PACKAGES: ${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit} | TOTAL GROSS WT: ${_formatWeight(sess.totalGrossWeightKg)} ${l.poRecKgUnit} | TOTAL NET WT: ${_formatWeight(sess.totalNetWeightKg)} ${l.poRecKgUnit} | TOTAL CBM: ${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}');
     }
 
     final reportText = buffer.toString();
@@ -4413,14 +4553,17 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: DataTable(
-              headingRowHeight: 38,
-              dataRowMinHeight: 36,
-              dataRowMaxHeight: 44,
-              columnSpacing: 20,
+              headingRowHeight: ref.watch(displayDensityProvider).tableHeadingHeight,
+              dataRowMinHeight: ref.watch(displayDensityProvider).tableRowHeight - 4,
+              dataRowMaxHeight: ref.watch(displayDensityProvider).tableRowHeight + 6,
+              columnSpacing: ref.watch(displayDensityProvider).isUltraCompact ? 12 : (ref.watch(displayDensityProvider).isCompact ? 16 : 20),
+              horizontalMargin: ref.watch(displayDensityProvider).isUltraCompact ? 8 : (ref.watch(displayDensityProvider).isCompact ? 12 : 16),
               columns: [
                 DataColumn(label: Text(l.poRecColCheckItem)),
-                DataColumn(label: Text(l.poRecColSystemValue)),
-                DataColumn(label: Text(l.poRecColExtractedValue)),
+                const DataColumn(label: Text('System Value\n(Invoice)')),
+                const DataColumn(label: Text('System Value\n(Packing List)')),
+                const DataColumn(label: Text('Uploaded Value\n(Invoice)')),
+                const DataColumn(label: Text('Uploaded Value\n(Packing List)')),
                 DataColumn(label: Text(l.poRecColMatchStatus)),
                 DataColumn(label: Text(l.poRecColDetails)),
               ],
@@ -4428,17 +4571,27 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 final map = d as Map<String, dynamic>;
                 final status = map['status'] as String? ?? 'MATCH';
                 final fieldName = map['field_name'] as String? ?? '';
-                final localizedFieldName = _getLocalizedCheckField(context, fieldName);
+                final fieldNameAr = map['field_name_ar'] as String? ?? '';
+                final localizedFieldName = _getLocalizedCheckField(context, fieldName, fieldNameAr);
                 final systemVal = map['system_value']?.toString() ?? '—';
                 final extractedVal = map['extracted_value']?.toString() ?? '—';
-                final localizedMsg = _getLocalizedCheckMessage(context, fieldName, status, map['message'] as String?);
+                final rawMsg = (map['message'] ?? map['details'])?.toString();
+                final localizedMsg = _getLocalizedCheckMessage(context, fieldName, status, rawMsg);
                 final localizedStatus = _getLocalizedSessionStatus(context, status);
                 final rowSummary = [localizedFieldName, systemVal, extractedVal, localizedStatus, localizedMsg].join('\t');
 
+                // Extract 4-way values (fall back to system_value / extracted_value for backwards compatibility)
+                final sysInvVal = (map['system_invoice_value'] ?? map['system_value'] ?? '—').toString();
+                final sysPlVal  = (map['system_packing_value']  ?? map['system_value'] ?? '—').toString();
+                final uplInvVal = (map['uploaded_invoice_value'] ?? map['extracted_value'] ?? '—').toString();
+                final uplPlVal  = (map['uploaded_packing_value']  ?? map['extracted_value'] ?? '—').toString();
+
                 return DataRow(cells: [
                   DataCell(CopyableTableCell(value: localizedFieldName, rowSummary: rowSummary, child: Text(localizedFieldName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)))),
-                  DataCell(CopyableTableCell(value: systemVal, rowSummary: rowSummary, child: Text(systemVal, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800, fontSize: 12)))),
-                  DataCell(CopyableTableCell(value: extractedVal, rowSummary: rowSummary, child: Text(extractedVal, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)))),
+                  DataCell(CopyableTableCell(value: sysInvVal, rowSummary: rowSummary, child: Text(sysInvVal, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800, fontSize: 12)))),
+                  DataCell(CopyableTableCell(value: sysPlVal,  rowSummary: rowSummary, child: Text(sysPlVal,  style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700, fontSize: 12)))),
+                  DataCell(CopyableTableCell(value: uplInvVal, rowSummary: rowSummary, child: Text(uplInvVal, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)))),
+                  DataCell(CopyableTableCell(value: uplPlVal,  rowSummary: rowSummary, child: Text(uplPlVal,  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)))),
                   DataCell(CopyableTableCell(value: localizedStatus, rowSummary: rowSummary, child: _buildMatchStatusBadge(status))),
                   DataCell(CopyableTableCell(value: localizedMsg, rowSummary: rowSummary, child: Text(localizedMsg, style: TextStyle(fontSize: 12, color: status == 'MATCH' ? Colors.green.shade800 : Colors.red.shade800)))),
                 ]);

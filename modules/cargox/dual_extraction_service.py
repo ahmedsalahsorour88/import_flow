@@ -1,4 +1,4 @@
-﻿"""
+"""
 CGX-004: CargoX Dual Extraction Engine — Independent Invoice + Packing List Engines.
 
 يُفصل محرك استخراج الفاتورة التجارية الجمركية عن محرك قائمة التعبئة الجمركية،
@@ -88,6 +88,13 @@ class PackingListExtractionEngine:
         else:
             company, supplier, pos = CargoXExtractionEngine._load_entities(db, file)
 
+        # ── استخلاص تاريخ الفاتورة من PO (order_date = تاريخ الفاتورة المبدئية) ──
+        po_invoice_date: Optional[str] = None
+        if pos:
+            first_po = pos[0]
+            if getattr(first_po, "order_date", None):
+                po_invoice_date = first_po.order_date.strftime("%Y-%m-%d")
+
         mode = request.packing_list_mode
         structure = request.packing_list_structure
         results: List[PackingListResultItem] = []
@@ -116,6 +123,7 @@ class PackingListExtractionEngine:
                 packing_ref="PL-001",
                 file=file,
                 pallet_details=request.pallet_details,
+                po_invoice_date=po_invoice_date,
             )
             results.append(PackingListResultItem(
                 packing_list_ref="PL-001",
@@ -145,6 +153,7 @@ class PackingListExtractionEngine:
                     packing_ref=pl_ref,
                     file=file,
                     pallet_details=request.pallet_details,
+                    po_invoice_date=po_invoice_date,
                 )
                 results.append(PackingListResultItem(
                     packing_list_ref=pl_ref,
@@ -282,6 +291,7 @@ class PackingListExtractionEngine:
         packing_ref: str,
         file: "ImportFile",
         pallet_details: Optional[List[PalletInput]] = None,
+        po_invoice_date: Optional[str] = None,
     ) -> PackingListPayload:
         """بناء PackingListPayload الكامل."""
         pallets_summary = None
@@ -307,7 +317,7 @@ class PackingListExtractionEngine:
             buyer_address=base_meta.get("buyer_address"),
             buyer_tax_id=base_meta.get("buyer_tax_id"),
             invoice_number=inv_number,
-            invoice_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            invoice_date=po_invoice_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             packing_list_ref=packing_ref,
             origin_port=base_meta.get("origin_port"),
             destination_port=base_meta.get("destination_port"),

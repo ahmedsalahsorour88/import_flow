@@ -147,8 +147,8 @@ class PurchaseOrderRepository:
             pkg_count = 0.0
 
             for pitem in data.packing_list_items:
-                tot_net = round(pitem.qty_pkg * pitem.net_weight_unit_kg, 2)
-                tot_gross = round(pitem.qty_pkg * pitem.gross_weight_unit_kg, 2)
+                tot_net = round(pitem.qty_pkg * pitem.net_weight_unit_kg, 16)
+                tot_gross = round(pitem.qty_pkg * pitem.gross_weight_unit_kg, 16)
                 unit_str = getattr(pitem, "unit", "cm") or "cm"
                 l_val = pitem.length_cm or 0.0
                 w_val = pitem.width_cm or 0.0
@@ -197,11 +197,15 @@ class PurchaseOrderRepository:
             # Sync PO totals from Packing List if provided
             total_cbm = pkg_total_cbm if pkg_total_cbm > 0 else total_cbm
             if pkg_total_gross > 0:
+                if abs(pkg_total_gross - round(pkg_total_gross)) < 0.005:
+                    pkg_total_gross = float(round(pkg_total_gross))
                 # Preserve certified master gross weight if within 100g rounding tolerance
                 if total_gross > 0 and abs(total_gross - pkg_total_gross) < 0.1:
                     pass
                 else:
                     total_gross = pkg_total_gross
+            if abs(pkg_total_net - round(pkg_total_net)) < 0.005:
+                pkg_total_net = float(round(pkg_total_net))
             total_net = pkg_total_net if pkg_total_net > 0 else total_net
             total_pkgs = int(pkg_count) if pkg_count > 0 else total_pkgs
 
@@ -222,7 +226,10 @@ class PurchaseOrderRepository:
                     if p_l > 0 and p_w > 0 and p_h > 0:
                         pallet_total_cbm += round((p_l * p_w * p_h / 1_000_000.0) * p_cnt, 4)
                     if p_wt > 0:
-                        pallet_total_gross += round(p_wt * p_cnt, 2)
+                        pallet_total_gross += (p_wt * p_cnt)
+
+            if abs(pallet_total_gross - round(pallet_total_gross)) < 0.005:
+                pallet_total_gross = float(round(pallet_total_gross))
 
         # If Pallet Plan is specified, Pallets represent the master cargo shipping volume & units
         if pallet_total_cbm > 0:
@@ -372,8 +379,8 @@ class PurchaseOrderRepository:
                     l_m, w_m, h_m = l_val / 100.0, w_val / 100.0, h_val / 100.0
                     l_cm_val, w_cm_val, h_cm_val = l_val, w_val, h_val
 
-                tot_net = round(q_pkg * net_u, 2)
-                tot_gross = round(q_pkg * gross_u, 2)
+                tot_net = round(q_pkg * net_u, 16)
+                tot_gross = round(q_pkg * gross_u, 16)
                 direct_cbm = float(pitem.get("total_cbm", 0.0) or 0.0)
                 tot_cbm = round(q_pkg * (l_m * w_m * h_m), 4) if (l_m > 0 and w_m > 0 and h_m > 0) else direct_cbm
                 chg_wt = max(tot_gross, round(tot_cbm * 167.0, 2))
@@ -407,10 +414,14 @@ class PurchaseOrderRepository:
             if pkg_total_cbm > 0:
                 total_cbm = pkg_total_cbm
             if pkg_total_gross > 0:
+                if abs(pkg_total_gross - round(pkg_total_gross)) < 0.005:
+                    pkg_total_gross = float(round(pkg_total_gross))
                 if total_gross > 0 and abs(total_gross - pkg_total_gross) < 0.1:
                     pass
                 else:
                     total_gross = pkg_total_gross
+            if abs(pkg_total_net - round(pkg_total_net)) < 0.005:
+                pkg_total_net = float(round(pkg_total_net))
             if pkg_total_net > 0:
                 total_net = pkg_total_net
             if pkg_count > 0:
@@ -439,7 +450,10 @@ class PurchaseOrderRepository:
                     if p_l > 0 and p_w > 0 and p_h > 0:
                         pallet_total_cbm += round((p_l * p_w * p_h / 1_000_000.0) * p_cnt, 4)
                     if p_wt > 0:
-                        pallet_total_gross += round(p_wt * p_cnt, 2)
+                        pallet_total_gross += (p_wt * p_cnt)
+
+            if abs(pallet_total_gross - round(pallet_total_gross)) < 0.005:
+                pallet_total_gross = float(round(pallet_total_gross))
 
             if pallet_total_cbm > 0:
                 total_cbm = pallet_total_cbm

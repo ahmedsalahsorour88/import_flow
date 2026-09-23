@@ -1202,8 +1202,17 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                         value: matchStatus,
                         rowSummary: rowSummary,
                         child: Chip(
-                          label: Text(matchStatus, style: const TextStyle(fontSize: 11, color: Colors.white)),
-                          backgroundColor: m['severity'] == 'BLOCKING' ? Colors.red : (m['severity'] == 'WARNING' ? Colors.orange : Colors.green),
+                          label: Text(
+                            matchStatus == 'EXTRACTION_FAILED'
+                                ? 'لم يتم الاستخراج'
+                                : (matchStatus == 'MATCH' ? 'متطابق' : matchStatus),
+                            style: const TextStyle(fontSize: 11, color: Colors.white),
+                          ),
+                          backgroundColor: matchStatus == 'EXTRACTION_FAILED'
+                              ? Colors.blueGrey
+                              : (m['severity'] == 'BLOCKING'
+                                  ? Colors.red
+                                  : (m['severity'] == 'WARNING' ? Colors.orange : Colors.green)),
                         ),
                       ),
                     ),

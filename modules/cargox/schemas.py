@@ -179,6 +179,7 @@ class StandardInvoiceLineItem(BaseModel):
     unit_price_basis: str = "PCS"
     gross_weight_kg: float = 0.0
     net_weight_kg: float = 0.0
+    weight_unit: str = "KGM"
     total_amount: float = 0.0
 
 
@@ -187,6 +188,7 @@ class StandardInvoicePayload(BaseModel):
     seller_name: Optional[str] = None
     seller_address: Optional[str] = None
     seller_city: Optional[str] = None
+    seller_city_code: Optional[str] = None
     seller_country_code: Optional[str] = None
     seller_tax_id: Optional[str] = None
     seller_contact_name: Optional[str] = None

@@ -26,6 +26,11 @@ from .validators import CargoXValidators
 from ..integrations.cargox_client import CargoXIntegrationClient
 from ..integrations.pki_signer import PKISignerService
 from ..import_files.model import ImportFile
+from .city_port_resolver import (
+    resolve_city_code,
+    resolve_port_display_name,
+    resolve_port_code,
+)
 
 
 def _normalize_pki_signature(pki_sig: Any) -> Optional[str]:
@@ -541,6 +546,7 @@ from .excel_invoice_service import (
     generate_standard_invoice_excel_bytes,
     parse_standard_invoice_excel_bytes,
     compare_standard_invoice_data,
+    normalize_cargox_weight_unit,
 )
 from ..import_companies.model import ImportCompany
 from ..suppliers.model import Supplier
@@ -626,39 +632,75 @@ class CargoXStandardInvoiceService:
                 total_gross = pl_g
             if pl_n > 0:
                 total_net = pl_n
-            if po.packing_list_items[0].weight_unit:
-                weight_uom = po.packing_list_items[0].weight_unit
+            for pl in po.packing_list_items:
+                if pl.weight_unit:
+                    weight_uom = pl.weight_unit
+                    break
 
-        if total_gross == 0.0 and po:
-            total_gross = float(po.total_gross_weight_kg or 0.0)
-        if total_net == 0.0 and po:
-            total_net = float(po.total_net_weight_kg or 0.0)
+        if po:
+            po_gw = float(po.total_gross_weight_kg or 0.0)
+            po_nw = float(po.total_net_weight_kg or 0.0)
+            if total_gross == 0.0:
+                total_gross = po_gw
+            elif po_gw > 0 and abs(po_gw - total_gross) <= 1.0:
+                total_gross = po_gw
+            if total_net == 0.0:
+                total_net = po_nw
+            elif po_nw > 0 and abs(po_nw - total_net) <= 1.0:
+                total_net = po_nw
 
         if total_gross == 0.0 and file.packing_lists_data and isinstance(file.packing_lists_data, list):
             for pld in file.packing_lists_data:
                 if isinstance(pld, dict):
                     total_gross += float(pld.get("total_gross_weight_kg") or pld.get("gross_weight") or 0.0)
                     total_net += float(pld.get("total_net_weight_kg") or pld.get("net_weight") or 0.0)
+                    u = pld.get("weight_unit") or pld.get("weight_uom")
+                    if u:
+                        weight_uom = u
+                        break
 
         if total_gross == 0.0:
             total_gross = float(getattr(file, "gross_weight_kg", 0.0) or 0.0)
         if total_net == 0.0:
             total_net = float(getattr(file, "net_weight_kg", 0.0) or 0.0)
 
+        weight_uom = normalize_cargox_weight_unit(weight_uom)
+
         # 3. Collect Raw Line Items
         raw_items_source = []
-        if reconciled_session and reconciled_session.matched_items_data:
-            for raw_item in reconciled_session.matched_items_data:
+        reconciled_items = (
+            getattr(reconciled_session, "reconciled_invoice_items", None)
+            or getattr(reconciled_session, "reconciled_packing_items", None)
+        ) if reconciled_session else None
+
+        supplier_country = (
+            getattr(supplier, "foreign_exporter_country_code", None)
+            or getattr(supplier, "foreign_exporter_country", None)
+            or "CN"
+        )
+
+        if reconciled_items:
+            po_items = po.line_items if po and po.line_items else []
+            po_by_id = {pi.item_id: pi for pi in po_items if pi.item_id}
+            po_by_code = {pi.item_code: pi for pi in po_items if pi.item_code}
+
+            for raw_item in reconciled_items:
+                pi = po_by_id.get(raw_item.get("po_item_id")) or po_by_code.get(raw_item.get("item_code"))
+                desc = (pi.main_description if pi and pi.main_description else None) or raw_item.get("main_description") or raw_item.get("item_name") or raw_item.get("description") or "Imported Goods"
+                uom = (pi.unit_of_measure if pi and pi.unit_of_measure else None) or raw_item.get("unit_of_measure") or raw_item.get("unit") or "PCS"
+                hs_val = raw_item.get("hs_code") or (pi.tariff.hs_code if pi and hasattr(pi, "tariff") and pi.tariff else "940310")
+
                 raw_items_source.append({
                     "item_code": raw_item.get("item_code"),
-                    "hs_code": raw_item.get("hs_code") or "940310",
-                    "description": raw_item.get("item_name") or raw_item.get("description") or "Imported Goods",
-                    "quantity": float(raw_item.get("actual_quantity") or raw_item.get("po_quantity") or 1.0),
-                    "qty_unit": raw_item.get("unit") or "PCS",
-                    "unit_price": float(raw_item.get("unit_price") or 0.0),
-                    "country_of_origin": raw_item.get("country_of_origin") or (supplier.country.iso2 if supplier and supplier.country else "CN"),
-                    "gross_weight_kg": float(raw_item.get("gross_weight") or 0.0),
-                    "net_weight_kg": float(raw_item.get("net_weight") or 0.0),
+                    "hs_code": hs_val,
+                    "description": desc,
+                    "quantity": float(raw_item.get("actual_quantity") or raw_item.get("po_quantity") or raw_item.get("final_quantity") or 1.0),
+                    "qty_unit": uom,
+                    "unit_price": float(raw_item.get("unit_price") or raw_item.get("final_unit_price") or 0.0),
+                    "country_of_origin": raw_item.get("country_of_origin") or supplier_country,
+                    "gross_weight_kg": float(raw_item.get("final_gross_weight_kg") or raw_item.get("gross_weight") or 0.0),
+                    "net_weight_kg": float(raw_item.get("final_net_weight_kg") or raw_item.get("net_weight") or 0.0),
+                    "weight_unit": weight_uom,
                 })
         elif po and po.line_items:
             for pi in po.line_items:
@@ -668,13 +710,14 @@ class CargoXStandardInvoiceService:
                 raw_items_source.append({
                     "item_code": pi.item_code,
                     "hs_code": hs_code_val,
-                    "description": pi.description_en or pi.description_ar or "Imported Goods",
+                    "description": pi.main_description or pi.description_en or pi.description_ar or "Imported Goods",
                     "quantity": float(pi.quantity),
                     "qty_unit": pi.unit_of_measure or "PCS",
                     "unit_price": float(pi.unit_price),
-                    "country_of_origin": pi.country_of_origin or (supplier.country.iso2 if supplier and supplier.country else "CN"),
+                    "country_of_origin": pi.country_of_origin or supplier_country,
                     "gross_weight_kg": float(pi.gross_weight_kg or 0.0),
                     "net_weight_kg": float(pi.net_weight_kg or 0.0),
+                    "weight_unit": weight_uom,
                 })
         else:
             raw_items_source.append({
@@ -752,6 +795,7 @@ class CargoXStandardInvoiceService:
                     unit_price_basis=grp["qty_unit"],
                     gross_weight_kg=round(grp["total_gross_weight"], 2),
                     net_weight_kg=round(grp["total_net_weight"], 2),
+                    weight_unit=weight_uom,
                     total_amount=round(tot_amt, 2),
                 )
             )
@@ -766,11 +810,16 @@ class CargoXStandardInvoiceService:
         if po and po.order_date:
             po_date_str = po.order_date.strftime("%Y-%m-%d")
 
+        seller_addr = supplier.address if supplier else ""
+        seller_country = (supplier.foreign_exporter_country_code if supplier else None) or "CN"
+        seller_city_code = resolve_city_code(seller_addr, seller_country)
+
         return StandardInvoicePayload(
             seller_name=supplier.company_name if supplier else file.supplier_name,
-            seller_address=supplier.address if supplier else "",
+            seller_address=seller_addr,
             seller_city="",
-            seller_country_code=supplier.foreign_exporter_country_code if supplier else "IT",
+            seller_city_code=seller_city_code,
+            seller_country_code=seller_country,
             seller_tax_id=supplier.foreign_exporter_id if supplier else "",
             seller_contact_name="",
             seller_phone=supplier.phone if supplier else "",
@@ -787,12 +836,12 @@ class CargoXStandardInvoiceService:
             acid_number=file.acid_number or "PENDING",
             invoice_type="Commercial Invoice",
             invoice_number=inv_number,
-            invoice_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            invoice_date=po.order_date.strftime("%Y-%m-%d") if (po and po.order_date) else datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             purchase_order_number=po.po_number if po else f"PO-{file.import_file_code}",
             purchase_order_date=po_date_str,
             proforma_invoice_number=po.proforma_invoice_number if po else None,
-            origin_port=file.port_of_loading or "Origin Port",
-            destination_port=file.port_of_discharge or "EGALY",
+            origin_port=resolve_port_code(file.port_of_loading or "CNSHA"),
+            destination_port=resolve_port_code(file.port_of_discharge or "EGALY"),
             currency_code=file.estimated_cost_currency or "EUR",
             incoterm=file.incoterm_code or "EXW",
             gross_weight=round(total_gross, 2),
@@ -1031,6 +1080,13 @@ class CargoXExtractionEngine:
         mode = request.mode
         results: List[ExtractionResultItem] = []
 
+        # ── استخلاص تاريخ الفاتورة من PO مباشرة (order_date هو تاريخ الفاتورة المبدئية) ──
+        po_invoice_date: Optional[str] = None
+        if pos:
+            first_po = pos[0]
+            if first_po.order_date:
+                po_invoice_date = first_po.order_date.strftime("%Y-%m-%d")
+
         if mode in ("all_consolidated", "all_detailed"):
             # دمج كل بيانات الفواتير في payload واحد
             all_items_raw = []
@@ -1044,6 +1100,7 @@ class CargoXExtractionEngine:
             payload = CargoXExtractionEngine._build_payload(
                 base_raw, grouped_items, total_gross, total_net, weight_uom,
                 inv_number=CargoXExtractionEngine._resolve_invoice_number(file, pos),
+                po_date=po_invoice_date,
             )
             results.append(ExtractionResultItem(invoice_number=payload.invoice_number, payload=payload))
 
@@ -1062,6 +1119,7 @@ class CargoXExtractionEngine:
                 payload = CargoXExtractionEngine._build_payload(
                     base_raw, grouped_items, inv_gross, inv_net, weight_uom,
                     inv_number=inv_no,
+                    po_date=po_invoice_date,
                 )
                 results.append(ExtractionResultItem(invoice_number=inv_no, payload=payload))
 
@@ -1275,23 +1333,42 @@ class CargoXExtractionEngine:
         total_net = 0.0
         weight_uom = "KGM"
         for po in pos:
-            if po.packing_list_items:
+            po_gw = float(po.total_gross_weight_kg or 0)
+            po_nw = float(po.total_net_weight_kg or 0)
+            if po_gw > 0:
+                total_gross += po_gw
+                total_net += po_nw
+                if po.packing_list_items:
+                    for pl in po.packing_list_items:
+                        if pl.weight_unit:
+                            weight_uom = pl.weight_unit
+                            break
+            elif po.packing_list_items:
                 pl_g = sum(float(pl.total_gross_weight_kg or 0) for pl in po.packing_list_items)
                 pl_n = sum(float(pl.total_net_weight_kg or 0) for pl in po.packing_list_items)
                 if pl_g > 0:
                     total_gross += pl_g
                 if pl_n > 0:
                     total_net += pl_n
-                if po.packing_list_items[0].weight_unit:
-                    weight_uom = po.packing_list_items[0].weight_unit
-            elif po.total_gross_weight_kg:
-                total_gross += float(po.total_gross_weight_kg or 0)
-                total_net += float(po.total_net_weight_kg or 0)
+                for pl in po.packing_list_items:
+                    if pl.weight_unit:
+                        weight_uom = pl.weight_unit
+                        break
+        if total_gross == 0 and file.packing_lists_data and isinstance(file.packing_lists_data, list):
+            for pld in file.packing_lists_data:
+                if isinstance(pld, dict):
+                    total_gross += float(pld.get("total_gross_weight_kg") or pld.get("gross_weight") or 0.0)
+                    total_net += float(pld.get("total_net_weight_kg") or pld.get("net_weight") or 0.0)
+                    u = pld.get("weight_unit") or pld.get("weight_uom")
+                    if u:
+                        weight_uom = u
+                        break
         if total_gross == 0:
             total_gross = float(getattr(file, "gross_weight_kg", 0.0) or 0.0)
         if total_net == 0:
             total_net = float(getattr(file, "net_weight_kg", 0.0) or 0.0)
-        return total_gross, total_net, weight_uom
+        weight_uom = normalize_cargox_weight_unit(weight_uom)
+        return round(total_gross, 2), round(total_net, 2), weight_uom
 
     @staticmethod
     def _resolve_per_invoice_weights(file: ImportFile, pos: list, inv_no: str, inv_items: list, all_invoices: dict):
@@ -1332,6 +1409,8 @@ class CargoXExtractionEngine:
                 or "CN"
             )
 
+        total_resolved_gross, total_resolved_net, resolved_weight_uom = CargoXExtractionEngine._resolve_weights(file, pos)
+
         # مصدر 1: reconciled session
         reconciled_items = (
             getattr(reconciled_session, "reconciled_invoice_items", None)
@@ -1339,21 +1418,62 @@ class CargoXExtractionEngine:
             or getattr(reconciled_session, "matched_items_data", None)
         )
         if reconciled_items:
+            rec_total_qty = sum(
+                float(it.get("final_quantity") or it.get("actual_quantity") or it.get("po_quantity") or it.get("initial_quantity") or 1.0)
+                for it in reconciled_items
+            ) or 1.0
+            raw_sum_gross = sum(
+                float(it.get("final_gross_weight_kg") or it.get("gross_weight") or it.get("initial_gross_weight_kg") or 0.0)
+                for it in reconciled_items
+            )
+            raw_sum_net = sum(
+                float(it.get("final_net_weight_kg") or it.get("net_weight") or it.get("initial_net_weight_kg") or 0.0)
+                for it in reconciled_items
+            )
+
+            use_proportional_weight = False
+            unit_gross_rate = 0.0
+            unit_net_rate = 0.0
+            if total_resolved_gross > 0 and (raw_sum_gross == 0 or raw_sum_gross < total_resolved_gross * 0.5):
+                use_proportional_weight = True
+                unit_gross_rate = total_resolved_gross / rec_total_qty
+                unit_net_rate = total_resolved_net / rec_total_qty if total_resolved_net > 0 else 0.0
+
+            po_items = [pi for p in pos for pi in p.line_items] if pos else []
+            po_by_id = {pi.item_id: pi for pi in po_items if pi.item_id}
+            po_by_code = {pi.item_code: pi for pi in po_items if pi.item_code}
+
             for raw_item in reconciled_items:
                 inv_no = raw_item.get("invoice_number") or CargoXExtractionEngine._resolve_invoice_number(file, pos)
+                qty = float(raw_item.get("final_quantity") or raw_item.get("actual_quantity") or raw_item.get("po_quantity") or raw_item.get("initial_quantity") or 1.0)
+                if use_proportional_weight:
+                    gw = qty * unit_gross_rate
+                    nw = qty * unit_net_rate
+                else:
+                    item_raw_gw = float(raw_item.get("final_gross_weight_kg") or raw_item.get("gross_weight") or raw_item.get("initial_gross_weight_kg") or 0.0)
+                    item_raw_nw = float(raw_item.get("final_net_weight_kg") or raw_item.get("net_weight") or raw_item.get("initial_net_weight_kg") or 0.0)
+                    gw = item_raw_gw
+                    nw = item_raw_nw
+
+                pi = po_by_id.get(raw_item.get("po_item_id")) or po_by_code.get(raw_item.get("item_code"))
+                desc = (pi.main_description if pi and pi.main_description else None) or raw_item.get("main_description") or raw_item.get("item_name") or raw_item.get("description") or "Imported Goods"
+                uom = (pi.unit_of_measure if pi and pi.unit_of_measure else None) or raw_item.get("unit_of_measure") or raw_item.get("unit") or "PCS"
+                hs_val = raw_item.get("hs_code") or (pi.tariff.hs_code if pi and hasattr(pi, "tariff") and pi.tariff else "940310")
+
                 invoices_dict[inv_no].append({
                     "item_code": raw_item.get("item_code"),
                     "manufacturer": raw_item.get("manufacturer") or supplier_name_fallback,
                     "brand_name": raw_item.get("brand_name") or "Standard",
                     "model": raw_item.get("model") or "Standard",
-                    "hs_code": raw_item.get("hs_code") or "940310",
-                    "description": raw_item.get("item_name") or raw_item.get("description") or "Imported Goods",
-                    "quantity": float(raw_item.get("final_quantity") or raw_item.get("actual_quantity") or raw_item.get("po_quantity") or raw_item.get("initial_quantity") or 1.0),
-                    "qty_unit": raw_item.get("unit") or raw_item.get("package_type") or "PCS",
+                    "hs_code": hs_val,
+                    "description": desc,
+                    "quantity": qty,
+                    "qty_unit": uom,
                     "unit_price": float(raw_item.get("final_unit_price") or raw_item.get("unit_price") or 0.0),
                     "country_of_origin": raw_item.get("country_of_origin") or country_fallback,
-                    "gross_weight_kg": float(raw_item.get("final_gross_weight_kg") or raw_item.get("gross_weight") or raw_item.get("initial_gross_weight_kg") or 0.0),
-                    "net_weight_kg": float(raw_item.get("final_net_weight_kg") or raw_item.get("net_weight") or raw_item.get("initial_net_weight_kg") or 0.0),
+                    "gross_weight_kg": gw,
+                    "net_weight_kg": nw,
+                    "weight_unit": resolved_weight_uom,
                     "invoice_number": inv_no,
                 })
             return dict(invoices_dict)
@@ -1378,14 +1498,12 @@ class CargoXExtractionEngine:
                     if hasattr(pi, "tariff") and pi.tariff and pi.tariff.hs_code:
                         hs_code_val = pi.tariff.hs_code
                     qty = float(pi.quantity)
-                    # رقم الفاتورة: يؤخذ من البند أولاً، ثم من PO proforma_invoice_number
                     inv_no = (
                         getattr(pi, "invoice_number", None)
                         or po.proforma_invoice_number
                         or file.pi_number
                         or f"INV-{file.import_file_code}"
                     )
-                    # لو filter محدد
                     if request.invoice_filter and inv_no != request.invoice_filter:
                         continue
                     invoices_dict[inv_no].append({
@@ -1394,18 +1512,18 @@ class CargoXExtractionEngine:
                         "brand_name": getattr(pi, "brand_name", None) or "Standard",
                         "model": getattr(pi, "model", None) or "Standard",
                         "hs_code": hs_code_val,
-                        "description": pi.description_en or pi.description_ar or "Imported Goods",
+                        "description": pi.main_description or pi.description_en or pi.description_ar or "Imported Goods",
                         "quantity": qty,
                         "qty_unit": pi.unit_of_measure or "PCS",
                         "unit_price": float(getattr(pi, "customs_unit_price", None) or pi.unit_price),
                         "country_of_origin": pi.country_of_origin or country_fallback,
                         "gross_weight_kg": qty * unit_gross_rate if unit_gross_rate > 0 else float(pi.gross_weight_kg or 0),
                         "net_weight_kg": qty * unit_net_rate if unit_net_rate > 0 else float(pi.net_weight_kg or 0),
+                        "weight_unit": resolved_weight_uom,
                         "invoice_number": inv_no,
                     })
 
         if not invoices_dict:
-            # fallback لو مفيش POs أو بنود
             inv_no = CargoXExtractionEngine._resolve_invoice_number(file, pos)
             invoices_dict[inv_no].append({
                 "item_code": "ITEM-001",
@@ -1420,6 +1538,7 @@ class CargoXExtractionEngine:
                 "country_of_origin": country_fallback,
                 "gross_weight_kg": 100.0,
                 "net_weight_kg": 90.0,
+                "weight_unit": resolved_weight_uom,
                 "invoice_number": inv_no,
             })
 
@@ -1465,6 +1584,7 @@ class CargoXExtractionEngine:
                     unit_price_basis=r["qty_unit"],
                     gross_weight_kg=round(r["gross_weight_kg"], 2),
                     net_weight_kg=round(r["net_weight_kg"], 2),
+                    weight_unit=normalize_cargox_weight_unit(r.get("weight_unit")),
                     total_amount=round(qty * price, 2),
                 ))
             return items
@@ -1489,6 +1609,7 @@ class CargoXExtractionEngine:
                     "weighted_sum": 0.0,  # Σ(qty × price)
                     "total_gross": 0.0,
                     "total_net": 0.0,
+                    "weight_unit": normalize_cargox_weight_unit(r.get("weight_unit")),
                     "country_of_origin": r["country_of_origin"],
                 }
             qty = r["quantity"]
@@ -1528,17 +1649,23 @@ class CargoXExtractionEngine:
                 unit_price_basis=grp["qty_unit"],
                 gross_weight_kg=round(grp["total_gross"], 2),
                 net_weight_kg=round(grp["total_net"], 2),
+                weight_unit=normalize_cargox_weight_unit(grp.get("weight_unit")),
                 total_amount=tot_amt,
             ))
         return items
 
     @staticmethod
     def _build_base_payload(file: ImportFile, company, supplier) -> Dict:
+        seller_addr = supplier.address if supplier else ""
+        seller_country = (supplier.foreign_exporter_country_code if supplier else None) or "CN"
+        seller_city_code = resolve_city_code(seller_addr, seller_country)
+
         return {
             "seller_name": supplier.company_name if supplier else file.supplier_name,
-            "seller_address": supplier.address if supplier else "",
+            "seller_address": seller_addr,
             "seller_city": "",
-            "seller_country_code": (supplier.foreign_exporter_country_code if supplier else None) or "CN",
+            "seller_city_code": seller_city_code,
+            "seller_country_code": seller_country,
             "seller_tax_id": supplier.foreign_exporter_id if supplier else "",
             "seller_phone": supplier.phone if supplier else "",
             "seller_fax": supplier.fax if supplier else "",
@@ -1567,6 +1694,33 @@ class CargoXExtractionEngine:
         po_date: Optional[str] = None,
     ) -> StandardInvoicePayload:
         subtotal = sum(i.total_amount for i in items)
+
+        # معايرة وضمان مطابقة أوزان البنود للأوزان الإجمالية للشحنة/الفاتورة:
+        # إذا كان هناك سطر واحد مجمع (بند واحد يمثل الـ HS Code)، يحمل 100% من إجمالي الوزن
+        if items and total_gross > 0:
+            if len(items) == 1:
+                items[0].gross_weight_kg = round(total_gross, 2)
+                items[0].net_weight_kg = round(total_net, 2)
+            else:
+                sum_items_gw = sum(i.gross_weight_kg for i in items)
+                sum_items_nw = sum(i.net_weight_kg for i in items)
+                # إذا كانت أوزان البنود لا تطابق إجمالي الفاتورة بدقة (مثل وجود فروق تقريب أو أوزان وحدات)
+                if abs(sum_items_gw - total_gross) > 0.05 or abs(sum_items_nw - total_net) > 0.05:
+                    total_qty = sum(i.quantity for i in items) or 1.0
+                    running_gw = 0.0
+                    running_nw = 0.0
+                    for idx, item in enumerate(items):
+                        if idx == len(items) - 1:
+                            # السطر الأخير يأخذ المتبقي الدقيق لمنع أي فوارق تقريب
+                            item.gross_weight_kg = round(total_gross - running_gw, 2)
+                            item.net_weight_kg = round(total_net - running_nw, 2)
+                        else:
+                            ratio = (item.gross_weight_kg / sum_items_gw) if sum_items_gw > 0 else (item.quantity / total_qty)
+                            item.gross_weight_kg = round(total_gross * ratio, 2)
+                            item.net_weight_kg = round(total_net * ratio, 2)
+                            running_gw += item.gross_weight_kg
+                            running_nw += item.net_weight_kg
+
         return StandardInvoicePayload(
             **base,
             seller_contact_name="",
@@ -1575,12 +1729,12 @@ class CargoXExtractionEngine:
             buyer_fax="",
             buyer_email="",
             invoice_number=inv_number,
-            invoice_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            invoice_date=po_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             purchase_order_number=po_number,
             purchase_order_date=po_date,
             gross_weight=round(total_gross, 2),
             net_weight=round(total_net, 2),
-            weight_unit=weight_uom,
+            weight_unit=normalize_cargox_weight_unit(weight_uom),
             items=items,
             subtotal=round(subtotal, 2),
             freight_cost=0.0,

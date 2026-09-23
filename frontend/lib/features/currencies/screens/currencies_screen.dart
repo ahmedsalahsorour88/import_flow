@@ -12,6 +12,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/helpers/master_data_action_helper.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/compact_table_pagination_footer.dart';
 import '../models/currency_model.dart';
 
 import '../providers/currencies_provider.dart';
@@ -28,7 +29,7 @@ class CurrenciesScreen extends ConsumerStatefulWidget {
 class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
   final TextEditingController _searchController = TextEditingController();
   int _currentPage = 1;
-  int _pageSize = 25;
+  final int _pageSize = 25;
 
   @override
   void initState() {
@@ -348,27 +349,30 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                       ? currencies.sublist(startIndex, endIndex)
                       : <CurrencyModel>[];
 
-                  return Column(
-                    children: [
-                      Expanded(
-                        child: Container(
+                  final isDark = Theme.of(context).brightness == Brightness.dark;
+                  return Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: isDark ? AppTheme.darkBorder : const Color(0xFFE2E8F0)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
+                          color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
                         ),
                       ],
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.vertical,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
+                      borderRadius: BorderRadius.circular(10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.vertical,
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
                           child: ConstrainedBox(
                             constraints: BoxConstraints(
                               minWidth: MediaQuery.of(context).size.width > 1150
@@ -643,82 +647,20 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                         ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                // Pagination Footer
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        l10n.showingCurrenciesCount(totalItems == 0 ? 0 : startIndex + 1, endIndex, totalItems),
-                        style: TextStyle(fontSize: 13, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
-                      ),
-                      Row(
-                        children: [
-                          Text(l10n.rowsPerPageLabel, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                          DropdownButton<int>(
-                            value: _pageSize,
-                            underline: const SizedBox(),
-                            isDense: true,
-                            items: [15, 25, 50, 100]
-                                .map((s) => DropdownMenuItem(value: s, child: Text('$s', style: const TextStyle(fontSize: 12))))
-                                .toList(),
-                            onChanged: (val) {
-                              if (val != null) {
-                                setState(() {
-                                  _pageSize = val;
-                                  _currentPage = 1;
-                                });
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 16),
-                          IconButton(
-                            icon: const Icon(Icons.first_page, size: 20),
-                            onPressed: safeCurrentPage > 1 ? () => setState(() => _currentPage = 1) : null,
-                            tooltip: l10n.firstPageTooltip,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.chevron_left, size: 20),
-                            onPressed: safeCurrentPage > 1 ? () => setState(() => _currentPage = safeCurrentPage - 1) : null,
-                            tooltip: l10n.previousPageTooltip,
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: Text(
-                              l10n.pageOfTotal(safeCurrentPage, totalPages == 0 ? 1 : totalPages),
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.chevron_right, size: 20),
-                            onPressed: safeCurrentPage < totalPages ? () => setState(() => _currentPage = safeCurrentPage + 1) : null,
-                            tooltip: l10n.nextPageTooltip,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.last_page, size: 20),
-                            onPressed: safeCurrentPage < totalPages ? () => setState(() => _currentPage = totalPages) : null,
-                            tooltip: l10n.lastPageTooltip,
-                          ),
-                        ],
+                      // Integrated Compact Pagination Footer
+                      CompactTablePaginationFooter(
+                        currentPage: safeCurrentPage,
+                        totalPages: totalPages == 0 ? 1 : totalPages,
+                        totalCount: totalItems,
+                        pageSize: _pageSize,
+                        isMobile: MediaQuery.sizeOf(context).width < 768,
+                        onPageChanged: (newPage) => setState(() => _currentPage = newPage),
                       ),
                     ],
                   ),
                 ),
-              ],
-            );
-          },
+              );
+            },
               ),
             ),
           ],

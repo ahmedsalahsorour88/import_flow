@@ -184,6 +184,35 @@ class WorldTimezoneHelper {
     return time.hour >= 8 && time.hour < 17;
   }
 
+  /// Returns local time for any standard country key.
+  static DateTime getTimeForCountry(String key, [DateTime? baseUtc]) {
+    switch (key) {
+      case 'egypt':
+        return getEgyptTime(baseUtc);
+      case 'france_italy_spain':
+      case 'france_italy':
+      case 'france':
+      case 'italy':
+      case 'spain':
+        return getFranceItalySpainTime(baseUtc);
+      case 'uk':
+        return getUkTime(baseUtc);
+      case 'turkey_lithuania':
+      case 'turkey':
+        return getTurkeyLithuaniaTime(baseUtc);
+      case 'lithuania':
+        return getLithuaniaTime(baseUtc);
+      case 'china':
+        return getChinaTime(baseUtc);
+      case 'uae':
+        return getUaeTime(baseUtc);
+      case 'us':
+        return getUsEasternTime(baseUtc);
+      default:
+        return (baseUtc ?? DateTime.now()).toUtc();
+    }
+  }
+
   /// Formats time in 24-hour format: HH:mm (or HH:mm:ss if showSeconds is true).
   /// Seconds are hidden by default to keep the widget compact and save screen space.
   static String formatTime24h(DateTime time, {bool showSeconds = false}) {
@@ -669,20 +698,357 @@ class SystemWorldClocksBar extends StatelessWidget {
   }
 }
 
+/// A smart, compact dropdown button for international world clocks:
+/// Shows the default/pinned country (e.g. مصر 15:00 ▾) with live 24h time and working hours status dot.
+/// Clicking opens an elegant popover listing all 7 jurisdictions with live auto-updating times,
+/// status badges (مفتوح / مغلق), and working hours details.
+class WorldClockDropdownButton extends StatefulWidget {
+  final DateTime? currentTimeUtc;
+  final bool? isDark;
+  final bool? isArabic;
+  final bool showSeconds;
+  final String defaultCountryKey;
+  final ValueChanged<String>? onCountryChanged;
+
+  const WorldClockDropdownButton({
+    super.key,
+    this.currentTimeUtc,
+    this.isDark,
+    this.isArabic,
+    this.showSeconds = false,
+    this.defaultCountryKey = 'egypt',
+    this.onCountryChanged,
+  });
+
+  @override
+  State<WorldClockDropdownButton> createState() => _WorldClockDropdownButtonState();
+}
+
+class _WorldClockDropdownButtonState extends State<WorldClockDropdownButton> {
+  late String _selectedCountryKey;
+  Timer? _ticker;
+  late DateTime _nowUtc;
+
+  static const List<String> supportedCountryKeys = [
+    'egypt',
+    'france_italy_spain',
+    'uk',
+    'turkey_lithuania',
+    'china',
+    'uae',
+    'us',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCountryKey = widget.defaultCountryKey;
+    _nowUtc = widget.currentTimeUtc ?? DateTime.now().toUtc();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {
+          _nowUtc = widget.currentTimeUtc ?? DateTime.now().toUtc();
+        });
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant WorldClockDropdownButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.currentTimeUtc != null) {
+      _nowUtc = widget.currentTimeUtc!;
+    }
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveIsDark = widget.isDark ?? AppTheme.isDark(context);
+    final isAr = WorldTimezoneHelper.resolveIsArabic(context, widget.isArabic);
+
+    final activeTime = WorldTimezoneHelper.getTimeForCountry(_selectedCountryKey, _nowUtc);
+    final isBusiness = WorldTimezoneHelper.isBusinessHours(activeTime, countryKey: _selectedCountryKey);
+    final activeCountryName = WorldTimezoneHelper.getCountryName(_selectedCountryKey, isArabic: isAr);
+    final activeTimeStr = WorldTimezoneHelper.formatTime24h(activeTime, showSeconds: widget.showSeconds);
+    final statusColor = isBusiness ? AppTheme.emerald : AppTheme.crimson;
+
+    final openLabel = isAr ? 'مفتوح' : 'Open';
+    final closedLabel = isAr ? 'مغلق' : 'Closed';
+    final hoursSub = isAr ? 'مواعيد العمل (08:00 - 17:00)' : 'Business Hours (08:00 - 17:00)';
+
+    return Theme(
+      data: Theme.of(context).copyWith(
+        cardColor: effectiveIsDark ? const Color(0xFF1E2631) : Colors.white,
+      ),
+      child: PopupMenuButton<String>(
+        position: PopupMenuPosition.under,
+        elevation: 6,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 320, maxWidth: 360),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(
+            color: effectiveIsDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+            width: 0.8,
+          ),
+        ),
+        color: effectiveIsDark ? const Color(0xFF1E2631) : Colors.white,
+        tooltip: isAr ? 'ساعات الدول ومواعيد العمل الدولية' : 'World Clocks & Business Hours',
+        onSelected: (key) {
+          setState(() => _selectedCountryKey = key);
+          widget.onCountryChanged?.call(key);
+        },
+        itemBuilder: (context) {
+          return [
+            // Header Item
+            PopupMenuItem<String>(
+              enabled: false,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.public, size: 16, color: AppTheme.cobalt),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                isAr ? 'التوقيت الدولي وساعات العمل' : 'World Clocks & Working Hours',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: effectiveIsDark ? Colors.white : AppTheme.charcoal,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppTheme.emerald.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppTheme.emerald.withOpacity(0.4), width: 0.8),
+                        ),
+                        child: const Text(
+                          '24H LIVE',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.emerald,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(width: 6, height: 6, decoration: const BoxDecoration(shape: BoxShape.circle, color: AppTheme.emerald)),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          hoursSub,
+                          style: TextStyle(fontSize: 10, color: effectiveIsDark ? Colors.white60 : Colors.black54),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(width: 6, height: 6, decoration: const BoxDecoration(shape: BoxShape.circle, color: AppTheme.crimson)),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          closedLabel,
+                          style: TextStyle(fontSize: 10, color: effectiveIsDark ? Colors.white60 : Colors.black54),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Divider(height: 1, color: effectiveIsDark ? Colors.white12 : Colors.black12),
+                ],
+              ),
+            ),
+            // Country Items
+            ...supportedCountryKeys.map((key) {
+              final cTime = WorldTimezoneHelper.getTimeForCountry(key, _nowUtc);
+              final cIsBusiness = WorldTimezoneHelper.isBusinessHours(cTime, countryKey: key);
+              final cName = WorldTimezoneHelper.getCountryName(key, isArabic: isAr);
+              final cTimeStr = WorldTimezoneHelper.formatTime24h(cTime, showSeconds: widget.showSeconds);
+              final isPinned = key == _selectedCountryKey;
+
+              return PopupMenuItem<String>(
+                value: key,
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isPinned
+                        ? (effectiveIsDark ? AppTheme.cobalt.withOpacity(0.12) : const Color(0xFFEFF6FF))
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isPinned ? Icons.radio_button_checked : Icons.radio_button_off,
+                        size: 14,
+                        color: isPinned ? AppTheme.cobalt : (effectiveIsDark ? Colors.white30 : Colors.black26),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          cName,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: isPinned ? FontWeight.bold : FontWeight.w500,
+                            color: isPinned
+                                ? (effectiveIsDark ? const Color(0xFF90CAF9) : AppTheme.cobalt)
+                                : (effectiveIsDark ? Colors.white70 : AppTheme.charcoal),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        cTimeStr,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: effectiveIsDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: (cIsBusiness ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: (cIsBusiness ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.4),
+                            width: 0.6,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 5,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: cIsBusiness ? AppTheme.emerald : AppTheme.crimson,
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              cIsBusiness ? openLabel : closedLabel,
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: cIsBusiness ? AppTheme.emerald : AppTheme.crimson,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ];
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: effectiveIsDark ? const Color(0xFF1E2631) : const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: effectiveIsDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+              width: 0.8,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.public, size: 13, color: AppTheme.cobalt),
+              const SizedBox(width: 4),
+              Text(
+                '$activeCountryName $activeTimeStr',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  color: effectiveIsDark ? Colors.grey.shade300 : AppTheme.charcoal,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                width: 5.5,
+                height: 5.5,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: statusColor,
+                  boxShadow: [
+                    BoxShadow(
+                      color: statusColor.withOpacity(0.5),
+                      blurRadius: 2,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(
+                Icons.arrow_drop_down,
+                size: 14,
+                color: effectiveIsDark ? Colors.white60 : Colors.black54,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Comprehensive 2-Tier Master Header Bar (أعلى كل شاشة من شاشات السيستم):
 /// - Tier 1: سطر التاريخ + رقم الأسبوع لوحده
 /// - Tier 2: شريط الساعات المتزامنة بنظام 24 ساعة مع تمييز مواعيد العمل (أخضر / أحمر)
 /// Automatically respects language settings (Arabic / English).
+/// Supports singleRow mode for unified compact density top bars.
 class SystemWorldClocksHeader extends StatefulWidget {
   final bool? isDark;
   final bool? isArabic;
   final bool showSeconds;
+  final bool singleRow;
+  final Widget? leading;
 
   const SystemWorldClocksHeader({
     super.key,
     this.isDark,
     this.isArabic,
     this.showSeconds = false,
+    this.singleRow = false,
+    this.leading,
   });
 
   @override
@@ -731,6 +1097,94 @@ class _SystemWorldClocksHeaderState extends State<SystemWorldClocksHeader> {
     final legendTooltip = isAr
         ? 'أخضر = ساعات العمل (08:00 - 17:00) │ أحمر = خارج ساعات العمل'
         : 'Green = Business Hours (08:00 - 17:00) │ Red = Closed / Off Hours';
+
+    if (widget.singleRow) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: bgColor,
+          border: Border(
+            bottom: BorderSide(color: borderColor, width: 1.0),
+          ),
+        ),
+        child: Row(
+          children: [
+            widget.leading ??
+                SystemDateWeekBadge(
+                  currentTime: _localNow,
+                  isDark: effectiveIsDark,
+                  isArabic: isAr,
+                ),
+            const SizedBox(width: 8),
+            Container(
+              height: 18,
+              width: 1,
+              color: effectiveIsDark ? Colors.white12 : Colors.black12,
+            ),
+            const SizedBox(width: 8),
+            // World clock smart dropdown button
+            WorldClockDropdownButton(
+              currentTimeUtc: _nowUtc,
+              isDark: effectiveIsDark,
+              isArabic: isAr,
+              showSeconds: widget.showSeconds,
+            ),
+            const SizedBox(width: 8),
+            Container(
+              height: 18,
+              width: 1,
+              color: effectiveIsDark ? Colors.white12 : Colors.black12,
+            ),
+            const SizedBox(width: 8),
+            // Quick action shortcuts toolbar
+            const Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: BouncingScrollPhysics(),
+                child: GlobalHeaderShortcutsBar(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Live sync beacon indicator
+            Tooltip(
+              message: beaconTooltip,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppTheme.emerald,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.emerald.withOpacity(0.6),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '24H LIVE',
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      color: effectiveIsDark ? Colors.white38 : Colors.black38,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 4),
+          ],
+        ),
+      );
+    }
 
     return Container(
       width: double.infinity,

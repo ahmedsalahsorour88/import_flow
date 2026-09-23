@@ -17,4 +17,22 @@ class WebFileSaver {
     required List<int> bytes,
     required String fileName,
   }) {}
+
+  /// Stub for openFilePicker on non-web.
+  static Future<dynamic> openFilePicker({
+    required String fileName,
+    List<String>? allowedExtensions,
+  }) async {
+    return null;
+  }
+
+  /// Stub for writeToFileHandle on non-web.
+  static Future<String?> writeToFileHandle({
+    required dynamic fileHandle,
+    required List<int> bytes,
+    String mimeType = 'application/octet-stream',
+  }) async {
+    return null;
+  }
 }
+

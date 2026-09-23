@@ -44,8 +44,8 @@ class PurchaseOrder(Base):
 
     # Shipping Measurements Aggregates
     total_cbm = Column(Numeric(10, 4), default=0.0, nullable=False)
-    total_gross_weight_kg = Column(Numeric(12, 2), default=0.0, nullable=False)
-    total_net_weight_kg = Column(Numeric(12, 2), default=0.0, nullable=False)
+    total_gross_weight_kg = Column(Numeric(26, 16), default=0.0, nullable=False)
+    total_net_weight_kg = Column(Numeric(26, 16), default=0.0, nullable=False)
     total_packages_count = Column(Integer, default=0, nullable=False)
 
     # Palletization & Master Handling Plan (مخطط البالتات)
@@ -109,8 +109,8 @@ class POLineItem(Base):
     # Package & Volume Specs
     cbm_per_unit = Column(Numeric(10, 4), default=0.0, nullable=False)
     total_cbm = Column(Numeric(10, 4), default=0.0, nullable=False)
-    gross_weight_kg = Column(Numeric(12, 2), default=0.0, nullable=False)
-    net_weight_kg = Column(Numeric(12, 2), default=0.0, nullable=False)
+    gross_weight_kg = Column(Numeric(26, 16), default=0.0, nullable=False)
+    net_weight_kg = Column(Numeric(26, 16), default=0.0, nullable=False)
 
     # CGX-003: Multi-Invoice Extraction Fields
     invoice_number = Column(String(100), nullable=True, index=True)     # رقم الفاتورة التي ينتمي إليها هذا البند
@@ -143,15 +143,15 @@ class PackingListItem(Base):
     length_cm = Column(Numeric(10, 2), nullable=True, default=0.0)
     width_cm = Column(Numeric(10, 2), nullable=True, default=0.0)
     height_cm = Column(Numeric(10, 2), nullable=True, default=0.0)
-    net_weight_unit_kg = Column(Numeric(12, 2), nullable=False, default=0.0)
-    gross_weight_unit_kg = Column(Numeric(12, 2), nullable=False, default=0.0)
+    net_weight_unit_kg = Column(Numeric(26, 16), nullable=False, default=0.0)
+    gross_weight_unit_kg = Column(Numeric(26, 16), nullable=False, default=0.0)
     weight_unit = Column(String(30), nullable=True, default="KGM")
 
     # Computed fields stored for reports and fast retrieval
-    total_net_weight_kg = Column(Numeric(12, 2), nullable=False, default=0.0)
-    total_gross_weight_kg = Column(Numeric(12, 2), nullable=False, default=0.0)
+    total_net_weight_kg = Column(Numeric(26, 16), nullable=False, default=0.0)
+    total_gross_weight_kg = Column(Numeric(26, 16), nullable=False, default=0.0)
     total_cbm = Column(Numeric(10, 4), nullable=False, default=0.0)
-    chargeable_weight_kg = Column(Numeric(12, 2), nullable=False, default=0.0)
+    chargeable_weight_kg = Column(Numeric(26, 16), nullable=False, default=0.0)
     is_stackable = Column(Boolean, nullable=False, default=True)
 
     # CGX-003: Multi-Invoice & Pallet Grouping Fields

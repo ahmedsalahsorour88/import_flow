@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import 'copyable_data_helper.dart';
 import 'universal_entity_extractor_dialog.dart';
 import 'extraction_progress_dialog.dart';
+import '../helpers/file_picker_helper.dart';
 import '../../features/customs_tariff/widgets/tariff_form_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -195,7 +196,7 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
 
     if (result == null || result.files.isEmpty) return;
 
-    final validFiles = result.files.where((f) => f.bytes != null).toList();
+    final validFiles = FilePickerHelper.resolveFilesWithBytes(result.files);
     if (validFiles.isEmpty) {
       _showError('تعذر قراءة الملفات المحددة. يرجى المحاولة مرة أخرى.');
       return;

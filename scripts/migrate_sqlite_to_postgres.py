@@ -5,7 +5,7 @@ Transfers schema, tables, and operational/reference records from
 SQLite (`sorour_logistics.db`) to PostgreSQL with transactional integrity.
 
 Usage:
-    python scripts/migrate_sqlite_to_postgres.py --target postgresql://postgres:password@localhost:5432/importflow_prod
+    python scripts/migrate_sqlite_to_postgres.py --target postgresql://postgres:<DB_PASSWORD>@localhost:5432/importflow_prod
 """
 
 import os
@@ -217,7 +217,7 @@ def main():
     parser.add_argument(
         "--target",
         default=os.getenv("TARGET_DATABASE_URL", ""),
-        help="PostgreSQL connection URI (e.g. postgresql://user:password@localhost:5432/importflow_prod)",
+        help="PostgreSQL connection URI (e.g. postgresql://<user>:<password>@localhost:5432/<database_name>)",
     )
 
     args = parser.parse_args()

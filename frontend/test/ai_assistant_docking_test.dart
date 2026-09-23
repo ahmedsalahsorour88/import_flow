@@ -1,9 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/providers/ai_assistant_provider.dart';
 import 'package:frontend/core/widgets/ai_assistant_panel.dart';
+
+import 'package:frontend/core/widgets/ai_assistant_top_bar_button.dart';
 
 void main() {
   setUp(() {
@@ -75,7 +77,7 @@ void main() {
   });
 
   group('AiAssistantOverlay Greeting & Launcher Tests', () {
-    testWidgets('Greeting bubble is visible initially and disappears when dismissed', (tester) async {
+    testWidgets('Default AiAssistantOverlay does not render floating launcher on tables', (tester) async {
       tester.view.physicalSize = const Size(1000, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -89,6 +91,33 @@ void main() {
                 children: [
                   Center(child: Text('Table View')),
                   AiAssistantOverlay(),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Floating button is NOT rendered in default overlay
+      expect(find.byIcon(Icons.chat_bubble_outline_rounded), findsNothing);
+      expect(find.byIcon(Icons.close), findsNothing);
+    });
+
+    testWidgets('Greeting bubble is visible when showFloatingLauncher is true and disappears when dismissed', (tester) async {
+      tester.view.physicalSize = const Size(1000, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: Stack(
+                children: [
+                  Center(child: Text('Table View')),
+                  AiAssistantOverlay(showFloatingLauncher: true),
                 ],
               ),
             ),
@@ -113,6 +142,49 @@ void main() {
 
       // Launcher button remains
       expect(find.byIcon(Icons.chat_bubble_outline_rounded), findsOneWidget);
+    });
+  });
+
+  group('AiAssistantTopBarButton Widget Tests', () {
+    testWidgets('Renders downsized button in top bar and toggles panel on tap', (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              appBar: PreferredSize(
+                preferredSize: Size.fromHeight(40),
+                child: Row(
+                  children: [
+                    AiAssistantTopBarButton(),
+                  ],
+                ),
+              ),
+              body: Center(child: Text('App Content')),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Initially closed: chat bubble outline icon
+      expect(find.byIcon(Icons.chat_bubble_outline_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.close_rounded), findsNothing);
+
+      // Tap to toggle open
+      await tester.tap(find.byType(AiAssistantTopBarButton));
+      await tester.pumpAndSettle();
+
+      // Now open: close icon is shown
+      expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.chat_bubble_outline_rounded), findsNothing);
+
+      // Tap again to toggle closed
+      await tester.tap(find.byType(AiAssistantTopBarButton));
+      await tester.pumpAndSettle();
+
+      // Returned to closed state
+      expect(find.byIcon(Icons.chat_bubble_outline_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.close_rounded), findsNothing);
     });
   });
 }

@@ -77,7 +77,6 @@ class VerticalStageScaffold extends StatelessWidget {
                 final badgeText = DisplayNameResolver.resolveStageBadge(stageCode, isArabic: isArabic);
 
                 final iconAndTitle = Row(
-                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
@@ -90,7 +89,7 @@ class VerticalStageScaffold extends StatelessWidget {
                       child: Icon(headerIcon, color: headerColor, size: 20),
                     ),
                     const SizedBox(width: 12),
-                    Flexible(
+                    Expanded(
                       child: Wrap(
                         crossAxisAlignment: WrapCrossAlignment.center,
                         spacing: 8,
@@ -105,6 +104,8 @@ class VerticalStageScaffold extends StatelessWidget {
                               letterSpacing: 0.2,
                               height: 1.25,
                             ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             softWrap: true,
                           ),
                           if (badgeText.isNotEmpty)
@@ -149,7 +150,7 @@ class VerticalStageScaffold extends StatelessWidget {
                         children: [
                           Expanded(child: iconAndTitle),
                           const SizedBox(width: 12),
-                          const BackToDashboardButton(),
+                          BackToDashboardButton(isCompact: headerConstraints.maxWidth < 700),
                         ],
                       ),
                       const SizedBox(height: 8),

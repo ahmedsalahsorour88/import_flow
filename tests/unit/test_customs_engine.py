@@ -484,3 +484,70 @@ def test_database_preferential_agreement_resolution(db_session):
     assert line.preferential_agreement_applied == "اتفاقية تونس التجارية التفضيلية الخاصة"
 
 
+def test_multi_item_engine_exemption_conditions_met_toggle(db_session):
+    """
+    اختبار تفعيل وإلغاء خيار استيفاء شروط الإعفاء الجمركي (is_exemption_conditions_met):
+    - عند True: تصبح ضريبة الوارد 0% ويعاد احتساب الوعاء الضريبي للقيمة المضافة.
+    - عند False: تطبق النسبة القياسية (Standard Duty Rate) كما هي.
+    """
+    hs = "8471.30.00"
+    create_tariff_service(
+        db_session,
+        CustomsTariffCreate(
+            hs_code=hs,
+            hs_description="Laptop Computer",
+            customs_duty_rate=Decimal("15.00"),
+            vat_rate=Decimal("14.00"),
+        ),
+    )
+
+    # 1. When is_exemption_conditions_met = True -> 0% duty
+    req_active = MultiItemCustomsEstimateRequest(
+        currency="USD",
+        exchange_rate=Decimal("50.00"),
+        insurance_egp=Decimal("0.00"),
+        freight_egp=Decimal("0.00"),
+        lines=[
+            MultiItemCustomsEstimateLine(
+                line_no=1,
+                hs_code=hs,
+                value_fc=Decimal("1000.00"),
+                is_exemption_conditions_met=True,
+            ),
+        ],
+    )
+    res_active = estimate_multi_item_customs_duty_service(db_session, req_active)
+    line_active = res_active.lines[0]
+    assert line_active.customs_duty_rate == Decimal("0.00")
+    assert line_active.duty_egp == Decimal("0.00")
+    assert line_active.is_exemption_applied is True
+    # When duty is 0, VAT base = CIF line EGP
+    assert line_active.vat_base_egp == line_active.cif_value_egp
+    assert line_active.vat_egp == (line_active.cif_value_egp * Decimal("0.14"))
+
+    # 2. When is_exemption_conditions_met = False -> standard 15% duty
+    req_inactive = MultiItemCustomsEstimateRequest(
+        currency="USD",
+        exchange_rate=Decimal("50.00"),
+        insurance_egp=Decimal("0.00"),
+        freight_egp=Decimal("0.00"),
+        lines=[
+            MultiItemCustomsEstimateLine(
+                line_no=1,
+                hs_code=hs,
+                value_fc=Decimal("1000.00"),
+                is_exemption_conditions_met=False,
+            ),
+        ],
+    )
+    res_inactive = estimate_multi_item_customs_duty_service(db_session, req_inactive)
+    line_inactive = res_inactive.lines[0]
+    assert line_inactive.customs_duty_rate == Decimal("15.00")
+    expected_duty = line_inactive.cif_value_egp * Decimal("0.15")
+    assert line_inactive.duty_egp == expected_duty
+    assert line_inactive.is_exemption_applied is False
+    # VAT base = CIF + Duty
+    assert line_inactive.vat_base_egp == line_inactive.cif_value_egp + expected_duty
+    assert line_inactive.vat_egp == (line_inactive.vat_base_egp * Decimal("0.14"))
+
+

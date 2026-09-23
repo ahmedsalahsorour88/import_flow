@@ -790,12 +790,15 @@ class InvoiceBLDiscrepancyMatrixItem(BaseModel):
     item_code: str
     field_name_ar: str
     field_name_en: str
+    system_value: Optional[Any] = None
     invoice_value: Any
+    packing_list_value: Optional[Any] = None
     bl_value: Any
-    match_status: str  # 'MATCH', 'MISMATCH_MINOR', 'MISMATCH_CRITICAL'
+    match_status: str  # 'MATCH', 'MISMATCH_MINOR', 'MISMATCH_CRITICAL', 'EXTRACTION_FAILED'
     severity: str      # 'NONE', 'WARNING', 'BLOCKING'
     tolerance: Optional[str] = None
     details: str
+    disagreeing_sources: Optional[List[str]] = None
 
 
 class InvoiceBLExtractAndMatchRequest(BaseModel):
@@ -830,6 +833,10 @@ class POHeaderDiscrepancyItem(BaseModel):
     field_name_ar: str
     system_value: Any
     extracted_value: Any
+    system_invoice_value: Optional[Any] = None
+    system_packing_value: Optional[Any] = None
+    uploaded_invoice_value: Optional[Any] = None
+    uploaded_packing_value: Optional[Any] = None
     status: str  # 'MATCH', 'MINOR_VARIANCE', 'CRITICAL_VARIANCE'
     details: str
 
@@ -841,6 +848,7 @@ class POExtractAndCompareRequest(BaseModel):
     invoice_data: Optional[Dict[str, Any]] = None
     packing_data: Optional[Dict[str, Any]] = None
     system_items: Optional[List[Dict[str, Any]]] = None
+    system_packing_items: Optional[List[Dict[str, Any]]] = None
 
 
 class POExtractAndCompareResponse(BaseModel):

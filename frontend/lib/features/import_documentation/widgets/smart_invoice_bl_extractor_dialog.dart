@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../../core/helpers/file_picker_helper.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/localization/app_localizations.dart';
@@ -86,7 +87,7 @@ class _SmartInvoiceBLExtractorDialogState
       );
       if (res != null && res.files.isNotEmpty) {
         setState(() {
-          _pickedInvoiceFile = res.files.first;
+          _pickedInvoiceFile = FilePickerHelper.withBytes(res.files.first);
         });
       }
     } catch (e) {
@@ -106,7 +107,7 @@ class _SmartInvoiceBLExtractorDialogState
       );
       if (res != null && res.files.isNotEmpty) {
         setState(() {
-          _pickedBLFile = res.files.first;
+          _pickedBLFile = FilePickerHelper.withBytes(res.files.first);
         });
       }
     } catch (e) {

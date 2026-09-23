@@ -30,6 +30,9 @@ import '../widgets/final_duty_assessment_dialog.dart';
 import '../widgets/customs_duty_payment_dialog.dart';
 import '../widgets/customs_final_release_dialog.dart';
 import '../widgets/clearance_expenses_dialog.dart';
+import '../../experience_guide/models/guide_entry_model.dart';
+import '../../experience_guide/providers/experience_guide_provider.dart';
+import '../../experience_guide/widgets/experience_guide_alert_banner.dart';
 
 
 class CustomsClearanceScreen extends ConsumerStatefulWidget {
@@ -55,6 +58,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   final List<Map<String, dynamic>> _drawnSamples = [];
   final List<Map<String, dynamic>> _shortageProtocols = [];
   final List<Map<String, dynamic>> _discrepancyProtocols = [];
+  GuideMatchResultModel? _clearanceGuideMatchResult;
 
   @override
   void initState() {
@@ -71,6 +75,9 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     if (widget.initialSubTab != oldWidget.initialSubTab) {
       setState(() => _selectedTab = widget.initialSubTab);
     }
+    if (widget.initialImportFileId != oldWidget.initialImportFileId) {
+      _loadClearanceGuide(widget.initialImportFileId);
+    }
   }
 
   void _refreshData() {
@@ -83,6 +90,36 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     if (!ref.read(partnersProvider).isLoading) {
       ref.read(partnersProvider.notifier).fetchPartners();
     }
+    _loadClearanceGuide(widget.initialImportFileId);
+  }
+
+  Future<void> _loadClearanceGuide(int? fileId) async {
+    final files = ref.read(importFilesProvider).valueOrNull ?? [];
+    dynamic file;
+    if (fileId != null) {
+      file = files.where((f) => f.importFileId == fileId).firstOrNull;
+    } else if (files.isNotEmpty) {
+      file = files.first;
+    }
+    if (file == null) {
+      if (mounted) setState(() => _clearanceGuideMatchResult = null);
+      return;
+    }
+
+    try {
+      final res = await ref.read(experienceGuideProvider.notifier).matchShipment(
+        supplier: file.supplierName,
+        hsCode: file.hsCode,
+        productCategory: file.productCategory,
+        portOfLoading: file.portOfLoading,
+        portOfDischarge: file.portOfDischarge,
+        incoterm: file.incotermCode,
+        importFileReference: file.importFileCode,
+      );
+      if (mounted) {
+        setState(() => _clearanceGuideMatchResult = res);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -745,6 +782,14 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       onTabSelected: (idx) => setState(() => _selectedTab = idx),
       selectedImportFileId: widget.initialImportFileId,
       onShipmentStatusChanged: _refreshData,
+      topBanner: (_clearanceGuideMatchResult != null && _clearanceGuideMatchResult!.matchedEntries.isNotEmpty)
+          ? Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: ExperienceGuideAlertBanner(
+                matchResult: _clearanceGuideMatchResult!,
+              ),
+            )
+          : null,
       tabs: const [
         VerticalNavTabItem(
           icon: Icons.fact_check_outlined,
@@ -768,9 +813,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
         ),
       ],
       body: SelectionArea(
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 72.0),
-          child: clearanceAsync.when(
+        child: clearanceAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (err, stack) => Center(
               child: Text(l.customsClearanceErrorFetch(err.toString()), style: const TextStyle(color: Colors.red)),
@@ -790,7 +833,6 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
               }
             },
           ),
-        ),
       ),
     );
   }

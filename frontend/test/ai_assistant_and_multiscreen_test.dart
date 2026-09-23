@@ -115,7 +115,7 @@ void main() {
               body: Stack(
                 children: [
                   Center(child: Text('Main Screen Content')),
-                  AiAssistantOverlay(),
+                  AiAssistantOverlay(showFloatingLauncher: true),
                 ],
               ),
             ),

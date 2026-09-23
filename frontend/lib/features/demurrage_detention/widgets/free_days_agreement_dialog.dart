@@ -143,10 +143,11 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
   double get _estimatedCostAvoidance => (_savedDemDays * 60.0) + (_savedDetDays * 45.0);
 
   Future<void> _handleSubmit() async {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     if (!_formKey.currentState!.validate()) return;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى تحديد ملف الاستيراد المرتبط بالاتفاقية')),
+        SnackBar(content: Text(isAr ? 'يرجى تحديد ملف الاستيراد المرتبط بالاتفاقية' : 'Please select an import file')),
       );
       return;
     }
@@ -172,8 +173,12 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
             backgroundColor: AppTheme.flatEmerald,
             content: Text(
               result != null
-                  ? 'تم توثيق فترات السماح (${result.agreedDemurrageFreeDays} يوم) وتحديث رادار الغرامات بنجاح'
-                  : 'تم توثيق فترات السماح وتحديث رادار الغرامات بنجاح',
+                  ? (isAr
+                      ? 'تم توثيق فترات السماح (${result.agreedDemurrageFreeDays} يوم) وتحديث رادار الغرامات بنجاح'
+                      : 'Free days (${result.agreedDemurrageFreeDays} days) documented & radar updated successfully')
+                  : (isAr
+                      ? 'تم توثيق فترات السماح وتحديث رادار الغرامات بنجاح'
+                      : 'Free days documented & radar updated successfully'),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
@@ -185,7 +190,7 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppTheme.flatCrimson,
-            content: Text('فشل في توثيق فترات السماح: $e'),
+            content: Text(isAr ? 'فشل في توثيق فترات السماح: $e' : 'Failed to document free days: $e'),
           ),
         );
       }
@@ -206,6 +211,7 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
 
   @override
   Widget build(BuildContext context) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final importFiles = ref.watch(importFilesProvider).asData?.value ?? [];
 
     return UnsavedChangesGuard(
@@ -237,21 +243,21 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                       ),
                     ),
                     const SizedBox(width: 14),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'توثيق اتفاقية فترات السماح المجانية (BK-02)',
-                            style: TextStyle(
+                            isAr ? 'توثيق اتفاقية فترات السماح المجانية (BK-02)' : 'Free Days Agreement (BK-02)',
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.flatCharcoal,
                             ),
                           ),
                           Text(
-                            'Free Days Agreement & Demurrage Radar Feed',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                            isAr ? 'توثيق فترات السماح وتغذية رادار الغرامات' : 'Free Days Agreement & Demurrage Radar Feed',
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                         ],
                       ),
@@ -265,7 +271,7 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                     IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
-                      tooltip: 'إغلاق',
+                      tooltip: isAr ? 'إغلاق' : 'Close',
                     ),
                   ],
                 ),
@@ -279,7 +285,7 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                       children: [
                         // Import File selection
                         SearchableDropdownField<int>(
-                          labelText: 'ملف الاستيراد المرتبط',
+                          labelText: isAr ? 'ملف الاستيراد المرتبط' : 'Linked Import File',
                           isRequired: true,
                           value: _selectedImportFileId,
                           items: importFiles
@@ -287,7 +293,7 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                                 (f) => SearchableDropdownItem<int>(
                                   value: f.importFileId,
                                   label: '${f.importFileCode} - ${f.supplierName}',
-                                  subtitle: 'فترات السماح الحالية: ${f.targetFreeDays ?? 14} يوم',
+                                  subtitle: isAr ? 'فترات السماح الحالية: ${f.targetFreeDays ?? 14} يوم' : 'Current free days: ${f.targetFreeDays ?? 14} days',
                                 ),
                               )
                               .toList(),
@@ -299,7 +305,7 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                                     _loadExistingAgreement(val);
                                   }
                                 },
-                          validator: (val) => val == null ? 'يرجى اختيار ملف الاستيراد' : null,
+                          validator: (val) => val == null ? (isAr ? 'يرجى اختيار ملف الاستيراد' : 'Please select an import file') : null,
                         ),
                         const SizedBox(height: 16),
 
@@ -309,7 +315,7 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                             Expanded(
                               flex: 2,
                               child: SearchableDropdownField<String>(
-                                labelText: 'الخط الملاحي (Carrier)',
+                                labelText: isAr ? 'الخط الملاحي (Carrier)' : 'Shipping Carrier',
                                 isRequired: true,
                                 value: _carrierName,
                                 items: _carriers
@@ -341,11 +347,11 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                                 },
                                 borderRadius: BorderRadius.circular(8),
                                 child: InputDecorator(
-                                  decoration: const InputDecoration(
-                                    labelText: 'تاريخ الاتفاقية',
-                                    prefixIcon: Icon(Icons.calendar_today, size: 18),
+                                  decoration: InputDecoration(
+                                    labelText: isAr ? 'تاريخ الاتفاقية' : 'Agreement Date',
+                                    prefixIcon: const Icon(Icons.calendar_today, size: 18),
                                     isDense: true,
-                                    border: OutlineInputBorder(),
+                                    border: const OutlineInputBorder(),
                                   ),
                                   child: Text(
                                     _agreementDate.toIso8601String().split('T').first,
@@ -359,14 +365,14 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                         const SizedBox(height: 18),
 
                         // Section Title: Agreed Free Days
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.timer_outlined, size: 18, color: AppTheme.flatCobalt),
-                            SizedBox(width: 6),
+                            const Icon(Icons.timer_outlined, size: 18, color: AppTheme.flatCobalt),
+                            const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                'فترات السماح المتفق عليها بالملحق (Agreed Free Days)',
-                                style: TextStyle(
+                                isAr ? 'فترات السماح المتفق عليها بالملحق (Agreed Free Days)' : 'Agreed Free Days in Annex',
+                                style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
                                   color: AppTheme.flatCharcoal,
@@ -388,15 +394,15 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                                   TextFormField(
                                     controller: _demurrageController,
                                     keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(
-                                      labelText: 'أرضيات الحاوية بالميناء (Demurrage)',
-                                      suffixText: 'يوم',
-                                      border: OutlineInputBorder(),
+                                    decoration: InputDecoration(
+                                      labelText: isAr ? 'أرضيات الحاوية بالميناء (Demurrage)' : 'Port Demurrage',
+                                      suffixText: isAr ? 'يوم' : 'days',
+                                      border: const OutlineInputBorder(),
                                       isDense: true,
                                     ),
                                     validator: (val) {
                                       final v = int.tryParse(val ?? '');
-                                      if (v == null || v < 1) return 'أدخل عدداً صحيحاً';
+                                      if (v == null || v < 1) return isAr ? 'أدخل عدداً صحيحاً' : 'Enter a valid number';
                                       return null;
                                     },
                                     onChanged: (_) => setState(() {}),
@@ -406,7 +412,7 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                                     spacing: 4,
                                     children: [14, 21, 28].map((days) {
                                       return ActionChip(
-                                        label: Text('$days يوم', style: const TextStyle(fontSize: 11)),
+                                        label: Text(isAr ? '$days يوم' : '$days days', style: const TextStyle(fontSize: 11)),
                                         padding: EdgeInsets.zero,
                                         visualDensity: VisualDensity.compact,
                                         onPressed: () {
@@ -428,15 +434,15 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                                   TextFormField(
                                     controller: _detentionController,
                                     keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(
-                                      labelText: 'فترة خروج الحاوية (Detention)',
-                                      suffixText: 'يوم',
-                                      border: OutlineInputBorder(),
+                                    decoration: InputDecoration(
+                                      labelText: isAr ? 'فترة خروج الحاوية (Detention)' : 'Detention Period',
+                                      suffixText: isAr ? 'يوم' : 'days',
+                                      border: const OutlineInputBorder(),
                                       isDense: true,
                                     ),
                                     validator: (val) {
                                       final v = int.tryParse(val ?? '');
-                                      if (v == null || v < 1) return 'أدخل عدداً صحيحاً';
+                                      if (v == null || v < 1) return isAr ? 'أدخل عدداً صحيحاً' : 'Enter a valid number';
                                       return null;
                                     },
                                     onChanged: (_) => setState(() {}),
@@ -446,7 +452,7 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                                     spacing: 4,
                                     children: [7, 14, 21].map((days) {
                                       return ActionChip(
-                                        label: Text('$days يوم', style: const TextStyle(fontSize: 11)),
+                                        label: Text(isAr ? '$days يوم' : '$days days', style: const TextStyle(fontSize: 11)),
                                         padding: EdgeInsets.zero,
                                         visualDensity: VisualDensity.compact,
                                         onPressed: () {
@@ -468,15 +474,15 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                                   TextFormField(
                                     controller: _storageController,
                                     keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(
-                                      labelText: 'سماح الساحة (Port Storage)',
-                                      suffixText: 'يوم',
-                                      border: OutlineInputBorder(),
+                                    decoration: InputDecoration(
+                                      labelText: isAr ? 'سماح الساحة (Port Storage)' : 'Port Storage',
+                                      suffixText: isAr ? 'يوم' : 'days',
+                                      border: const OutlineInputBorder(),
                                       isDense: true,
                                     ),
                                     validator: (val) {
                                       final v = int.tryParse(val ?? '');
-                                      if (v == null || v < 0) return 'أدخل عدداً صحيحاً';
+                                      if (v == null || v < 0) return isAr ? 'أدخل عدداً صحيحاً' : 'Enter a valid number';
                                       return null;
                                     },
                                     onChanged: (_) => setState(() {}),
@@ -486,7 +492,7 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                                     spacing: 4,
                                     children: [3, 5, 7].map((days) {
                                       return ActionChip(
-                                        label: Text('$days أيام', style: const TextStyle(fontSize: 11)),
+                                        label: Text(isAr ? '$days أيام' : '$days days', style: const TextStyle(fontSize: 11)),
                                         padding: EdgeInsets.zero,
                                         visualDensity: VisualDensity.compact,
                                         onPressed: () {
@@ -508,12 +514,12 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                             Expanded(
                               child: TextFormField(
                                 controller: _refController,
-                                decoration: const InputDecoration(
-                                  labelText: 'مرجع بند الاتفاقية / ملحق الحجز',
+                                decoration: InputDecoration(
+                                  labelText: isAr ? 'مرجع بند الاتفاقية / ملحق الحجز' : 'Agreement Clause / Booking Annex Ref',
                                   hintText: 'e.g. MSC-FREE-2026-0042 Clause 4.2',
-                                  border: OutlineInputBorder(),
+                                  border: const OutlineInputBorder(),
                                   isDense: true,
-                                  prefixIcon: Icon(Icons.receipt_long, size: 18),
+                                  prefixIcon: const Icon(Icons.receipt_long, size: 18),
                                 ),
                               ),
                             ),
@@ -521,12 +527,12 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                             Expanded(
                               child: TextFormField(
                                 controller: _notesController,
-                                decoration: const InputDecoration(
-                                  labelText: 'ملاحظات الاتفاقية',
-                                  hintText: 'e.g. تم التفاوض وتثبيت 21 يوماً لحاويات الخط',
-                                  border: OutlineInputBorder(),
+                                decoration: InputDecoration(
+                                  labelText: isAr ? 'ملاحظات الاتفاقية' : 'Agreement Notes',
+                                  hintText: isAr ? 'e.g. تم التفاوض وتثبيت 21 يوماً لحاويات الخط' : 'e.g. Negotiated and confirmed 21 days for line containers',
+                                  border: const OutlineInputBorder(),
                                   isDense: true,
-                                  prefixIcon: Icon(Icons.note_alt_outlined, size: 18),
+                                  prefixIcon: const Icon(Icons.note_alt_outlined, size: 18),
                                 ),
                               ),
                             ),
@@ -553,18 +559,18 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                                 spacing: 8,
                                 runSpacing: 8,
                                 children: [
-                                  const Row(
+                                  Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(
+                                      const Icon(
                                         Icons.savings_outlined,
                                         color: AppTheme.flatEmerald,
                                         size: 20,
                                       ),
-                                      SizedBox(width: 8),
+                                      const SizedBox(width: 8),
                                       Text(
-                                        'تحليل الوفر المالي وتغذية رادار الغرامات:',
-                                        style: TextStyle(
+                                        isAr ? 'تحليل الوفر المالي وتغذية رادار الغرامات:' : 'Financial Savings & Radar Analysis:',
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           color: AppTheme.flatEmerald,
                                           fontSize: 13,
@@ -579,7 +585,7 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
-                                      'وفر متوقع: \$${_estimatedCostAvoidance.toStringAsFixed(0)} / حاوية',
+                                      isAr ? 'وفر متوقع: \$${_estimatedCostAvoidance.toStringAsFixed(0)} / حاوية' : 'Estimated savings: \$${_estimatedCostAvoidance.toStringAsFixed(0)} / ctr',
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 11,
@@ -594,34 +600,36 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                                 children: [
                                   Expanded(
                                     child: _buildMetricItem(
-                                      'أيام إضافية Demurrage',
-                                      '+$_savedDemDays يوم',
-                                      'فوق التعرفة القياسية (14 يوم)',
+                                      isAr ? 'أيام إضافية Demurrage' : 'Extra Demurrage Days',
+                                      isAr ? '+$_savedDemDays يوم' : '+$_savedDemDays days',
+                                      isAr ? 'فوق التعرفة القياسية (14 يوم)' : 'Above standard tariff (14 days)',
                                       AppTheme.flatCobalt,
                                     ),
                                   ),
                                   Expanded(
                                     child: _buildMetricItem(
-                                      'أيام إضافية Detention',
-                                      '+$_savedDetDays يوم',
-                                      'فوق التعرفة القياسية (7 أيام)',
+                                      isAr ? 'أيام إضافية Detention' : 'Extra Detention Days',
+                                      isAr ? '+$_savedDetDays يوم' : '+$_savedDetDays days',
+                                      isAr ? 'فوق التعرفة القياسية (7 أيام)' : 'Above standard tariff (7 days)',
                                       AppTheme.flatOrange,
                                     ),
                                   ),
                                   Expanded(
                                     child: _buildMetricItem(
-                                      'مجموع الأيام المحمية',
-                                      '${_demDays + _detDays} يوم',
-                                      'فترة آمنة قبل بدء الغرامات',
+                                      isAr ? 'مجموع الأيام المحمية' : 'Total Protected Days',
+                                      isAr ? '${_demDays + _detDays} يوم' : '${_demDays + _detDays} days',
+                                      isAr ? 'فترة آمنة قبل بدء الغرامات' : 'Safe period before penalties',
                                       AppTheme.flatEmerald,
                                     ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 10),
-                              const Text(
-                                '⚡ ملاحظة تشغيلية: بمجرد اعتماد هذه الاتفاقية، يتم تلقائياً تحديث ملف الاستيراد وحجز الشحن وإعادة ضبط عدادات الرادار لكافة الحاويات المسجلة.',
-                                style: TextStyle(
+                              Text(
+                                isAr
+                                    ? '⚡ ملاحظة تشغيلية: بمجرد اعتماد هذه الاتفاقية، يتم تلقائياً تحديث ملف الاستيراد وحجز الشحن وإعادة ضبط عدادات الرادار لكافة الحاويات المسجلة.'
+                                    : '⚡ Operational note: Once this agreement is confirmed, the import file and booking are updated, and radar counters reset for all containers.',
+                                style: const TextStyle(
                                   fontSize: 11,
                                   color: AppTheme.flatCharcoal,
                                   height: 1.4,
@@ -645,7 +653,7 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                   children: [
                     TextButton(
                       onPressed: _isSubmitting ? null : () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
-                      child: const Text('إلغاء'),
+                      child: Text(isAr ? 'إلغاء' : 'Cancel'),
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
@@ -667,7 +675,9 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
                             )
                           : const Icon(Icons.check_circle_outline, size: 18),
                       label: Text(
-                        _isSubmitting ? 'جاري التوثيق...' : 'توثيق واعتماد فترات السماح (BK-02)',
+                        _isSubmitting
+                            ? (isAr ? 'جاري التوثيق...' : 'Submitting...')
+                            : (isAr ? 'توثيق واعتماد فترات السماح (BK-02)' : 'Confirm Free Days (BK-02)'),
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),

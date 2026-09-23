@@ -246,19 +246,22 @@ class VisualDraftBLSheet extends StatelessWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'BILL OF LADING (DRAFT)',
-                                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 0.8, color: AppTheme.charcoal),
-                                ),
-                                 Text(
-                                  'NON-NEGOTIABLE — FOR DRAFT & REFERENCE REVIEW ONLY',
-                                  style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Colors.red),
-                                ),
-                              ],
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'BILL OF LADING (DRAFT)',
+                                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 0.8, color: AppTheme.charcoal),
+                                  ),
+                                  Text(
+                                    'NON-NEGOTIABLE — FOR DRAFT & REFERENCE REVIEW ONLY',
+                                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.red),
+                                  ),
+                                ],
+                              ),
                             ),
+                            const SizedBox(width: 8),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [

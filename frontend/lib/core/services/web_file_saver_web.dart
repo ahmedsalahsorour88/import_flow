@@ -91,8 +91,20 @@ class WebFileSaver {
         js_util.setProperty(pickerOptions, 'types', js_util.jsify([typeObj]));
       }
 
-      // Call window.showSaveFilePicker(options)
+      // ⚡ CRITICAL FIX — User Gesture Chain Rule:
+      // showSaveFilePicker() MUST be called synchronously within the browser user-gesture
+      // handler (onClick). Any await BEFORE this call causes the browser to lose the gesture
+      // context → SecurityError: "Must be handling a user gesture to show a file picker."
+      //
+      // Correct pattern:
+      //   1. Call JS method synchronously (no prior await) → gesture chain satisfied ✅
+      //   2. Await the returned Promise → browser allows this ✅
+      //   3. Write data to the obtained FileHandle stream → safe ✅
+      //
+      // NEVER do: await someAsyncWork(); then showSaveFilePicker() — this breaks the chain ❌
       final handlePromise = js_util.callMethod(html.window, 'showSaveFilePicker', [pickerOptions]);
+
+      // Safe to await from here — gesture chain was honoured by the synchronous JS call above.
       final fileHandle = await js_util.promiseToFuture(handlePromise);
 
       // Create writable stream
@@ -120,26 +132,115 @@ class WebFileSaver {
       return fileName;
     } catch (e) {
       final errStr = e.toString();
-      bool isAbort = errStr.contains('AbortError');
+      // AbortError  → user cancelled the dialog → return null silently
+      // SecurityError → gesture chain was already broken upstream (caller did await before
+      //                 invoking FileSaveHelper) → fall back gracefully without crashing
+      bool isGestureCancellation = errStr.contains('AbortError') || errStr.contains('SecurityError');
       try {
-        if (!isAbort && js_util.hasProperty(e, 'name')) {
-          final errName = js_util.getProperty(e, 'name');
-          if (errName == 'AbortError') {
-            isAbort = true;
+        if (js_util.hasProperty(e, 'name')) {
+          final errName = js_util.getProperty(e, 'name').toString();
+          if (errName == 'AbortError' || errName == 'SecurityError') {
+            isGestureCancellation = true;
           }
         }
       } catch (_) {}
 
-      if (isAbort) {
-        // User intentionally cancelled — return null (do NOT fall back to <a download>)
-        return null;
+      if (isGestureCancellation) {
+        return null; // Caller will fall back to triggerFallbackDownload
       }
       rethrow;
     }
   }
 
-  /// Triggers fallback browser download via <a> anchor for browsers without File System Access API
-  /// (e.g. Firefox, Safari, Mobile).
+  /// PHASE 1 — Open the native "Save As" dialog synchronously within the user gesture.
+  ///
+  /// ⚡ User-Gesture Rule: This method calls `showSaveFilePicker()` WITHOUT any prior `await`,
+  /// preserving the browser gesture chain. Must be called directly in an `onPressed` / `onClick`
+  /// handler, BEFORE any async API calls.
+  ///
+  /// Returns a JS `FileSystemFileHandle` on success, or `null` if the user cancelled.
+  static Future<dynamic> openFilePicker({
+    required String fileName,
+    List<String>? allowedExtensions,
+  }) async {
+    if (!isSupported) return null;
+
+    try {
+      final ext = allowedExtensions != null && allowedExtensions.isNotEmpty
+          ? allowedExtensions.first.replaceAll('.', '').toLowerCase().trim()
+          : (fileName.contains('.') ? fileName.split('.').last.toLowerCase().trim() : '');
+
+      String mimeType = 'application/octet-stream';
+      String description = 'Document';
+      List<String> extList = [];
+
+      if (ext == 'pdf') { mimeType = 'application/pdf'; description = 'PDF Document'; extList = ['.pdf']; }
+      else if (ext == 'xlsx') { mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'; description = 'Excel Spreadsheet'; extList = ['.xlsx']; }
+      else if (ext == 'xls') { mimeType = 'application/vnd.ms-excel'; description = 'Excel 97-2004 Spreadsheet'; extList = ['.xls']; }
+      else if (ext == 'csv') { mimeType = 'text/csv'; description = 'CSV Document'; extList = ['.csv']; }
+      else if (ext == 'zip') { mimeType = 'application/zip'; description = 'ZIP Archive'; extList = ['.zip']; }
+      else if (ext == 'png') { mimeType = 'image/png'; description = 'PNG Image'; extList = ['.png']; }
+      else if (ext.isNotEmpty) { mimeType = 'application/$ext'; description = '${ext.toUpperCase()} Document'; extList = ['.${ext.toLowerCase()}']; }
+
+      final pickerOptions = js_util.newObject();
+      js_util.setProperty(pickerOptions, 'suggestedName', fileName);
+
+      if (extList.isNotEmpty) {
+        final acceptObj = js_util.newObject();
+        js_util.setProperty(acceptObj, mimeType, js_util.jsify(extList));
+        final typeObj = js_util.newObject();
+        js_util.setProperty(typeObj, 'description', description);
+        js_util.setProperty(typeObj, 'accept', acceptObj);
+        js_util.setProperty(pickerOptions, 'types', js_util.jsify([typeObj]));
+      }
+
+      // ⚡ SYNCHRONOUS call — no await before this line → gesture chain preserved ✅
+      final handlePromise = js_util.callMethod(html.window, 'showSaveFilePicker', [pickerOptions]);
+      // Now safe to await — gesture was honoured above
+      final fileHandle = await js_util.promiseToFuture(handlePromise);
+      return fileHandle;
+    } catch (e) {
+      // AbortError = user cancelled the dialog
+      return null;
+    }
+  }
+
+  /// PHASE 2 — Write bytes to a pre-opened [FileSystemFileHandle].
+  ///
+  /// Call this AFTER fetching bytes from an API or performing any async work.
+  /// The file handle was already obtained in Phase 1 (inside the user gesture).
+  ///
+  /// Returns the saved file name, or `null` on failure.
+  static Future<String?> writeToFileHandle({
+    required dynamic fileHandle,
+    required List<int> bytes,
+    String mimeType = 'application/octet-stream',
+  }) async {
+    try {
+      final writablePromise = js_util.callMethod(fileHandle, 'createWritable', []);
+      final writable = await js_util.promiseToFuture(writablePromise);
+
+      final u8 = Uint8List.fromList(bytes);
+      final blob = html.Blob([u8], mimeType);
+      final writePromise = js_util.callMethod(writable, 'write', [blob]);
+      await js_util.promiseToFuture(writePromise);
+
+      final closePromise = js_util.callMethod(writable, 'close', []);
+      await js_util.promiseToFuture(closePromise);
+
+      try {
+        final nameProp = js_util.getProperty(fileHandle, 'name');
+        if (nameProp != null && nameProp.toString().trim().isNotEmpty) {
+          return nameProp.toString().trim();
+        }
+      } catch (_) {}
+      return '';
+    } catch (e) {
+      return null;
+    }
+  }
+
+
   static void triggerFallbackDownload({
     required List<int> bytes,
     required String fileName,

@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/helpers/file_picker_helper.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/adaptive_tab_scaffold.dart';
@@ -322,7 +323,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       if (result == null || result.files.isEmpty) return;
 
       final file = result.files.first;
-      if (file.bytes == null) {
+      final fileBytes = FilePickerHelper.getBytes(file);
+      if (fileBytes == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(context.l10n.draftBlFileReadError), backgroundColor: Colors.red),
@@ -338,7 +340,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       });
 
       final res = await ref.read(draftBLReviewsProvider.notifier).extractDraftBLFromFile(
-            file.bytes!,
+            fileBytes,
             file.name,
             importFileId: _selectedImportFileId,
           );

@@ -495,12 +495,16 @@ def cross_check_invoice_vs_bl_endpoint(
     """
     invoice_data = payload.get("invoice_data") or {}
     bl_data = payload.get("bl_data") or {}
+    system_data = payload.get("system_data") or {}
+    packing_list_data = payload.get("packing_list_data") or {}
     tolerance = float(payload.get("weight_tolerance_pct", 3.0))
 
     return service.cross_check_invoice_and_bl_service(
         invoice_data=invoice_data,
         bl_data=bl_data,
         weight_tolerance_pct=tolerance,
+        system_data=system_data,
+        packing_list_data=packing_list_data,
     )
 
 

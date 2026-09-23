@@ -85,7 +85,7 @@ class CargoShippingExtractor(BaseExtractor):
         # Re-map to cargo_shipping / bill-of-lading standard schema
         result: Dict[str, Any] = {
             "bl_type": bl_type,
-            "bl_number": bl_fields.get("bl_number") or self.find_first([
+            "bl_number": bl_fields.get("bl_number") or bl_fields.get("draft_bl_number") or self.find_first([
                 r"B/?L\s*(?:No\.?|Number|#)[:\s]*([A-Z0-9]{6,25})",
                 r"Bill\s+of\s+Lading\s+(?:No\.?|#)[:\s]*([A-Z0-9]{6,25})",
                 r"AWB\s*(?:No\.?|#)[:\s]*([0-9]{3}[-\s]?[0-9]{8}|[A-Z0-9]{8,15})",

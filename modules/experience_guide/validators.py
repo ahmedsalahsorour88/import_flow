@@ -6,13 +6,22 @@ from fastapi import HTTPException, status
 from modules.experience_guide.schemas import GuideEntryCreate, GuideEntryUpdate, GuideScopeCreate
 
 ALLOWED_ENTRY_TYPES = {"alert", "required_document", "task", "info"}
-ALLOWED_SEVERITIES = {"info", "warning", "critical"}
+ALLOWED_SEVERITIES = {"info", "warning", "critical", "positive"}
 ALLOWED_SCOPE_TYPES = {
+    "supplier",
+    "country_of_origin",
     "hs_code",
     "product_category",
-    "destination_port",
-    "supplier",
+    "port_of_loading",
+    "port_of_discharge",
+    "destination_port",  # backward-compatible alias for port_of_discharge
     "shipping_line",
+    "incoterm",
+    "payment_method",
+    "certificate_type",
+    "customs_broker",
+    "season_timing",
+    "import_file_reference",
 }
 
 

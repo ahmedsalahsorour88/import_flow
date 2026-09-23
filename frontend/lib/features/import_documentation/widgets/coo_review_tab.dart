@@ -1626,8 +1626,17 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                       value: matchStatus,
                       rowSummary: rowSummary,
                       child: Chip(
-                        label: Text(matchStatus, style: const TextStyle(fontSize: 11, color: Colors.white)),
-                        backgroundColor: m['severity'] == 'BLOCKING' ? Colors.red : (m['severity'] == 'WARNING' ? Colors.orange : Colors.green),
+                        label: Text(
+                          matchStatus == 'EXTRACTION_FAILED'
+                              ? 'لم يتم الاستخراج'
+                              : (matchStatus == 'MATCH' ? 'متطابق' : matchStatus),
+                          style: const TextStyle(fontSize: 11, color: Colors.white),
+                        ),
+                        backgroundColor: matchStatus == 'EXTRACTION_FAILED'
+                            ? Colors.blueGrey
+                            : (m['severity'] == 'BLOCKING'
+                                ? Colors.red
+                                : (m['severity'] == 'WARNING' ? Colors.orange : Colors.green)),
                       ),
                     )),
                     DataCell(CopyableTableCell(
@@ -2009,11 +2018,9 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                Wrap(spacing: 8, runSpacing: 8, children: actionButtons),
-                              ],
+                            Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: Wrap(spacing: 8, runSpacing: 8, children: actionButtons),
                             ),
                           ],
                         );

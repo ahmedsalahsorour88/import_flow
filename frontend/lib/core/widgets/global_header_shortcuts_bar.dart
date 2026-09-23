@@ -11,6 +11,8 @@ import '../theme/app_theme.dart';
 import '../theme/theme_provider.dart';
 import '../../features/smart_tasks/widgets/smart_email_listener_dialog.dart';
 import '../../features/smart_tasks/widgets/email_settings_dialog.dart';
+import '../providers/focus_mode_provider.dart';
+import 'ai_assistant_top_bar_button.dart';
 import 'command_palette_dialog.dart';
 import 'display_density_selector.dart';
 import 'keyboard_shortcuts_dialog.dart';
@@ -84,9 +86,13 @@ class GlobalHeaderShortcutsBar extends ConsumerWidget {
             ),
           ),
         ),
+        const SizedBox(width: 4),
+
+        // 2. AI Smart Import Assistant Quick Action (Moved from bottom-right overlay, downsized)
+        const AiAssistantTopBarButton(),
         const SizedBox(width: 2),
 
-        // 2. Smart Email Listener Quick Action
+        // 3. Smart Email Listener Quick Action
         IconButton(
           tooltip: isArabic ? 'المستمع الذكي للبريد وإشعارات الوصول' : 'Smart Email & Arrival Notice Listener',
           icon: Icon(
@@ -184,6 +190,27 @@ class GlobalHeaderShortcutsBar extends ConsumerWidget {
 
         // 7. Global Display Density Selector
         const DisplayDensitySelector(compact: true),
+        const SizedBox(width: 2),
+
+        // 7b. Focus Mode Toggle (Ctrl + Shift + F)
+        IconButton(
+          tooltip: isArabic
+              ? 'وضع التركيز (Ctrl+Shift+F)'
+              : 'Focus Mode (Ctrl+Shift+F)',
+          icon: Icon(
+            ref.watch(focusModeProvider)
+                ? Icons.fit_screen_rounded
+                : Icons.filter_center_focus_rounded,
+            size: 16,
+            color: ref.watch(focusModeProvider)
+                ? AppTheme.emerald
+                : (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+          ),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+          splashRadius: 14,
+          onPressed: () => ref.read(focusModeProvider.notifier).toggle(),
+        ),
         const SizedBox(width: 2),
 
         // 8. Keyboard Shortcuts Guide Button (F1)

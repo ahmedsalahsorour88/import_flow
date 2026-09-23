@@ -23,6 +23,9 @@ import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
+import '../../experience_guide/models/guide_entry_model.dart';
+import '../../experience_guide/providers/experience_guide_provider.dart';
+import '../../experience_guide/widgets/experience_guide_alert_banner.dart';
 
 class NafezaAcidScreen extends ConsumerStatefulWidget {
   final int initialSubTab;
@@ -49,6 +52,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
 
   // Selected Import File
   int? _selectedImportFileId;
+  GuideMatchResultModel? _acidGuideMatchResult;
 
   // Controllers for Tab 0 (ACID Request)
   final _requestFormKey = GlobalKey<FormState>();
@@ -284,6 +288,24 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
     if (_podCtrl.text.isEmpty || _podCtrl.text == 'Alexandria Port (EG ALX)') {
       _podCtrl.text = 'Alexandria';
     }
+    _loadAcidGuide(file);
+  }
+
+  Future<void> _loadAcidGuide(dynamic file) async {
+    try {
+      final res = await ref.read(experienceGuideProvider.notifier).matchShipment(
+        supplier: file.supplierName,
+        hsCode: file.hsCode,
+        productCategory: file.productCategory,
+        portOfDischarge: file.portOfDischarge,
+        shippingLine: file.shippingLine,
+        incoterm: file.incotermCode,
+        importFileReference: file.importFileCode,
+      );
+      if (mounted) {
+        setState(() => _acidGuideMatchResult = res);
+      }
+    } catch (_) {}
   }
 
   void _openSearchAndCloneDialog() {
@@ -304,6 +326,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
   }
 
   void _onCloneAcidSelected(AcidRegistrationModel session) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     showDialog(
       context: context,
       builder: (dialogCtx) => AppLocalizationsProvider(
@@ -311,23 +334,38 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
         child: Directionality(
           textDirection: Directionality.of(context),
           child: CloneEntityReviewDialog(
-            entityType: 'طلب تسجيل مسبق للشحنات (ACID)',
+            entityType: isAr ? 'طلب تسجيل مسبق للشحنات (ACID)' : 'Advance Cargo Information (ACID)',
             sourceCode: session.acidNumber.isNotEmpty ? session.acidNumber : session.acidCode,
             sourceTitle: session.importerName,
             suggestedNewCode: 'ACID-EG-2026-DRAFT',
-            copiedFieldsSummary: {
-              'المستورد': session.importerName,
-              'المصدر الأجنبي': session.exporterName,
-              'بلد التصدير': session.exporterCountry,
-              'رقم الفاتورة المبدئية': session.proformaInvoiceNo,
-              'الموانئ': '${session.polName} → ${session.podName}',
-            },
-            mandatorilyResetFields: const [
-              'رقم ACID: يتم تصفيره إلى مسودة جديدة (Draft)',
-              'حالة الإفراج الجمركي: ملغاة (False)',
-              'تاريخ الطلب: يعاد ضبطه إلى تاريخ اليوم',
-              'معرف الجلسة السابق: تم فك الارتباط',
-            ],
+            copiedFieldsSummary: isAr
+                ? {
+                    'المستورد': session.importerName,
+                    'المصدر الأجنبي': session.exporterName,
+                    'بلد التصدير': session.exporterCountry,
+                    'رقم الفاتورة المبدئية': session.proformaInvoiceNo,
+                    'الموانئ': '${session.polName} → ${session.podName}',
+                  }
+                : {
+                    'Importer': session.importerName,
+                    'Foreign Exporter': session.exporterName,
+                    'Export Country': session.exporterCountry,
+                    'Proforma Invoice No': session.proformaInvoiceNo,
+                    'Ports': '${session.polName} → ${session.podName}',
+                  },
+            mandatorilyResetFields: isAr
+                ? const [
+                    'رقم ACID: يتم تصفيره إلى مسودة جديدة (Draft)',
+                    'حالة الإفراج الجمركي: ملغاة (False)',
+                    'تاريخ الطلب: يعاد ضبطه إلى تاريخ اليوم',
+                    'معرف الجلسة السابق: تم فك الارتباط',
+                  ]
+                : const [
+                    'ACID Number: Reset to new Draft',
+                    'Customs Release Status: Reset to False',
+                    'Request Date: Reset to today\'s date',
+                    'Previous Session ID: Unlinked',
+                  ],
             allowCopyLineItems: false,
             allowCopyAttachments: false,
             onConfirm: ({
@@ -357,7 +395,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                 _exporterRegType = session.exporterRegType ?? 'VAT Number';
                 _selectedPoId = session.poId;
                 _poNoCtrl.text = session.poNumber ?? '';
-                _proformaNoCtrl.text = '${session.proformaInvoiceNo} (نسخة)';
+                _proformaNoCtrl.text = isAr ? '${session.proformaInvoiceNo} (نسخة)' : '${session.proformaInvoiceNo} (Copy)';
                 _proformaDateCtrl.text = session.proformaInvoiceDate ?? DateTime.now().toString().substring(0, 10);
                 _invoiceType = session.invoiceType ?? 'Proforma Invoice';
                 _polCtrl.text = session.polName;
@@ -608,6 +646,15 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Smart Experience Guide Alert Banner
+              if (_acidGuideMatchResult != null && _acidGuideMatchResult!.matchedEntries.isNotEmpty)
+                ExperienceGuideAlertBanner(
+                  matchResult: _acidGuideMatchResult!,
+                  supplier: _exporterNameCtrl.text,
+                  portOfDischarge: _podCtrl.text,
+                  portOfLoading: _polCtrl.text,
+                ),
+
               // Informational Alert
               Container(
                 padding: const EdgeInsets.all(14),

@@ -301,11 +301,24 @@ def generate_invoice_zip(
     db: Session = Depends(get_db),
 ):
     """
-    CGX-003: تحميل ملفات Excel كـ ZIP.
-    - لو mode = all_* → ZIP يحتوي على ملف Excel واحد
+    CGX-003: تحميل ملفات Excel كـ ZIP أو ملف Excel أصلي مباشرة.
+    - لو mode = all_* → ملف Excel أصلي واحد (.xlsx) مباشرة حتى لا يتعطل في Microsoft Excel
     - لو mode = per_invoice_* → ZIP يحتوي على ملف لكل فاتورة
     """
     extraction = CargoXExtractionEngine.extract(db, import_file_id, request)
+
+    # إذا كان المطلوب ملف موحد (all_consolidated أو all_detailed) وله نتيجة واحدة
+    # يتم إرجاع ملف Excel الأصلي مباشرة بصيغة xlsx لتجنب تلف الملف في Microsoft Excel
+    if request.mode.startswith("all_") and len(extraction.results) == 1:
+        excel_bytes = generate_standard_invoice_excel_bytes(extraction.results[0].payload)
+        safe_inv = (extraction.results[0].invoice_number or f"Invoice_{import_file_id}").replace("/", "-").replace("\\", "-")
+        return Response(
+            content=excel_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename=Commercial_Invoice_{safe_inv}.xlsx"
+            },
+        )
 
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -323,6 +336,7 @@ def generate_invoice_zip(
             "Content-Disposition": f"attachment; filename=CargoX_Invoices_IMP{import_file_id}_{request.mode}.zip"
         },
     )
+
 
 
 @router.post("/customs-track/create", response_model=CustomsInvoiceTrackResponse)

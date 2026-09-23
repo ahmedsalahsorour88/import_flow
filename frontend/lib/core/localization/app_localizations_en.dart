@@ -2358,6 +2358,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get poRecCheckFieldTotalAmount => 'Total Commercial Invoice Amount';
   @override String get poRecCheckFieldTotalPackages => 'Total Packages Count';
   @override String get poRecCheckFieldGrossWeight => 'Total Gross Weight';
+  @override String get poRecCheckFieldSupplierName => 'Foreign Supplier Name';
+  @override String get poRecCheckFieldImporterName => 'Importing Company Name';
+  @override String get poRecCheckFieldHsCode => 'HS Code (Customs Tariff)';
+  @override String get poRecCheckFieldTaxId => 'Importer Tax ID';
   @override String get poRecCheckMsgInvoiceMatched => 'Commercial invoice number extracted and matched successfully';
   @override String get poRecCheckMsgAcidMatched => 'ACID number fully matches across invoice, packing list, and system';
   @override String get poRecCheckMsgTotalAmountMatched => 'Total invoice amount matches perfectly at 100%';

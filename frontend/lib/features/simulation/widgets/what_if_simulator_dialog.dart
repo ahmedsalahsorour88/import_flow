@@ -123,9 +123,10 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
       }
     } catch (e) {
       if (mounted) {
+        final isAr = Localizations.localeOf(context).languageCode == 'ar';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('فشل تشغيل المحاكاة: $e'),
+            content: Text(isAr ? 'فشل تشغيل المحاكاة: $e' : 'Simulation failed: $e'),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -152,9 +153,14 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
   Future<void> _saveCurrentScenario() async {
     if (_simulationResult == null) return;
     try {
+      final isAr = mounted ? (Localizations.localeOf(context).languageCode == 'ar') : true;
       final invAmount = double.tryParse(_invoiceAmountCtrl.text.trim()) ?? 0.0;
+      final routeName = _shippingRoute == "CAPE_OF_GOOD_HOPE"
+          ? (isAr ? "رأس الرجاء الصالح" : "Cape of Good Hope")
+          : (isAr ? "البحر الأحمر" : "Red Sea");
+      final scenarioTitle = isAr ? 'سيناريو محاكاة' : 'Simulation Scenario';
       final payload = {
-        'scenario_name': 'سيناريو محاكاة $_selectedCurrency (+${_fxRateChangePct.toStringAsFixed(0)}%) - ${_shippingRoute == "CAPE_OF_GOOD_HOPE" ? "رأس الرجاء الصالح" : "البحر الأحمر"}',
+        'scenario_name': '$scenarioTitle $_selectedCurrency (+${_fxRateChangePct.toStringAsFixed(0)}%) - $routeName',
         'import_file_id': _selectedImportFileId,
         'simulation_request': {
           'invoice_amount': invAmount,
@@ -175,17 +181,22 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
 
       if (res.statusCode == 201 && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ تم حفظ سيناريو المحاكاة بنجاح في سجل القرارات الاستراتيجية.'),
+          SnackBar(
+            content: Text(
+              isAr
+                  ? '✅ تم حفظ سيناريو المحاكاة بنجاح في سجل القرارات الاستراتيجية.'
+                  : '✅ Simulation scenario saved successfully in strategic decisions log.',
+            ),
             backgroundColor: AppTheme.emerald,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
+        final isAr = Localizations.localeOf(context).languageCode == 'ar';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطأ في حفظ السيناريو: $e'),
+            content: Text(isAr ? 'خطأ في حفظ السيناريو: $e' : 'Error saving scenario: $e'),
             backgroundColor: AppTheme.crimson,
           ),
         );

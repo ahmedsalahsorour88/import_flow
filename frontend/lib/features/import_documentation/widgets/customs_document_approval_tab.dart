@@ -168,6 +168,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
     final l = context.l10n;
     final suggestedCode = 'DOCAPPR-2026-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
     final docType = _getLocalizedDocType(sourceItem.documentType, l);
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
 
     showDialog(
       context: context,
@@ -176,18 +177,32 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
         sourceCode: sourceItem.approvalCode,
         sourceTitle: '$docType - ${sourceItem.documentReferenceNo ?? "REF"}',
         suggestedNewCode: suggestedCode,
-        copiedFieldsSummary: {
-          'نوع المستند': docType,
-          'الرقم المرجعي': sourceItem.documentReferenceNo != null ? '${sourceItem.documentReferenceNo}-COPY' : '—',
-          'ملف الشحنة': sourceItem.importFileCode ?? '—',
-        },
-        mandatorilyResetFields: [
-          l.customsApprovalClonedResetNotice,
-          'حالة الاعتماد التجاري: إعادة تعيين إلى قيد الانتظار (Pending)',
-          'حالة اعتماد المخلص الجمركي: إعادة تعيين إلى قيد الانتظار (Pending)',
-          'الحالة العامة: إعادة تعيين إلى مسودة قيد التدقيق (Draft)',
-          'تفريغ توقيعات وملاحظات المراجعين بالكامل لبدء اعتماد مستقل',
-        ],
+        copiedFieldsSummary: isAr
+            ? {
+                'نوع المستند': docType,
+                'الرقم المرجعي': sourceItem.documentReferenceNo != null ? '${sourceItem.documentReferenceNo}-COPY' : '—',
+                'ملف الشحنة': sourceItem.importFileCode ?? '—',
+              }
+            : {
+                'Document Type': docType,
+                'Reference No': sourceItem.documentReferenceNo != null ? '${sourceItem.documentReferenceNo}-COPY' : '—',
+                'Import File': sourceItem.importFileCode ?? '—',
+              },
+        mandatorilyResetFields: isAr
+            ? [
+                l.customsApprovalClonedResetNotice,
+                'حالة الاعتماد التجاري: إعادة تعيين إلى قيد الانتظار (Pending)',
+                'حالة اعتماد المخلص الجمركي: إعادة تعيين إلى قيد الانتظار (Pending)',
+                'الحالة العامة: إعادة تعيين إلى مسودة قيد التدقيق (Draft)',
+                'تفريغ توقيعات وملاحظات المراجعين بالكامل لبدء اعتماد مستقل',
+              ]
+            : [
+                l.customsApprovalClonedResetNotice,
+                'Commercial Approval Status: Reset to Pending',
+                'Customs Broker Approval Status: Reset to Pending',
+                'Overall Status: Reset to Draft',
+                'Reviewer signatures and notes fully cleared for independent review',
+              ],
         allowCopyLineItems: false,
         allowCopyAttachments: false,
         onConfirm: ({
@@ -937,34 +952,44 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                IconButton(
-                                  key: const Key('copyTicketsBtn'),
-                                  icon: const Icon(Icons.copy_outlined, size: 18),
-                                  onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
-                                      ? null
-                                      : () => _copyTicketsAsTsv(ticketsState.valueOrNull!),
-                                  tooltip: context.l10n.isArabic ? 'نسخ التذاكر كـ TSV' : 'Copy Tickets as TSV',
-                                ),
-                                IconButton(
-                                  key: const Key('exportTicketsExcelBtn'),
-                                  icon: const Icon(Icons.table_chart_outlined, size: 18),
-                                  onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
-                                      ? null
-                                      : () => _exportTicketsToExcel(ticketsState.valueOrNull!),
-                                  tooltip: context.l10n.isArabic ? 'تصدير إكسيل' : 'Export Excel',
-                                ),
-                                IconButton(
-                                  key: const Key('exportTicketsPdfBtn'),
-                                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                                  onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
-                                      ? null
-                                      : () => _exportTicketsToPdf(ticketsState.valueOrNull!),
-                                  tooltip: context.l10n.isArabic ? 'تصدير PDF' : 'Export PDF',
-                                ),
-                                TextButton.icon(
-                                  icon: const Icon(Icons.add, size: 16),
-                                  label: Text(context.l10n.customsApprovalNewTicketButton),
-                                  onPressed: () => _showRaiseTicketDialog(),
+                                Flexible(
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          key: const Key('copyTicketsBtn'),
+                                          icon: const Icon(Icons.copy_outlined, size: 18),
+                                          onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
+                                              ? null
+                                              : () => _copyTicketsAsTsv(ticketsState.valueOrNull!),
+                                          tooltip: context.l10n.isArabic ? 'نسخ التذاكر كـ TSV' : 'Copy Tickets as TSV',
+                                        ),
+                                        IconButton(
+                                          key: const Key('exportTicketsExcelBtn'),
+                                          icon: const Icon(Icons.table_chart_outlined, size: 18),
+                                          onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
+                                              ? null
+                                              : () => _exportTicketsToExcel(ticketsState.valueOrNull!),
+                                          tooltip: context.l10n.isArabic ? 'تصدير إكسيل' : 'Export Excel',
+                                        ),
+                                        IconButton(
+                                          key: const Key('exportTicketsPdfBtn'),
+                                          icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                                          onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
+                                              ? null
+                                              : () => _exportTicketsToPdf(ticketsState.valueOrNull!),
+                                          tooltip: context.l10n.isArabic ? 'تصدير PDF' : 'Export PDF',
+                                        ),
+                                        TextButton.icon(
+                                          icon: const Icon(Icons.add, size: 16),
+                                          label: Text(context.l10n.customsApprovalNewTicketButton),
+                                          onPressed: () => _showRaiseTicketDialog(),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),

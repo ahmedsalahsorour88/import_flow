@@ -20,6 +20,9 @@ import '../widgets/search_and_clone_draft_bl_dialog.dart';
 import '../widgets/search_and_clone_coo_dialog.dart';
 import '../../cargo_insurance/screens/cargo_insurance_screen.dart';
 import '../widgets/formal_letter_generator_dialog.dart';
+import '../../experience_guide/models/guide_entry_model.dart';
+import '../../experience_guide/providers/experience_guide_provider.dart';
+import '../../experience_guide/widgets/experience_guide_alert_banner.dart';
 
 
 class ShipmentDraftDocsScreen extends ConsumerStatefulWidget {
@@ -50,6 +53,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
   final GlobalKey<CustomsDocumentApprovalTabState> _customsApprovalTabKey = GlobalKey<CustomsDocumentApprovalTabState>();
   final GlobalKey<POReconciliationTabState> _poReconciliationTabKey = GlobalKey<POReconciliationTabState>();
   final GlobalKey<COOReviewTabState> _cooReviewTabKey = GlobalKey<COOReviewTabState>();
+  GuideMatchResultModel? _guideMatchResult;
 
   @override
   void initState() {
@@ -73,6 +77,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
       setState(() {
         _selectedImportFileId = widget.initialImportFileId;
       });
+      _loadGuideForFile(widget.initialImportFileId);
     }
   }
 
@@ -89,6 +94,32 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
         _selectedImportFileId = files.first.importFileId;
       });
     }
+    _loadGuideForFile(_selectedImportFileId);
+  }
+
+  Future<void> _loadGuideForFile(int? fileId) async {
+    if (fileId == null) {
+      if (mounted) setState(() => _guideMatchResult = null);
+      return;
+    }
+    final files = ref.read(importFilesProvider).valueOrNull ?? [];
+    final file = files.where((f) => f.importFileId == fileId).firstOrNull;
+    if (file == null) return;
+
+    try {
+      final res = await ref.read(experienceGuideProvider.notifier).matchShipment(
+        supplier: file.supplierName,
+        hsCode: file.hsCode,
+        productCategory: file.productCategory,
+        portOfLoading: file.portOfLoading,
+        portOfDischarge: file.portOfDischarge,
+        incoterm: file.incotermCode,
+        importFileReference: file.importFileCode,
+      );
+      if (mounted) {
+        setState(() => _guideMatchResult = res);
+      }
+    } catch (_) {}
   }
 
   void _openSearchAndCloneDialog() {
@@ -106,6 +137,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
                 _selectedSubTab = 0;
                 _selectedImportFileId = item.importFileId;
               });
+              _loadGuideForFile(item.importFileId);
             },
           ),
         );
@@ -126,6 +158,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
                 _selectedSubTab = 1;
                 _selectedImportFileId = s.importFileId;
               });
+              _loadGuideForFile(s.importFileId);
             },
           ),
         );
@@ -146,6 +179,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
                 _selectedSubTab = 4;
                 _selectedImportFileId = r.importFileId ?? _selectedImportFileId;
               });
+              _loadGuideForFile(_selectedImportFileId);
             },
           ),
         );
@@ -225,6 +259,14 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
           onTabSelected: (index) => setState(() => _selectedSubTab = index),
           selectedImportFileId: _selectedImportFileId,
           onShipmentStatusChanged: _refreshData,
+          topBanner: (_guideMatchResult != null && _guideMatchResult!.matchedEntries.isNotEmpty)
+              ? Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: ExperienceGuideAlertBanner(
+                    matchResult: _guideMatchResult!,
+                  ),
+                )
+              : null,
           headerActions: [
             IconButton(
               key: Key(_selectedSubTab == 0
@@ -284,6 +326,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
             setState(() {
               _selectedImportFileId = newId;
             });
+            _loadGuideForFile(newId);
           },
         );
       case 4:

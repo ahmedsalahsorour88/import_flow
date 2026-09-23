@@ -23,6 +23,7 @@ void main() {
         'unit_price_basis': 'SET',
         'gross_weight_kg': 250.0,
         'net_weight_kg': 220.0,
+        'weight_unit': 'KGM',
         'total_amount': 3000.0,
       };
 
@@ -31,17 +32,20 @@ void main() {
       expect(item.productCode, 'DSK-001');
       expect(item.hsCode, '940310');
       expect(item.quantity, 10.0);
+      expect(item.weightUnit, 'KGM');
       expect(item.totalAmount, 3000.0);
 
       final encoded = item.toJson();
       expect(encoded['product_code'], 'DSK-001');
       expect(encoded['hs_code'], '940310');
+      expect(encoded['weight_unit'], 'KGM');
       expect(encoded['total_amount'], 3000.0);
     });
 
     test('StandardInvoicePayloadModel calculations and totals', () {
       final json = {
         'seller_name': 'Narbutas International UAB',
+        'seller_city_code': 'LTVNO',
         'seller_country_code': 'LT',
         'seller_tax_id': 'LT300591314',
         'buyer_name': 'Egyptian Import & Supply Co.',
@@ -81,6 +85,7 @@ void main() {
 
       final payload = StandardInvoicePayloadModel.fromJson(json);
       expect(payload.sellerName, 'Narbutas International UAB');
+      expect(payload.sellerCityCode, 'LTVNO');
       expect(payload.acidNumber, '7595528271020210010');
       expect(payload.items.length, 2);
       expect(payload.subtotal, 5000.0);

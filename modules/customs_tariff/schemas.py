@@ -382,6 +382,7 @@ class MultiItemCustomsEstimateLine(BaseModel):
     exempted_value_fc: Decimal = Field(default=Decimal("0.00"), ge=0, description="القيمة المعفاة إن وجدت")
     value_without_payment_fc: Decimal = Field(default=Decimal("0.00"), ge=0, description="قيمة بدون دفع إن وجدت")
     inspection_fee_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="رسوم فحص أجر خدمات مخصص للصنف إن وجد")
+    is_exemption_conditions_met: Optional[bool] = Field(None, description="هل تم استيفاء وتطبيق شروط الإعفاء الجمركي للبند (اتفاقية شراكة / تصنيع / شهادة منشأ مستوفاة)")
 
 
 class MultiItemCustomsEstimateRequest(BaseModel):
@@ -449,6 +450,7 @@ class MultiItemCustomsLineBreakdown(BaseModel):
     freight_source: str = Field("actual", description="مصدر حساب النولون: actual أو deemed")
     exemption_code_applied: Optional[str] = None
     exemption_applied_details: Optional[str] = None
+    is_exemption_applied: bool = False
     preferential_agreement_applied: Optional[str] = None
     conditions_note: Optional[str] = None
 

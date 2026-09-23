@@ -166,7 +166,7 @@ setup_query_listener(engine)
 
 app = FastAPI(
     title="Sorour Logistics ERP API",
-    version="2.0.2",
+    version="2.0.3",
 )
 
 # ==================================================
@@ -193,7 +193,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 import re as _re
 
 CORS_ALLOWED_METHODS = "GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD"
-CORS_ALLOWED_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)(:[0-9]+)?$"
+CORS_ALLOWED_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)(:[0-9]+)?$"
 
 # Keep LOCAL_ORIGIN_REGEX as alias used in the global exception handler below
 LOCAL_ORIGIN_REGEX = CORS_ALLOWED_ORIGIN_REGEX
@@ -202,14 +202,14 @@ LOCAL_ORIGIN_REGEX = CORS_ALLOWED_ORIGIN_REGEX
 @app.middleware("http")
 async def cors_and_pna_middleware(request: Request, call_next):
     raw_origin = request.headers.get("origin", "")
-    is_allowed = bool(raw_origin and _re.match(CORS_ALLOWED_ORIGIN_REGEX, raw_origin))
+    is_allowed = bool(raw_origin and (_re.match(CORS_ALLOWED_ORIGIN_REGEX, raw_origin) or raw_origin in ("null", "*")))
 
     # Security headers applied system-wide
     sec_headers = {
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "DENY",
         "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Content-Security-Policy": "default-src 'self'; frame-ancestors 'none'; object-src 'none';",
+        "Content-Security-Policy": "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; frame-ancestors 'none'; object-src 'none';",
         "Permissions-Policy": "geolocation=(), camera=(), microphone=()",
     }
     proto = request.headers.get("x-forwarded-proto", request.url.scheme)
@@ -226,6 +226,7 @@ async def cors_and_pna_middleware(request: Request, call_next):
             response.headers["Access-Control-Allow-Origin"] = raw_origin
             response.headers["Access-Control-Allow-Methods"] = CORS_ALLOWED_METHODS
             response.headers["Access-Control-Allow-Headers"] = req_headers
+            response.headers["Access-Control-Expose-Headers"] = "*"
             response.headers["Access-Control-Allow-Credentials"] = "true"
             response.headers["Access-Control-Allow-Private-Network"] = "true"
             response.headers["Access-Control-Max-Age"] = "86400"
@@ -243,6 +244,7 @@ async def cors_and_pna_middleware(request: Request, call_next):
         response.headers["Access-Control-Allow-Origin"] = raw_origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
         response.headers["Access-Control-Allow-Private-Network"] = "true"
+        response.headers["Access-Control-Expose-Headers"] = "*"
         response.headers["Vary"] = "Origin"
 
     return response
@@ -360,7 +362,7 @@ SchemaUpgradeService.execute_safe_startup_upgrade(
 def dashboard():
     return {
         "system": "Sorour Logistics ERP",
-        "version": "2.0.2",
+        "version": "2.0.3",
         "status": "running",
     }
 
@@ -391,7 +393,7 @@ def health_check():
     return {
         "status": "OK",
         "system": "Sorour Logistics ERP",
-        "version": "2.0.2",
+        "version": "2.0.3",
         "database": {
             "connected": db_exists,
             "size_kb": db_size_kb,

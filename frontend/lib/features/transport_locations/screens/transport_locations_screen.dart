@@ -11,6 +11,7 @@ import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/helpers/master_data_action_helper.dart';
 import '../../../core/widgets/row_actions_pill.dart';
+import '../../../core/widgets/compact_table_pagination_footer.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/transport_location_model.dart';
 import '../providers/transport_locations_provider.dart';
@@ -27,7 +28,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   int _currentPage = 1;
-  int _pageSize = 50;
+  final int _pageSize = 50;
 
   final List<String> _locationTypes = ['All', 'Sea Port', 'Airport', 'Dry Port', 'Land Border'];
 
@@ -309,29 +310,31 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                       ? locations.sublist(startIndex, endIndex)
                       : <TransportLocationModel>[];
 
-                   return Column(
-                    children: [
-                      Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            final tableWidth = constraints.maxWidth < 1180 ? 1180.0 : constraints.maxWidth;
+                  final isDark = Theme.of(context).brightness == Brightness.dark;
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: isDark ? AppTheme.darkBorder : const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final tableWidth = constraints.maxWidth < 1180 ? 1180.0 : constraints.maxWidth;
 
-                            return Container(
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.04),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: SingleChildScrollView(
+                                return SingleChildScrollView(
                                   scrollDirection: Axis.vertical,
                                   child: SingleChildScrollView(
                                     scrollDirection: Axis.horizontal,
@@ -551,86 +554,24 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 10),
-                  // Pagination Footer
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          l10n.showingLocationsCount(totalItems == 0 ? 0 : startIndex + 1, endIndex, totalItems, _getLocationTypeLabel(_selectedType, l10n)),
-                          style: TextStyle(fontSize: 13, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
-                        ),
-                        Row(
-                          children: [
-                            Text(l10n.rowsPerPageLabel, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                            DropdownButton<int>(
-                              value: _pageSize,
-                              underline: const SizedBox(),
-                              isDense: true,
-                              items: [25, 50, 100, 200]
-                                  .map((s) => DropdownMenuItem(value: s, child: Text('$s', style: const TextStyle(fontSize: 12))))
-                                  .toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() {
-                                    _pageSize = val;
-                                    _currentPage = 1;
-                                  });
-                                }
-                              },
-                            ),
-                            const SizedBox(width: 16),
-                            IconButton(
-                              icon: const Icon(Icons.first_page, size: 20),
-                              onPressed: safeCurrentPage > 1 ? () => setState(() => _currentPage = 1) : null,
-                              tooltip: l10n.firstPageTooltip,
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.chevron_left, size: 20),
-                              onPressed: safeCurrentPage > 1 ? () => setState(() => _currentPage = safeCurrentPage - 1) : null,
-                              tooltip: l10n.previousPageTooltip,
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              child: Text(
-                                l10n.pageOfTotal(safeCurrentPage, totalPages == 0 ? 1 : totalPages),
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.chevron_right, size: 20),
-                              onPressed: safeCurrentPage < totalPages ? () => setState(() => _currentPage = safeCurrentPage + 1) : null,
-                              tooltip: l10n.nextPageTooltip,
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.last_page, size: 20),
-                              onPressed: safeCurrentPage < totalPages ? () => setState(() => _currentPage = totalPages) : null,
-                              tooltip: l10n.lastPageTooltip,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
-                ],
-              );
-            },
+                ),
+                // Integrated Compact Pagination Footer
+                CompactTablePaginationFooter(
+                  currentPage: safeCurrentPage,
+                  totalPages: totalPages == 0 ? 1 : totalPages,
+                  totalCount: totalItems,
+                  pageSize: _pageSize,
+                  isMobile: MediaQuery.sizeOf(context).width < 768,
+                  onPageChanged: (newPage) => setState(() => _currentPage = newPage),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
           ),
         ),
       ],

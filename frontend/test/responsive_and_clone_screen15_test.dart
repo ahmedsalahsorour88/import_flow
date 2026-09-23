@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/core/widgets/clone_entity_review_dialog.dart';
+import 'package:frontend/core/widgets/live_pulse_badge.dart';
 import 'package:frontend/features/external_service_providers/models/partner_model.dart';
 import 'package:frontend/features/external_service_providers/providers/partners_provider.dart';
 import 'package:frontend/features/import_companies/models/import_company_model.dart';
@@ -322,6 +323,14 @@ void main() {
   }
 
   group('Screen 15: Nafeza ACID Expiry & Customs Release Tracker SubTab Tests', () {
+    setUp(() {
+      LivePulseBadge.enableAnimation = false;
+    });
+
+    tearDown(() {
+      LivePulseBadge.enableAnimation = true;
+    });
+
     testWidgets('1. Desktop Layout (1400x900) - Renders summary cards row, search, and table without overflows', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1400, 900));
       await tester.pumpWidget(buildScreen15TestWidget(size: const Size(1400, 900)));

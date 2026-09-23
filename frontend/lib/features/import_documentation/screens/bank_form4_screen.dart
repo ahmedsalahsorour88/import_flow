@@ -161,6 +161,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
   }
 
   void _onCloneBankDocSelected(BankingDocumentModel doc) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     showDialog(
       context: context,
       builder: (dialogCtx) => AppLocalizationsProvider(
@@ -168,22 +169,36 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
         child: Directionality(
           textDirection: Directionality.of(context),
           child: CloneEntityReviewDialog(
-            entityType: 'طلب وتوثيق نموذج 4 البنكي (Bank Form 4)',
+            entityType: isAr ? 'طلب وتوثيق نموذج 4 البنكي (Bank Form 4)' : 'Bank Form 4 Request & Endorsement',
             sourceCode: doc.bankDocCode,
             sourceTitle: doc.bankName,
             suggestedNewCode: 'FORM4-2026-DRAFT',
-            copiedFieldsSummary: {
-              'البنك المعتمد': doc.bankName,
-              'قيمة الاعتماد': '${doc.amount.toStringAsFixed(2)} ${doc.currencyCode}',
-              'ملف الشحنة': doc.importFileCode ?? (doc.importFileId != null ? 'IMP-${doc.importFileId}' : '-'),
-              'ملاحظات وتوجيهات': doc.notes ?? '-',
-            },
-            mandatorilyResetFields: const [
-              'كود المستند البنكي: يتم تصفيره إلى مسودة جديدة (Draft)',
-              'تاريخ طلب النموذج: يعاد ضبطه إلى تاريخ اليوم',
-              'حالة التوثيق والاعتماد: تعاد إلى قيد المعالجة (Processing)',
-              'معرف السجل السابق: تم فك الارتباط',
-            ],
+            copiedFieldsSummary: isAr
+                ? {
+                    'البنك المعتمد': doc.bankName,
+                    'قيمة الاعتماد': '${doc.amount.toStringAsFixed(2)} ${doc.currencyCode}',
+                    'ملف الشحنة': doc.importFileCode ?? (doc.importFileId != null ? 'IMP-${doc.importFileId}' : '-'),
+                    'ملاحظات وتوجيهات': doc.notes ?? '-',
+                  }
+                : {
+                    'Certified Bank': doc.bankName,
+                    'Credit Amount': '${doc.amount.toStringAsFixed(2)} ${doc.currencyCode}',
+                    'Import File': doc.importFileCode ?? (doc.importFileId != null ? 'IMP-${doc.importFileId}' : '-'),
+                    'Notes & Directives': doc.notes ?? '-',
+                  },
+            mandatorilyResetFields: isAr
+                ? const [
+                    'كود المستند البنكي: يتم تصفيره إلى مسودة جديدة (Draft)',
+                    'تاريخ طلب النموذج: يعاد ضبطه إلى تاريخ اليوم',
+                    'حالة التوثيق والاعتماد: تعاد إلى قيد المعالجة (Processing)',
+                    'معرف السجل السابق: تم فك الارتباط',
+                  ]
+                : const [
+                    'Document Code: Reset to new Draft',
+                    'Request Date: Reset to today\'s date',
+                    'Endorsement Status: Reset to Processing',
+                    'Previous Record ID: Unlinked',
+                  ],
             allowCopyLineItems: false,
             allowCopyAttachments: false,
             onConfirm: ({
@@ -206,8 +221,8 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                 _form4Currency = doc.currencyCode;
                 _form4RequestDateCtrl.text = DateTime.now().toIso8601String().substring(0, 10);
                 _form4NotesCtrl.text = (doc.notes != null && doc.notes!.isNotEmpty)
-                    ? '${doc.notes} (نسخة)'
-                    : '(نسخة نموذج سابق)';
+                    ? (isAr ? '${doc.notes} (نسخة)' : '${doc.notes} (Copy)')
+                    : (isAr ? '(نسخة نموذج سابق)' : '(Cloned from previous doc)');
               });
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -240,6 +255,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setModalState) {
           final isDark = Theme.of(context).brightness == Brightness.dark;
+          final isAr = Localizations.localeOf(context).languageCode == 'ar';
           return AlertDialog(
             title: Row(
               children: [
@@ -247,7 +263,9 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'توثيق استلام ${doc.docType} البنكي (DC-03)',
+                    isAr
+                        ? 'توثيق استلام ${doc.docType} البنكي (DC-03)'
+                        : 'Endorse ${doc.docType} Receipt (DC-03)',
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -262,7 +280,9 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'سجل رقم المستند البنكي الصادر من بنك (${doc.bankName}) لربطه تلقائياً بملف الشحنة وترقية دورة الحياة إلى مرحلة الإقرار الجمركي 46.',
+                      isAr
+                          ? 'سجل رقم المستند البنكي الصادر من بنك (${doc.bankName}) لربطه تلقائياً بملف الشحنة وترقية دورة الحياة إلى مرحلة الإقرار الجمركي 46.'
+                          : 'Register bank document number issued by (${doc.bankName}) to automatically link to the shipment and advance lifecycle to Customs Declaration 46.',
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
@@ -272,30 +292,38 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                     TextFormField(
                       controller: numCtrl,
                       decoration: InputDecoration(
-                        labelText: 'رقم ${doc.docType} / رقم الاعتماد المعتمد *',
-                        hintText: 'مثال: F4-EG-2026-990011 أو LC-7788',
+                        labelText: isAr
+                            ? 'رقم ${doc.docType} / رقم الاعتماد المعتمد *'
+                            : '${doc.docType} / Bank Reference No. *',
+                        hintText: isAr
+                            ? 'مثال: F4-EG-2026-990011 أو LC-7788'
+                            : 'e.g., F4-EG-2026-990011 or LC-7788',
                         prefixIcon: const Icon(Icons.confirmation_number_outlined),
                         border: const OutlineInputBorder(),
                       ),
-                      validator: (v) => v == null || v.trim().isEmpty ? 'يرجى إدخال رقم المستند الصادر من البنك' : null,
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? (isAr ? 'يرجى إدخال رقم المستند الصادر من البنك' : 'Please enter bank document number')
+                          : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: dateCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'تاريخ الاستلام / الاعتماد *',
-                        prefixIcon: Icon(Icons.calendar_today_outlined),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: isAr ? 'تاريخ الاستلام / الاعتماد *' : 'Receipt / Endorsement Date *',
+                        prefixIcon: const Icon(Icons.calendar_today_outlined),
+                        border: const OutlineInputBorder(),
                       ),
-                      validator: (v) => v == null || v.trim().isEmpty ? 'يرجى تحديد تاريخ الاستلام' : null,
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? (isAr ? 'يرجى تحديد تاريخ الاستلام' : 'Please select receipt date')
+                          : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: notesCtrl,
                       maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'ملاحظات التوثيق والفرع (اختياري)',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: isAr ? 'ملاحظات التوثيق والفرع (اختياري)' : 'Endorsement / Branch Notes (Optional)',
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                   ],
@@ -315,7 +343,9 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                 icon: isSubmitting
                     ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.check, size: 16),
-                label: Text(isSubmitting ? 'جاري التوثيق...' : 'توثيق وربط بالشحنة'),
+                label: Text(isSubmitting
+                    ? (isAr ? 'جاري التوثيق...' : 'Endorsing...')
+                    : (isAr ? 'توثيق وربط بالشحنة' : 'Endorse & Link to Shipment')),
                 onPressed: isSubmitting
                     ? null
                     : () async {
@@ -333,8 +363,10 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                           if (ctx.mounted) Navigator.of(ctx).pop();
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('تم توثيق وربط المستند البنكي بالشحنة وترقية دورة الحياة بنجاح.'),
+                              SnackBar(
+                                content: Text(isAr
+                                    ? 'تم توثيق وربط المستند البنكي بالشحنة وترقية دورة الحياة بنجاح.'
+                                    : 'Bank document endorsed and linked to shipment successfully.'),
                                 backgroundColor: AppTheme.wcagEmerald,
                               ),
                             );
@@ -342,7 +374,11 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                         } catch (e) {
                           setModalState(() => isSubmitting = false);
                           if (mounted) {
-                            showErrorDetailsDialog(context, title: 'خطأ في توثيق المستند البنكي', error: e);
+                            showErrorDetailsDialog(
+                              context,
+                              title: isAr ? 'خطأ في توثيق المستند البنكي' : 'Error endorsing bank document',
+                              error: e,
+                            );
                           }
                         }
                       },
@@ -440,6 +476,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final currencies = ref.watch(currenciesProvider).valueOrNull ?? [];
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -598,14 +635,29 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                     // Inputs Row 0: Doc Type & Reference Number (DC-03)
                     if (isMobile) ...[
                       SearchableDropdownField<String>(
-                        labelText: 'نوع المعاملة / المستند البنكي *',
-                        hintText: 'اختر نوع المعاملة',
+                        labelText: isAr ? 'نوع المعاملة / المستند البنكي *' : 'Transaction / Bank Doc Type *',
+                        hintText: isAr ? 'اختر نوع المعاملة' : 'Select transaction type',
                         value: _bankDocType,
                         isRequired: true,
-                        items: const [
-                          SearchableDropdownItem<String>(value: 'Form 4', label: 'نموذج 4 (Form 4 - مستندات تحصيل / دفعة مقدمة)'),
-                          SearchableDropdownItem<String>(value: 'Letter of Credit (L/C)', label: 'اعتماد مستندي (Letter of Credit - L/C)'),
-                          SearchableDropdownItem<String>(value: 'Form 9', label: 'نموذج 9 (Form 9 - إفراج دون تحويل)'),
+                        items: [
+                          SearchableDropdownItem<String>(
+                            value: 'Form 4',
+                            label: isAr
+                                ? 'نموذج 4 (Form 4 - مستندات تحصيل / دفعة مقدمة)'
+                                : 'Form 4 (Form 4 - Collection / Advance Payment)',
+                          ),
+                          SearchableDropdownItem<String>(
+                            value: 'Letter of Credit (L/C)',
+                            label: isAr
+                                ? 'اعتماد مستندي (Letter of Credit - L/C)'
+                                : 'Letter of Credit (L/C)',
+                          ),
+                          SearchableDropdownItem<String>(
+                            value: 'Form 9',
+                            label: isAr
+                                ? 'نموذج 9 (Form 9 - إفراج دون تحويل)'
+                                : 'Form 9 (Form 9 - Release Without Transfer)',
+                          ),
                         ],
                         onChanged: (val) => setState(() => _bankDocType = val ?? 'Form 4'),
                       ),
@@ -613,11 +665,15 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                       TextFormField(
                         controller: _docReferenceNumberCtrl,
                         style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
-                        decoration: const InputDecoration(
-                          labelText: 'رقم المرجع البنكي / رقم الاعتماد (إن وجد)',
-                          hintText: 'اتركه فارغاً إذا كان قيد الطلب، أو اكتب: F4-2026-009 / LC-9988',
-                          prefixIcon: Icon(Icons.pin_outlined),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: isAr
+                              ? 'رقم المرجع البنكي / رقم الاعتماد (إن وجد)'
+                              : 'Bank Reference / Credit No. (If available)',
+                          hintText: isAr
+                              ? 'اتركه فارغاً إذا كان قيد الطلب، أو اكتب: F4-2026-009 / LC-9988'
+                              : 'Leave empty if pending, or enter: F4-2026-009 / LC-9988',
+                          prefixIcon: const Icon(Icons.pin_outlined),
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -626,14 +682,29 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                         children: [
                           Expanded(
                             child: SearchableDropdownField<String>(
-                              labelText: 'نوع المعاملة / المستند البنكي *',
-                              hintText: 'اختر نوع المعاملة',
+                              labelText: isAr ? 'نوع المعاملة / المستند البنكي *' : 'Transaction / Bank Doc Type *',
+                              hintText: isAr ? 'اختر نوع المعاملة' : 'Select transaction type',
                               value: _bankDocType,
                               isRequired: true,
-                              items: const [
-                                SearchableDropdownItem<String>(value: 'Form 4', label: 'نموذج 4 (Form 4 - مستندات تحصيل / دفعة مقدمة)'),
-                                SearchableDropdownItem<String>(value: 'Letter of Credit (L/C)', label: 'اعتماد مستندي (Letter of Credit - L/C)'),
-                                SearchableDropdownItem<String>(value: 'Form 9', label: 'نموذج 9 (Form 9 - إفراج دون تحويل)'),
+                              items: [
+                                SearchableDropdownItem<String>(
+                                  value: 'Form 4',
+                                  label: isAr
+                                      ? 'نموذج 4 (Form 4 - مستندات تحصيل / دفعة مقدمة)'
+                                      : 'Form 4 (Form 4 - Collection / Advance Payment)',
+                                ),
+                                SearchableDropdownItem<String>(
+                                  value: 'Letter of Credit (L/C)',
+                                  label: isAr
+                                      ? 'اعتماد مستندي (Letter of Credit - L/C)'
+                                      : 'Letter of Credit (L/C)',
+                                ),
+                                SearchableDropdownItem<String>(
+                                  value: 'Form 9',
+                                  label: isAr
+                                      ? 'نموذج 9 (Form 9 - إفراج دون تحويل)'
+                                      : 'Form 9 (Form 9 - Release Without Transfer)',
+                                ),
                               ],
                               onChanged: (val) => setState(() => _bankDocType = val ?? 'Form 4'),
                             ),
@@ -643,11 +714,15 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                             child: TextFormField(
                               controller: _docReferenceNumberCtrl,
                               style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
-                              decoration: const InputDecoration(
-                                labelText: 'رقم المرجع البنكي / رقم الاعتماد (إن وجد)',
-                                hintText: 'اتركه فارغاً إذا كان قيد الطلب، أو اكتب: F4-2026-009 / LC-9988',
-                                prefixIcon: Icon(Icons.pin_outlined),
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: isAr
+                                    ? 'رقم المرجع البنكي / رقم الاعتماد (إن وجد)'
+                                    : 'Bank Reference / Credit No. (If available)',
+                                hintText: isAr
+                                    ? 'اتركه فارغاً إذا كان قيد الطلب، أو اكتب: F4-2026-009 / LC-9988'
+                                    : 'Leave empty if pending, or enter: F4-2026-009 / LC-9988',
+                                prefixIcon: const Icon(Icons.pin_outlined),
+                                border: const OutlineInputBorder(),
                               ),
                             ),
                           ),
@@ -928,6 +1003,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
     final bankingDocs = ref.watch(bankingDocumentsProvider).valueOrNull ?? [];
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final filtered = bankingDocs.where((d) {
       final matchesSearch = _form4SearchQuery.isEmpty ||
           d.bankDocCode.toLowerCase().contains(_form4SearchQuery.toLowerCase()) ||
@@ -1159,8 +1235,8 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                     columns: [
                       DataColumn(label: Text(context.l10n.actionCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
                       DataColumn(label: Text(context.l10n.documentCodeCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
-                      DataColumn(label: Text('نوع المعاملة', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
-                      DataColumn(label: Text('رقم المرجع / الاعتماد', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
+                      DataColumn(label: Text(isAr ? 'نوع المعاملة' : 'Doc Type', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
+                      DataColumn(label: Text(isAr ? 'رقم المرجع / الاعتماد' : 'Reference / Credit No.', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
                       DataColumn(label: Text(context.l10n.importFile, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
                       DataColumn(label: Text(context.l10n.certifiedBankCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
                       DataColumn(label: Text(context.l10n.amountAndCurrencyCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
@@ -1168,7 +1244,6 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                       DataColumn(label: Text(context.l10n.endorsementStatusCol, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
                     ],
                     rows: filtered.map((d) {
-                      final isAr = Localizations.localeOf(context).languageCode == 'ar';
                       final rawCode = d.importFileCode ?? (d.importFileId != null ? 'IMP-${d.importFileId}' : '');
                       final shipName = DisplayNameResolver.resolveShipmentNameByCode(rawCode, shipments: importFiles, isArabic: isAr);
                       final shipTitle = DisplayNameResolver.resolveShipmentTitleByCode(rawCode, shipments: importFiles, isArabic: isAr);
@@ -1186,7 +1261,9 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                                 IconButton(
                                   key: Key('receiveBankDocBtn_${d.bankDocId}'),
                                   icon: const Icon(Icons.verified, color: AppTheme.wcagEmerald, size: 18),
-                                  tooltip: 'توثيق استلام نموذج 4 / الاعتماد (DC-03)',
+                                  tooltip: isAr
+                                      ? 'توثيق استلام نموذج 4 / الاعتماد (DC-03)'
+                                      : 'Endorse Form 4 / Credit Receipt (DC-03)',
                                   onPressed: () => _openReceiveBankDocDialog(d),
                                 ),
                                 IconButton(

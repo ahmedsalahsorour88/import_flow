@@ -7,6 +7,7 @@ import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/file_closure_model.dart';
 import '../providers/file_closure_provider.dart';
+import '../../experience_guide/widgets/add_guide_entry_dialog.dart';
 
 /// Desktop-oriented modal dialog for CLO-04 Official File Closure & Digital Archive.
 /// Conducts 6-pillar pre-closure audit checks, allows archival vault registration,
@@ -214,6 +215,52 @@ class _OfficialFileClosureDialogState
           ),
         );
         Navigator.of(context).pop(true);
+
+        // Prompt for Experience Guide Knowledge Capture
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.psychology_outlined, color: AppTheme.flatCobalt),
+                SizedBox(width: 8),
+                Text('توثيق الخبرة المؤسسية للشحنة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: const Text(
+              'تهانينا على إغلاق الشحنة بنجاح!\n\nهل واجهتك أي عقبات تشغيلية، تأخيرات، أو دروس مستفادة ترغب في توثيقها في بنك المعرفة لتفادي تكرارها مستقبلاً؟',
+              style: TextStyle(fontSize: 13, height: 1.4),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('لاحقاً (تخطي)'),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.flatCobalt,
+                  foregroundColor: Colors.white,
+                ),
+                icon: const Icon(Icons.add_comment_outlined, size: 16),
+                label: const Text('نعم، وثّق درساً مستفاداً'),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  showDialog(
+                    context: context,
+                    builder: (dCtx) => AddGuideEntryDialog(
+                      initialSupplier: widget.file.supplierName,
+                      initialHsCode: widget.file.hsCode,
+                      initialCategory: widget.file.productCategory,
+                      initialDestinationPort: widget.file.portOfDischarge,
+                      initialIncoterm: widget.file.incotermCode,
+                      initialImportFileReference: widget.file.importFileCode,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {

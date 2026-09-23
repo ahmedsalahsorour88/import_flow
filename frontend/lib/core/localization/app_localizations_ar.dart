@@ -2358,6 +2358,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poRecCheckFieldTotalAmount => 'إجمالي قيمة الفاتورة التجارية';
   @override String get poRecCheckFieldTotalPackages => 'إجمالي عدد الطرود';
   @override String get poRecCheckFieldGrossWeight => 'الوزن الإجمالي القائم';
+  @override String get poRecCheckFieldSupplierName => 'اسم المورد الأجنبي';
+  @override String get poRecCheckFieldImporterName => 'اسم الشركة المستوردة';
+  @override String get poRecCheckFieldHsCode => 'البند الجمركي (HS Code)';
+  @override String get poRecCheckFieldTaxId => 'البطاقة الضريبية للمستورد';
   @override String get poRecCheckMsgInvoiceMatched => 'تم استخراج وتطابق رقم الفاتورة التجارية بنجاح';
   @override String get poRecCheckMsgAcidMatched => 'رقم القيد الجمركي متطابق تماماً بين الفاتورة وكشف التعبئة والمنظومة';
   @override String get poRecCheckMsgTotalAmountMatched => 'إجمالي القيمة متطابق تماماً بنسبة مائة بالمائة';

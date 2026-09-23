@@ -22,12 +22,12 @@ class MockCOONotifier extends COONotifier {
   }
 
   @override
-  Future<void> fetchReviews({int? importFileId}) async {
+  Future<void> fetchReviews({int? importFileId, bool? isDraft}) async {
     state = AsyncValue.data(_initialList);
   }
 
   @override
-  Future<void> fetchCOOReviews({int? importFileId}) async {
+  Future<void> fetchCOOReviews({int? importFileId, bool? isDraft}) async {
     state = AsyncValue.data(_initialList);
   }
 
@@ -128,7 +128,7 @@ class MockDraftBLNotifier extends DraftBLNotifier {
   }
 
   @override
-  Future<void> fetchReviews({int? importFileId, String? search}) async {}
+  Future<void> fetchReviews({int? importFileId, String? search, bool? isDraft}) async {}
 }
 
 void main() {

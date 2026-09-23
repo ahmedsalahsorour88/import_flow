@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../../core/helpers/file_picker_helper.dart';
 
 
 
@@ -166,53 +167,55 @@ Total Items: 31 Total: 20,030.000 kgs.
       );
 
       if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        final count = result.files.length;
+        final resolvedFiles = FilePickerHelper.resolveFilesWithBytes(result.files);
+        final file = resolvedFiles.isNotEmpty ? resolvedFiles.first : result.files.first;
+        final count = resolvedFiles.length;
         final ext = (file.name.split('.').last).toLowerCase();
         final isTextFormat = ['txt', 'csv', 'json', 'xml', 'log'].contains(ext);
+        final fileBytes = file.bytes ?? FilePickerHelper.getBytes(file);
 
         if (!mounted) return;
         final l = context.l10n;
         setState(() {
           if (docType == 'invoice') {
-            _invoiceFiles = result.files;
+            _invoiceFiles = resolvedFiles;
             _invoiceFileName = count == 1 ? file.name : '${file.name} (+$count)';
-            _invoiceFileBytes = file.bytes;
-            if (isTextFormat && file.bytes != null && count == 1) {
+            _invoiceFileBytes = fileBytes;
+            if (isTextFormat && fileBytes != null && count == 1) {
               try {
-                _invoiceTextCtrl.text = utf8.decode(file.bytes!, allowMalformed: true);
+                _invoiceTextCtrl.text = utf8.decode(fileBytes, allowMalformed: true);
               } catch (_) {
                 _invoiceTextCtrl.text = '';
               }
             } else {
-              _invoiceTextCtrl.text = l.invoiceBlMatcherInvoiceFilesLoaded(count, result.files.map((f) => f.name).join(", "));
+              _invoiceTextCtrl.text = l.invoiceBlMatcherInvoiceFilesLoaded(count, resolvedFiles.map((f) => f.name).join(", "));
             }
           } else if (docType == 'packing') {
             _showPackingList = true;
-            _packingFiles = result.files;
+            _packingFiles = resolvedFiles;
             _packingFileName = count == 1 ? file.name : '${file.name} (+$count)';
-            _packingFileBytes = file.bytes;
-            if (isTextFormat && file.bytes != null && count == 1) {
+            _packingFileBytes = fileBytes;
+            if (isTextFormat && fileBytes != null && count == 1) {
               try {
-                _packingTextCtrl.text = utf8.decode(file.bytes!, allowMalformed: true);
+                _packingTextCtrl.text = utf8.decode(fileBytes, allowMalformed: true);
               } catch (_) {
                 _packingTextCtrl.text = '';
               }
             } else {
-              _packingTextCtrl.text = l.invoiceBlMatcherPackingFilesLoaded(count, result.files.map((f) => f.name).join(", "));
+              _packingTextCtrl.text = l.invoiceBlMatcherPackingFilesLoaded(count, resolvedFiles.map((f) => f.name).join(", "));
             }
           } else {
-            _blFiles = result.files;
+            _blFiles = resolvedFiles;
             _blFileName = count == 1 ? file.name : '${file.name} (+$count)';
-            _blFileBytes = file.bytes;
-            if (isTextFormat && file.bytes != null && count == 1) {
+            _blFileBytes = fileBytes;
+            if (isTextFormat && fileBytes != null && count == 1) {
               try {
-                _blTextCtrl.text = utf8.decode(file.bytes!, allowMalformed: true);
+                _blTextCtrl.text = utf8.decode(fileBytes, allowMalformed: true);
               } catch (_) {
                 _blTextCtrl.text = '';
               }
             } else {
-              _blTextCtrl.text = l.invoiceBlMatcherBlFilesLoaded(count, result.files.map((f) => f.name).join(", "));
+              _blTextCtrl.text = l.invoiceBlMatcherBlFilesLoaded(count, resolvedFiles.map((f) => f.name).join(", "));
             }
           }
         });
@@ -303,10 +306,11 @@ Total Items: 31 Total: 20,030.000 kgs.
 
         if (_invoiceFiles.isNotEmpty) {
           for (final f in _invoiceFiles) {
-            if (f.bytes != null) {
+            final b = f.bytes ?? FilePickerHelper.getBytes(f);
+            if (b != null) {
               formData.files.add(MapEntry(
                 'invoice_files',
-                MultipartFile.fromBytes(f.bytes!, filename: f.name),
+                MultipartFile.fromBytes(b, filename: f.name),
               ));
             }
           }
@@ -321,10 +325,11 @@ Total Items: 31 Total: 20,030.000 kgs.
 
         if (_packingFiles.isNotEmpty) {
           for (final f in _packingFiles) {
-            if (f.bytes != null) {
+            final b = f.bytes ?? FilePickerHelper.getBytes(f);
+            if (b != null) {
               formData.files.add(MapEntry(
                 'packing_list_files',
-                MultipartFile.fromBytes(f.bytes!, filename: f.name),
+                MultipartFile.fromBytes(b, filename: f.name),
               ));
             }
           }
@@ -339,10 +344,11 @@ Total Items: 31 Total: 20,030.000 kgs.
 
         if (_blFiles.isNotEmpty) {
           for (final f in _blFiles) {
-            if (f.bytes != null) {
+            final b = f.bytes ?? FilePickerHelper.getBytes(f);
+            if (b != null) {
               formData.files.add(MapEntry(
                 'bl_files',
-                MultipartFile.fromBytes(f.bytes!, filename: f.name),
+                MultipartFile.fromBytes(b, filename: f.name),
               ));
             }
           }
@@ -1251,10 +1257,12 @@ Total Items: 31 Total: 20,030.000 kgs.
             child: DataTable(
               headingRowColor: WidgetStateProperty.all(isDark ? const Color(0xFF0F172A) : Colors.grey.shade50),
               horizontalMargin: 16,
-              columnSpacing: 24,
+              columnSpacing: 20,
               columns: [
                 DataColumn(label: Text(l.invoiceBlMatcherColCheckItem, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.charcoal))),
+                DataColumn(label: Text(isArabic ? 'بيانات النظام' : 'System Value', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.charcoal))),
                 DataColumn(label: Text(l.invoiceBlMatcherColInvoiceValue, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.charcoal))),
+                DataColumn(label: Text(isArabic ? 'كشف التعبئة' : 'Packing List', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.charcoal))),
                 DataColumn(label: Text(l.invoiceBlMatcherColBlValue, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.charcoal))),
                 DataColumn(label: Text(l.invoiceBlMatcherColMatchStatus, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.charcoal))),
                 DataColumn(label: Text(l.invoiceBlMatcherColActionRequired, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.charcoal))),
@@ -1264,21 +1272,36 @@ Total Items: 31 Total: 20,030.000 kgs.
                 final status = item['match_status'] ?? 'MATCH';
                 final isMatch = status == 'MATCH';
                 final isMinor = status == 'MISMATCH_MINOR';
+                final isExtFailed = status == 'EXTRACTION_FAILED';
 
-                final statusCol = isMatch ? AppTheme.emerald : (isMinor ? AppTheme.orange : AppTheme.crimson);
-                final statusTxt = isMatch
-                    ? l.invoiceBlMatcherStatusMatch
-                    : (isMinor ? l.invoiceBlMatcherStatusMinor : l.invoiceBlMatcherStatusMismatch);
+                final Color statusCol;
+                final String statusTxt;
+                if (isMatch) {
+                  statusCol = AppTheme.emerald;
+                  statusTxt = l.invoiceBlMatcherStatusMatch;
+                } else if (isExtFailed) {
+                  statusCol = Colors.blueGrey;
+                  statusTxt = isArabic ? 'تعذر القراءة' : 'Extraction Failed';
+                } else if (isMinor) {
+                  statusCol = AppTheme.orange;
+                  statusTxt = l.invoiceBlMatcherStatusMinor;
+                } else {
+                  statusCol = AppTheme.crimson;
+                  statusTxt = l.invoiceBlMatcherStatusMismatch;
+                }
 
                 final checkItemName = isArabic
                     ? (item['field_name_ar'] ?? item['field_name_en'] ?? '')
                     : (item['field_name_en'] ?? item['field_name_ar'] ?? '');
 
+                final systemVal = '${item['system_value'] ?? '—'}';
                 final invoiceVal = '${item['invoice_value'] ?? '—'}';
+                final plVal = '${item['packing_list_value'] ?? '—'}';
                 final blVal = '${item['bl_value'] ?? '—'}';
-                final detailsTxt = '${item['details'] ?? ''}';
+                final detailsTxt = '${item['details'] ?? item['action_required'] ?? ''}';
+                final List<dynamic> disagreeingSources = item['disagreeing_sources'] as List<dynamic>? ?? [];
 
-                final rowSummary = '$checkItemName\t$invoiceVal\t$blVal\t$statusTxt\t$detailsTxt';
+                final rowSummary = '$checkItemName\t$systemVal\t$invoiceVal\t$plVal\t$blVal\t$statusTxt\t$detailsTxt';
 
                 return DataRow(
                   cells: [
@@ -1294,11 +1317,31 @@ Total Items: 31 Total: 20,030.000 kgs.
                     ),
                     DataCell(
                       CopyableTableCell(
+                        value: systemVal,
+                        rowSummary: rowSummary,
+                        child: Text(
+                          systemVal,
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? Colors.grey.shade300 : AppTheme.charcoal),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
                         value: invoiceVal,
                         rowSummary: rowSummary,
                         child: Text(
                           invoiceVal,
                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.cobalt),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: plVal,
+                        rowSummary: rowSummary,
+                        child: Text(
+                          plVal,
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.deepPurple),
                         ),
                       ),
                     ),
@@ -1316,17 +1359,53 @@ Total Items: 31 Total: 20,030.000 kgs.
                       CopyableTableCell(
                         value: statusTxt,
                         rowSummary: rowSummary,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: statusCol.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: statusCol),
-                          ),
-                          child: Text(
-                            statusTxt,
-                            style: TextStyle(color: statusCol, fontWeight: FontWeight.bold, fontSize: 11),
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: statusCol.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: statusCol),
+                              ),
+                              child: Text(
+                                statusTxt,
+                                style: TextStyle(color: statusCol, fontWeight: FontWeight.bold, fontSize: 11),
+                              ),
+                            ),
+                            if (disagreeingSources.isNotEmpty) ...[
+                              const SizedBox(height: 3),
+                              Wrap(
+                                spacing: 3,
+                                runSpacing: 2,
+                                children: disagreeingSources.map((s) {
+                                  String label = s.toString();
+                                  if (isArabic) {
+                                    label = label
+                                        .replaceAll('INVOICE vs BL', 'فاتورة ≠ بوليصة')
+                                        .replaceAll('SYSTEM vs INVOICE', 'سستم ≠ فاتورة')
+                                        .replaceAll('SYSTEM vs BL', 'سستم ≠ بوليصة')
+                                        .replaceAll('PACKING_LIST vs BL', 'تعبئة ≠ بوليصة')
+                                        .replaceAll('INVOICE vs PACKING_LIST', 'فاتورة ≠ تعبئة')
+                                        .replaceAll('SYSTEM vs PACKING_LIST', 'سستم ≠ تعبئة');
+                                  }
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.withOpacity(0.08),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      label,
+                                      style: const TextStyle(fontSize: 9.5, color: AppTheme.crimson, fontWeight: FontWeight.w600),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ),
@@ -1368,36 +1447,57 @@ Total Items: 31 Total: 20,030.000 kgs.
 
   Widget _buildExtractedFieldsCards() {
     final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final Map<String, dynamic> inv = _matchResult?['invoice_data'] is Map
         ? Map<String, dynamic>.from(_matchResult!['invoice_data'] as Map)
+        : <String, dynamic>{};
+    final Map<String, dynamic> pl = _matchResult?['packing_list_data'] is Map
+        ? Map<String, dynamic>.from(_matchResult!['packing_list_data'] as Map)
         : <String, dynamic>{};
     final Map<String, dynamic> bl = _matchResult?['bl_data'] is Map
         ? Map<String, dynamic>.from(_matchResult!['bl_data'] as Map)
         : <String, dynamic>{};
 
+    final List<Widget> cards = [
+      Expanded(
+        child: _buildDataSummaryCard(
+          title: l.invoiceBlMatcherExtractedInvoiceTitle,
+          icon: Icons.receipt_long,
+          color: AppTheme.cobalt,
+          data: inv,
+        ),
+      ),
+    ];
+
+    if (pl.isNotEmpty || _showPackingList) {
+      cards.add(const SizedBox(width: 16));
+      cards.add(
+        Expanded(
+          child: _buildDataSummaryCard(
+            title: isArabic ? 'كشف التعبئة المستخرج' : 'Extracted Packing List',
+            icon: Icons.inventory_2,
+            color: Colors.deepPurple,
+            data: pl,
+          ),
+        ),
+      );
+    }
+
+    cards.add(const SizedBox(width: 16));
+    cards.add(
+      Expanded(
+        child: _buildDataSummaryCard(
+          title: l.invoiceBlMatcherExtractedBlTitle,
+          icon: Icons.directions_boat,
+          color: AppTheme.emerald,
+          data: bl,
+        ),
+      ),
+    );
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Extracted Invoice Data Card
-        Expanded(
-          child: _buildDataSummaryCard(
-            title: l.invoiceBlMatcherExtractedInvoiceTitle,
-            icon: Icons.receipt_long,
-            color: AppTheme.cobalt,
-            data: inv,
-          ),
-        ),
-        const SizedBox(width: 16),
-        // Extracted B/L Data Card
-        Expanded(
-          child: _buildDataSummaryCard(
-            title: l.invoiceBlMatcherExtractedBlTitle,
-            icon: Icons.directions_boat,
-            color: AppTheme.emerald,
-            data: bl,
-          ),
-        ),
-      ],
+      children: cards,
     );
   }
 
@@ -2569,46 +2669,82 @@ Total Items: 31 Total: 20,030.000 kgs.
                                           color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                                       columns: const [
                                         DataColumn(label: Text('البند المعياري')),
+                                        DataColumn(label: Text('بيانات النظام')),
                                         DataColumn(label: Text('بيانات الفاتورة')),
+                                        DataColumn(label: Text('كشف التعبئة')),
                                         DataColumn(label: Text('بيانات البوليصة')),
                                         DataColumn(label: Text('حالة التطابق')),
-                                        DataColumn(label: Text('التفاصيل')),
+                                        DataColumn(label: Text('التفاصيل ومصادر الاختلاف')),
                                       ],
                                       rows: matrix.map((item) {
                                         final row = item is Map<String, dynamic> ? item : {};
                                         final status = row['match_status']?.toString() ?? 'UNKNOWN';
                                         final isMatch = status == 'MATCH';
+                                        final isExtFailed = status == 'EXTRACTION_FAILED';
+                                        final isMinor = status == 'MISMATCH_MINOR';
+
+                                        Color statusCol;
+                                        String statusTxt;
+                                        if (isMatch) {
+                                          statusCol = AppTheme.emerald;
+                                          statusTxt = 'متطابق';
+                                        } else if (isExtFailed) {
+                                          statusCol = Colors.blueGrey;
+                                          statusTxt = 'تعذر القراءة';
+                                        } else if (isMinor) {
+                                          statusCol = AppTheme.orange;
+                                          statusTxt = 'فارق طفيف';
+                                        } else {
+                                          statusCol = AppTheme.crimson;
+                                          statusTxt = 'فارق جوهري';
+                                        }
+
+                                        final disagreeingSources = (row['disagreeing_sources'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+
                                         return DataRow(
                                           cells: [
                                             DataCell(Text(
                                               row['field_name_ar'] ?? row['field_name_en'] ?? '—',
                                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                                             )),
+                                            DataCell(Text(row['system_value']?.toString() ?? '—',
+                                                style: const TextStyle(fontSize: 11))),
                                             DataCell(Text(row['invoice_value']?.toString() ?? '—',
-                                                style: const TextStyle(fontSize: 11))),
+                                                style: const TextStyle(fontSize: 11, color: AppTheme.cobalt))),
+                                            DataCell(Text(row['packing_list_value']?.toString() ?? '—',
+                                                style: const TextStyle(fontSize: 11, color: Colors.deepPurple))),
                                             DataCell(Text(row['bl_value']?.toString() ?? '—',
-                                                style: const TextStyle(fontSize: 11))),
+                                                style: const TextStyle(fontSize: 11, color: AppTheme.emerald))),
                                             DataCell(
                                               Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                                 decoration: BoxDecoration(
-                                                  color: isMatch
-                                                      ? AppTheme.emerald.withOpacity(0.12)
-                                                      : AppTheme.crimson.withOpacity(0.12),
+                                                  color: statusCol.withOpacity(0.12),
                                                   borderRadius: BorderRadius.circular(6),
                                                 ),
                                                 child: Text(
-                                                  isMatch ? 'متطابق' : 'فارق يتطلب مراجعة',
+                                                  statusTxt,
                                                   style: TextStyle(
                                                     fontSize: 11,
                                                     fontWeight: FontWeight.bold,
-                                                    color: isMatch ? AppTheme.emerald : AppTheme.crimson,
+                                                    color: statusCol,
                                                   ),
                                                 ),
                                               ),
                                             ),
-                                            DataCell(Text(row['details']?.toString() ?? '—',
-                                                style: const TextStyle(fontSize: 11, color: Colors.grey))),
+                                            DataCell(Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Text(row['details']?.toString() ?? '—',
+                                                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                                if (disagreeingSources.isNotEmpty)
+                                                  Text(
+                                                    'اختلاف بين: ${disagreeingSources.join(", ")}',
+                                                    style: const TextStyle(fontSize: 9.5, color: AppTheme.crimson, fontWeight: FontWeight.bold),
+                                                  ),
+                                              ],
+                                            )),
                                           ],
                                         );
                                       }).toList(),

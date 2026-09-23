@@ -18,6 +18,7 @@ import '../../warehouse_receiving/providers/warehouse_receiving_provider.dart';
 import '../../warehouse_receiving/models/warehouse_receiving_model.dart';
 import '../services/comprehensive_report_export_service.dart';
 import '../widgets/comprehensive_dossier_export_dialog.dart';
+import '../../purchase_orders/utils/po_packing_matcher.dart';
 
 // ============================================================
 // Comprehensive Import File Report Screen
@@ -954,13 +955,13 @@ class _ImportFileComprehensiveReportScreenState
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _miniStat(l.compReportTotalPackages, l.compReportPiecesUnit(totalPkgs)),
-                      _miniStat(l.compReportTotalWeight, '${totalWeight.toStringAsFixed(1)} KG'),
+                      _miniStat(l.compReportTotalWeight, '${PoPackingMatcher.formatWeight(totalWeight)} KG'),
                       _miniStat(l.compReportTotalCbm, '${totalCbm.toStringAsFixed(2)} m³'),
                     ],
                   ),
                 ),
                 ...file.packingListsData.map((pl) {
-                  final rowSummary = '${pl.plNo} | ${pl.totalPackages} pkgs | ${pl.grossWeightKg.toStringAsFixed(1)} KG | ${pl.cbm.toStringAsFixed(2)} CBM';
+                  final rowSummary = '${pl.plNo} | ${pl.totalPackages} pkgs | ${PoPackingMatcher.formatWeight(pl.grossWeightKg)} KG | ${pl.cbm.toStringAsFixed(2)} CBM';
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 3),
                     child: CopyableTableCell(

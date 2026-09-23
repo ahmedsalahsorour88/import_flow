@@ -21,7 +21,7 @@ class MockDraftBLNotifier extends DraftBLNotifier {
   }
 
   @override
-  Future<void> fetchReviews({int? importFileId, String? search}) async {
+  Future<void> fetchReviews({int? importFileId, String? search, bool? isDraft}) async {
     if (search != null && search.isNotEmpty) {
       final filtered = _initialList.where((r) =>
         r.draftBlNumber.toLowerCase().contains(search.toLowerCase()) ||

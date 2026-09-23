@@ -43,7 +43,11 @@ from modules.import_documentation.nafeza_acid_parser import (
 from modules.import_documentation.ai_document_parser import (
     extract_coo_china_ccpit_text,
     extract_eur1_certificate_text,
+    extract_standard_coo_text,
+    extract_agadir_gafta_form_a_coo_text,
     extract_inspection_voc_certificate_text,
+    extract_psi_certificate_text,
+    extract_coa_certificate_text,
     _heuristic_multi_carrier_extractor as extract_draft_bl_data,
     extract_commercial_invoice_data,
 )
@@ -1575,8 +1579,8 @@ def compare_draft_bl_service(db: Session, request: DraftBLComparisonRequest) -> 
             "source_entity": source,
             "system_value": sys_val,
             "draft_value": draft_val,
-            "status": "Correct" if is_match else "Incorrect",
-            "required_correction": f"Correct {label_en} to: {sys_val}" if not is_match else None,
+            "status": "Correct" if is_match else ("Missing" if (draft_val is None or str(draft_val).strip() == "") else "Incorrect"),
+            "required_correction": f"Enter {label_en} (expected: {sys_val})" if (draft_val is None or str(draft_val).strip() == "") else f"Correct {label_en} to: {sys_val}",
             "reason": details if not is_match else None,
             "notes": None,
             "responsible_party": resp_default,
@@ -2198,7 +2202,6 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
 
     from modules.import_documentation.ai_document_parser import clean_exporter_name, clean_consignee_name
     cert_type_str = str(request.certificate_type or "").upper()
-    is_china_or_standard_cert = bool("CHINA" in cert_type_str or "CCPIT" in cert_type_str or "STANDARD" in cert_type_str)
 
     for key, label_ar, is_critical in coo_checks:
         sys_val = sys_snapshot.get(key)
@@ -2214,12 +2217,30 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
             clean_sys_val = clean_consignee_name(str(sys_val or ""))
             clean_drf_val = clean_consignee_name(str(drf_val or ""))
 
-        if key == "exporter_reg_id":
-            if is_china_or_standard_cert or not drf_val or not str(drf_val).strip():
+        if not drf_val or not str(drf_val).strip():
+            if key == "exporter_reg_id":
                 matched = True
                 ratio = 1.0
             else:
-                matched, ratio = _fuzzy_match(clean_sys_val, clean_drf_val, threshold=0.85)
+                matched = False
+                ratio = 0.0
+                match_status = "EXTRACTION_FAILED"
+                severity = "BLOCKING" if is_critical else "WARNING"
+                has_discrepancies = True
+                if is_critical:
+                    has_critical = True
+                matrix.append({
+                    "field_key": key,
+                    "field_label_ar": label_ar,
+                    "system_value": sys_val,
+                    "draft_value": "لم يتم الاستخراج",
+                    "match_status": match_status,
+                    "severity": severity,
+                    "details": "لم يتم العثور على القيمة في مسودة شهادة المنشأ",
+                })
+                continue
+        elif key == "exporter_reg_id":
+            matched, ratio = _fuzzy_match(clean_sys_val, clean_drf_val, threshold=0.85)
         else:
             matched, ratio = _fuzzy_match(clean_sys_val, clean_drf_val, threshold=0.85)
         
@@ -2405,8 +2426,8 @@ def compare_inspection_cert_service(db: Session, request: InspectionComparisonRe
         ("inspection_agency", "جهة الفحص والمعاينة (Inspection Agency)", True),
         ("importer_name", "اسم المستورد (Importer Name)", True),
         ("exporter_name", "اسم المصدر (Exporter Name)", True),
-        ("acid_number", "رقم القيد الجمركي المسبق للشحنة (ACID Number)", True),
-        ("country_of_origin", "بلد المنشأ (Country of Origin)", True),
+        ("acid_number", "رقم القيد الجمركي المسبق للشحنة (ACID Number)", False),
+        ("country_of_origin", "بلد المنشأ (Country of Origin)", False),
         ("regulatory_authority", "الجهة الرقابية المصرية المختصة (Regulatory Authority)", True),
         ("invoice_number", "رقم الفاتورة الخاضعة للفحص (Invoice No)", True),
         ("standard_specification", "المواصفة القياسية المعتمدة (Specification)", False),
@@ -2418,7 +2439,33 @@ def compare_inspection_cert_service(db: Session, request: InspectionComparisonRe
         
         # Smart Field Matching
         if drf_val is None or not str(drf_val).strip():
-            matched, ratio = True, 1.0
+            if not is_critical:
+                matrix.append({
+                    "field_key": key,
+                    "field_label_ar": label_ar,
+                    "system_value": sys_val,
+                    "draft_value": "اختياري / غير مدرج",
+                    "match_status": "MATCH",
+                    "severity": "NONE",
+                    "details": "حقل غير إلزامي لم يتم تضمينه في مسودة الفحص",
+                })
+                continue
+            matched = False
+            ratio = 0.0
+            match_status = "EXTRACTION_FAILED"
+            severity = "BLOCKING"
+            has_discrepancies = True
+            has_critical = True
+            matrix.append({
+                "field_key": key,
+                "field_label_ar": label_ar,
+                "system_value": sys_val,
+                "draft_value": "لم يتم الاستخراج",
+                "match_status": match_status,
+                "severity": severity,
+                "details": "لم يتم العثور على القيمة في مسودة شهادة الفحص المرفوعة",
+            })
+            continue
         elif key == "regulatory_authority":
             sys_is_goeic = bool(re.search(r'GOEIC|Export and Import Control|الصادرات والواردات', str(sys_val), re.I))
             drf_is_goeic = bool(re.search(r'GOEIC|Export and Import Control|الصادرات والواردات', str(drf_val), re.I))
@@ -3220,7 +3267,7 @@ def generate_coo_draft_template_service(
                     consolidated_table_items[group_key]["packages_count"] += calc_pkgs
                 else:
                     itm_gw = sum(float(i.gross_weight_kg or 0.0) for i in itm_list)
-                    consolidated_table_items[group_key]["gross_weight_kg"] += (itm_gw if itm_gw > 0 else 10510.56)
+                    consolidated_table_items[group_key]["gross_weight_kg"] += (itm_gw if itm_gw > 0 else 10510.0)
                     consolidated_table_items[group_key]["packages_count"] += (po_pkgs if po_pkgs > 0 else 144)
 
     # Fallback if no PO items found
@@ -3228,7 +3275,7 @@ def generate_coo_draft_template_service(
         def_inv = (reconciliation.final_invoice_number if reconciliation else None) or imp_file.pi_number or f"IN{imp_file.import_file_code}"
         def_date = str(getattr(imp_file, 'pi_date', None) or getattr(imp_file, 'file_opening_date', None) or date.today()).split(' ')[0]
         def_hs = hs_codes_list[0] if hs_codes_list else "5602290000"
-        def_gw = float(getattr(imp_file, 'total_weight', None) or (10510.56 if is_china else 1774.514))
+        def_gw = float(getattr(imp_file, 'total_weight', None) or (10510.0 if is_china else 1774.514))
         def_pkgs = int(getattr(imp_file, 'total_packages', None) or (144 if is_china else 141))
         consolidated_table_items[(def_inv, def_date, def_hs)] = {
             "invoice_number": def_inv,
@@ -3283,7 +3330,7 @@ def generate_coo_draft_template_service(
 
         q_val = c_item["quantity"]
         u_str = c_item["unit"]
-        gw_val = c_item["gross_weight_kg"] if c_item["gross_weight_kg"] > 0 else (10510.56 if is_china else 10510.0)
+        gw_val = c_item["gross_weight_kg"] if c_item["gross_weight_kg"] > 0 else 10510.0
         box_9_formatted = format_coo_quantity_box(
             quantity=q_val,
             unit=u_str,
@@ -3681,6 +3728,21 @@ def extract_document_service(request: DocumentExtractRequest) -> DocumentExtract
         data = extract_eur1_certificate_text(raw_text)
         if not data.get("is_revised_rules"):
             warnings.append("تنبيه: عبارة 'REVISED RULES' غير واضحة في خانة الملاحظات 7 - قد لا يُقبل الإعفاء التفضيلى.")
+    elif "AGADIR" in doc_type:
+        data = extract_agadir_gafta_form_a_coo_text(raw_text, "AGADIR")
+    elif "GAFTA" in doc_type:
+        data = extract_agadir_gafta_form_a_coo_text(raw_text, "GAFTA")
+    elif "FORM_A" in doc_type or "FORM A" in doc_type or "GSP" in doc_type:
+        data = extract_agadir_gafta_form_a_coo_text(raw_text, "FORM_A")
+    elif "STANDARD" in doc_type or "COO" in doc_type:
+        data = extract_standard_coo_text(raw_text)
+    elif "PSI" in doc_type or "PRE_SHIPMENT" in doc_type or "PRE-SHIPMENT" in doc_type:
+        data = extract_psi_certificate_text(raw_text)
+        is_draft = data.get("is_draft", False)
+        if is_draft:
+            warnings.append("تحذير: تقرير الفحص المسبق يحمل صفة مسودة (DRAFT) - يلزم اعتماد النسخة النهائية.")
+    elif "COA" in doc_type or "ANALYSIS" in doc_type:
+        data = extract_coa_certificate_text(raw_text)
     elif "INSP" in doc_type or "VOC" in doc_type or "COC" in doc_type:
         data = extract_inspection_voc_certificate_text(raw_text)
         is_draft = data.get("is_draft", False)
@@ -4094,7 +4156,7 @@ def extract_and_match_invoice_bl_service(
             imp_file_code = imp_file.import_file_code
 
     # 5. Execute Smart Cross-Matching
-    match_result = match_invoice_with_bl(invoice_data, bl_data, sys_data)
+    match_result = match_invoice_with_bl(invoice_data, bl_data, sys_data, pl_data)
 
     return InvoiceBLExtractAndMatchResponse(
         import_file_id=request.import_file_id,
@@ -4319,6 +4381,7 @@ def extract_and_compare_po_documents_service(
 
     # 3. Fetch System PO Items and File Metadata if import_file_id is provided
     system_items = list(request.system_items or [])
+    system_packing_items = []
     file_metadata = {}
     if request.import_file_id:
         imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == request.import_file_id).first()

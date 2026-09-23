@@ -197,12 +197,21 @@ Win32Window::MessageHandler(HWND hwnd,
 
       return 0;
     }
+    case WM_GETMINMAXINFO: {
+      auto* minMaxInfo = reinterpret_cast<MINMAXINFO*>(lparam);
+      minMaxInfo->ptMinTrackSize.x = 1024;
+      minMaxInfo->ptMinTrackSize.y = 600;
+      return 0;
+    }
     case WM_SIZE: {
-      RECT rect = GetClientArea();
-      if (child_content_ != nullptr) {
-        // Size and position the child window.
-        MoveWindow(child_content_, rect.left, rect.top, rect.right - rect.left,
-                   rect.bottom - rect.top, TRUE);
+      if (wparam != SIZE_MINIMIZED) {
+        RECT rect = GetClientArea();
+        LONG const width = rect.right - rect.left;
+        LONG const height = rect.bottom - rect.top;
+        if (child_content_ != nullptr && width > 0 && height > 0) {
+          // Size and position the child window safely with positive dimensions.
+          MoveWindow(child_content_, rect.left, rect.top, width, height, TRUE);
+        }
       }
       return 0;
     }

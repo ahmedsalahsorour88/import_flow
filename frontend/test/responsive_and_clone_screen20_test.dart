@@ -57,6 +57,7 @@ class MockDocsCustomsApprovalNotifier extends DocsCustomsApprovalNotifier {
     required String status,
     String? notes,
     int? importFileId,
+    int? version,
   }) async {
     return null;
   }
@@ -69,6 +70,7 @@ class MockDocsCustomsApprovalNotifier extends DocsCustomsApprovalNotifier {
     required String status,
     String? notes,
     int? importFileId,
+    int? version,
   }) async {
     return null;
   }
@@ -137,7 +139,7 @@ class MockDraftBLNotifier extends DraftBLNotifier {
   }
 
   @override
-  Future<void> fetchReviews({int? importFileId, String? search}) async {}
+  Future<void> fetchReviews({int? importFileId, String? search, bool? isDraft}) async {}
 }
 
 class MockCOONotifier extends COONotifier {
@@ -146,7 +148,7 @@ class MockCOONotifier extends COONotifier {
   }
 
   @override
-  Future<void> fetchReviews({int? importFileId}) async {}
+  Future<void> fetchReviews({int? importFileId, bool? isDraft}) async {}
 }
 
 void main() {

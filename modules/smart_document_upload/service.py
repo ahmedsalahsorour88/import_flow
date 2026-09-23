@@ -554,12 +554,16 @@ def cross_check_invoice_and_bl_service(
     invoice_data: Dict[str, Any],
     bl_data: Dict[str, Any],
     weight_tolerance_pct: float = 3.0,
+    system_data: Optional[Dict[str, Any]] = None,
+    packing_list_data: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """10-point cross-comparison between Commercial Invoice and B/L."""
+    """10-point cross-comparison between Commercial Invoice, B/L, System, and Packing List."""
     return cross_check_invoice_vs_bl(
         invoice_data=invoice_data,
         bl_data=bl_data,
         weight_tolerance_pct=weight_tolerance_pct,
+        system_data=system_data,
+        packing_list_data=packing_list_data,
     )
 
 

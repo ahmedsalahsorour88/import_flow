@@ -2477,6 +2477,10 @@ abstract class AppLocalizations {
   String get poRecCheckFieldTotalAmount;
   String get poRecCheckFieldTotalPackages;
   String get poRecCheckFieldGrossWeight;
+  String get poRecCheckFieldSupplierName;
+  String get poRecCheckFieldImporterName;
+  String get poRecCheckFieldHsCode;
+  String get poRecCheckFieldTaxId;
   String get poRecCheckMsgInvoiceMatched;
   String get poRecCheckMsgAcidMatched;
   String get poRecCheckMsgTotalAmountMatched;

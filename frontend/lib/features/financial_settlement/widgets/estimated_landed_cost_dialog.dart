@@ -181,11 +181,16 @@ class _EstimatedLandedCostDialogState
     }
 
     Clipboard.setData(ClipboardData(text: buffer.toString()));
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('تم نسخ بيانات التكلفة التقديرية (TSV) للحافظة بنجاح'),
+      SnackBar(
+        content: Text(
+          isAr
+              ? 'تم نسخ بيانات التكلفة التقديرية (TSV) للحافظة بنجاح'
+              : 'Estimated landed cost TSV copied to clipboard successfully',
+        ),
         backgroundColor: AppTheme.emerald,
-        duration: Duration(seconds: 3),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -230,70 +235,75 @@ class _EstimatedLandedCostDialogState
     final dialogWidth = (screenSize.width - 32).clamp(360.0, 1150.0);
     final dialogHeight = (screenSize.height - 48).clamp(500.0, 850.0);
     final isDark = AppTheme.isDark(context);
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
 
     return UnsavedChangesGuard(
       isDirty: _isDirty,
       child: Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: SizedBox(
-        width: dialogWidth,
-        height: dialogHeight,
-        child: Column(
-          children: [
-            _buildHeader(isDark),
-            Expanded(
-              child: _isLoading
-                  ? const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 16),
-                          Text(
-                            'جاري حساب وتوزيع تكلفة الوصول التقديرية بالربط مع محرك الجمارك...',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                    )
-                  : _errorMessage != null
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.error_outline,
-                                    color: Colors.red, size: 48),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'خطأ في عملية المحاكاة:\n$_errorMessage',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(color: Colors.red),
-                                ),
-                                const SizedBox(height: 16),
-                                ElevatedButton.icon(
-                                  onPressed: _loadSimulation,
-                                  icon: const Icon(Icons.refresh),
-                                  label: const Text('إعادة المحاولة'),
-                                ),
-                              ],
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: SizedBox(
+          width: dialogWidth,
+          height: dialogHeight,
+          child: Column(
+            children: [
+              _buildHeader(isDark, isAr),
+              Expanded(
+                child: _isLoading
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const CircularProgressIndicator(),
+                            const SizedBox(height: 16),
+                            Text(
+                              isAr
+                                  ? 'جاري حساب وتوزيع تكلفة الوصول التقديرية بالربط مع محرك الجمارك...'
+                                  : 'Calculating and allocating estimated landed cost with customs engine...',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
-                          ),
-                        )
-                      : _buildContent(isDark),
-            ),
-            _buildBottomBar(isDark),
-          ],
+                          ],
+                        ),
+                      )
+                    : _errorMessage != null
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.error_outline,
+                                      color: Colors.red, size: 48),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    isAr
+                                        ? 'خطأ في عملية المحاكاة:\n$_errorMessage'
+                                        : 'Simulation error:\n$_errorMessage',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(color: Colors.red),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ElevatedButton.icon(
+                                    onPressed: _loadSimulation,
+                                    icon: const Icon(Icons.refresh),
+                                    label: Text(isAr ? 'إعادة المحاولة' : 'Retry'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : _buildContent(isDark, isAr),
+              ),
+              _buildBottomBar(isDark, isAr),
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
-  Widget _buildHeader(bool isDark) {
+  Widget _buildHeader(bool isDark, bool isAr) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
@@ -315,9 +325,11 @@ class _EstimatedLandedCostDialogState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'محاكاة تكلفة الوصول التقديرية للوحدة قبل الشحن (Estimated Landed Cost)',
-                  style: TextStyle(
+                Text(
+                  isAr
+                      ? 'محاكاة تكلفة الوصول التقديرية للوحدة قبل الشحن (Estimated Landed Cost)'
+                      : 'Pre-Shipment Estimated Landed Cost Simulation',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -326,8 +338,12 @@ class _EstimatedLandedCostDialogState
                 const SizedBox(height: 4),
                 Text(
                   _data != null
-                      ? 'الملف: ${_data!.importFileCode} | العملة: ${_data!.currency} | الصرف: ${_data!.exchangeRate} ج.م | شرط الشحن: ${_data!.incoterm}'
-                      : 'جاري تحميل المعطيات اللوجستية والجمركية...',
+                      ? (isAr
+                          ? 'الملف: ${_data!.importFileCode} | العملة: ${_data!.currency} | الصرف: ${_data!.exchangeRate} ج.م | شرط الشحن: ${_data!.incoterm}'
+                          : 'File: ${_data!.importFileCode} | Currency: ${_data!.currency} | FX: ${_data!.exchangeRate} EGP | Incoterm: ${_data!.incoterm}')
+                      : (isAr
+                          ? 'جاري تحميل المعطيات اللوجستية والجمركية...'
+                          : 'Loading logistics & customs parameters...'),
                   style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
@@ -336,14 +352,14 @@ class _EstimatedLandedCostDialogState
           IconButton(
             icon: const Icon(Icons.close, color: Colors.white70),
             onPressed: () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
-            tooltip: 'إغلاق',
+            tooltip: isAr ? 'إغلاق' : 'Close',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildContent(bool isDark) {
+  Widget _buildContent(bool isDark, bool isAr) {
     if (_data == null) return const SizedBox.shrink();
 
     return SingleChildScrollView(
@@ -356,11 +372,11 @@ class _EstimatedLandedCostDialogState
           const SizedBox(height: 12),
 
           // 2. KPI Cards Strip
-          _buildKpiCards(isDark),
+          _buildKpiCards(isDark, isAr),
           const SizedBox(height: 12),
 
           // 3. Overrides & Recalculate Panel (Collapsible)
-          _buildOverridesPanel(isDark),
+          _buildOverridesPanel(isDark, isAr),
           const SizedBox(height: 16),
 
           // 4. Tabs Section
@@ -369,14 +385,18 @@ class _EstimatedLandedCostDialogState
             labelColor: isDark ? Colors.tealAccent : Colors.teal.shade800,
             unselectedLabelColor: Colors.grey,
             indicatorColor: isDark ? Colors.tealAccent : Colors.teal.shade700,
-            tabs: const [
+            tabs: [
               Tab(
-                icon: Icon(Icons.table_chart_outlined),
-                text: 'تحليل بنود البضاعة وتكلفة الوحدة (Items Landed Cost)',
+                icon: const Icon(Icons.table_chart_outlined),
+                text: isAr
+                    ? 'تحليل بنود البضاعة وتكلفة الوحدة (Items Landed Cost)'
+                    : 'Items Breakdown & Unit Landed Cost',
               ),
               Tab(
-                icon: Icon(Icons.receipt_long_outlined),
-                text: 'قائمة المصاريف والنفقات التقديرية (Expenses Breakdown)',
+                icon: const Icon(Icons.receipt_long_outlined),
+                text: isAr
+                    ? 'قائمة المصاريف والنفقات التقديرية (Expenses Breakdown)'
+                    : 'Estimated Expenses Breakdown',
               ),
             ],
           ),
@@ -386,8 +406,8 @@ class _EstimatedLandedCostDialogState
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildItemsTable(isDark),
-                _buildExpensesTable(isDark),
+                _buildItemsTable(isDark, isAr),
+                _buildExpensesTable(isDark, isAr),
               ],
             ),
           ),
@@ -433,48 +453,50 @@ class _EstimatedLandedCostDialogState
     );
   }
 
-  Widget _buildKpiCards(bool isDark) {
+  Widget _buildKpiCards(bool isDark, bool isAr) {
     return LayoutBuilder(builder: (context, constraints) {
       final bool isCompact = constraints.maxWidth < 850;
 
       final cards = [
         _buildKpiItem(
-          label: 'إجمالي البضاعة FOB',
-          valueEgp: '${_data!.totalFobEgp.toStringAsFixed(0)} ج.م',
+          label: isAr ? 'إجمالي البضاعة FOB' : 'Total Goods FOB',
+          valueEgp: '${_data!.totalFobEgp.toStringAsFixed(0)} ${isAr ? 'ج.م' : 'EGP'}',
           valueFc: '${_data!.totalFobFc.toStringAsFixed(0)} ${_data!.currency}',
           icon: Icons.inventory_2,
           color: const Color(0xFF2563EB),
           isDark: isDark,
         ),
         _buildKpiItem(
-          label: 'النولون والتأمين',
+          label: isAr ? 'النولون والتأمين' : 'Freight & Insurance',
           valueEgp:
-              '${(_data!.totalFreightEgp + _data!.totalInsuranceEgp).toStringAsFixed(0)} ج.م',
-          valueFc: 'نولون: ${_data!.totalFreightEgp.toStringAsFixed(0)}',
+              '${(_data!.totalFreightEgp + _data!.totalInsuranceEgp).toStringAsFixed(0)} ${isAr ? 'ج.م' : 'EGP'}',
+          valueFc: isAr
+              ? 'نولون: ${_data!.totalFreightEgp.toStringAsFixed(0)}'
+              : 'Freight: ${_data!.totalFreightEgp.toStringAsFixed(0)}',
           icon: Icons.sailing,
           color: const Color(0xFF0D9488),
           isDark: isDark,
         ),
         _buildKpiItem(
-          label: 'الجمارك والضرائب',
-          valueEgp: '${_data!.totalCustomsAndTaxesEgp.toStringAsFixed(0)} ج.م',
-          valueFc: 'بند التعريفة MD-008',
+          label: isAr ? 'الجمارك والضرائب' : 'Customs & Taxes',
+          valueEgp: '${_data!.totalCustomsAndTaxesEgp.toStringAsFixed(0)} ${isAr ? 'ج.م' : 'EGP'}',
+          valueFc: isAr ? 'بند التعريفة MD-008' : 'Tariff Schedule MD-008',
           icon: Icons.account_balance,
           color: const Color(0xFFD97706),
           isDark: isDark,
         ),
         _buildKpiItem(
-          label: 'الموانئ والتخليص والنقل',
+          label: isAr ? 'الموانئ والتخليص والنقل' : 'Port, Clearance & Inland',
           valueEgp:
-              '${(_data!.totalClearanceAndPortEgp + _data!.totalInlandTransportEgp).toStringAsFixed(0)} ج.م',
-          valueFc: 'لوجستيات وموانئ',
+              '${(_data!.totalClearanceAndPortEgp + _data!.totalInlandTransportEgp).toStringAsFixed(0)} ${isAr ? 'ج.م' : 'EGP'}',
+          valueFc: isAr ? 'لوجستيات وموانئ' : 'Logistics & Ports',
           icon: Icons.local_shipping,
           color: const Color(0xFF7C3AED),
           isDark: isDark,
         ),
         _buildKpiItem(
-          label: 'تكلفة الوصول الشاملة',
-          valueEgp: '${_data!.totalLandedCostEgp.toStringAsFixed(0)} ج.م',
+          label: isAr ? 'تكلفة الوصول الشاملة' : 'Total Landed Cost',
+          valueEgp: '${_data!.totalLandedCostEgp.toStringAsFixed(0)} ${isAr ? 'ج.م' : 'EGP'}',
           valueFc:
               '${_data!.totalLandedCostFc.toStringAsFixed(0)} ${_data!.currency}',
           icon: Icons.monetization_on,
@@ -483,7 +505,7 @@ class _EstimatedLandedCostDialogState
           highlight: true,
         ),
         _buildKpiItem(
-          label: 'معامل الزيادة الإجمالي',
+          label: isAr ? 'معامل الزيادة الإجمالي' : 'Overall Markup Factor',
           valueEgp: '×${_data!.averageMarkupFactor.toStringAsFixed(3)}',
           valueFc: '+${_data!.averageMarkupPercent.toStringAsFixed(1)}%',
           icon: Icons.trending_up,
@@ -587,7 +609,7 @@ class _EstimatedLandedCostDialogState
     );
   }
 
-  Widget _buildOverridesPanel(bool isDark) {
+  Widget _buildOverridesPanel(bool isDark, bool isAr) {
     return ExpansionTile(
       initiallyExpanded: false,
       tilePadding: const EdgeInsets.symmetric(horizontal: 12),
@@ -607,55 +629,88 @@ class _EstimatedLandedCostDialogState
             color: isDark ? Colors.grey.shade800 : Colors.grey.shade300),
       ),
       leading: const Icon(Icons.tune, color: AppTheme.cobalt, size: 20),
-      title: const Text(
-        'تعديل معايير ومصاريف المحاكاة (Parameters & Cost Overrides)',
-        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+      title: Text(
+        isAr
+            ? 'تعديل معايير ومصاريف المحاكاة (Parameters & Cost Overrides)'
+            : 'Simulation Parameters & Cost Overrides',
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
       ),
-      subtitle: const Text(
-        'يمكنك تعديل أسعار الصرف، نولون الشحن، التأمين، التخليص، وتفضيل التوزيع وإعادة الحساب فورياً',
-        style: TextStyle(fontSize: 11, color: Colors.grey),
+      subtitle: Text(
+        isAr
+            ? 'يمكنك تعديل أسعار الصرف، نولون الشحن، التأمين، التخليص، وتفضيل التوزيع وإعادة الحساب فورياً'
+            : 'Modify exchange rates, freight, insurance, clearance, and allocation rule to recalculate instantly',
+        style: const TextStyle(fontSize: 11, color: Colors.grey),
       ),
       children: [
         Wrap(
           spacing: 12,
           runSpacing: 12,
           children: [
-            _buildOverrideField('سعر الصرف ج.م', _fxRateController, 'مثال: 50.5'),
             _buildOverrideField(
-                'نولون الشحن (EGP)', _freightController, 'تعديل النولون'),
+              isAr ? 'سعر الصرف ج.م' : 'FX Rate (EGP)',
+              _fxRateController,
+              isAr ? 'مثال: 50.5' : 'e.g. 50.5',
+            ),
             _buildOverrideField(
-                'التأمين البحري (EGP)', _insuranceController, 'تعديل التأمين'),
+              isAr ? 'نولون الشحن (EGP)' : 'Freight (EGP)',
+              _freightController,
+              isAr ? 'تعديل النولون' : 'Edit Freight',
+            ),
             _buildOverrideField(
-                'أتعاب التخليص (EGP)', _clearanceController, '4500'),
+              isAr ? 'التأمين البحري (EGP)' : 'Marine Insurance (EGP)',
+              _insuranceController,
+              isAr ? 'تعديل التأمين' : 'Edit Insurance',
+            ),
             _buildOverrideField(
-                'مصاريف الموانئ (EGP)', _portController, '5000'),
+              isAr ? 'أتعاب التخليص (EGP)' : 'Clearance Fees (EGP)',
+              _clearanceController,
+              '4500',
+            ),
             _buildOverrideField(
-                'النقل الداخلي (EGP)', _transportController, '7500'),
-            _buildOverrideField('مصاريف بنكية (EGP)', _bankFeesController, '2500'),
+              isAr ? 'مصاريف الموانئ (EGP)' : 'Port Handling (EGP)',
+              _portController,
+              '5000',
+            ),
             _buildOverrideField(
-                'مصاريف أخرى (EGP)', _otherFeesController, '2000'),
+              isAr ? 'النقل الداخلي (EGP)' : 'Inland Transport (EGP)',
+              _transportController,
+              '7500',
+            ),
+            _buildOverrideField(
+              isAr ? 'مصاريف بنكية (EGP)' : 'Bank Fees (EGP)',
+              _bankFeesController,
+              '2500',
+            ),
+            _buildOverrideField(
+              isAr ? 'مصاريف أخرى (EGP)' : 'Other Fees (EGP)',
+              _otherFeesController,
+              '2000',
+            ),
             SizedBox(
               width: 200,
               child: DropdownButtonFormField<String>(
                 value: _selectedAllocation,
-                decoration: const InputDecoration(
-                  labelText: 'أساس توزيع المصاريف',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: isAr ? 'أساس توزيع المصاريف' : 'Cost Allocation Basis',
+                  border: const OutlineInputBorder(),
                   contentPadding:
-                      EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   isDense: true,
                 ),
                 style: TextStyle(
                   fontSize: 12,
                   color: isDark ? Colors.white : Colors.black87,
                 ),
-                items: const [
+                items: [
                   DropdownMenuItem(
-                      value: 'Value-Based', child: Text('حسب القيمة (Value)')),
+                      value: 'Value-Based',
+                      child: Text(isAr ? 'حسب القيمة (Value)' : 'Value-Based')),
                   DropdownMenuItem(
-                      value: 'Weight-Based', child: Text('حسب الوزن (Weight)')),
+                      value: 'Weight-Based',
+                      child: Text(isAr ? 'حسب الوزن (Weight)' : 'Weight-Based')),
                   DropdownMenuItem(
-                      value: 'Volume-Based', child: Text('حسب الحجم (Volume)')),
+                      value: 'Volume-Based',
+                      child: Text(isAr ? 'حسب الحجم (Volume)' : 'Volume-Based')),
                 ],
                 onChanged: (val) {
                   if (val != null) {
@@ -686,7 +741,7 @@ class _EstimatedLandedCostDialogState
                 _loadSimulation();
               },
               icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('استعادة القيم الافتراضية'),
+              label: Text(isAr ? 'استعادة القيم الافتراضية' : 'Reset Defaults'),
             ),
             const SizedBox(width: 8),
             ElevatedButton.icon(
@@ -698,9 +753,9 @@ class _EstimatedLandedCostDialogState
               ),
               onPressed: _loadSimulation,
               icon: const Icon(Icons.play_arrow, size: 18),
-              label: const Text(
-                'إعادة الحساب والتوزيع',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              label: Text(
+                isAr ? 'إعادة الحساب والتوزيع' : 'Recalculate & Allocate',
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -729,9 +784,11 @@ class _EstimatedLandedCostDialogState
     );
   }
 
-  Widget _buildItemsTable(bool isDark) {
+  Widget _buildItemsTable(bool isDark, bool isAr) {
     if (_data!.itemsBreakdown.isEmpty) {
-      return const Center(child: Text('لا توجد بنود متاحة للمحاكاة'));
+      return Center(
+        child: Text(isAr ? 'لا توجد بنود متاحة للمحاكاة' : 'No items available for simulation'),
+      );
     }
 
     return Container(
@@ -752,22 +809,22 @@ class _EstimatedLandedCostDialogState
               horizontalMargin: 12,
               dataRowMinHeight: 40,
               dataRowMaxHeight: 44,
-              columns: const [
-                DataColumn(label: Text('م', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('كود الصنف', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('اسم الصنف والوصف', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('البند الجمركي', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('الكمية', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('سعر FOB للوحدة', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('إجمالي FOB ج.م', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('ضريبة الوارد ج.م', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('الضرائب والقيمة المضافة', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('نولون ولوجستيات', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('إجمالي التكلفة ج.م', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('تكلفة الوحدة ج.م', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('تكلفة الوحدة أجنبي', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('معامل الزيادة', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('نسبة الزيادة', style: TextStyle(fontWeight: FontWeight.bold))),
+              columns: [
+                DataColumn(label: Text(isAr ? 'م' : '#', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'كود الصنف' : 'Item Code', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'اسم الصنف والوصف' : 'Item Name & Description', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'البند الجمركي' : 'HS Code', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'الكمية' : 'Qty', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'سعر FOB للوحدة' : 'FOB Unit Price', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'إجمالي FOB ج.م' : 'Total FOB (EGP)', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'ضريبة الوارد ج.م' : 'Customs Duty (EGP)', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'الضرائب والقيمة المضافة' : 'VAT & Taxes (EGP)', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'نولون ولوجستيات' : 'Freight & Logistics', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'إجمالي التكلفة ج.م' : 'Total Landed (EGP)', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'تكلفة الوحدة ج.م' : 'Unit Landed (EGP)', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'تكلفة الوحدة أجنبي' : 'Unit Landed (FC)', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'معامل الزيادة' : 'Markup Factor', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'نسبة الزيادة' : 'Markup %', style: const TextStyle(fontWeight: FontWeight.bold))),
               ],
               rows: _data!.itemsBreakdown.map((itm) {
                 return DataRow(cells: [
@@ -811,9 +868,11 @@ class _EstimatedLandedCostDialogState
     );
   }
 
-  Widget _buildExpensesTable(bool isDark) {
+  Widget _buildExpensesTable(bool isDark, bool isAr) {
     if (_data!.expensesBreakdown.isEmpty) {
-      return const Center(child: Text('لا توجد مصاريف مفصلة'));
+      return Center(
+        child: Text(isAr ? 'لا توجد مصاريف مفصلة' : 'No detailed expenses'),
+      );
     }
 
     return Container(
@@ -830,13 +889,13 @@ class _EstimatedLandedCostDialogState
               headingRowColor: WidgetStateProperty.all(
                 isDark ? AppTheme.darkElevatedSurface : const Color(0xFFF1F5F9),
               ),
-              columns: const [
-                DataColumn(label: Text('فئة المصروف', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('البيان والوصف', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('القيمة بالجنيه (EGP)', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('القيمة بالعملة الأجنبية', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('مصدر الاحتساب', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('طريقة التوزيع على البنود', style: TextStyle(fontWeight: FontWeight.bold))),
+              columns: [
+                DataColumn(label: Text(isAr ? 'فئة المصروف' : 'Expense Category', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'البيان والوصف' : 'Description', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'القيمة بالجنيه (EGP)' : 'Amount (EGP)', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'القيمة بالعملة الأجنبية' : 'Amount (FC)', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'مصدر الاحتساب' : 'Source', style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(isAr ? 'طريقة التوزيع على البنود' : 'Allocation Rule', style: const TextStyle(fontWeight: FontWeight.bold))),
               ],
               rows: _data!.expensesBreakdown.map((exp) {
                 return DataRow(cells: [
@@ -859,7 +918,7 @@ class _EstimatedLandedCostDialogState
     );
   }
 
-  Widget _buildBottomBar(bool isDark) {
+  Widget _buildBottomBar(bool isDark, bool isAr) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
@@ -884,18 +943,18 @@ class _EstimatedLandedCostDialogState
                 ),
                 onPressed: _data == null ? null : _exportCsv,
                 icon: const Icon(Icons.file_download, size: 18),
-                label: const Text('تصدير تقرير Excel/CSV'),
+                label: Text(isAr ? 'تصدير تقرير Excel/CSV' : 'Export Excel/CSV'),
               ),
               OutlinedButton.icon(
                 onPressed: _data == null ? null : _copyTsvToClipboard,
                 icon: const Icon(Icons.copy, size: 18),
-                label: const Text('نسخ جدول النتائج (TSV)'),
+                label: Text(isAr ? 'نسخ جدول النتائج (TSV)' : 'Copy TSV Table'),
               ),
             ],
           ),
           TextButton(
             onPressed: () => UnsavedChangesGuard.maybePop(context, isDirty: _isDirty),
-            child: const Text('إغلاق', style: TextStyle(fontSize: 14)),
+            child: Text(isAr ? 'إغلاق' : 'Close', style: const TextStyle(fontSize: 14)),
           ),
         ],
       ),

@@ -2,6 +2,8 @@
 Unit tests for CargoX Standard Excel Commercial Invoice Generator, Parser, Comparison, and Session Upsert (BP-025 / CGX-002).
 """
 
+import io
+import openpyxl
 import pytest
 from datetime import datetime, timezone
 from sqlalchemy import create_engine
@@ -26,6 +28,10 @@ from modules.cargox.excel_invoice_service import (
     generate_standard_invoice_excel_bytes,
     parse_standard_invoice_excel_bytes,
     compare_standard_invoice_data,
+)
+from modules.cargox.city_port_resolver import (
+    resolve_city_code,
+    resolve_port_display_name,
 )
 
 
@@ -352,10 +358,10 @@ def test_cargox_excel_structure_and_named_ranges(test_db):
     assert ws["B5"].value == "Export To:"
     assert ws["D5"].value == "Importer Contact :"
     assert ws["H5"].value == "Phone:"
-    assert ws["K5"].value == "Gross Weight"
+    assert ws["K5"].value == "Gross Weight:"
     assert ws["D7"].value == "ACID #:"
     assert ws["F7"].value == "Origin Port:"
-    assert ws["K7"].value == "Weigh unitt:"
+    assert ws["K7"].value == "Weight Unit:"
     assert ws["B8"].value == "Purchase Order #:"
     assert ws["D8"].value == "Purchase Order Date:"
     assert ws["F8"].value == "Destination Port:"
@@ -373,6 +379,21 @@ def test_cargox_excel_structure_and_named_ranges(test_db):
 
     # 7. Table Check
     assert "InvoiceItems" in ws.tables
+
+    # 8. Exact Row 12 Headers Check (16 Columns)
+    expected_row12 = [
+        "#", "Product Code", "TradeMarkOwner/Manufacturer", "Brand Name", "Model",
+        "HS Tariff Code", "Country of Origin", "Description", "Quantity", "Qty Unit",
+        "Expiry Date", "Unit Price", "Gross Weight", "Net Weight", "Weight Unit", "Total",
+    ]
+    actual_row12 = [ws.cell(row=12, column=col).value for col in range(1, 17)]
+    assert actual_row12 == expected_row12
+
+    # 9. Line Item Row 13 Structure Check
+    assert ws["M13"].value == snapshot.items[0].gross_weight_kg
+    assert ws["N13"].value == snapshot.items[0].net_weight_kg
+    assert ws["O13"].value == (snapshot.items[0].weight_unit or "KGM")
+    assert ws["P13"].value == "=I13*L13"
 
 
 # ============================================================================
@@ -659,3 +680,237 @@ def test_customs_packing_list_generation_and_track_crud(test_db):
     res_list = client.get("/api/v1/cargox/customs-track/by-file/1")
     assert res_list.status_code == 200
     assert all(t["track_id"] != track.track_id for t in res_list.json())
+
+
+def test_city_and_port_resolution_and_excel_cells(test_db):
+    """
+    Test UN/LOCODE City Code resolution, Origin & Destination Port resolution,
+    and their exact cell coordinates, formulas, and defined names in generated Excel.
+    """
+    import io
+    import openpyxl
+
+    # 1. Test City Code Resolution
+    # Changshu address example from user
+    changshu_addr = "No.16 Kangsheng Road, Zhitang Town, Changshu City, Suzhou City,China"
+    assert resolve_city_code(changshu_addr, "CN") == "CNCGS"
+
+    # Lithuania Vilnius address
+    assert resolve_city_code("Ukmerges g. 308, Vilnius", "LT") == "LTVNO"
+
+    # Italy Milan address
+    assert resolve_city_code("Via Monte Napoleone 8, Milan", "IT") == "ITMIL"
+
+    # 2. Test Port Display Name Resolution
+    pol_name = resolve_port_display_name("KRSEL")
+    assert "Seoul" in pol_name
+    assert "KOREA" in pol_name.upper()
+
+    pod_name = resolve_port_display_name("EGALY")
+    assert "Alexandria" in pod_name
+
+    # 3. Test System Snapshot Generation includes city_code and port codes
+    snapshot = CargoXStandardInvoiceService.build_system_snapshot(test_db, 1)
+    assert snapshot.seller_city_code == "LTVNO"
+    assert snapshot.origin_port == "LTKLJ"
+    assert snapshot.destination_port == "EGALY"
+
+    # 4. Test Excel Generation writes exact cells: F2, G7, H7:J7, G8, H8:J8
+    excel_bytes = generate_standard_invoice_excel_bytes(snapshot)
+    wb = openpyxl.load_workbook(io.BytesIO(excel_bytes), data_only=False)
+    ws = wb["Invoice"]
+
+    # F2: City Code
+    assert ws["E2"].value == "City Code :"
+    assert ws["F2"].value == "LTVNO"
+
+    # F7 / G7 / H7: Origin Port
+    assert ws["F7"].value == "Origin Port:"
+    assert ws["G7"].value == "LTKLJ"
+    assert "=IFERROR(VLOOKUP(G7,'City List'!$A$1:$C$34274,2,FALSE)&\"/\"&VLOOKUP(G7,'City List'!$A$1:$C$34274,3,FALSE)" in ws["H7"].value
+    assert ws["H7"].font.bold is True
+
+    # F8 / G8 / H8: Destination Port
+    assert ws["F8"].value == "Destination Port:"
+    assert ws["G8"].value == "EGALY"
+    assert "=IFERROR(VLOOKUP(G8,'City List'!$A$1:$C$34274,2,FALSE)&\"/\"&VLOOKUP(G8,'City List'!$A$1:$C$34274,3,FALSE)" in ws["H8"].value
+    assert ws["H8"].font.bold is True
+
+    # PortCodes Defined Name Check
+    assert "PortCodes" in wb.defined_names
+
+    # 5. Parse back and verify seller_city_code and items weights are preserved
+    parsed = parse_standard_invoice_excel_bytes(excel_bytes)
+    assert parsed.seller_city_code == "LTVNO"
+    assert parsed.origin_port == "LTKLJ"
+    assert parsed.destination_port == "EGALY"
+    assert len(parsed.items) > 0
+    assert parsed.items[0].gross_weight_kg == snapshot.items[0].gross_weight_kg
+    assert parsed.items[0].net_weight_kg == snapshot.items[0].net_weight_kg
+    assert parsed.items[0].weight_unit == "KGM"
+
+
+def test_weight_unit_uom_list_and_self_healing_extraction(test_db):
+    """
+    Tests:
+    1. Normalization to official CargoX 'Unit of measure list' codes: GRM, KGM, SET, STN.
+    2. Extraction of Gross Weight, Net Weight, and Weight Unit from packing list items for file 4.
+    3. Proper writing of row 12 headers and row 13 data (M=Gross Weight, N=Net Weight, O=Weight Unit, P=Total).
+    4. Self-healing parser handling files where columns were shifted (Carton in M, Gross in N, Net in O).
+    """
+    from modules.cargox.excel_invoice_service import (
+        normalize_cargox_weight_unit,
+        CARGOX_WEIGHT_UOMS,
+    )
+    from modules.cargox.service import CargoXExtractionEngine
+    from modules.cargox.schemas import ExtractionRequest
+
+    # 1. Normalization unit tests
+    assert normalize_cargox_weight_unit("kg") == "KGM"
+    assert normalize_cargox_weight_unit("KGS") == "KGM"
+    assert normalize_cargox_weight_unit("kilogram") == "KGM"
+    assert normalize_cargox_weight_unit("gram") == "GRM"
+    assert normalize_cargox_weight_unit("g") == "GRM"
+    assert normalize_cargox_weight_unit("ton") == "STN"
+    assert normalize_cargox_weight_unit("MT") == "STN"
+    assert normalize_cargox_weight_unit("set") == "SET"
+    assert normalize_cargox_weight_unit(None) == "KGM"
+    for code, name in CARGOX_WEIGHT_UOMS.items():
+        assert normalize_cargox_weight_unit(code) == code
+
+    # 2. Extract file 1 with PackingListItem
+    from modules.purchase_orders.model import PackingListItem
+    pl = PackingListItem(
+        po_id=1,
+        hs_code="940310",
+        item_code="DSK-001",
+        package_type="Carton",
+        qty_pcs=10.0,
+        qty_pkg=10.0,
+        total_gross_weight_kg=10510.0,
+        total_net_weight_kg=10080.0,
+        weight_unit="KGM",
+    )
+    test_db.add(pl)
+    test_db.commit()
+
+    ext = CargoXExtractionEngine.extract(
+        test_db, 1, ExtractionRequest(mode="all_consolidated", grouping_mode="by_hs_code")
+    )
+    assert len(ext.results) > 0
+    payload = ext.results[0].payload
+    assert payload.gross_weight == 10510.0
+    assert payload.net_weight == 10080.0
+    assert payload.weight_unit == "KGM"
+    assert len(payload.items) > 0
+    assert payload.items[0].gross_weight_kg == 10510.0
+    assert payload.items[0].net_weight_kg == 10080.0
+    assert payload.items[0].weight_unit == "KGM"
+
+    # 3. Verify Excel workbook generated
+    excel_bytes = generate_standard_invoice_excel_bytes(payload)
+    wb = openpyxl.load_workbook(io.BytesIO(excel_bytes), data_only=False)
+    ws = wb["Invoice"]
+
+    # Header check
+    assert ws["M12"].value == "Gross Weight"
+    assert ws["N12"].value == "Net Weight"
+    assert ws["O12"].value == "Weight Unit"
+    assert ws["P12"].value == "Total"
+
+    # Data check
+    assert ws["M13"].value == 10510.0
+    assert ws["N13"].value == 10080.0
+    assert ws["O13"].value == "KGM"
+    assert ws["P13"].value == "=I13*L13"
+    assert ws["L7"].value == "KGM"
+
+    # Verify UOM sheet
+    assert "Unit of measure list" in wb.sheetnames
+    ws_uom = wb["Unit of measure list"]
+    assert ws_uom["A2"].value == "GRM"
+    assert ws_uom["A3"].value == "KGM"
+    assert ws_uom["A4"].value == "SET"
+    assert ws_uom["A5"].value == "STN"
+
+    # 4. Normal parsing of the newly generated workbook
+    parsed_normal = parse_standard_invoice_excel_bytes(excel_bytes)
+    assert parsed_normal.gross_weight == 10510.0
+    assert parsed_normal.net_weight == 10080.0
+    assert parsed_normal.weight_unit == "KGM"
+    assert parsed_normal.items[0].gross_weight_kg == 10510.0
+    assert parsed_normal.items[0].net_weight_kg == 10080.0
+    assert parsed_normal.items[0].weight_unit == "KGM"
+
+    # 5. Self-healing parser test: simulate a legacy shifted workbook
+    # (where M13 was 'Carton', N13 was 10510.0, O13 was 10080.0, P13 was 43704.0)
+    wb_shifted = openpyxl.load_workbook(io.BytesIO(excel_bytes), data_only=False)
+    ws_s = wb_shifted["Invoice"]
+    ws_s["M13"].value = "Carton"
+    ws_s["N13"].value = 10510.0
+    ws_s["O13"].value = 10080.0
+    ws_s["P13"].value = 43704.0
+    buf_s = io.BytesIO()
+    wb_shifted.save(buf_s)
+
+    parsed_shifted = parse_standard_invoice_excel_bytes(buf_s.getvalue())
+    assert parsed_shifted.items[0].gross_weight_kg == 10510.0
+    assert parsed_shifted.items[0].net_weight_kg == 10080.0
+    assert parsed_shifted.items[0].weight_unit == "KGM"
+    assert parsed_shifted.items[0].total_amount == 43704.0
+    assert parsed_shifted.items[0].unit_price_basis == "Carton"
+
+
+def test_cargox_po_invoice_date_qty_unit_and_main_description_extraction(test_db):
+    """
+    Verify:
+    1. po.order_date (e.g., 2026-07-30) is propagated to invoice_date (E9 in Excel).
+    2. pi.unit_of_measure (e.g., PCS) is propagated to qty_unit (J13 in Excel).
+    3. pi.main_description (e.g., Acoustic Panels) is prioritized over detailed item descriptions (H13 in Excel).
+    """
+    from datetime import date
+    from modules.purchase_orders.model import PurchaseOrder, POLineItem
+    from modules.cargox.service import CargoXStandardInvoiceService, CargoXExtractionEngine
+    from modules.cargox.schemas import ExtractionRequest
+    from modules.cargox.excel_invoice_service import generate_standard_invoice_excel_bytes
+    import io
+    import openpyxl
+
+    po = test_db.query(PurchaseOrder).filter(PurchaseOrder.po_id == 1).first()
+    po.order_date = date(2026, 7, 30)
+
+    # Set main_description and unit_of_measure on line items
+    item1 = test_db.query(POLineItem).filter(POLineItem.item_code == "DSK-001").first()
+    item1.main_description = "Acoustic Panels"
+    item1.description_en = "PET Acoustic Panels (YH-652)"
+    item1.unit_of_measure = "PCS"
+
+    test_db.commit()
+
+    # 1. System Snapshot verification
+    snapshot = CargoXStandardInvoiceService.build_system_snapshot(test_db, 1)
+    assert snapshot.invoice_date == "2026-07-30"
+    matched_item = next(it for it in snapshot.items if it.product_code == "DSK-001")
+    assert matched_item.description == "Acoustic Panels"
+    assert matched_item.qty_unit == "PCS"
+
+    # 2. Multi-path Extraction Engine verification
+    ext_resp = CargoXExtractionEngine.extract(
+        test_db, 1, ExtractionRequest(mode="all_consolidated", grouping_mode="by_hs_code")
+    )
+    assert len(ext_resp.results) == 1
+    ext_payload = ext_resp.results[0].payload
+    assert ext_payload.invoice_date == "2026-07-30"
+    assert ext_payload.items[0].description == "Acoustic Panels"
+    assert ext_payload.items[0].qty_unit == "PCS"
+
+    # 3. Excel cell coordinates verification
+    excel_bytes = generate_standard_invoice_excel_bytes(ext_payload)
+    wb = openpyxl.load_workbook(io.BytesIO(excel_bytes), data_only=True)
+    ws = wb["Invoice"]
+
+    assert ws["E9"].value == "2026-07-30"  # Invoice Date
+    assert ws["H13"].value == "Acoustic Panels"  # Description
+    assert ws["J13"].value == "PCS"  # Qty Unit
+
+

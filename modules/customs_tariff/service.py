@@ -640,7 +640,19 @@ def estimate_multi_item_customs_duty_service(
         duty_rate = standard_duty_rate
         trade_agreement_name = None
         conditions_note = None
-        if line.origin_country:
+        is_exemption_applied = False
+
+        if line.is_exemption_conditions_met is True:
+            # Explicit user activation of exemption / conditions met checklist
+            duty_rate = Decimal("0.00")
+            is_exemption_applied = True
+            trade_agreement_name = "معفى بموجب اتفاقية / استيفاء الشروط"
+        elif line.is_exemption_conditions_met is False:
+            # Explicit user deactivation: standard duty rate must be strictly applied
+            duty_rate = standard_duty_rate
+            is_exemption_applied = False
+            trade_agreement_name = "خاضع للفئة القياسية (لم يتم استيفاء شروط الإعفاء)"
+        elif line.origin_country:
             origin_clean = line.origin_country.upper()
             db_agreements = repository.get_agreements_by_hs_code(db, line.hs_code, origin_clean)
             if db_agreements:
@@ -650,10 +662,13 @@ def estimate_multi_item_customs_duty_service(
                 red_pct = Decimal(str(ag_db.reduction_percentage))
                 if ag_db.reduction_type == "full_duty_exemption":
                     duty_rate = Decimal("0.00")
+                    is_exemption_applied = True
                 elif ag_db.reduction_type == "percentage_of_duty":
                     duty_rate = _round(standard_duty_rate * (Decimal("1.00") - red_pct))
+                    is_exemption_applied = (duty_rate == Decimal("0.00"))
                 elif ag_db.reduction_type == "fixed_rate":
                     duty_rate = red_pct
+                    is_exemption_applied = (duty_rate == Decimal("0.00"))
 
         schedule_tax_base = "cif"
 
@@ -744,6 +759,7 @@ def estimate_multi_item_customs_duty_service(
                 freight_source=freight_source,
                 exemption_code_applied=exemption_code_to_apply if exemption_info else None,
                 exemption_applied_details=exemption_details,
+                is_exemption_applied=is_exemption_applied,
                 preferential_agreement_applied=trade_agreement_name,
                 conditions_note=conditions_note,
                 requires_coo=requires_coo,

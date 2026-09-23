@@ -473,4 +473,69 @@ class TestPurchaseOrdersBackend:
         with pytest.raises(Exception):
             service.clone_purchase_order(orig_po.po_id, clone_payload)
 
+    def test_packing_list_weight_16_decimal_precision(self, db_session):
+        service = PurchaseOrderService(db_session)
+        comp = db_session.query(ImportCompany).first()
+        supp = db_session.query(Supplier).first()
+        inc = db_session.query(Incoterm).first()
+        curr = db_session.query(Currency).first()
+        proj = db_session.query(Project).first()
+
+        high_prec_net = 72.98611111111111
+        high_prec_gross = 75.12345678901234
+
+        pkg_item = PackingListItemCreate(
+            hs_code="8415.10.00",
+            item_code="HIGH-PREC-01",
+            main_description="High Precision Weight Test Item",
+            description="Testing 16 decimal places in packing list",
+            qty_pcs=10.0,
+            qty_pkg=1.0,
+            package_type="Carton",
+            unit="cm",
+            length_cm=50.0,
+            width_cm=40.0,
+            height_cm=30.0,
+            net_weight_unit_kg=high_prec_net,
+            gross_weight_unit_kg=high_prec_gross,
+            weight_unit="KGM",
+            is_stackable=True,
+        )
+
+        line_item = POLineItemCreate(
+            item_code="HIGH-PREC-01",
+            description_ar="صنف اختبار دقة الأوزان حتى 16 رقم عشري",
+            description_en="High precision weight item",
+            quantity=10.0,
+            unit_of_measure="PCS",
+            unit_price=100.0,
+            cbm_per_unit=0.06,
+            gross_weight_kg=high_prec_gross,
+            net_weight_kg=high_prec_net,
+        )
+
+        po_data = PurchaseOrderCreate(
+            po_number="PO-2026-PREC-16",
+            po_reference="High Precision Weights Test",
+            company_id=comp.company_id,
+            supplier_id=supp.supplier_id,
+            incoterm_id=inc.incoterm_id,
+            currency_id=curr.currency_id,
+            project_id=proj.project_id,
+            exchange_rate=1.0,
+            items=[line_item],
+            packing_list_items=[pkg_item],
+        )
+
+        created_po = service.create(po_data)
+        assert created_po.po_id is not None
+        assert len(created_po.packing_list_items) == 1
+
+        saved_pkg = created_po.packing_list_items[0]
+        # Assert net and gross weights preserved up to 14-16 decimal digits
+        assert abs(float(saved_pkg.net_weight_unit_kg) - high_prec_net) < 1e-12
+        assert abs(float(saved_pkg.gross_weight_unit_kg) - high_prec_gross) < 1e-12
+        assert abs(float(saved_pkg.total_net_weight_kg) - high_prec_net) < 1e-12
+        assert abs(float(saved_pkg.total_gross_weight_kg) - high_prec_gross) < 1e-12
+
 

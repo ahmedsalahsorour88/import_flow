@@ -419,36 +419,43 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                         onPressed: isDownloading
                             ? null
                             : () async {
+                                final isZip = selectedMode.startsWith('per_invoice_');
+                                const stage = 'CargoX Blockchain & ACI Hub';
+                                final fileCode = '${file.companyName} (${file.importFileCode})';
+                                final ext = isZip ? 'zip' : 'xlsx';
+                                final title = isZip ? 'حفظ أرشيف فواتير CargoX ZIP' : 'حفظ فاتورة CargoX القياسية Excel';
+
                                 setDialogState(() => isDownloading = true);
                                 try {
                                   final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
-                                  final isZip = selectedMode.startsWith('per_invoice_');
 
-                                  final bytes = await notifier.downloadMultiInvoiceZip(
-                                    file.importFileId,
-                                    mode: selectedMode,
-                                    groupingMode: selectedGrouping,
-                                  );
-                                  setDialogState(() => isDownloading = false);
-                                  if (!context.mounted) return;
-                                  Navigator.of(ctx).pop();
-
-                                  await FileSaveHelper.exportAndSaveFile(
+                                  final saved = await FileSaveHelper.exportWithPickerAndFetch(
                                     context: context,
-                                    bytes: bytes,
-                                    stageName: 'CargoX Blockchain & ACI Hub',
-                                    importFileNameOrCode: '${file.companyName} (${file.importFileCode})',
-                                    extension: isZip ? 'zip' : 'xlsx',
-                                    customDialogTitle: isZip ? 'حفظ أرشيف فواتير CargoX ZIP' : 'حفظ فاتورة CargoX القياسية Excel',
+                                    stageName: stage,
+                                    importFileNameOrCode: fileCode,
+                                    extension: ext,
+                                    customDialogTitle: title,
+                                    fetchBytes: () => notifier.downloadMultiInvoiceZip(
+                                      file.importFileId,
+                                      mode: selectedMode,
+                                      groupingMode: selectedGrouping,
+                                    ),
                                   );
+
+                                  setDialogState(() => isDownloading = false);
+                                  if (saved != null && ctx.mounted) {
+                                    Navigator.of(ctx).pop();
+                                  }
                                 } catch (e) {
                                   setDialogState(() => isDownloading = false);
-                                  if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('${context.l10n.errorPrefix}: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red),
-                                  );
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('${context.l10n.errorPrefix}: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red),
+                                    );
+                                  }
                                 }
                               },
+
                         icon: isDownloading
                             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                             : const Icon(Icons.download, size: 18),
@@ -1446,15 +1453,13 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
   Future<void> _downloadTrackExcelFile(CustomsInvoiceTrackModel track) async {
     try {
       final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
-      final bytes = await notifier.downloadTrackExcel(track.trackId);
-      if (!mounted) return;
-      await FileSaveHelper.exportAndSaveFile(
+      await FileSaveHelper.exportWithPickerAndFetch(
         context: context,
-        bytes: bytes,
         stageName: 'CargoX Blockchain & ACI Hub',
         importFileNameOrCode: 'Customs Invoice (${track.trackCode})',
         extension: 'xlsx',
         customDialogTitle: 'حفظ ملف الفاتورة الجمركية Excel',
+        fetchBytes: () => notifier.downloadTrackExcel(track.trackId),
       );
     } catch (e) {
       if (!mounted) return;
@@ -1467,15 +1472,13 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
   Future<void> _downloadTrackPackingListFile(CustomsInvoiceTrackModel track) async {
     try {
       final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
-      final bytes = await notifier.downloadTrackPackingListExcel(track.trackId);
-      if (!mounted) return;
-      await FileSaveHelper.exportAndSaveFile(
+      await FileSaveHelper.exportWithPickerAndFetch(
         context: context,
-        bytes: bytes,
         stageName: 'CargoX Blockchain & ACI Hub',
         importFileNameOrCode: 'Customs Packing List (${track.trackCode})',
         extension: 'xlsx',
         customDialogTitle: 'حفظ ملف قائمة التعبئة الجمركية Excel',
+        fetchBytes: () => notifier.downloadTrackPackingListExcel(track.trackId),
       );
     } catch (e) {
       if (!mounted) return;
@@ -1966,6 +1969,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                 child: _buildInfoCard(context.l10n.standardInvoiceSellerCardTitle, [
                   context.l10n.sellerCompanyLabel(p.sellerName ?? 'N/A'),
                   context.l10n.sellerTaxIdLabel(p.sellerTaxId ?? 'N/A'),
+                  'City Code (UN/LOCODE): ${p.sellerCityCode ?? 'N/A'}',
                   context.l10n.sellerCountryLabel(p.sellerCountryCode ?? 'N/A'),
                   context.l10n.sellerAddressLabel(p.sellerAddress ?? 'N/A'),
                 ]),
@@ -1977,6 +1981,8 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                   context.l10n.buyerTaxIdLabel(p.buyerTaxId ?? 'N/A'),
                   context.l10n.buyerAcidNumberLabel(p.acidNumber ?? 'N/A'),
                   context.l10n.buyerIncotermAndCurrencyLabel(p.incoterm ?? 'N/A', p.currencyCode),
+                  'Origin Port (POL): ${p.originPort ?? 'N/A'}',
+                  'Destination Port (POD): ${p.destinationPort ?? 'N/A'}',
                 ]),
               ),
             ],
@@ -2028,9 +2034,11 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
           DataColumn(label: Text(context.l10n.colUnitPrice)),
           DataColumn(label: Text(context.l10n.colTotalAmount)),
           DataColumn(label: Text(context.l10n.colGrossWeight)),
+          DataColumn(label: Text(context.l10n.fieldNetWeight)),
+          DataColumn(label: Text(context.l10n.weightUnitFieldLabel)),
         ],
         rows: items.map((item) {
-          final rowSummary = '${item.index}. ${item.productCode ?? ""} | ${item.hsCode} | ${item.description} | ${item.quantity} ${item.qtyUnit} @ ${item.unitPrice.toStringAsFixed(2)} = ${item.totalAmount.toStringAsFixed(2)} | Gross: ${item.grossWeightKg}';
+          final rowSummary = '${item.index}. ${item.productCode ?? ""} | ${item.hsCode} | ${item.description} | ${item.quantity} ${item.qtyUnit} @ ${item.unitPrice.toStringAsFixed(2)} = ${item.totalAmount.toStringAsFixed(2)} | Gross: ${item.grossWeightKg} | Net: ${item.netWeightKg} ${item.weightUnit}';
           return DataRow(
             cells: [
               DataCell(CopyableTableCell(value: '${item.index}', rowSummary: rowSummary, child: Text('${item.index}'))),
@@ -2042,6 +2050,8 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
               DataCell(CopyableTableCell(value: item.unitPrice.toStringAsFixed(2), rowSummary: rowSummary, child: Text(item.unitPrice.toStringAsFixed(2)))),
               DataCell(CopyableTableCell(value: item.totalAmount.toStringAsFixed(2), rowSummary: rowSummary, child: Text(item.totalAmount.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF27AE60))))),
               DataCell(CopyableTableCell(value: '${item.grossWeightKg}', rowSummary: rowSummary, child: Text('${item.grossWeightKg}'))),
+              DataCell(CopyableTableCell(value: '${item.netWeightKg}', rowSummary: rowSummary, child: Text('${item.netWeightKg}'))),
+              DataCell(CopyableTableCell(value: item.weightUnit, rowSummary: rowSummary, child: Text(item.weightUnit))),
             ],
           );
         }).toList(),

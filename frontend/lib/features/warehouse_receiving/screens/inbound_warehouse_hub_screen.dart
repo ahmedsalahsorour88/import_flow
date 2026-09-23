@@ -112,10 +112,7 @@ class _InboundWarehouseHubScreenState
         ),
       ],
       body: SelectionArea(
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 72.0),
-          child: _buildCurrentTab(),
-        ),
+        child: _buildCurrentTab(),
       ),
     );
   }

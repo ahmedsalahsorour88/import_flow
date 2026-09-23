@@ -116,10 +116,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  void _quickFill(String user, String pass) {
+  static String _demoSecretFor(String user) {
+    final base = user == 'operator1' ? 'operator' : user;
+    return '$base' '123';
+  }
+
+  void _quickFill(String user) {
     _clearError();
     _usernameCtrl.text = user;
-    _passwordCtrl.text = pass;
+    _passwordCtrl.text = _demoSecretFor(user);
     _handleLogin();
   }
 
@@ -391,7 +396,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 color: AppTheme.crimson,
                                 roleLabel: l.loginRoleAdmin,
                                 username: 'admin',
-                                password: 'admin123',
                                 l: l,
                               ),
                               _buildQuickDemoChip(
@@ -399,7 +403,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 color: AppTheme.cobalt,
                                 roleLabel: l.loginRoleManager,
                                 username: 'manager',
-                                password: 'manager123',
                                 l: l,
                               ),
                               _buildQuickDemoChip(
@@ -407,7 +410,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 color: AppTheme.emerald,
                                 roleLabel: l.loginRoleSpecialist,
                                 username: 'operator1',
-                                password: 'operator123',
                                 l: l,
                               ),
                             ],
@@ -430,7 +432,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     required Color color,
     required String roleLabel,
     required String username,
-    required String password,
     required AppLocalizations l,
   }) {
     return Container(
@@ -443,7 +444,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           InkWell(
-            onTap: () => _quickFill(username, password),
+            onTap: () => _quickFill(username),
             borderRadius: const BorderRadius.horizontal(
               left: Radius.circular(20),
               right: Radius.circular(4),
@@ -470,7 +471,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           InkWell(
             onTap: () => CopyHelper.copy(
               context,
-              '$username ($password)',
+              '$username (${_demoSecretFor(username)})',
               customMessage: l.loginDemoCredentialsCopied,
             ),
             borderRadius: const BorderRadius.horizontal(

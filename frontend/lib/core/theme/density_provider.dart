@@ -36,6 +36,12 @@ enum DisplayDensityMode {
     tableCellSecondaryFontSize: 12.0,
     // Navigation
     sidebarNavFontSize: 13.0,
+    // Workspace & Top Bar
+    topBarHeight: 44.0,
+    tabBarHeight: 30.0,
+    tableRowHeight: 52.0,
+    tableHeadingHeight: 44.0,
+    contentPadding: EdgeInsets.all(16.0),
   ),
   compact(
     nameAr: 'مدمج',
@@ -68,6 +74,12 @@ enum DisplayDensityMode {
     tableCellSecondaryFontSize: 11.0,
     // Navigation
     sidebarNavFontSize: 13.0,
+    // Workspace & Top Bar
+    topBarHeight: 38.0,
+    tabBarHeight: 28.0,
+    tableRowHeight: 42.0,
+    tableHeadingHeight: 38.0,
+    contentPadding: EdgeInsets.all(10.0),
   ),
   ultraCompact(
     nameAr: 'فائق الكثافة',
@@ -100,6 +112,12 @@ enum DisplayDensityMode {
     tableCellSecondaryFontSize: 11.0,
     // Navigation
     sidebarNavFontSize: 12.0,
+    // Workspace & Top Bar
+    topBarHeight: 32.0,
+    tabBarHeight: 26.0,
+    tableRowHeight: 34.0,
+    tableHeadingHeight: 32.0,
+    contentPadding: EdgeInsets.all(6.0),
   );
 
   final String nameAr;
@@ -126,6 +144,11 @@ enum DisplayDensityMode {
   final double tableCellPrimaryFontSize;
   final double tableCellSecondaryFontSize;
   final double sidebarNavFontSize;
+  final double topBarHeight;
+  final double tabBarHeight;
+  final double tableRowHeight;
+  final double tableHeadingHeight;
+  final EdgeInsets contentPadding;
 
   /// Strict floor rule: no text in the system may drop below 11px.
   static double clampFontSize(double size) => size < 11.0 ? 11.0 : size;
@@ -183,6 +206,11 @@ enum DisplayDensityMode {
     required this.tableCellPrimaryFontSize,
     required this.tableCellSecondaryFontSize,
     required this.sidebarNavFontSize,
+    required this.topBarHeight,
+    required this.tabBarHeight,
+    required this.tableRowHeight,
+    required this.tableHeadingHeight,
+    required this.contentPadding,
   });
 }
 

@@ -2,19 +2,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/import_file_po_linker.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../purchase_orders/models/purchase_order_model.dart' hide PackingListItemModel;
+import '../../purchase_orders/utils/po_packing_matcher.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../models/import_file_model.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 import '../widgets/close_shipment_dialog.dart';
 import '../widgets/freight_rfq_dialog.dart';
+import '../../experience_guide/models/guide_entry_model.dart';
+import '../../experience_guide/providers/experience_guide_provider.dart';
+import '../../experience_guide/widgets/experience_guide_alert_banner.dart';
+import '../../experience_guide/widgets/similar_shipments_card.dart';
+import '../../experience_guide/widgets/detected_patterns_card.dart';
 import '../../experience_guide/widgets/smart_shipment_reference_card.dart';
 import '../../experience_guide/widgets/add_guide_entry_dialog.dart';
 import '../../smart_checklists/widgets/smart_checklist_dialog.dart';
+import '../../customs_tariff/models/customs_tariff_model.dart';
+import '../../customs_tariff/providers/customs_tariff_provider.dart';
 import '../../customs_tariff/widgets/duty_calculator_dialog.dart';
+import '../../customs_tariff/widgets/hs_code_compliance_insight_card.dart';
 import '../../financial_settlement/widgets/estimated_landed_cost_dialog.dart';
 import '../../financial_approval/widgets/supplier_advance_payment_dialog.dart';
 import '../../import_documentation/screens/nafeza_acid_screen.dart';
@@ -75,6 +85,73 @@ class ImportFileDetailsDialog extends ConsumerStatefulWidget {
 }
 
 class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog> {
+  GuideMatchResultModel? _guideMatchResult;
+
+  @override
+  void initState() {
+    super.initState();
+    ref.invalidate(smartReferenceCardProvider(widget.file.importFileId));
+    ref.invalidate(similarShipmentsProvider(widget.file.importFileId));
+    ref.invalidate(detectedPatternsProvider);
+    _loadExperienceGuide();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final poState = ref.read(purchaseOrdersProvider);
+      if (poState.purchaseOrders.isEmpty && !poState.isLoading) {
+        await ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+        if (mounted) {
+          _loadExperienceGuide();
+        }
+      }
+    });
+  }
+
+  Future<void> _loadExperienceGuide() async {
+    try {
+      final allHsCodes = <String>{};
+      final allCategories = <String>{};
+      final allPOs = ref.read(purchaseOrdersProvider).purchaseOrders;
+      final livePOs = ImportFilePoLinker.getLinkedPOs(file: widget.file, allPOs: allPOs);
+      final effectivePOs = livePOs.isNotEmpty ? livePOs : widget.linkedPOs;
+
+      for (final po in effectivePOs) {
+        for (final pli in po.packingListItems) {
+          if (pli.hsCode.trim().isNotEmpty) allHsCodes.add(pli.hsCode.trim());
+          if (pli.description != null && pli.description!.trim().isNotEmpty) {
+            allCategories.add(pli.description!.trim());
+          }
+        }
+        for (final it in po.items) {
+          if (it.hsCode != null && it.hsCode!.trim().isNotEmpty) {
+            allHsCodes.add(it.hsCode!.trim());
+          }
+          if (it.mainDescription != null && it.mainDescription!.trim().isNotEmpty) {
+            allCategories.add(it.mainDescription!.trim());
+          }
+        }
+      }
+      if (widget.file.hsCode != null && widget.file.hsCode!.trim().isNotEmpty) {
+        allHsCodes.add(widget.file.hsCode!.trim());
+      }
+      if (widget.file.productCategory != null && widget.file.productCategory!.trim().isNotEmpty) {
+        allCategories.add(widget.file.productCategory!.trim());
+      }
+
+      final res = await ref.read(experienceGuideProvider.notifier).matchShipment(
+        supplier: widget.file.supplierName,
+        hsCode: allHsCodes.isNotEmpty ? allHsCodes.first : widget.file.hsCode,
+        productCategory: allCategories.isNotEmpty ? allCategories.first : widget.file.productCategory,
+        portOfDischarge: widget.file.portOfDischarge,
+        incoterm: widget.file.incotermCode,
+        importFileReference: widget.file.importFileCode,
+      );
+      if (mounted) {
+        setState(() {
+          _guideMatchResult = res;
+        });
+      }
+    } catch (_) {}
+  }
+
   void _showVisualLoadPlanDialog(BuildContext context, List<PurchaseOrderModel> pos) {
     showDialog(
       context: context,
@@ -321,12 +398,46 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
     final allPOs = ref.watch(purchaseOrdersProvider).purchaseOrders;
     final liveLinkedPOs = ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs);
     final linkedPOs = liveLinkedPOs.isNotEmpty ? liveLinkedPOs : widget.linkedPOs;
+    final isAr = ref.watch(localeProvider).languageCode == 'ar' || Localizations.localeOf(context).languageCode == 'ar';
+    final shipmentHsCodes = <String>{};
+    final shipmentCategories = <String>{};
+    for (final po in linkedPOs) {
+      for (final pli in po.packingListItems) {
+        if (pli.hsCode.trim().isNotEmpty) shipmentHsCodes.add(pli.hsCode.trim());
+        if (pli.description != null && pli.description!.trim().isNotEmpty) {
+          shipmentCategories.add(pli.description!.trim());
+        }
+      }
+      for (final it in po.items) {
+        if (it.hsCode != null && it.hsCode!.trim().isNotEmpty) {
+          shipmentHsCodes.add(it.hsCode!.trim());
+        }
+        if (it.mainDescription != null && it.mainDescription!.trim().isNotEmpty) {
+          shipmentCategories.add(it.mainDescription!.trim());
+        }
+      }
+    }
+    if (file.hsCode != null && file.hsCode!.trim().isNotEmpty) {
+      shipmentHsCodes.add(file.hsCode!.trim());
+    }
+    if (file.productCategory != null && file.productCategory!.trim().isNotEmpty) {
+      shipmentCategories.add(file.productCategory!.trim());
+    }
 
     final metrics = ImportFilePoLinker.computeMetrics(file: file, linkedPOs: linkedPOs);
     final totalPackingListCbm = metrics.cbm > 0 ? metrics.cbm : widget.totalPackingListCbm;
     final totalPackingListWeight = metrics.weightKg > 0 ? metrics.weightKg : widget.totalPackingListWeight;
     final totalPackingListsCount = metrics.plCount > 0 ? metrics.plCount : widget.totalPackingListsCount;
-    final invoiceNumbers = metrics.invoices.isNotEmpty ? metrics.invoices : widget.invoiceNumbers;
+    final rawInvoices = metrics.invoices.isNotEmpty ? metrics.invoices : widget.invoiceNumbers;
+    final poNumbersToExclude = <String>{
+      if (file.poNumber != null && file.poNumber!.trim().toUpperCase().startsWith('PO-')) file.poNumber!.trim(),
+      for (final po in linkedPOs)
+        if (po.poNumber.trim().toUpperCase().startsWith('PO-')) po.poNumber.trim(),
+    };
+    final invoiceNumbers = rawInvoices.where((inv) =>
+      !poNumbersToExclude.contains(inv) &&
+      !(inv.toUpperCase().startsWith('PO-') && !inv.toUpperCase().contains('INV') && !inv.toUpperCase().contains('PI'))
+    ).toSet();
 
     final dualRec = ContainerRequirementEngine.calculateBoth(
       totalCbm: totalPackingListCbm,
@@ -405,13 +516,38 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
           const SizedBox(width: 8),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4F46E5), // Indigo
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.psychology_outlined, size: 18),
+            label: Text(isAr ? 'توثيق درس مستفاد (KB)' : 'Add KB Note', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => AddGuideEntryDialog(
+                  initialSupplier: file.supplierName,
+                  initialHsCode: file.hsCode,
+                  initialCategory: file.productCategory,
+                  initialDestinationPort: file.portOfDischarge,
+                  initialIncoterm: file.incotermCode,
+                  initialImportFileReference: file.importFileCode,
+                  onSuccess: () => _loadExperienceGuide(),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.emerald,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.calculate, size: 18),
-            label: const Text('المحاكاة الجمركية', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'المحاكاة الجمركية' : 'Customs Simulation', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               showDutyCalculatorDialog(
                 context,
@@ -429,7 +565,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.payments_outlined, size: 18),
-            label: const Text('طلب دفعة المورد (FN-01)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'طلب دفعة المورد (FN-01)' : 'Supplier Advance (FN-01)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               showSupplierAdvancePaymentDialog(
                 context,
@@ -454,7 +590,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.analytics_outlined, size: 18),
-            label: const Text('محاكاة تكلفة الوصول (Landed Cost)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'محاكاة تكلفة الوصول (Landed Cost)' : 'Landed Cost Simulation', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               showEstimatedLandedCostDialog(
                 context,
@@ -472,7 +608,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.verified_outlined, size: 18),
-            label: const Text('نافذة و ACID (DC-01)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'نافذة و ACID (DC-01)' : 'Nafeza & ACID (DC-01)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               Navigator.push(
                 context,
@@ -494,7 +630,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.account_balance_outlined, size: 18),
-            label: const Text('المستندات البنكية (DC-03)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'المستندات البنكية (DC-03)' : 'Bank Documents (DC-03)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               Navigator.push(
                 context,
@@ -516,7 +652,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.fact_check_outlined, size: 18),
-            label: const Text('مصفوفة المستندات (DC-04)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'مصفوفة المستندات (DC-04)' : 'Document Matrix (DC-04)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               Navigator.push(
                 context,
@@ -538,7 +674,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.directions_boat_outlined, size: 18),
-            label: const Text('حجز الشحن (BK-01)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'حجز الشحن (BK-01)' : 'Freight Booking (BK-01)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               Navigator.push(
                 context,
@@ -559,7 +695,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.verified_user_outlined, size: 18),
-            label: const Text('فترات السماح (BK-02)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'فترات السماح (BK-02)' : 'Free Days (BK-02)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               FreeDaysAgreementDialog.show(
                 context,
@@ -577,7 +713,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.sailing_rounded, size: 18),
-            label: const Text('تأكيد الإبحار (SH-01)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'تأكيد الإبحار (SH-01)' : 'Sailing Confirmation (SH-01)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               final bookings = ref.read(freightBookingProvider).value ?? [];
               final linkedBooking = bookings.firstWhere(
@@ -595,8 +731,8 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                 DepartureConfirmationDialog.show(context, linkedBooking);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('يرجى إنشاء وتأكيد حجز الشحن (BK-01) أولاً من شاشة حجز الشحن لتسجيل الإبحار'),
+                  SnackBar(
+                    content: Text(isAr ? 'يرجى إنشاء وتأكيد حجز الشحن (BK-01) أولاً من شاشة حجز الشحن لتسجيل الإبحار' : 'Please create and confirm freight booking (BK-01) first to record departure'),
                     backgroundColor: AppTheme.orange,
                   ),
                 );
@@ -613,7 +749,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.fact_check_rounded, size: 18),
-            label: const Text('مراجعة مسودة البوليصة (SH-02)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'مراجعة مسودة البوليصة (SH-02)' : 'Draft B/L Review (SH-02)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               DraftBLReviewDialog.show(context, file);
             },
@@ -628,7 +764,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.cloud_upload_rounded, size: 18),
-            label: const Text('مستندات CargoX (SH-03)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'مستندات CargoX (SH-03)' : 'CargoX Documents (SH-03)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               CargoXHubDialog.show(context, file);
             },
@@ -643,7 +779,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.markunread_mailbox_rounded, size: 18),
-            label: const Text('تتبع أصول المستندات (SH-04)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'تتبع أصول المستندات (SH-04)' : 'Original Docs (SH-04)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               OriginalDocumentsCollectionDialog.show(context, file);
             },
@@ -658,7 +794,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.assignment_ind_rounded, size: 18),
-            label: const Text('تفويض المخلص (CS-01)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'تفويض المخلص (CS-01)' : 'Broker Authorization (CS-01)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               CustomsBrokerAuthorizationDialog.show(context, file);
             },
@@ -673,7 +809,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.directions_boat_filled_rounded, size: 18),
-            label: const Text('سداد إذن التسليم (CS-02)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'سداد إذن التسليم (CS-02)' : 'Delivery Order Payment (CS-02)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               DeliveryOrderPaymentDialog.show(context, file);
             },
@@ -688,7 +824,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.description_rounded, size: 18),
-            label: const Text('قيد إقرار 46 (CS-03)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'قيد إقرار 46 (CS-03)' : 'Declaration 46 (CS-03)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               CustomsDeclaration46Dialog.show(context, file);
             },
@@ -703,7 +839,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.biotech_rounded, size: 18),
-            label: const Text('الكشف والمعاينة (CL-01)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'الكشف والمعاينة (CL-01)' : 'Inspection & Sampling (CL-01)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               CustomsInspectionSamplingDialog.show(context, file);
             },
@@ -718,7 +854,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.calculate_rounded, size: 18),
-            label: const Text('احتساب الرسوم (CL-02)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'احتساب الرسوم (CL-02)' : 'Duty Assessment (CL-02)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               FinalDutyAssessmentDialog.show(context, file);
             },
@@ -733,7 +869,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.receipt_long_rounded, size: 18),
-            label: const Text('سداد الرسوم (CL-03)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'سداد الرسوم (CL-03)' : 'Customs Duty Payment (CL-03)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               CustomsDutyPaymentDialog.show(context, file);
             },
@@ -748,7 +884,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.verified_outlined, size: 18),
-            label: const Text('إذن الإفراج (CL-04)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'إذن الإفراج (CL-04)' : 'Customs Release (CL-04)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               CustomsFinalReleaseDialog.show(context, file);
             },
@@ -763,7 +899,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.receipt_long_rounded, size: 18),
-            label: const Text('فواتير التخليص (CL-05)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'فواتير التخليص (CL-05)' : 'Clearance Invoices (CL-05)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               ClearanceExpensesDialog.show(context, file);
             },
@@ -778,7 +914,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.local_shipping_rounded, size: 18),
-            label: const Text('النقل الداخلي (TR-01)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'النقل الداخلي (TR-01)' : 'Inland Transport (TR-01)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               InlandTransportDialog.show(context, file);
             },
@@ -812,7 +948,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.warehouse_rounded, size: 18),
-            label: const Text('استلام المخزن (TR-03)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'استلام المخزن (TR-03)' : 'Warehouse Receiving (TR-03)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -831,7 +967,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.fact_check_rounded, size: 18),
-            label: const Text('محضر الفحص (TR-04)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'محضر الفحص (TR-04)' : 'Inspection Report (TR-04)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               final recs = ref.read(warehouseReceivingProvider).valueOrNull ?? [];
               final matching = recs.where((r) => r.importFileId == file.importFileId).toList();
@@ -866,7 +1002,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.assignment_turned_in_rounded, size: 18),
-            label: const Text('إرجاع الحاويات (TR-05)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'إرجاع الحاويات (TR-05)' : 'Empty Container Return (TR-05)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               EmptyContainerReturnDialog.show(
                 context,
@@ -886,7 +1022,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.receipt_long_rounded, size: 18),
-            label: const Text('تسوية الفواتير (CLO-01)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'تسوية الفواتير (CLO-01)' : 'Invoice Settlement (CLO-01)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               FinalSettlementInvoicesDialog.show(
                 context,
@@ -905,7 +1041,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.calculate_rounded, size: 18),
-            label: const Text('التكلفة الفعلية (CLO-02)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'التكلفة الفعلية (CLO-02)' : 'Actual Landed Cost (CLO-02)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               ActualLandedCostDialog.show(
                 context,
@@ -924,7 +1060,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.assignment_turned_in_rounded, size: 18),
-            label: const Text('الملف الشامل (CLO-03)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'الملف الشامل (CLO-03)' : 'Comprehensive Dossier (CLO-03)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               ComprehensiveDossierExportDialog.show(
                 context,
@@ -942,7 +1078,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.verified_rounded, size: 18),
-            label: const Text('الإغلاق الرسمي (CLO-04)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'الإغلاق الرسمي (CLO-04)' : 'Official Closure (CLO-04)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               OfficialFileClosureDialog.show(
                 context,
@@ -959,7 +1095,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.playlist_add_check_circle, size: 18),
-            label: const Text('قائمة التحقق الذكية', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(isAr ? 'قائمة التحقق الذكية' : 'Smart Checklist', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
               SmartChecklistDialog.show(context, file);
             },
@@ -973,6 +1109,25 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Smart Shipment Experience Guide Alert Banner (Institutional Memory)
+              if (_guideMatchResult != null && _guideMatchResult!.matchedEntries.isNotEmpty)
+                ExperienceGuideAlertBanner(
+                  matchResult: _guideMatchResult!,
+                  supplier: file.supplierName,
+                  hsCode: file.hsCode,
+                  productCategory: file.productCategory,
+                  portOfDischarge: file.portOfDischarge,
+                  incoterm: file.incotermCode,
+                  importFileReference: file.importFileCode,
+                ),
+
+              // Historical Similar Shipments Card
+              SimilarShipmentsCard(importFileId: file.importFileId),
+
+              // Systemic Detected Patterns Card
+              const DetectedPatternsCard(),
+              const SizedBox(height: 12),
+
               // Top Metric Summary Cards
               Container(
                 padding: const EdgeInsets.all(16),
@@ -1016,7 +1171,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                         Expanded(
                           child: _buildMetricTile(
                             l.totalGrossWeightFromPl,
-                            '${totalPackingListWeight.toStringAsFixed(0)} kg',
+                            '${PoPackingMatcher.formatWeight(totalPackingListWeight)} kg',
                             subtitle: l.grossWeightSumDescription,
                             icon: Icons.fitness_center,
                             color: AppTheme.emerald,
@@ -1256,14 +1411,21 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               // ── Smart Shipment Experience Guide Card ───────────────────────
               SmartShipmentReferenceCard(
                 importFileId: file.importFileId,
-                initialHsCode: file.hsCode,
+                initialHsCode: shipmentHsCodes.isNotEmpty ? shipmentHsCodes.first : file.hsCode,
+                initialCategory: shipmentCategories.isNotEmpty ? shipmentCategories.first : file.productCategory,
                 initialPod: file.portOfDischarge,
+                initialSupplier: file.supplierName,
+                initialCarrier: file.selectedScenario,
+                linkedPOs: linkedPOs,
+                file: file,
                 onGuidelineAdded: () {
                   showDialog(
                     context: context,
                     builder: (_) => AddGuideEntryDialog(
-                      initialHsCode: file.hsCode,
+                      initialHsCode: shipmentHsCodes.isNotEmpty ? shipmentHsCodes.first : file.hsCode,
+                      initialCategory: shipmentCategories.isNotEmpty ? shipmentCategories.first : file.productCategory,
                       initialDestinationPort: file.portOfDischarge,
+                      initialSupplier: file.supplierName,
                       initialShippingLine: file.selectedScenario,
                     ),
                   );
@@ -1389,7 +1551,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                               Padding(
                                 padding: const EdgeInsets.all(8),
                                 child: Text(
-                                  '${poPlCbm.toStringAsFixed(3)} m³ / ${poPlWeight.toStringAsFixed(0)} kg',
+                                  '${poPlCbm.toStringAsFixed(3)} m³ / ${PoPackingMatcher.formatWeight(poPlWeight)} kg',
                                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null),
                                 ),
                               ),
@@ -1405,6 +1567,11 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                         }),
                       ],
                     ),
+              const SizedBox(height: 18),
+
+              // ── Product & Quantity Summary Section ──────────────────────────
+              _buildProductQuantitySummary(context, linkedPOs, isAr: isAr, isDark: isDark),
+
               const SizedBox(height: 18),
 
               // CARGO STACKING & CONTAINER REQUIREMENT WIDGET (MD-019.1)
@@ -1731,7 +1898,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  Localizations.localeOf(context).languageCode == 'ar' ? '🚢 ${modeRec.reasonAr}' : '🚢 ${modeRec.reasonEn}',
+                                  isAr ? '🚢 ${modeRec.reasonAr}' : '🚢 ${modeRec.reasonEn}',
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -1818,6 +1985,421 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
     );
   }
 
+
+  /// ── Product & Quantity Summary ─────────────────────────────────────────────
+  /// Aggregates po.items from all linkedPOs.
+  /// If there are multiple distinct HS Codes → renders sub-tabs (one per HS Code + "All").
+  Widget _buildProductQuantitySummary(
+    BuildContext context,
+    List<PurchaseOrderModel> linkedPOs, {
+    bool isAr = false,
+    bool isDark = false,
+  }) {
+    // Gather all items from all linked POs
+    final allItems = <({
+      String description,
+      String hsCode,
+      double quantity,
+      String uom,
+      double unitPrice,
+      String currency,
+      String poNumber,
+    })>[];
+
+    for (final po in linkedPOs) {
+      if (po.items.isNotEmpty) {
+        for (final item in po.items) {
+          String resolvedHs = item.hsCode?.trim() ?? '';
+          if (resolvedHs.isEmpty && po.packingListItems.isNotEmpty) {
+            for (final pl in po.packingListItems) {
+              if (pl.hsCode.trim().isNotEmpty) {
+                resolvedHs = pl.hsCode.trim();
+                break;
+              }
+            }
+          }
+          if (resolvedHs.isEmpty && widget.file.hsCode != null) {
+            resolvedHs = widget.file.hsCode!.trim();
+          }
+          allItems.add((
+            description: item.itemDescription.trim().isNotEmpty
+                ? item.itemDescription.trim()
+                : (isAr ? 'منتج غير محدد' : 'Unnamed Product'),
+            hsCode: resolvedHs,
+            quantity: item.quantity,
+            uom: item.unitOfMeasure,
+            unitPrice: item.unitPrice,
+            currency: po.currencyCode ?? 'USD',
+            poNumber: po.poNumber,
+          ));
+        }
+      } else if (po.packingListItems.isNotEmpty) {
+        for (final pl in po.packingListItems) {
+          allItems.add((
+            description: pl.mainDescription?.trim().isNotEmpty == true
+                ? pl.mainDescription!.trim()
+                : (pl.description?.trim().isNotEmpty == true
+                    ? pl.description!.trim()
+                    : (isAr ? 'منتج غير محدد' : 'Unnamed Product')),
+            hsCode: pl.hsCode.trim(),
+            quantity: pl.qtyPcs > 0 ? pl.qtyPcs : pl.qtyPkg,
+            uom: pl.packageType.trim().isNotEmpty ? pl.packageType.trim() : 'CTN',
+            unitPrice: 0.0,
+            currency: po.currencyCode ?? 'USD',
+            poNumber: po.poNumber,
+          ));
+        }
+      }
+    }
+
+    if (allItems.isEmpty && widget.file.packingListsData.isNotEmpty) {
+      for (final pl in widget.file.packingListsData) {
+        allItems.add((
+          description: widget.file.productCategory ?? (isAr ? 'قائمة تعبئة (${pl.plNo})' : 'Packing List (${pl.plNo})'),
+          hsCode: widget.file.hsCode ?? '',
+          quantity: pl.totalPackages.toDouble(),
+          uom: 'PKG',
+          unitPrice: 0.0,
+          currency: 'USD',
+          poNumber: widget.file.poNumber ?? widget.file.importFileCode,
+        ));
+      }
+    }
+
+    if (allItems.isEmpty) return const SizedBox.shrink();
+
+    // Collect distinct HS Codes (non-empty)
+    final distinctHsCodes = <String>{};
+    for (final item in allItems) {
+      if (item.hsCode.isNotEmpty) distinctHsCodes.add(item.hsCode);
+    }
+    final hsCodes = distinctHsCodes.toList()..sort();
+
+    const headerStyle = TextStyle(
+      color: Colors.white,
+      fontWeight: FontWeight.bold,
+      fontSize: 11,
+    );
+
+    // Build a table for a given list of items
+    Widget buildTable(List<dynamic> items) {
+      return Table(
+        border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+        columnWidths: const {
+          0: FlexColumnWidth(3.0),
+          1: FlexColumnWidth(1.4),
+          2: FlexColumnWidth(1.0),
+          3: FlexColumnWidth(1.0),
+          4: FlexColumnWidth(1.2),
+          5: FlexColumnWidth(1.4),
+        },
+        children: [
+          TableRow(
+            decoration: BoxDecoration(color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal),
+            children: [
+              Padding(padding: const EdgeInsets.all(7), child: Text(isAr ? 'المنتج / البيان' : 'Product / Description', style: headerStyle)),
+              const Padding(padding: EdgeInsets.all(7), child: Text('HS Code', style: headerStyle)),
+              Padding(padding: const EdgeInsets.all(7), child: Text(isAr ? 'الكمية' : 'Qty', style: headerStyle)),
+              Padding(padding: const EdgeInsets.all(7), child: Text(isAr ? 'الوحدة' : 'UOM', style: headerStyle)),
+              Padding(padding: const EdgeInsets.all(7), child: Text(isAr ? 'سعر الوحدة' : 'Unit Price', style: headerStyle)),
+              Padding(padding: const EdgeInsets.all(7), child: Text(isAr ? 'أمر التوريد' : 'PO No.', style: headerStyle)),
+            ],
+          ),
+          ...items.map((rawItem) {
+            final item = rawItem as ({
+              String description,
+              String hsCode,
+              double quantity,
+              String uom,
+              double unitPrice,
+              String currency,
+              String poNumber,
+            });
+            final evenRow = items.indexOf(rawItem).isEven;
+            return TableRow(
+              decoration: BoxDecoration(
+                color: evenRow
+                    ? (isDark ? AppTheme.darkSurface : null)
+                    : (isDark ? AppTheme.darkCardBackground : Colors.grey.shade50),
+              ),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(7),
+                  child: Text(
+                    item.description,
+                    style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(7),
+                  child: item.hsCode.isNotEmpty
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.cobalt.withOpacity(isDark ? 0.2 : 0.08),
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                          ),
+                          child: Text(
+                            item.hsCode,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt,
+                            ),
+                          ),
+                        )
+                      : Text(isAr ? '—' : '—', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextMuted : Colors.grey)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(7),
+                  child: Text(
+                    item.quantity % 1 == 0 ? item.quantity.toInt().toString() : item.quantity.toStringAsFixed(2),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(7),
+                  child: Text(item.uom, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(7),
+                  child: Text(
+                    item.unitPrice > 0 ? '${item.currency} ${item.unitPrice.toStringAsFixed(2)}' : '—',
+                    style: TextStyle(fontSize: 11, color: isDark ? Colors.green.shade300 : Colors.green.shade700),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(7),
+                  child: Text(
+                    item.poNumber,
+                    style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextMuted : Colors.grey),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            );
+          }),
+        ],
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface.withOpacity(0.5) : AppTheme.emerald.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.emerald.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.inventory_2_outlined, color: isDark ? Colors.green.shade300 : AppTheme.emerald, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                isAr ? '📦 ملخص المنتجات والكميات' : '📦 Product & Quantity Summary',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: (isDark ? Colors.green.shade900 : AppTheme.emerald).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: isDark ? Colors.green.shade700 : AppTheme.emerald.withOpacity(0.4)),
+                ),
+                child: Text(
+                  '${allItems.length} ${isAr ? 'بند' : 'items'}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.green.shade300 : AppTheme.emerald,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // If multiple HS Codes → tabs per HS Code + "All" tab
+          if (hsCodes.length > 1) ...[
+            DefaultTabController(
+              length: hsCodes.length + 1,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
+                    child: TabBar(
+                      isScrollable: true,
+                      indicatorColor: AppTheme.emerald,
+                      labelColor: Colors.white,
+                      unselectedLabelColor: Colors.white70,
+                      tabAlignment: TabAlignment.start,
+                      tabs: [
+                        Tab(
+                          child: Text(
+                            isAr ? 'الكل (${allItems.length})' : 'All (${allItems.length})',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        ...hsCodes.map((hs) {
+                          final count = allItems.where((i) => i.hsCode == hs).length;
+                          return Tab(
+                            child: Text(
+                              '$hs ($count)',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: (allItems.length.clamp(1, 8) * 36.0) + 40,
+                    child: TabBarView(
+                      children: [
+                        SingleChildScrollView(child: buildTable(allItems)),
+                        ...hsCodes.map((hs) {
+                          final filtered = allItems.where((i) => i.hsCode == hs).toList();
+                          return SingleChildScrollView(child: buildTable(filtered));
+                        }),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            // Single HS Code or no HS Code — just the table
+            buildTable(allItems),
+          ],
+          if (distinctHsCodes.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            Text(
+              isAr
+                  ? '📊 ملخص بنود أوامر التوريد حسب البند الجمركي (PO Line Items Summary By HS Code)'
+                  : '📊 PO Line Items Summary By HS Code',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Table(
+              border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+              columnWidths: const {
+                0: FlexColumnWidth(1.6),
+                1: FlexColumnWidth(1.8),
+                2: FlexColumnWidth(0.9),
+                3: FlexColumnWidth(1.1),
+                4: FlexColumnWidth(1.3),
+                5: FlexColumnWidth(1.3),
+              },
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(color: isDark ? AppTheme.darkElevatedSurface : AppTheme.cloudWhite),
+                  children: [
+                    Padding(padding: const EdgeInsets.all(6), child: Text(isAr ? 'بند التعريفة' : 'HS Code', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                    Padding(padding: const EdgeInsets.all(6), child: Text(isAr ? 'أوامر التوريد' : 'Linked POs', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                    Padding(padding: const EdgeInsets.all(6), child: Text(isAr ? 'الأصناف' : 'Items', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                    Padding(padding: const EdgeInsets.all(6), child: Text(isAr ? 'إجمالي الكمية' : 'Total Qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                    Padding(padding: const EdgeInsets.all(6), child: Text(isAr ? 'إجمالي القيمة' : 'Total Value', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                    Padding(padding: const EdgeInsets.all(6), child: Text(isAr ? 'نسب الرسوم' : 'Duty / VAT', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                  ],
+                ),
+                ...hsCodes.map((hs) {
+                  final matchingItems = allItems.where((i) => i.hsCode == hs).toList();
+                  final totalQty = matchingItems.fold<double>(0.0, (sum, i) => sum + i.quantity);
+                  final totalAmount = matchingItems.fold<double>(0.0, (sum, i) => sum + (i.quantity * i.unitPrice));
+                  final poNumbers = matchingItems.map((i) => i.poNumber).toSet().toList().join(', ');
+                  final currency = matchingItems.isNotEmpty ? matchingItems.first.currency : 'USD';
+                  final cleanHs = hs.trim();
+                  final registeredTariffs = ref.watch(customsTariffProvider).valueOrNull ?? [];
+                  final tariff = registeredTariffs.cast<CustomsTariffModel?>().firstWhere(
+                    (t) => t != null && (t.hsCode == cleanHs || t.hsCode.replaceAll('.', '') == cleanHs.replaceAll('.', '')),
+                    orElse: () => null,
+                  );
+                  final dutyRate = tariff?.customsDutyRate ?? 0.0;
+                  final vatRate = tariff?.vatRate ?? 14.0;
+
+                  return TableRow(
+                    decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : null),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Text(hs, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Text(poNumbers, style: TextStyle(fontSize: 10.5, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800)),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Text('${matchingItems.length}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null)),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Text(totalQty % 1 == 0 ? totalQty.toInt().toString() : totalQty.toStringAsFixed(2), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null)),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Text('$currency ${totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green)),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Text('$dutyRate% / $vatRate%', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
+                      ),
+                    ],
+                  );
+                }),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isAr
+                  ? '🛡️ شروط الاستيراد الرقابية وقواعد الإعفاء لكل بند جمركي (Compliance & Trade Agreements):'
+                  : '🛡️ Regulatory Import Conditions & Trade Agreements per HS Code:',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12.5,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...hsCodes.map((hs) {
+              final cleanHs = hs.trim();
+              final registeredTariffs = ref.watch(customsTariffProvider).valueOrNull ?? [];
+              final tariff = registeredTariffs.cast<CustomsTariffModel?>().firstWhere(
+                (t) => t != null && (t.hsCode == cleanHs || t.hsCode.replaceAll('.', '') == cleanHs.replaceAll('.', '')),
+                orElse: () => null,
+              );
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: HsCodeComplianceInsightCard(
+                  hsCode: hs,
+                  tariff: tariff,
+                  countryOfOrigin: linkedPOs.firstOrNull?.countryOfOrigin,
+                  isDark: isDark,
+                  isArabic: isAr,
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
 
   Widget _buildScenarioResultCard(
     BuildContext context, {

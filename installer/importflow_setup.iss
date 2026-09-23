@@ -4,7 +4,7 @@
 ; =====================================================================
 
 #define MyAppName "Sorour Logistics"
-#define MyAppVersion "2.0.2"
+#define MyAppVersion "2.0.3"
 #define MyAppPublisher "Sorour Logistics"
 #define MyAppURL "https://sorourlogistics.com"
 #define MyAppExeName "Launch_Sorour_Logistics.vbs"
@@ -22,7 +22,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=..\dist\releases
-OutputBaseFilename=Sorour_Logistics_Setup_v2.0.2
+OutputBaseFilename=Sorour_Logistics_Setup_v2.0.3
 SetupIconFile={#AppIconPath}
 Compression=lzma2/max
 SolidCompression=yes

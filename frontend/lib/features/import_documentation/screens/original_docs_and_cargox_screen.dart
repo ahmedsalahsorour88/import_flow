@@ -131,10 +131,7 @@ class _OriginalDocsAndCargoXScreenState
             onPressed: _refreshData,
           ),
         ],
-        body: Padding(
-          padding: const EdgeInsets.only(bottom: 72.0),
-          child: _buildCurrentTabContent(),
-        ),
+        body: _buildCurrentTabContent(),
       ),
     );
   }

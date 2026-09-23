@@ -24,6 +24,11 @@ from modules.cargox.schemas import (
     StandardInvoiceComparisonRow,
     StandardInvoiceLineComparisonRow,
 )
+from modules.cargox.city_port_resolver import (
+    resolve_city_code,
+    resolve_port_display_name,
+    resolve_port_code,
+)
 
 
 def _sanitize_str(val: Any) -> str:
@@ -42,6 +47,50 @@ def _safe_float(val: Any, default: float = 0.0) -> float:
         return float(s)
     except (ValueError, TypeError):
         return default
+
+
+def _is_numeric(val: Any) -> bool:
+    if val is None:
+        return False
+    if isinstance(val, (int, float)):
+        return True
+    try:
+        s = str(val).replace(",", "").replace("$", "").replace("€", "").replace("EGP", "").strip()
+        if not s:
+            return False
+        float(s)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
+CARGOX_WEIGHT_UOMS = {
+    "GRM": "gram",
+    "KGM": "kilogram",
+    "SET": "set",
+    "STN": "ton (US) or short ton (UK/US)",
+}
+
+
+def normalize_cargox_weight_unit(val: Optional[str]) -> str:
+    """
+    Normalizes any weight unit string to one of the 4 official
+    CargoX 'Unit of measure list' Common Codes: GRM, KGM, SET, STN.
+    """
+    if not val:
+        return "KGM"
+    clean = str(val).strip().upper()
+    if clean in ("KGM", "KG", "KGS", "KILOGRAM", "KILOGRAMS", "كجم", "كيلو", "كيلوجرام", "كيلوغرام"):
+        return "KGM"
+    if clean in ("GRM", "G", "GM", "GMS", "GRAM", "GRAMS", "جرام", "غرام"):
+        return "GRM"
+    if clean in ("STN", "TON", "TONS", "T", "MT", "طن"):
+        return "STN"
+    if clean in ("SET", "SETS", "طقم", "مجموعة"):
+        return "SET"
+    if clean in CARGOX_WEIGHT_UOMS:
+        return clean
+    return "KGM"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -233,7 +282,10 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
         ws["B1"].value = payload.seller_name or "Foreign Exporter Name"
         ws["D1"].value = payload.seller_address or ""
         ws["F1"].value = payload.seller_tax_id or ""
-        ws["F2"].value = payload.seller_country_code or "IT"
+        city_code = payload.seller_city_code or resolve_city_code(
+            payload.seller_address, payload.seller_country_code, payload.seller_city
+        )
+        ws["F2"].value = city_code
         ws["I2"].value = payload.seller_phone or ""
         ws["D3"].value = payload.seller_city or ""
         ws["F3"].value = payload.seller_website or ""
@@ -253,22 +305,43 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
         ws["I6"].value = payload.buyer_fax or ""
         ws["C7"].value = payload.buyer_tax_id or "123456789"
         ws["E7"].value = payload.acid_number or "PENDING"
-        ws["G7"].value = payload.origin_port or ""
+        pol_code = resolve_port_code(payload.origin_port, default_code="CNSHA")
+        ws["G7"].value = pol_code
+        origin_display = resolve_port_display_name(pol_code)
+        safe_orig_disp = origin_display.replace('"', '""')
+        ws["H7"].value = f"=IFERROR(VLOOKUP(G7,'City List'!$A$1:$C$34274,2,FALSE)&\"/\"&VLOOKUP(G7,'City List'!$A$1:$C$34274,3,FALSE),\"{safe_orig_disp}\")"
+        ws["H7"].font = Font(name="Calibri", size=11, bold=True, color="735223")
+        ws["H7"].alignment = Alignment(horizontal="left", vertical="center")
 
         # Metadata & Dates
         ws["C8"].value = payload.purchase_order_number or ""
         ws["E8"].value = payload.purchase_order_date or ""
-        ws["G8"].value = payload.destination_port or "EGALY"
+        pod_code = resolve_port_code(payload.destination_port or "EGALY", default_code="EGALY")
+        ws["G8"].value = pod_code
+        dest_display = resolve_port_display_name(pod_code)
+        safe_dest_disp = dest_display.replace('"', '""')
+        ws["H8"].value = f"=IFERROR(VLOOKUP(G8,'City List'!$A$1:$C$34274,2,FALSE)&\"/\"&VLOOKUP(G8,'City List'!$A$1:$C$34274,3,FALSE),\"{safe_dest_disp}\")"
+        ws["H8"].font = Font(name="Calibri", size=11, bold=True, color="735223")
+        ws["H8"].alignment = Alignment(horizontal="left", vertical="center")
+
+        if "PortCodes" not in wb.defined_names:
+            wb.defined_names.add(DefinedName("PortCodes", attr_text="'City List'!$A$2:$A$34274"))
+
         ws["C9"].value = payload.invoice_number or "INV-2026-001"
         ws["E9"].value = payload.invoice_date or "2026-08-21"
         ws["C10"].value = payload.currency_code or "EUR"
         ws["E10"].value = payload.incoterm or "EXW"
 
-        # Weights & Proforma
+        # Weights & Proforma Header Block
+        ws["K4"].value = "Proforma invoice number:"
         ws["L4"].value = payload.proforma_invoice_number or ""
-        ws["L5"].value = payload.gross_weight
-        ws["L6"].value = payload.net_weight
-        ws["L7"].value = payload.weight_unit or "KG"
+        ws["K5"].value = "Gross Weight:"
+        ws["L5"].value = "=SUM(InvoiceItems[Gross Weight])"
+        ws["L5"].number_format = "#,##0.00"
+        ws["K6"].value = "Net Weight:"
+        ws["L6"].value = "=SUM(InvoiceItems[Net Weight])"
+        ws["L6"].number_format = "#,##0.00"
+        ws["K7"].value = "Weight Unit:"
 
         # Populate Items in Table
         items = payload.items or [
@@ -288,9 +361,19 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
                 unit_price_basis="SET",
                 gross_weight_kg=120.0,
                 net_weight_kg=110.0,
+                weight_unit="KGM",
                 total_amount=2500.0,
             )
         ]
+
+        primary_uom = "KGM"
+        for it in items:
+            if getattr(it, "weight_unit", None):
+                primary_uom = it.weight_unit
+                break
+        if not primary_uom and payload.weight_unit:
+            primary_uom = payload.weight_unit
+        ws["L7"].value = normalize_cargox_weight_unit(primary_uom)
 
         # 1. Unmerge old totals cell ranges before shifting
         for mr in ["B18:J18", "B20:J20"]:
@@ -328,6 +411,16 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
 
         ws.row_dimensions[12].height = 30.0
 
+        table_headers = [
+            "#", "Product Code", "TradeMarkOwner/Manufacturer", "Brand Name", "Model",
+            "HS Tariff Code", "Country of Origin", "Description", "Quantity", "Qty Unit",
+            "Expiry Date", "Unit Price", "Gross Weight", "Net Weight", "Weight Unit", "Total",
+        ]
+        for col_idx, h in enumerate(table_headers, 1):
+            cl = openpyxl.utils.get_column_letter(col_idx)
+            ws[f"{cl}12"].value = h
+            ws[f"{cl}12"].font = Font(name="Calibri", size=10, bold=True, color="735223")
+
         current_row = 13
         for idx, item in enumerate(items, 1):
             r = current_row
@@ -346,9 +439,9 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
             ws[f"J{r}"] = item.qty_unit
             ws[f"K{r}"] = item.expiry_date or ""
             ws[f"L{r}"] = item.unit_price
-            ws[f"M{r}"] = item.unit_price_basis or "PCS"
-            ws[f"N{r}"] = item.gross_weight_kg
-            ws[f"O{r}"] = item.net_weight_kg
+            ws[f"M{r}"] = item.gross_weight_kg
+            ws[f"N{r}"] = item.net_weight_kg
+            ws[f"O{r}"] = normalize_cargox_weight_unit(getattr(item, "weight_unit", None) or payload.weight_unit)
             ws[f"P{r}"] = f"=I{r}*L{r}"
 
             alignments = {
@@ -364,20 +457,20 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
                 "J": Alignment(horizontal="center", vertical="center"),
                 "K": Alignment(horizontal="center", vertical="center"),
                 "L": Alignment(horizontal="right", vertical="center"),
-                "M": Alignment(horizontal="center", vertical="center"),
+                "M": Alignment(horizontal="right", vertical="center"),
                 "N": Alignment(horizontal="right", vertical="center"),
-                "O": Alignment(horizontal="right", vertical="center"),
+                "O": Alignment(horizontal="center", vertical="center"),
                 "P": Alignment(horizontal="right", vertical="center"),
             }
 
             num_formats = {
-                "A": "0", "I": "#,##0.00", "L": "#,##0.00", "N": "#,##0.00", "O": "#,##0.00", "P": "#,##0.00"
+                "A": "0", "I": "#,##0.00", "L": "#,##0.00", "M": "#,##0.00", "N": "#,##0.00", "O": "@", "P": "#,##0.00"
             }
 
             for c in range(1, 17):
                 cl = openpyxl.utils.get_column_letter(c)
                 cell = ws[f"{cl}{r}"]
-                cell.font = Font(name="Calibri", size=10, bold=(cl == "A" or cl == "M"))
+                cell.font = Font(name="Calibri", size=10, bold=(cl == "A" or cl == "P"))
                 cell.alignment = alignments.get(cl, Alignment(horizontal="center", vertical="center"))
                 if cl in num_formats:
                     cell.number_format = num_formats[cl]
@@ -387,11 +480,13 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
             current_row += 1
 
         end_row = 12 + num_items
-        # 3. Update the existing authentic Table ref & autoFilter without corrupting XML
         if "InvoiceItems" in ws.tables:
             ws.tables["InvoiceItems"].ref = f"A12:P{end_row}"
             if ws.tables["InvoiceItems"].autoFilter:
                 ws.tables["InvoiceItems"].autoFilter.ref = f"A12:P{end_row}"
+            for c_idx, col in enumerate(ws.tables["InvoiceItems"].tableColumns):
+                if c_idx < len(table_headers):
+                    col.name = table_headers[c_idx]
 
 
         totals_start_row = 13 + num_items
@@ -406,23 +501,23 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
         for r_tot in range(totals_start_row, totals_start_row + 5):
             ws.row_dimensions[r_tot].height = 30.0
 
-        # 6. Set Totals
+        # 6. Set Totals with Structured Dynamic References
         ws[f"B{totals_start_row}"].value = "Lines #:"
         ws[f"B{totals_start_row}"].font = brown_bold_font
         ws[f"B{totals_start_row}"].alignment = Alignment(horizontal="right", vertical="center")
 
-        ws[f"C{totals_start_row}"].value = f"=ROWS(A13:A{end_row})"
+        ws[f"C{totals_start_row}"].value = "=ROWS(InvoiceItems[])"
         ws[f"C{totals_start_row}"].font = bold_val_font
         ws[f"C{totals_start_row}"].alignment = Alignment(horizontal="center", vertical="center")
 
-        ws["H11"].value = f"=ROWS(A13:A{end_row})"
+        ws["H11"].value = "=ROWS(InvoiceItems[])"
         ws["H11"].font = bold_val_font
 
         ws[f"O{totals_start_row}"].value = "Invoice Subtotal"
         ws[f"O{totals_start_row}"].font = brown_bold_font
         ws[f"O{totals_start_row}"].alignment = Alignment(horizontal="right", vertical="center")
 
-        ws[f"P{totals_start_row}"].value = f"=SUM(P13:P{end_row})"
+        ws[f"P{totals_start_row}"].value = "=SUM(InvoiceItems[Total])"
         ws[f"P{totals_start_row}"].font = bold_val_font
         ws[f"P{totals_start_row}"].number_format = "#,##0.00"
         ws[f"P{totals_start_row}"].alignment = Alignment(horizontal="right", vertical="center")
@@ -458,7 +553,7 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
         ws[f"O{totals_start_row+4}"].font = brown_bold_font
         ws[f"O{totals_start_row+4}"].alignment = Alignment(horizontal="right", vertical="center")
 
-        ws[f"P{totals_start_row+4}"].value = f"=P{totals_start_row}+P{totals_start_row+1}+P{totals_start_row+2}+P{totals_start_row+3}"
+        ws[f"P{totals_start_row+4}"].value = "=InvoiceSubtotal+FreightCost+InsuranceCost+OtherCosts"
         ws[f"P{totals_start_row+4}"].font = bold_val_font
         ws[f"P{totals_start_row+4}"].number_format = "#,##0.00"
         ws[f"P{totals_start_row+4}"].alignment = Alignment(horizontal="right", vertical="center")
@@ -471,6 +566,12 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
             "InsuranceCost":       f"'{ws.title}'!$P${totals_start_row+2}",
             "OtherCosts":          f"'{ws.title}'!$P${totals_start_row+3}",
             "TotalAmount":         f"'{ws.title}'!$P${totals_start_row+4}",
+            "GrossWeight":         f"'{ws.title}'!$L$5",
+            "NetWeight":           f"'{ws.title}'!$L$6",
+            "WeightUnit":          f"'{ws.title}'!$L$7",
+            "ProformaInvoiceNumber": f"'{ws.title}'!$L$4",
+            "OriginPort":          f"'{ws.title}'!$G$7",
+            "DestinationPort":     f"'{ws.title}'!$G$8",
         }
         for _dn_name, _dn_ref in _defined_names_to_set.items():
             if _dn_name in wb.defined_names:
@@ -565,12 +666,19 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
     ws["L7"] = "KG"
     ws["L7"].font = brown_bold_font
 
+    city_code = payload.seller_city_code or resolve_city_code(
+        payload.seller_address, payload.seller_country_code, payload.seller_city
+    )
+
+    pol_code = resolve_port_code(payload.origin_port, default_code="CNSHA")
+    pod_code = resolve_port_code(payload.destination_port or "EGALY", default_code="EGALY")
+
     named_range_mapping = {
         "SellerName": ("B1", payload.seller_name or "Foreign Exporter Name"),
         "SellerAddress": ("D1", payload.seller_address or ""),
         "SellerRegistrationCode": ("F1", payload.seller_tax_id or "VAT/TAX ID"),
         "SellerCode": ("F1", payload.seller_tax_id or "VAT/TAX ID"),
-        "SellerCountryCode": ("F2", payload.seller_country_code or "IT"),
+        "SellerCountryCode": ("F2", city_code),
         "SellerPhone": ("I2", payload.seller_phone or ""),
         "SellerCity": ("D3", payload.seller_city or ""),
         "SellerFax": ("I3", payload.seller_fax or ""),
@@ -593,11 +701,11 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
         "CurrencyCode": ("C10", payload.currency_code or "EUR"),
         "IncoTerm": ("E10", payload.incoterm or "EXW"),
         "ProformaInvoiceNumber": ("L4", payload.proforma_invoice_number or ""),
-        "GrossWeight": ("L5", payload.gross_weight),
-        "NetWeight": ("L6", payload.net_weight),
-        "WeightUnit": ("L7", payload.weight_unit or "KG"),
-        "OriginPort": ("G7", payload.origin_port or ""),
-        "DestinationPort": ("G8", payload.destination_port or "EGALY"),
+        "GrossWeight": ("L5", "=SUM(InvoiceItems[Gross Weight])"),
+        "NetWeight": ("L6", "=SUM(InvoiceItems[Net Weight])"),
+        "WeightUnit": ("L7", normalize_cargox_weight_unit(payload.weight_unit)),
+        "OriginPort": ("G7", pol_code),
+        "DestinationPort": ("G8", pod_code),
     }
 
     for name, (cell_coord, val) in named_range_mapping.items():
@@ -607,13 +715,28 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
             cell.font = regular_val_font
         wb.defined_names.add(DefinedName(name, attr_text=f"'{ws.title}'!${cell_coord[0]}${cell_coord[1:]}"))
 
+    origin_display = resolve_port_display_name(pol_code)
+    safe_orig_disp = origin_display.replace('"', '""')
+    ws["H7"].value = f"=IFERROR(VLOOKUP(G7,'City List'!$A$1:$C$34274,2,FALSE)&\"/\"&VLOOKUP(G7,'City List'!$A$1:$C$34274,3,FALSE),\"{safe_orig_disp}\")"
+    ws["H7"].font = brown_bold_font
+    ws["H7"].alignment = Alignment(horizontal="left", vertical="center")
+
+    dest_display = resolve_port_display_name(pod_code)
+    safe_dest_disp = dest_display.replace('"', '""')
+    ws["H8"].value = f"=IFERROR(VLOOKUP(G8,'City List'!$A$1:$C$34274,2,FALSE)&\"/\"&VLOOKUP(G8,'City List'!$A$1:$C$34274,3,FALSE),\"{safe_dest_disp}\")"
+    ws["H8"].font = brown_bold_font
+    ws["H8"].alignment = Alignment(horizontal="left", vertical="center")
+
+    if "PortCodes" not in wb.defined_names:
+        wb.defined_names.add(DefinedName("PortCodes", attr_text="'City List'!$A$2:$A$34274"))
+
     ws["H11"] = "=ROWS(InvoiceItems[])"
     ws["H11"].font = brown_bold_font
 
     table_headers = [
         "#", "Product Code", "TradeMarkOwner/Manufacturer", "Brand Name", "Model",
         "HS Tariff Code", "Country of Origin", "Description", "Quantity", "Qty Unit",
-        "Expiry Date", "Unit Price", "Unit price basis", "Gross Weight", "Net Weight", "Total",
+        "Expiry Date", "Unit Price", "Gross Weight", "Net Weight", "Weight Unit", "Total",
     ]
 
     for col_idx, header_title in enumerate(table_headers, start=1):
@@ -639,6 +762,7 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
             unit_price_basis="SET",
             gross_weight_kg=120.0,
             net_weight_kg=110.0,
+            weight_unit="KGM",
             total_amount=2500.0,
         )
     ]
@@ -657,56 +781,57 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
         ws[f"J{current_row}"] = item.qty_unit
         ws[f"K{current_row}"] = item.expiry_date or ""
         ws[f"L{current_row}"] = item.unit_price
-        ws[f"M{current_row}"] = item.unit_price_basis or "PCS"
-        ws[f"N{current_row}"] = item.gross_weight_kg
-        ws[f"O{current_row}"] = item.net_weight_kg
-        ws[f"P{current_row}"] = f"=InvoiceItems[[#This Row],[Quantity]]*InvoiceItems[[#This Row],[Unit Price]]"
+        ws[f"M{current_row}"] = item.gross_weight_kg
+        ws[f"N{current_row}"] = item.net_weight_kg
+        ws[f"O{current_row}"] = normalize_cargox_weight_unit(getattr(item, "weight_unit", None) or payload.weight_unit)
+        ws[f"P{current_row}"] = f"=I{current_row}*L{current_row}"
         for col_idx in range(1, 17):
             col_letter = openpyxl.utils.get_column_letter(col_idx)
             ws[f"{col_letter}{current_row}"].font = regular_val_font
         current_row += 1
 
-    end_row = max(current_row - 1, 15)
+    end_row = current_row - 1
     tab = Table(displayName="InvoiceItems", ref=f"A12:P{end_row}")
     tab.tableStyleInfo = TableStyleInfo(name="TableStyleLight1", showFirstColumn=False, showLastColumn=False, showRowStripes=True, showColumnStripes=False)
     ws.add_table(tab)
 
+    totals_start_row = current_row
     # Totals
-    ws["B16"] = "Lines #:"
-    ws["B16"].font = brown_bold_font
-    ws["C16"] = "=ROWS(InvoiceItems[])"
-    ws["C16"].font = brown_bold_font
-    wb.defined_names.add(DefinedName("TotalInvoiceLinesNo", attr_text=f"'{ws.title}'!$C$16"))
+    ws[f"B{totals_start_row}"] = "Lines #:"
+    ws[f"B{totals_start_row}"].font = brown_bold_font
+    ws[f"C{totals_start_row}"] = "=ROWS(InvoiceItems[])"
+    ws[f"C{totals_start_row}"].font = brown_bold_font
+    wb.defined_names.add(DefinedName("TotalInvoiceLinesNo", attr_text=f"'{ws.title}'!$C${totals_start_row}"))
 
-    ws["O16"] = "Invoice Subtotal"
-    ws["O16"].font = brown_bold_font
-    ws["P16"] = "=SUM(InvoiceItems[Total])"
-    ws["P16"].font = bold_val_font
-    wb.defined_names.add(DefinedName("InvoiceSubtotal", attr_text=f"'{ws.title}'!$P$16"))
+    ws[f"O{totals_start_row}"] = "Invoice Subtotal"
+    ws[f"O{totals_start_row}"].font = brown_bold_font
+    ws[f"P{totals_start_row}"] = "=SUM(InvoiceItems[Total])"
+    ws[f"P{totals_start_row}"].font = bold_val_font
+    wb.defined_names.add(DefinedName("InvoiceSubtotal", attr_text=f"'{ws.title}'!$P${totals_start_row}"))
 
-    ws["O17"] = "Freight Cost"
-    ws["O17"].font = brown_bold_font
-    ws["P17"] = payload.freight_cost
-    ws["P17"].font = regular_val_font
-    wb.defined_names.add(DefinedName("FreightCost", attr_text=f"'{ws.title}'!$P$17"))
+    ws[f"O{totals_start_row+1}"] = "Freight Cost"
+    ws[f"O{totals_start_row+1}"].font = brown_bold_font
+    ws[f"P{totals_start_row+1}"] = payload.freight_cost or 0.0
+    ws[f"P{totals_start_row+1}"].font = regular_val_font
+    wb.defined_names.add(DefinedName("FreightCost", attr_text=f"'{ws.title}'!$P${totals_start_row+1}"))
 
-    ws["O18"] = "Insurance Cost"
-    ws["O18"].font = brown_bold_font
-    ws["P18"] = payload.insurance_cost
-    ws["P18"].font = regular_val_font
-    wb.defined_names.add(DefinedName("InsuranceCost", attr_text=f"'{ws.title}'!$P$18"))
+    ws[f"O{totals_start_row+2}"] = "Insurance Cost"
+    ws[f"O{totals_start_row+2}"].font = brown_bold_font
+    ws[f"P{totals_start_row+2}"] = payload.insurance_cost or 0.0
+    ws[f"P{totals_start_row+2}"].font = regular_val_font
+    wb.defined_names.add(DefinedName("InsuranceCost", attr_text=f"'{ws.title}'!$P${totals_start_row+2}"))
 
-    ws["O19"] = "Other Costs"
-    ws["O19"].font = brown_bold_font
-    ws["P19"] = payload.other_costs
-    ws["P19"].font = regular_val_font
-    wb.defined_names.add(DefinedName("OtherCosts", attr_text=f"'{ws.title}'!$P$19"))
+    ws[f"O{totals_start_row+3}"] = "Other Costs"
+    ws[f"O{totals_start_row+3}"].font = brown_bold_font
+    ws[f"P{totals_start_row+3}"] = payload.other_costs or 0.0
+    ws[f"P{totals_start_row+3}"].font = regular_val_font
+    wb.defined_names.add(DefinedName("OtherCosts", attr_text=f"'{ws.title}'!$P${totals_start_row+3}"))
 
-    ws["O20"] = "Total"
-    ws["O20"].font = brown_bold_font
-    ws["P20"] = "=InvoiceSubtotal+FreightCost+InsuranceCost+OtherCosts"
-    ws["P20"].font = bold_val_font
-    wb.defined_names.add(DefinedName("TotalAmount", attr_text=f"'{ws.title}'!$P$20"))
+    ws[f"O{totals_start_row+4}"] = "Total"
+    ws[f"O{totals_start_row+4}"].font = brown_bold_font
+    ws[f"P{totals_start_row+4}"] = "=InvoiceSubtotal+FreightCost+InsuranceCost+OtherCosts"
+    ws[f"P{totals_start_row+4}"].font = bold_val_font
+    wb.defined_names.add(DefinedName("TotalAmount", attr_text=f"'{ws.title}'!$P${totals_start_row+4}"))
 
     # Reference Sheets (2 to 8)
     ws_pac = wb.create_sheet(title="Package Type list")
@@ -796,6 +921,7 @@ def parse_standard_invoice_excel_bytes(file_bytes: bytes) -> StandardInvoicePayl
         "SellerCode": "F1",
         "SellerAddress": "D1",
         "SellerCity": "D3",
+        "SellerCityCode": "F2",
         "SellerCountryCode": "F2",
         "SellerContactName": "E4",
         "SellerPhone": "I2",
@@ -838,7 +964,9 @@ def parse_standard_invoice_excel_bytes(file_bytes: bytes) -> StandardInvoicePayl
     seller_tax_id = _sanitize_str(fetch_field("SellerRegistrationCode") or fetch_field("SellerCode"))
     seller_address = _sanitize_str(fetch_field("SellerAddress"))
     seller_city = _sanitize_str(fetch_field("SellerCity"))
-    seller_country_code = _sanitize_str(fetch_field("SellerCountryCode"))
+    seller_raw_code = _sanitize_str(fetch_field("SellerCityCode") or fetch_field("SellerCountryCode"))
+    seller_city_code = seller_raw_code if len(seller_raw_code) >= 4 else ""
+    seller_country_code = seller_raw_code[:2] if len(seller_raw_code) >= 2 else "CN"
     seller_contact_name = _sanitize_str(fetch_field("SellerContactName"))
     seller_phone = _sanitize_str(fetch_field("SellerPhone"))
     seller_fax = _sanitize_str(fetch_field("SellerFax"))
@@ -861,12 +989,20 @@ def parse_standard_invoice_excel_bytes(file_bytes: bytes) -> StandardInvoicePayl
     purchase_order_date = _sanitize_str(fetch_field("PurchaseOrderDate"))
     proforma_invoice_number = _sanitize_str(fetch_field("ProformaInvoiceNumber"))
     origin_port = _sanitize_str(fetch_field("OriginPort"))
+    if not origin_port and "H7" in ws:
+        h7_val = _sanitize_str(ws["H7"].value)
+        if not h7_val.startswith("="):
+            origin_port = h7_val
     destination_port = _sanitize_str(fetch_field("DestinationPort"))
+    if not destination_port and "H8" in ws:
+        h8_val = _sanitize_str(ws["H8"].value)
+        if not h8_val.startswith("="):
+            destination_port = h8_val
     currency_code = _sanitize_str(fetch_field("CurrencyCode")) or "EUR"
     incoterm = _sanitize_str(fetch_field("IncoTerm")) or "EXW"
     gross_weight = _safe_float(fetch_field("GrossWeight"))
     net_weight = _safe_float(fetch_field("NetWeight"))
-    weight_unit = _sanitize_str(fetch_field("WeightUnit")) or "KGM"
+    weight_unit = normalize_cargox_weight_unit(_sanitize_str(fetch_field("WeightUnit")))
 
     freight_cost = _safe_float(fetch_field("FreightCost"))
     insurance_cost = _safe_float(fetch_field("InsuranceCost"))
@@ -880,12 +1016,44 @@ def parse_standard_invoice_excel_bytes(file_bytes: bytes) -> StandardInvoicePayl
             break
 
     if table_range:
+        col13_header = _sanitize_str(ws.cell(row=12, column=13).value).lower()
+        col15_header = _sanitize_str(ws.cell(row=12, column=15).value).lower()
+        is_new_layout = ("gross" in col13_header) or ("weight" in col15_header)
+
         min_col, min_row, max_col, max_row = openpyxl.utils.range_boundaries(table_range)
         for row_idx in range(min_row + 1, max_row + 1):
             hs_code = _sanitize_str(ws.cell(row=row_idx, column=6).value)
             desc = _sanitize_str(ws.cell(row=row_idx, column=8).value)
             if not hs_code and not desc:
                 continue
+
+            c13_raw = ws.cell(row=row_idx, column=13).value
+            c14_raw = ws.cell(row=row_idx, column=14).value
+            c15_raw = ws.cell(row=row_idx, column=15).value
+            c16_raw = ws.cell(row=row_idx, column=16).value
+
+            # Self-healing detection for legacy shifted columns:
+            # If col 13 contains a non-numeric string (e.g. "Carton") and col 14 & 15 are numeric (e.g. 10510 and 10080)
+            is_shifted_row = (not _is_numeric(c13_raw)) and _is_numeric(c14_raw) and _is_numeric(c15_raw)
+
+            if is_shifted_row:
+                basis_val = _sanitize_str(c13_raw) or _sanitize_str(ws.cell(row=row_idx, column=10).value) or "PCS"
+                gw_val = _safe_float(c14_raw)
+                nw_val = _safe_float(c15_raw)
+                wu_val = normalize_cargox_weight_unit(weight_unit)
+                tot_val = _safe_float(c16_raw)
+            elif is_new_layout:
+                gw_val = _safe_float(c13_raw)
+                nw_val = _safe_float(c14_raw)
+                wu_val = normalize_cargox_weight_unit(_sanitize_str(c15_raw) or weight_unit)
+                tot_val = _safe_float(c16_raw)
+                basis_val = _sanitize_str(ws.cell(row=row_idx, column=10).value) or "PCS"
+            else:
+                basis_val = _sanitize_str(c13_raw) or "PCS"
+                gw_val = _safe_float(c14_raw)
+                nw_val = _safe_float(c15_raw)
+                wu_val = normalize_cargox_weight_unit(weight_unit)
+                tot_val = _safe_float(c16_raw)
 
             item = StandardInvoiceLineItem(
                 index=int(_safe_float(ws.cell(row=row_idx, column=1).value, len(items) + 1)),
@@ -900,15 +1068,20 @@ def parse_standard_invoice_excel_bytes(file_bytes: bytes) -> StandardInvoicePayl
                 qty_unit=_sanitize_str(ws.cell(row=row_idx, column=10).value) or "PCE",
                 expiry_date=_sanitize_str(ws.cell(row=row_idx, column=11).value),
                 unit_price=_safe_float(ws.cell(row=row_idx, column=12).value),
-                unit_price_basis=_sanitize_str(ws.cell(row=row_idx, column=13).value) or "PCS",
-                gross_weight_kg=_safe_float(ws.cell(row=row_idx, column=14).value),
-                net_weight_kg=_safe_float(ws.cell(row=row_idx, column=15).value),
-                total_amount=_safe_float(ws.cell(row=row_idx, column=16).value),
+                unit_price_basis=basis_val,
+                gross_weight_kg=gw_val,
+                net_weight_kg=nw_val,
+                weight_unit=wu_val,
+                total_amount=tot_val,
             )
             if item.total_amount == 0.0 and item.quantity > 0 and item.unit_price > 0:
                 item.total_amount = round(item.quantity * item.unit_price, 2)
             items.append(item)
     else:
+        col13_header = _sanitize_str(ws.cell(row=12, column=13).value).lower()
+        col15_header = _sanitize_str(ws.cell(row=12, column=15).value).lower()
+        is_new_layout = ("gross" in col13_header) or ("weight" in col15_header)
+
         for r in range(13, ws.max_row + 1):
             col1_val = str(ws.cell(row=r, column=1).value or "").strip()
             col6_hs = str(ws.cell(row=r, column=6).value or "").strip()
@@ -916,6 +1089,32 @@ def parse_standard_invoice_excel_bytes(file_bytes: bytes) -> StandardInvoicePayl
             if "Subtotal" in str(ws.cell(row=r, column=15).value or "") or "Total" in str(ws.cell(row=r, column=15).value or ""):
                 break
             if col6_hs or col8_desc:
+                c13_raw = ws.cell(row=r, column=13).value
+                c14_raw = ws.cell(row=r, column=14).value
+                c15_raw = ws.cell(row=r, column=15).value
+                c16_raw = ws.cell(row=r, column=16).value
+
+                is_shifted_row = (not _is_numeric(c13_raw)) and _is_numeric(c14_raw) and _is_numeric(c15_raw)
+
+                if is_shifted_row:
+                    basis_val = _sanitize_str(c13_raw) or _sanitize_str(ws.cell(row=r, column=10).value) or "PCS"
+                    gw_val = _safe_float(c14_raw)
+                    nw_val = _safe_float(c15_raw)
+                    wu_val = normalize_cargox_weight_unit(weight_unit)
+                    tot_val = _safe_float(c16_raw)
+                elif is_new_layout:
+                    gw_val = _safe_float(c13_raw)
+                    nw_val = _safe_float(c14_raw)
+                    wu_val = normalize_cargox_weight_unit(_sanitize_str(c15_raw) or weight_unit)
+                    tot_val = _safe_float(c16_raw)
+                    basis_val = _sanitize_str(ws.cell(row=r, column=10).value) or "PCS"
+                else:
+                    basis_val = _sanitize_str(c13_raw) or "PCS"
+                    gw_val = _safe_float(c14_raw)
+                    nw_val = _safe_float(c15_raw)
+                    wu_val = normalize_cargox_weight_unit(weight_unit)
+                    tot_val = _safe_float(c16_raw)
+
                 item = StandardInvoiceLineItem(
                     index=int(_safe_float(col1_val, len(items) + 1)),
                     product_code=_sanitize_str(ws.cell(row=r, column=2).value),
@@ -929,10 +1128,11 @@ def parse_standard_invoice_excel_bytes(file_bytes: bytes) -> StandardInvoicePayl
                     qty_unit=_sanitize_str(ws.cell(row=r, column=10).value) or "PCE",
                     expiry_date=_sanitize_str(ws.cell(row=r, column=11).value),
                     unit_price=_safe_float(ws.cell(row=r, column=12).value),
-                    unit_price_basis=_sanitize_str(ws.cell(row=r, column=13).value) or "PCS",
-                    gross_weight_kg=_safe_float(ws.cell(row=r, column=14).value),
-                    net_weight_kg=_safe_float(ws.cell(row=r, column=15).value),
-                    total_amount=_safe_float(ws.cell(row=r, column=16).value),
+                    unit_price_basis=basis_val,
+                    gross_weight_kg=gw_val,
+                    net_weight_kg=nw_val,
+                    weight_unit=wu_val,
+                    total_amount=tot_val,
                 )
                 if item.total_amount == 0.0:
                     item.total_amount = round(item.quantity * item.unit_price, 2)
@@ -941,10 +1141,18 @@ def parse_standard_invoice_excel_bytes(file_bytes: bytes) -> StandardInvoicePayl
     subtotal = sum(i.total_amount for i in items)
     total_amount = round(subtotal + freight_cost + insurance_cost + other_costs, 2)
 
+    if gross_weight == 0.0 and items:
+        gross_weight = round(sum(i.gross_weight_kg for i in items), 2)
+    if net_weight == 0.0 and items:
+        net_weight = round(sum(i.net_weight_kg for i in items), 2)
+    if items and items[0].weight_unit:
+        weight_unit = normalize_cargox_weight_unit(items[0].weight_unit)
+
     return StandardInvoicePayload(
         seller_name=seller_name,
         seller_address=seller_address,
         seller_city=seller_city,
+        seller_city_code=seller_city_code,
         seller_country_code=seller_country_code,
         seller_tax_id=seller_tax_id,
         seller_contact_name=seller_contact_name,
@@ -1110,12 +1318,68 @@ def compare_standard_invoice_data(
         )
     )
 
-    sys_pod = (system_snapshot.destination_port or "").strip().upper()
-    sup_pod = (supplier_data.destination_port or "").strip().upper()
-    if sys_pod and sup_pod and sys_pod not in sup_pod and sup_pod not in sys_pod:
+    sys_city_code = _sanitize_str(system_snapshot.seller_city_code).upper()
+    sup_city_code = _sanitize_str(supplier_data.seller_city_code).upper()
+    if sys_city_code and sup_city_code and sys_city_code != sup_city_code:
         status = "WARNING"
         warning_count += 1
-        diff = f"{sys_pod} vs {sup_pod}"
+        diff = f"{sys_city_code} vs {sup_city_code}"
+    else:
+        status = "MATCH"
+        diff = None
+    header_comparisons.append(
+        StandardInvoiceComparisonRow(
+            field_key="seller_city_code",
+            field_label_ar="كود مدينة المصدر (City Code)",
+            field_label_en="Exporter City Code",
+            system_value=sys_city_code,
+            supplier_value=sup_city_code,
+            status=status,
+            difference=diff,
+        )
+    )
+
+    sys_pol = (system_snapshot.origin_port or "").strip().upper()
+    sup_pol = (supplier_data.origin_port or "").strip().upper()
+    sys_pol_code = resolve_port_code(sys_pol)
+    sup_pol_code = resolve_port_code(sup_pol)
+    sys_pol_disp = resolve_port_display_name(sys_pol_code)
+    sup_pol_disp = resolve_port_display_name(sup_pol_code)
+    sys_pol_full = f"{sys_pol_code} — {sys_pol_disp}" if sys_pol_disp and sys_pol_disp != sys_pol_code else sys_pol_code
+    sup_pol_full = f"{sup_pol_code} — {sup_pol_disp}" if sup_pol_disp and sup_pol_disp != sup_pol_code else sup_pol_code
+
+    if sys_pol_code and sup_pol_code and sys_pol_code != sup_pol_code:
+        status = "WARNING"
+        warning_count += 1
+        diff = f"{sys_pol_code} vs {sup_pol_code}"
+    else:
+        status = "MATCH"
+        diff = None
+    header_comparisons.append(
+        StandardInvoiceComparisonRow(
+            field_key="origin_port",
+            field_label_ar="ميناء الشحن / القيام (Origin Port)",
+            field_label_en="Origin Port (POL)",
+            system_value=sys_pol_full,
+            supplier_value=sup_pol_full,
+            status=status,
+            difference=diff,
+        )
+    )
+
+    sys_pod = (system_snapshot.destination_port or "").strip().upper()
+    sup_pod = (supplier_data.destination_port or "").strip().upper()
+    sys_pod_code = resolve_port_code(sys_pod)
+    sup_pod_code = resolve_port_code(sup_pod)
+    sys_pod_disp = resolve_port_display_name(sys_pod_code)
+    sup_pod_disp = resolve_port_display_name(sup_pod_code)
+    sys_pod_full = f"{sys_pod_code} — {sys_pod_disp}" if sys_pod_disp and sys_pod_disp != sys_pod_code else sys_pod_code
+    sup_pod_full = f"{sup_pod_code} — {sup_pod_disp}" if sup_pod_disp and sup_pod_disp != sup_pod_code else sup_pod_code
+
+    if sys_pod_code and sup_pod_code and sys_pod_code != sup_pod_code:
+        status = "WARNING"
+        warning_count += 1
+        diff = f"{sys_pod_code} vs {sup_pod_code}"
     else:
         status = "MATCH"
         diff = None
@@ -1123,9 +1387,9 @@ def compare_standard_invoice_data(
         StandardInvoiceComparisonRow(
             field_key="destination_port",
             field_label_ar="ميناء الوصول (Destination Port)",
-            field_label_en="Destination Port",
-            system_value=sys_pod,
-            supplier_value=sup_pod,
+            field_label_en="Destination Port (POD)",
+            system_value=sys_pod_full,
+            supplier_value=sup_pod_full,
             status=status,
             difference=diff,
         )

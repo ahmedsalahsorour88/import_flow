@@ -330,28 +330,25 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
       body: SelectionArea(
         child: state.isLoading && state.trackings.isEmpty
             ? const Center(child: CircularProgressIndicator())
-            : Padding(
-                padding: const EdgeInsets.only(bottom: 72.0),
-                child: AdaptiveTabScaffold(
-                  controller: _tabController,
-                  tabs: [
-                    AdaptiveTabItem(
-                      icon: Icons.list_alt_rounded,
-                      label: l10n.containerTrackingsTab,
-                      content: _buildTrackingsTab(state),
-                    ),
-                    AdaptiveTabItem(
-                      icon: Icons.calculate_outlined,
-                      label: l10n.simulatorAndTierCalcTab,
-                      content: _buildSimulatorTab(state),
-                    ),
-                    AdaptiveTabItem(
-                      icon: Icons.policy_outlined,
-                      label: l10n.carrierTariffPoliciesTab,
-                      content: _buildPoliciesTab(state),
-                    ),
-                  ],
-                ),
+            : AdaptiveTabScaffold(
+                controller: _tabController,
+                tabs: [
+                  AdaptiveTabItem(
+                    icon: Icons.list_alt_rounded,
+                    label: l10n.containerTrackingsTab,
+                    content: _buildTrackingsTab(state),
+                  ),
+                  AdaptiveTabItem(
+                    icon: Icons.calculate_outlined,
+                    label: l10n.simulatorAndTierCalcTab,
+                    content: _buildSimulatorTab(state),
+                  ),
+                  AdaptiveTabItem(
+                    icon: Icons.policy_outlined,
+                    label: l10n.carrierTariffPoliciesTab,
+                    content: _buildPoliciesTab(state),
+                  ),
+                ],
               ),
       ),
     );

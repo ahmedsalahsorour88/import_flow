@@ -43,7 +43,30 @@ class SmartReferenceCardModel {
   String get productCategory => (productSummary['product_category'] as String?) ?? '';
   double get totalCbm => (productSummary['total_cbm'] as num?)?.toDouble() ?? 0.0;
   double get totalGrossWeightKg => (productSummary['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0;
+  double get totalNetWeightKg => (productSummary['total_net_weight_kg'] as num?)?.toDouble() ?? 0.0;
   int get packagesCount => (productSummary['packages_count'] as num?)?.toInt() ?? 0;
+
+  List<String> get allHsCodes {
+    final list = productSummary['all_hs_codes'] as List<dynamic>?;
+    if (list != null && list.isNotEmpty) {
+      return list.map((e) => e.toString()).toList();
+    }
+    if (hsSummaries.isNotEmpty) {
+      return hsSummaries.map((e) => e.hsCode).toList();
+    }
+    if (hsCode.isNotEmpty) {
+      return [hsCode];
+    }
+    return [];
+  }
+
+  List<HsCodeSummaryModel> get hsSummaries {
+    final list = productSummary['hs_summaries'] as List<dynamic>?;
+    if (list != null && list.isNotEmpty) {
+      return list.map((e) => HsCodeSummaryModel.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
 
   String get originPort => (routeSummary['origin_port'] as String?) ?? 'غير محدد';
   String get destinationPort => (routeSummary['destination_port'] as String?) ?? 'ميناء الإسكندرية';
@@ -64,3 +87,36 @@ class SmartReferenceCardModel {
   double get variancePercentage => (costSummary['variance_percentage'] as num?)?.toDouble() ?? 0.0;
   String get currency => (costSummary['currency'] as String?) ?? 'USD';
 }
+
+class HsCodeSummaryModel {
+  final String hsCode;
+  final String description;
+  final double cbm;
+  final double grossWeightKg;
+  final double netWeightKg;
+  final int packagesCount;
+  final double quantityPcs;
+
+  HsCodeSummaryModel({
+    required this.hsCode,
+    required this.description,
+    required this.cbm,
+    required this.grossWeightKg,
+    required this.netWeightKg,
+    required this.packagesCount,
+    required this.quantityPcs,
+  });
+
+  factory HsCodeSummaryModel.fromJson(Map<String, dynamic> json) {
+    return HsCodeSummaryModel(
+      hsCode: (json['hs_code'] as String?) ?? '',
+      description: (json['description'] as String?) ?? '',
+      cbm: (json['cbm'] as num?)?.toDouble() ?? 0.0,
+      grossWeightKg: (json['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      netWeightKg: (json['net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      packagesCount: (json['packages_count'] as num?)?.toInt() ?? 0,
+      quantityPcs: (json['quantity_pcs'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+

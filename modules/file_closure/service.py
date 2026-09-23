@@ -173,6 +173,14 @@ def close_import_file_service(db: Session, schema: FileClosureCreate) -> ImportF
         imp_file.next_action = "File Archived - Read-Only Historical State"
         imp_file.current_stage = f"Archived & Closed (Certificate: {record.closure_code})"
         imp_file.current_module = "Phase 10 - Import File Closure & Historical Archive"
+
+        # KB-GUIDE-012 Section 5A: Autonomous Reference Engine Continuous Learning Trigger
+        try:
+            from modules.experience_guide.service import ExperienceGuideService
+            ExperienceGuideService.run_autonomous_learning(db=db, trigger_import_file_id=imp_file.import_file_id)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Autonomous learning engine trigger on file closure failed: %s", e)
         imp_file.status = "Closed"
         imp_file.progress_percent = 100.0
 

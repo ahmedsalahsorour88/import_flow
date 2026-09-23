@@ -317,6 +317,7 @@ class StandardInvoiceLineItemModel {
   final String? unitPriceBasis;
   final double grossWeightKg;
   final double netWeightKg;
+  final String weightUnit;
   final double totalAmount;
 
   StandardInvoiceLineItemModel({
@@ -335,6 +336,7 @@ class StandardInvoiceLineItemModel {
     this.unitPriceBasis = 'PCS',
     this.grossWeightKg = 0.0,
     this.netWeightKg = 0.0,
+    this.weightUnit = 'KGM',
     required this.totalAmount,
   });
 
@@ -355,6 +357,7 @@ class StandardInvoiceLineItemModel {
       unitPriceBasis: json['unit_price_basis'] as String? ?? 'PCS',
       grossWeightKg: (json['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
       netWeightKg: (json['net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      weightUnit: json['weight_unit'] as String? ?? 'KGM',
       totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
     );
   }
@@ -376,6 +379,7 @@ class StandardInvoiceLineItemModel {
       'unit_price_basis': unitPriceBasis,
       'gross_weight_kg': grossWeightKg,
       'net_weight_kg': netWeightKg,
+      'weight_unit': weightUnit,
       'total_amount': totalAmount,
     };
   }
@@ -385,6 +389,7 @@ class StandardInvoicePayloadModel {
   final String? sellerName;
   final String? sellerAddress;
   final String? sellerCity;
+  final String? sellerCityCode;
   final String? sellerCountryCode;
   final String? sellerTaxId;
   final String? sellerContactName;
@@ -424,6 +429,7 @@ class StandardInvoicePayloadModel {
     this.sellerName,
     this.sellerAddress,
     this.sellerCity,
+    this.sellerCityCode,
     this.sellerCountryCode,
     this.sellerTaxId,
     this.sellerContactName,
@@ -465,6 +471,7 @@ class StandardInvoicePayloadModel {
       sellerName: json['seller_name'] as String?,
       sellerAddress: json['seller_address'] as String?,
       sellerCity: json['seller_city'] as String?,
+      sellerCityCode: json['seller_city_code'] as String?,
       sellerCountryCode: json['seller_country_code'] as String?,
       sellerTaxId: json['seller_tax_id'] as String?,
       sellerContactName: json['seller_contact_name'] as String?,
@@ -510,6 +517,7 @@ class StandardInvoicePayloadModel {
       'seller_name': sellerName,
       'seller_address': sellerAddress,
       'seller_city': sellerCity,
+      'seller_city_code': sellerCityCode,
       'seller_country_code': sellerCountryCode,
       'seller_tax_id': sellerTaxId,
       'seller_contact_name': sellerContactName,

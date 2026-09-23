@@ -219,7 +219,7 @@ class CooExportService {
             unit: templateData['unit']?.toString() ?? 'PCS',
             packagesCount: templateData['packages_count'] ?? 144,
             packageType: templateData['package_type']?.toString(),
-            grossWeightKg: templateData['gross_weight_kg'] ?? 10510.56,
+            grossWeightKg: templateData['gross_weight_kg'] ?? 10510.0,
             isChina: isChina,
           );
 

@@ -714,15 +714,18 @@ def _heuristic_multi_carrier_extractor(raw_text: str, spatial_boxes: Optional[di
     if m_code:
         parsed["shipper_country_code"] = m_code.group(1).strip()
 
-    # 4. Bill of Lading Number (Prioritize carrier-specific patterns like MEDURE910647, MAEU..., etc.)
-    m_carrier_bl = re.search(r'\b(MEDU[A-Z0-9]{6,12}|MAEU\d{8,12}|HLCU[A-Z0-9]{8,12}|COSU\d{8,12}|ONEY[A-Z0-9]{8,12})\b', raw_text)
+    # 4. Bill of Lading Number (Prioritize carrier-specific patterns like MEDURE910647, MAEU..., THXJ..., etc.)
+    m_carrier_bl = re.search(r'\b(MEDU[A-Z0-9]{6,12}|MAEU\d{8,12}|HLCU[A-Z0-9]{8,12}|COSU\d{8,12}|ONEY[A-Z0-9]{8,12}|THXJ[A-Z0-9]{6,12}|WHSU\d{8,12}|EGLV[A-Z0-9]{8,12})\b', raw_text)
     if m_carrier_bl:
         parsed["draft_bl_number"] = m_carrier_bl.group(1).strip()
     else:
         m_bl = re.search(r'(?:Bill\s+of\s+Lading\s+No\.?|B/L\s+No\.?|BILL\s+OF\s+LADING\s+No\.?|BL\s+NUMBER|B/L\s+NUMBER)[:\s\n]+([A-Z0-9/-]+)', raw_text, re.IGNORECASE)
         if m_bl:
             cand_bl = m_bl.group(1).strip()
-            if not cand_bl.startswith("XXX") and cand_bl.upper() not in ["DRAFT", "ORIGINAL", "COPY", "NON-NEGOTIABLE"]:
+            invalid_tokens = {"DRAFT", "ORIGINAL", "COPY", "NON-NEGOTIABLE", "NEGOTIABLE", "ITTOE", "PAGE", "NUMBER", "CARRIER", "VESSEL", "CONTAINER", "FREIGHT", "PREPAID", "COLLECT", "SUITE", "STREET", "ROAD", "NOTICE", "ORDER", "AS"}
+            cand_upper = cand_bl.upper()
+            has_digit_or_carrier = bool(re.search(r'\d', cand_bl) or re.match(r'^[A-Z]{3,4}[A-Z0-9]{4,}$', cand_upper))
+            if len(cand_bl) >= 6 and not cand_bl.startswith("XXX") and cand_upper not in invalid_tokens and has_digit_or_carrier:
                 parsed["draft_bl_number"] = cand_bl
 
 
@@ -2110,108 +2113,200 @@ def reconcile_po_documents_with_system(
 def match_invoice_with_bl(
     invoice_data: dict,
     bl_data: dict,
-    system_data: Optional[dict] = None
+    system_data: Optional[dict] = None,
+    packing_list_data: Optional[dict] = None,
 ) -> dict:
     """
-    Performs comprehensive 10-point cross-comparison between Commercial Invoice and Draft B/L.
+    Performs comprehensive 10-point cross-comparison between Commercial Invoice, B/L,
+    System Data, and Packing List Data.
     Generates a color-coded discrepancy matrix and auto-generates formal correction notices.
     """
     matrix: List[Dict[str, Any]] = []
     has_critical = False
     has_warning = False
 
+    sys_d = system_data or {}
+    pl_d = packing_list_data or {}
+
     # 1. ACID Number (19 digits) - Critical
+    sys_acid = sys_d.get("acid_number")
     inv_acid = invoice_data.get("acid_number")
+    pl_acid = pl_d.get("acid_number") or inv_acid
     bl_acid = bl_data.get("acid_number")
-    acid_matched = inv_acid and bl_acid and inv_acid == bl_acid
-    if not acid_matched:
-        has_critical = True
+
+    disagreeing_acid = []
+    if not inv_acid and not bl_acid:
+        acid_status = "EXTRACTION_FAILED"
+        has_warning = True
+        acid_details = "⚠️ لم يتم استخراج رقم ACID من الفاتورة أو البوليصة."
+    else:
+        acid_matched = bool(inv_acid and bl_acid and inv_acid == bl_acid)
+        if sys_acid and inv_acid and sys_acid != inv_acid:
+            acid_matched = False
+        if not acid_matched:
+            has_critical = True
+            acid_status = "MISMATCH_CRITICAL"
+            acid_details = "❌ عدم تطابق رقم ACID يمنع الإفراج الجمركي ويوقف الشحنة فوراً."
+            disagreeing_acid = ["Invoice", "B/L"]
+        else:
+            acid_status = "MATCH"
+            acid_details = "رقم ACID الجمركي مطابق بنسبة 100%"
+
     matrix.append({
         "item_code": "CHK_ACID",
         "field_name_ar": "رقم القيد الجمركي المسبق (ACID)",
         "field_name_en": "ACID Number (19 Digits)",
+        "system_value": sys_acid or "غير مسجل بالسستم",
+        "packing_list_value": pl_acid or "غير موجود بالباكينج",
         "invoice_value": inv_acid or "غير موجود بالفاتورة",
         "bl_value": bl_acid or "غير موجود بالبوليصة",
-        "match_status": "MATCH" if acid_matched else "MISMATCH_CRITICAL",
-        "severity": "NONE" if acid_matched else "BLOCKING",
+        "match_status": acid_status,
+        "severity": "BLOCKING" if acid_status == "MISMATCH_CRITICAL" else ("WARNING" if acid_status == "EXTRACTION_FAILED" else "NONE"),
         "tolerance": "0% (مطابقة حتمية تامة)",
-        "details": "رقم ACID الجمركي مطابق بنسبة 100%" if acid_matched else "❌ عدم تطابق رقم ACID يمنع الإفراج الجمركي ويوقف الشحنة فوراً.",
+        "disagreeing_sources": disagreeing_acid or None,
+        "details": acid_details,
     })
 
     # 2. Importer Tax ID (9 digits) - Critical
+    sys_tax = sys_d.get("importer_tax_id")
     inv_tax = invoice_data.get("importer_tax_id")
+    pl_tax = pl_d.get("importer_tax_id") or inv_tax
     bl_tax = bl_data.get("importer_tax_id")
-    tax_matched = inv_tax and bl_tax and inv_tax == bl_tax
-    if not tax_matched:
-        has_critical = True
+
+    disagreeing_tax = []
+    if not inv_tax and not bl_tax:
+        tax_status = "EXTRACTION_FAILED"
+        has_warning = True
+        tax_details = "⚠️ لم يتم استخراج البطاقة الضريبية للمستورد من المستندات."
+    else:
+        tax_matched = bool(inv_tax and bl_tax and inv_tax == bl_tax)
+        if not tax_matched:
+            has_critical = True
+            tax_status = "MISMATCH_CRITICAL"
+            tax_details = "❌ عدم تطابق البطاقة الضريبية يمنع مطابقة نافذة ونموذج 4."
+            disagreeing_tax = ["Invoice", "B/L"]
+        else:
+            tax_status = "MATCH"
+            tax_details = "رقم التسجيل الضريبي للمستورد مطابق"
+
     matrix.append({
         "item_code": "CHK_TAX_ID",
         "field_name_ar": "البطاقة الضريبية للمستورد (Tax ID)",
         "field_name_en": "Importer Tax ID (9 Digits)",
-        "invoice_value": inv_tax or "غير متوفر",
-        "bl_value": bl_tax or "غير متوفر",
-        "match_status": "MATCH" if tax_matched else "MISMATCH_CRITICAL",
-        "severity": "NONE" if tax_matched else "BLOCKING",
+        "system_value": sys_tax or "غير متوفر بالسستم",
+        "packing_list_value": pl_tax or "غير متوفر بالباكينج",
+        "invoice_value": inv_tax or "غير متوفر بالفاتورة",
+        "bl_value": bl_tax or "غير متوفر بالبوليصة",
+        "match_status": tax_status,
+        "severity": "BLOCKING" if tax_status == "MISMATCH_CRITICAL" else ("WARNING" if tax_status == "EXTRACTION_FAILED" else "NONE"),
         "tolerance": "0% (مطابقة حتمية تامة)",
-        "details": "رقم التسجيل الضريبي للمستورد مطابق" if tax_matched else "❌ عدم تطابق البطاقة الضريبية يمنع مطابقة نافذة ونموذج 4.",
+        "disagreeing_sources": disagreeing_tax or None,
+        "details": tax_details,
     })
 
     # 3. Shipper / Exporter & VAT - Critical
-    inv_shp = invoice_data.get("shipper")
+    sys_shp = sys_d.get("supplier_name") or sys_d.get("shipper")
+    inv_shp = invoice_data.get("shipper") or invoice_data.get("supplier_name")
+    pl_shp = pl_d.get("shipper") or pl_d.get("supplier_name") or inv_shp
     bl_shp = bl_data.get("shipper")
-    shp_matched, shp_ratio = _fuzzy_match_strings(inv_shp, bl_shp)
-    if not shp_matched:
-        has_critical = True
+
+    disagreeing_shp = []
+    if not inv_shp and not bl_shp:
+        shp_status = "EXTRACTION_FAILED"
+        shp_ratio = 0.0
+        has_warning = True
+        shp_details = "⚠️ تعذر استخراج اسم الشاحن/المصدر."
+    else:
+        shp_matched, shp_ratio = _fuzzy_match_strings(inv_shp or "", bl_shp or "")
+        if not shp_matched:
+            has_critical = True
+            shp_status = "MISMATCH_CRITICAL"
+            shp_details = "❌ اختلاف في اسم المصدر أو الشاحن بين الفاتورة والبوليصة."
+            disagreeing_shp = ["Invoice", "B/L"]
+        else:
+            shp_status = "MATCH"
+            shp_details = "اسم المصدر متطابق في الفاتورة وبوليصة الشحن"
+
     matrix.append({
         "item_code": "CHK_SHIPPER",
         "field_name_ar": "اسم وبيانات المصدر الأجنبي (Shipper)",
         "field_name_en": "Shipper / Exporter Name",
-        "invoice_value": inv_shp or "غير محدد",
-        "bl_value": bl_shp or "غير محدد",
-        "match_status": "MATCH" if shp_matched else "MISMATCH_CRITICAL",
-        "severity": "NONE" if shp_matched else "BLOCKING",
+        "system_value": sys_shp or "غير محدد بالسستم",
+        "packing_list_value": pl_shp or "غير محدد بالباكينج",
+        "invoice_value": inv_shp or "غير محدد بالفاتورة",
+        "bl_value": bl_shp or "غير محدد بالبوليصة",
+        "match_status": shp_status,
+        "severity": "BLOCKING" if shp_status == "MISMATCH_CRITICAL" else ("WARNING" if shp_status == "EXTRACTION_FAILED" else "NONE"),
         "tolerance": f"نسبة التشابه: {round(shp_ratio * 100, 1)}%",
-        "details": "اسم المصدر متطابق في الفاتورة وبوليصة الشحن" if shp_matched else "❌ اختلاف في اسم المصدر أو الشاحن بين الفاتورة والبوليصة.",
+        "disagreeing_sources": disagreeing_shp or None,
+        "details": shp_details,
     })
 
     # 4. Consignee / Importer - Critical
-    inv_csg = invoice_data.get("consignee")
+    sys_csg = sys_d.get("importer_name") or sys_d.get("consignee")
+    inv_csg = invoice_data.get("consignee") or invoice_data.get("importer_name")
+    pl_csg = pl_d.get("consignee") or pl_d.get("importer_name") or inv_csg
     bl_csg = bl_data.get("consignee")
-    csg_matched, csg_ratio = _fuzzy_match_strings(inv_csg, bl_csg)
-    if not csg_matched:
-        has_critical = True
+
+    disagreeing_csg = []
+    if not inv_csg and not bl_csg:
+        csg_status = "EXTRACTION_FAILED"
+        csg_ratio = 0.0
+        has_warning = True
+        csg_details = "⚠️ تعذر استخراج اسم المستورد/المرسل إليه."
+    else:
+        csg_matched, csg_ratio = _fuzzy_match_strings(inv_csg or "", bl_csg or "")
+        if not csg_matched:
+            has_critical = True
+            csg_status = "MISMATCH_CRITICAL"
+            csg_details = "❌ اسم المستورد غير متطابق بين الفاتورة والبوليصة."
+            disagreeing_csg = ["Invoice", "B/L"]
+        else:
+            csg_status = "MATCH"
+            csg_details = "اسم المستورد متطابق قانونياً"
+
     matrix.append({
         "item_code": "CHK_CONSIGNEE",
         "field_name_ar": "اسم الشركة المستوردة (Consignee)",
         "field_name_en": "Consignee / Importer Name",
-        "invoice_value": inv_csg or "غير محدد",
-        "bl_value": bl_csg or "غير محدد",
-        "match_status": "MATCH" if csg_matched else "MISMATCH_CRITICAL",
-        "severity": "NONE" if csg_matched else "BLOCKING",
+        "system_value": sys_csg or "غير محدد بالسستم",
+        "packing_list_value": pl_csg or "غير محدد بالباكينج",
+        "invoice_value": inv_csg or "غير محدد بالفاتورة",
+        "bl_value": bl_csg or "غير محدد بالبوليصة",
+        "match_status": csg_status,
+        "severity": "BLOCKING" if csg_status == "MISMATCH_CRITICAL" else ("WARNING" if csg_status == "EXTRACTION_FAILED" else "NONE"),
         "tolerance": f"نسبة التشابه: {round(csg_ratio * 100, 1)}%",
-        "details": "اسم المستورد متطابق قانونياً" if csg_matched else "❌ اسم المستورد غير متطابق بين الفاتورة والبوليصة.",
+        "disagreeing_sources": disagreeing_csg or None,
+        "details": csg_details,
     })
 
     # 5. Container Numbers - Critical
+    sys_cntrs = {c["container_no"] for c in sys_d.get("containers", []) if c.get("container_no")}
     inv_cntrs = {c["container_no"] for c in invoice_data.get("containers", []) if c.get("container_no")}
+    pl_cntrs = {c["container_no"] for c in pl_d.get("containers", []) if c.get("container_no")} or inv_cntrs
     bl_cntrs = {c["container_no"] for c in bl_data.get("containers", []) if c.get("container_no")}
     cntr_matched = bool(inv_cntrs and bl_cntrs and inv_cntrs == bl_cntrs)
-    if not cntr_matched and (inv_cntrs or bl_cntrs):
+    if not cntr_matched and (inv_cntrs and bl_cntrs):
         has_critical = True
     matrix.append({
         "item_code": "CHK_CONTAINERS",
         "field_name_ar": "أرقام الحاويات (Container Numbers)",
         "field_name_en": "Container Number(s)",
+        "system_value": ", ".join(sys_cntrs) if sys_cntrs else "غير محدد بالسستم",
+        "packing_list_value": ", ".join(pl_cntrs) if pl_cntrs else "غير محدد بالباكينج",
         "invoice_value": ", ".join(inv_cntrs) if inv_cntrs else "غير محدد بالفاتورة",
         "bl_value": ", ".join(bl_cntrs) if bl_cntrs else "غير محدد بالبوليصة",
         "match_status": "MATCH" if cntr_matched else ("MISMATCH_CRITICAL" if (inv_cntrs and bl_cntrs) else "MISMATCH_MINOR"),
         "severity": "NONE" if cntr_matched else ("BLOCKING" if (inv_cntrs and bl_cntrs) else "WARNING"),
         "tolerance": "0% (مطابقة تامة لأرقام الحاويات)",
+        "disagreeing_sources": ["Invoice", "B/L"] if not cntr_matched and (inv_cntrs and bl_cntrs) else None,
         "details": "أرقام الحاويات مطابقة تماماً" if cntr_matched else "❌ عدم تطابق في أرقام الحاويات المسجلة بالفاتورة مع البوليصة.",
     })
 
     # 6. Seal Numbers - Warning
+    sys_seals = {c["seal_no"] for c in sys_d.get("containers", []) if c.get("seal_no")}
     inv_seals = {c["seal_no"] for c in invoice_data.get("containers", []) if c.get("seal_no")}
+    pl_seals = {c["seal_no"] for c in pl_d.get("containers", []) if c.get("seal_no")} or inv_seals
     bl_seals = {c["seal_no"] for c in bl_data.get("containers", []) if c.get("seal_no")}
     seal_matched = bool(inv_seals and bl_seals and inv_seals == bl_seals)
     if not seal_matched and (inv_seals and bl_seals):
@@ -2220,34 +2315,44 @@ def match_invoice_with_bl(
         "item_code": "CHK_SEALS",
         "field_name_ar": "أرقام الرصاص والختم الملاحي (Seal Numbers)",
         "field_name_en": "Seal Number(s)",
+        "system_value": ", ".join(sys_seals) if sys_seals else "غير محدد بالسستم",
+        "packing_list_value": ", ".join(pl_seals) if pl_seals else "غير محدد بالباكينج",
         "invoice_value": ", ".join(inv_seals) if inv_seals else "غير محدد بالفاتورة",
         "bl_value": ", ".join(bl_seals) if bl_seals else "غير محدد بالبوليصة",
         "match_status": "MATCH" if seal_matched else ("MISMATCH_MINOR" if (inv_seals and bl_seals) else "MATCH"),
         "severity": "NONE" if (seal_matched or not inv_seals or not bl_seals) else "WARNING",
         "tolerance": "مطابقة رقم الرصاص",
+        "disagreeing_sources": ["Invoice", "B/L"] if not seal_matched and (inv_seals and bl_seals) else None,
         "details": "أرقام الرصاص الملاحي متطابقة" if seal_matched else "⚠️ يرجى التأكد من رقم الرصاص الملاحي المثبت على الحاوية.",
     })
 
     # 7. Package / Pallet Count - Critical / Warning
-    inv_pkg = invoice_data.get("qty_pallets") or invoice_data.get("qty_pkg")
-    bl_pkg = bl_data.get("qty_pkg")
+    sys_pkg = sys_d.get("total_packages_count") or sys_d.get("total_packages")
+    inv_pkg = invoice_data.get("qty_pallets") or invoice_data.get("qty_pkg") or invoice_data.get("total_packages")
+    pl_pkg = pl_d.get("qty_pallets") or pl_d.get("qty_pkg") or pl_d.get("total_packages") or inv_pkg
+    bl_pkg = bl_data.get("qty_pkg") or bl_data.get("total_packages")
     pkg_matched = bool(inv_pkg and bl_pkg and int(inv_pkg) == int(bl_pkg))
-    if not pkg_matched:
+    if not pkg_matched and inv_pkg and bl_pkg:
         has_warning = True
     matrix.append({
         "item_code": "CHK_PACKAGES",
         "field_name_ar": "عدد الطرود والبالتات (Packages / Pallets)",
         "field_name_en": "Package & Pallet Quantity",
+        "system_value": f"{sys_pkg} طرد/بالتة" if sys_pkg else "غير محدد بالسستم",
+        "packing_list_value": f"{pl_pkg} طرد/بالتة" if pl_pkg else "غير محدد بالباكينج",
         "invoice_value": f"{inv_pkg} طرد/بالتة" if inv_pkg else "غير محدد",
         "bl_value": f"{bl_pkg} طرد/بالتة" if bl_pkg else "غير محدد",
-        "match_status": "MATCH" if pkg_matched else "MISMATCH_MINOR",
+        "match_status": "MATCH" if pkg_matched else ("EXTRACTION_FAILED" if not inv_pkg and not bl_pkg else "MISMATCH_MINOR"),
         "severity": "NONE" if pkg_matched else "WARNING",
         "tolerance": "0% (مطابقة عدد الطرود)",
+        "disagreeing_sources": ["Invoice", "B/L"] if not pkg_matched and inv_pkg and bl_pkg else None,
         "details": "عدد الطرود والبالتات متطابق تماماً" if pkg_matched else "⚠️ اختلاف في عدد الطرود أو وحدة التعبئة (كرتونة vs بالتة).",
     })
 
     # 8. Gross Cargo Weight (KG) - Tolerance 1.0%
+    sys_gw = sys_d.get("total_gross_weight_kg")
     inv_gw = invoice_data.get("total_gross_weight_kg")
+    pl_gw = pl_d.get("total_gross_weight_kg") or inv_gw
     bl_gw = bl_data.get("total_gross_weight_kg")
     gw_matched, gw_pct, gw_diff = _numeric_tolerance_match(inv_gw, bl_gw, tolerance_pct=1.0)
     if not gw_matched and (inv_gw and bl_gw):
@@ -2256,16 +2361,21 @@ def match_invoice_with_bl(
         "item_code": "CHK_GROSS_WEIGHT",
         "field_name_ar": "الوزن القائم الإجمالي (Gross Weight KG)",
         "field_name_en": "Total Gross Weight (KG)",
+        "system_value": f"{sys_gw:,.2f} كجم" if sys_gw else "غير مسجل بالسستم",
+        "packing_list_value": f"{pl_gw:,.2f} كجم" if pl_gw else "غير مسجل بالباكينج",
         "invoice_value": f"{inv_gw:,.2f} كجم" if inv_gw else "غير محدد",
         "bl_value": f"{bl_gw:,.2f} كجم" if bl_gw else "غير محدد",
-        "match_status": "MATCH" if gw_matched else "MISMATCH_CRITICAL",
+        "match_status": "MATCH" if gw_matched else ("EXTRACTION_FAILED" if not inv_gw and not bl_gw else "MISMATCH_CRITICAL"),
         "severity": "NONE" if gw_matched else "BLOCKING",
         "tolerance": f"الفرق: {gw_diff:,.2f} كجم ({gw_pct:.2f}%)",
+        "disagreeing_sources": ["Invoice", "B/L"] if not gw_matched and inv_gw and bl_gw else None,
         "details": "الوزن القائم متطابق وضمن النطاق المسموح به (<= 1%)" if gw_matched else "❌ فارق الوزن القائم يتجاوز نسبة التسامح المسموحة جمركياً.",
     })
 
     # 9. Net Cargo Weight (KG) - Tolerance 1.0%
+    sys_nw = sys_d.get("total_net_weight_kg")
     inv_nw = invoice_data.get("total_net_weight_kg")
+    pl_nw = pl_d.get("total_net_weight_kg") or inv_nw
     bl_nw = bl_data.get("total_net_weight_kg")
     nw_matched, nw_pct, nw_diff = _numeric_tolerance_match(inv_nw, bl_nw, tolerance_pct=1.5)
     if not nw_matched and (inv_nw and bl_nw):
@@ -2274,29 +2384,36 @@ def match_invoice_with_bl(
         "item_code": "CHK_NET_WEIGHT",
         "field_name_ar": "الوزن الصافي الإجمالي (Net Weight KG)",
         "field_name_en": "Total Net Weight (KG)",
+        "system_value": f"{sys_nw:,.2f} كجم" if sys_nw else "غير مسجل بالسستم",
+        "packing_list_value": f"{pl_nw:,.2f} كجم" if pl_nw else "غير مسجل بالباكينج",
         "invoice_value": f"{inv_nw:,.2f} كجم" if inv_nw else "غير محدد بالفاتورة",
         "bl_value": f"{bl_nw:,.2f} كجم" if bl_nw else "غير محدد بالبوليصة",
         "match_status": "MATCH" if (nw_matched or not bl_nw) else "MISMATCH_MINOR",
         "severity": "NONE" if (nw_matched or not bl_nw) else "WARNING",
         "tolerance": f"الفرق: {nw_diff:,.2f} كجم ({nw_pct:.2f}%)",
+        "disagreeing_sources": ["Invoice", "B/L"] if not nw_matched and inv_nw and bl_nw else None,
         "details": "الوزن الصافي متطابق" if (nw_matched or not bl_nw) else "⚠️ يوجد فارق في الوزن الصافي بين الفاتورة ومسودة البوليصة.",
     })
 
     # 10. Incoterms & Freight Terms Coherence
+    sys_inco = sys_d.get("incoterm_code") or sys_d.get("incoterms")
     inv_inco = invoice_data.get("incoterm") or "EXW"
+    pl_inco = pl_d.get("incoterm") or inv_inco
     bl_frt = bl_data.get("freight_terms") or "Freight Prepaid"
-    # EXW / FOB typically implies Freight Collect (or Freight Prepaid if paid via nominated forwarder)
     inco_coherent = True
     inco_details = f"شرط التسليم {inv_inco} متوافق مع سداد النولون ({bl_frt})"
     matrix.append({
         "item_code": "CHK_INCOTERMS",
         "field_name_ar": "الشروط التجارية وسداد النولون (Incoterms & Freight)",
         "field_name_en": "Incoterms & Freight Terms",
+        "system_value": f"{sys_inco or 'غير محدد بالسستم'}",
+        "packing_list_value": f"{pl_inco}",
         "invoice_value": f"{inv_inco} ({invoice_data.get('freight_terms', 'Collect')})",
         "bl_value": bl_frt,
         "match_status": "MATCH" if inco_coherent else "MISMATCH_MINOR",
         "severity": "NONE" if inco_coherent else "WARNING",
         "tolerance": "توافق الشروط التجارية",
+        "disagreeing_sources": None,
         "details": inco_details,
     })
 
@@ -2337,6 +2454,7 @@ def match_invoice_with_bl(
         "correction_letter": correction_letter,
         "invoice_data": invoice_data,
         "bl_data": bl_data,
+        "packing_list_data": packing_list_data,
     }
 
 
@@ -3034,5 +3152,253 @@ def extract_inspection_voc_certificate_text(raw_text: str) -> Dict[str, Any]:
         "standards_tested": applicable_standards,
         "items_count": items_count,
         "regulatory_authority": "GOEIC (الهيئة العامة للرقابة على الصادرات والواردات)",
+    }
+
+
+def extract_agadir_gafta_form_a_coo_text(raw_text: str, agreement_type: str = "AGADIR") -> Dict[str, Any]:
+    """
+    Extracts structured fields from Arab & Preferential Certificate of Origin documents:
+    - Agadir Agreement (Egypt, Morocco, Tunisia, Jordan)
+    - GAFTA (Greater Arab Free Trade Area / منطقة التجارة الحرة العربية الكبرى)
+    - Form A / GSP (Generalized System of Preferences)
+    """
+    if not raw_text:
+        return {}
+    text = raw_text.replace('\r', '\n')
+
+    # Detect agreement type if not specified
+    if "GAFTA" in text.upper() or "العربية الكبرى" in text or "منطقة التجارة الحرة" in text or "ARAB LEAGUE" in text.upper():
+        agreement_type = "GAFTA"
+    elif "AGADIR" in text.upper() or "أغادير" in text or "اتفاقية أغادير" in text:
+        agreement_type = "AGADIR"
+    elif "FORM A" in text.upper() or "GSP" in text.upper():
+        agreement_type = "FORM_A"
+
+    cert_no = "DRAFT-PREF-COO-001"
+    m_no = re.search(r'(?:Certificate\s+(?:No\.?|Number|#)|Cert\.?\s*No\.?|رقم\s*الشهادة)[:\s]*([0-9A-Za-z/_\-]+)', text, re.I)
+    if m_no:
+        cert_no = m_no.group(1).strip()
+
+    exporter = clean_exporter_name(text)
+    consignee = clean_consignee_name(text)
+
+    acid = ""
+    m_acid = re.search(r'(?:ACID|رقم\s*القيد)[:\s\-_]*([0-9]{19})', text, re.I)
+    if not m_acid:
+        m_acid = re.search(r'\b([0-9]{19})\b', text)
+    if m_acid:
+        acid = m_acid.group(1).strip()
+
+    hs_code = ""
+    m_hs = re.search(r'(?:H\.?S\.?\s*Code|البند\s*الجمركي|Tariff\s*No\.?)[:\s]*([0-9]{4,10})', text, re.I)
+    if m_hs:
+        hs_code = m_hs.group(1).strip()
+
+    inv_no = ""
+    m_inv = re.search(r'(?:Invoice\s+No\.?|رقم\s*الفاتورة|INV\s*#?)[:\s]*([A-Z0-9/\-]{3,25})', text, re.I)
+    if m_inv:
+        inv_no = m_inv.group(1).strip()
+
+    # Determine origin country based on agreement
+    origin_country = "Morocco"
+    if "JORDAN" in text.upper() or "الأردن" in text:
+        origin_country = "Jordan"
+    elif "TUNISIA" in text.upper() or "تونس" in text:
+        origin_country = "Tunisia"
+    elif "SAUDI" in text.upper() or "السعودية" in text:
+        origin_country = "Saudi Arabia"
+    elif "UAE" in text.upper() or "EMIRATES" in text.upper() or "الإمارات" in text:
+        origin_country = "United Arab Emirates"
+
+    gw_str = None
+    m_gw = re.search(r'([\d\.,]+)\s*(?:KGS?|KG|كجم)', text, re.I)
+    if m_gw:
+        try:
+            gw_str = f"{float(m_gw.group(1).replace(',', '')):,.2f} KG"
+        except Exception:
+            pass
+
+    return {
+        "certificate_type": agreement_type,
+        "certificate_number": cert_no,
+        "exporter_name": exporter,
+        "importer_name": consignee,
+        "country_of_origin": origin_country,
+        "destination_country": "EGYPT",
+        "acid_number": acid,
+        "hs_code": hs_code,
+        "invoice_number": inv_no,
+        "gross_weight": gw_str,
+        "is_preferential_exemption_eligible": True,
+        "preferential_agreement": agreement_type,
+    }
+
+
+def extract_psi_certificate_text(raw_text: str) -> Dict[str, Any]:
+    """
+    Extracts structured fields from Pre-Shipment Inspection (PSI) reports / certificates.
+    Commonly issued by SGS, Bureau Veritas, Cotecna, Intertek, etc.
+    """
+    if not raw_text:
+        return {}
+    text = raw_text.replace('\r', '\n')
+
+    agency = "SGS"
+    if "COTECNA" in text.upper():
+        agency = "COTECNA"
+    elif "BUREAU VERITAS" in text.upper() or "BV" in text:
+        agency = "Bureau Veritas"
+    elif "INTERTEK" in text.upper():
+        agency = "Intertek"
+    elif "TUV" in text.upper() or "TÜV" in text.upper():
+        agency = "TÜV Rheinland"
+
+    # Report / Certificate Number
+    cert_no = "DRAFT-PSI-001"
+    m_no = re.search(r'(?:PSI\s*Report\s*No\.?|Inspection\s*Report\s*No\.?|Report\s*No\.?|Certificate\s*No\.?)[:\s]*([0-9A-Za-z/_\-]+)', text, re.I)
+    if m_no:
+        cert_no = m_no.group(1).strip()
+
+    is_draft = bool("DRAFT" in text.upper() or "PRELIMINARY" in text.upper())
+
+    # Importer & Exporter
+    importer = clean_consignee_name(text)
+    exporter = clean_exporter_name(text)
+
+    # ACID
+    acid = ""
+    m_acid = re.search(r'(?:ACID|ACI\s*CODE)[:\s\-_]*([0-9]{19})', text, re.I)
+    if not m_acid:
+        m_acid = re.search(r'\b([0-9]{19})\b', text)
+    if m_acid:
+        acid = m_acid.group(1).strip()
+
+    # Invoice
+    inv_no = ""
+    m_inv = re.search(r'(?:Commercial\s*Invoice\s*No\.?|Invoice\s*No\.?|INV\s*#?)[:\s]*([A-Z0-9/\-]{3,25})', text, re.I)
+    if m_inv:
+        inv_no = m_inv.group(1).strip()
+
+    # Inspection Date & Place
+    insp_date = ""
+    insp_dt_m = re.search(r'(?:Date\s*of\s*Inspection|Inspection\s*Date)[:\s]*(\d{1,2}[/-]\d{1,2}[/-]\d{4})', text, re.I)
+    if insp_dt_m:
+        insp_date = insp_dt_m.group(1).strip()
+
+    insp_place = ""
+    insp_pl_m = re.search(r'(?:Place\s*of\s*Inspection|Inspection\s*Location)[:\s]*([^\n]+)', text, re.I)
+    if insp_pl_m:
+        insp_place = insp_pl_m.group(1).strip()
+
+    # Inspector Name
+    inspector_name = ""
+    insp_nm = re.search(r'(?:Inspector\s*Name|Inspected\s*By)[:\s]*([^\n]+)', text, re.I)
+    if insp_nm:
+        inspector_name = insp_nm.group(1).strip()
+
+    # Quantity Inspected
+    qty_inspected = 0
+    m_qty = re.search(r'(?:Quantity\s*Inspected|Total\s*Packages\s*Inspected|Inspected\s*Qty)[:\s]*(\d+)', text, re.I)
+    if m_qty:
+        qty_inspected = int(m_qty.group(1))
+
+    # Inspection Result
+    result = "PASSED / CONFORMING"
+    if re.search(r'\bFAIL(?:ED)?\b|\bREJECT(?:ED)?\b|\bNON-CONFORMING\b', text, re.I):
+        result = "FAILED / NON-CONFORMING"
+    elif re.search(r'\bPASS(?:ED)?\b|\bSATISFACTORY\b|\bACCEPTED\b', text, re.I):
+        result = "PASSED / CONFORMING"
+
+    # Container & Seal Verification
+    seals = re.findall(r'(?:Seal\s*No\.?|Seal)[:\s]*([A-Z0-9\-]+)', text, re.I)
+
+    return {
+        "inspection_type": "PSI (Pre-Shipment Inspection)",
+        "inspection_agency": agency,
+        "certificate_number": cert_no,
+        "is_draft": is_draft,
+        "importer_name": importer,
+        "exporter_name": exporter,
+        "acid_number": acid,
+        "invoice_number": inv_no,
+        "inspection_date": insp_date,
+        "place_of_inspection": insp_place,
+        "inspector_name": inspector_name,
+        "quantity_inspected": qty_inspected,
+        "result": result,
+        "is_passed": "PASSED" in result,
+        "verified_seals": seals,
+        "regulatory_authority": "GOEIC / Egyptian Customs",
+    }
+
+
+def extract_coa_certificate_text(raw_text: str) -> Dict[str, Any]:
+    """
+    Extracts structured fields from Certificate of Analysis (COA) documents.
+    Used for chemical, acoustic, material, food, and pharmaceutical imports.
+    """
+    if not raw_text:
+        return {}
+    text = raw_text.replace('\r', '\n')
+
+    # Lab / Certifying Body
+    lab_name = "Independent Accredited Laboratory"
+    m_lab = re.search(r'(?:Laboratory|Testing\s*Facility|Issued\s*By|Analyst)[:\s]*([^\n]+)', text, re.I)
+    if m_lab:
+        lab_name = m_lab.group(1).strip()
+
+    # Report / Certificate Number
+    cert_no = "DRAFT-COA-001"
+    m_no = re.search(r'(?:COA\s*No\.?|Certificate\s*of\s*Analysis\s*No\.?|Report\s*No\.?|Test\s*Report\s*#?)[:\s]*([0-9A-Za-z/_\-]+)', text, re.I)
+    if m_no:
+        cert_no = m_no.group(1).strip()
+
+    # Product / Batch Information
+    product_name = ""
+    m_prod = re.search(r'(?:Product\s*Name|Sample\s*Description|Material)[:\s]*([^\n]+)', text, re.I)
+    if m_prod:
+        product_name = m_prod.group(1).strip()
+
+    batch_no = ""
+    m_batch = re.search(r'(?:Batch\s*No\.?|Lot\s*No\.?)[:\s]*([0-9A-Za-z\-_]+)', text, re.I)
+    if m_batch:
+        batch_no = m_batch.group(1).strip()
+
+    # Test Date
+    test_date = ""
+    m_dt = re.search(r'(?:Date\s*of\s*Analysis|Analysis\s*Date|Test\s*Date)[:\s]*(\d{1,2}[/-]\d{1,2}[/-]\d{4})', text, re.I)
+    if m_dt:
+        test_date = m_dt.group(1).strip()
+
+    # ACID and Invoice
+    acid = ""
+    m_acid = re.search(r'(?:ACID|ACI\s*CODE)[:\s\-_]*([0-9]{19})', text, re.I)
+    if not m_acid:
+        m_acid = re.search(r'\b([0-9]{19})\b', text)
+    if m_acid:
+        acid = m_acid.group(1).strip()
+
+    inv_no = ""
+    m_inv = re.search(r'(?:Invoice\s*No\.?|INV\s*#?)[:\s]*([A-Z0-9/\-]{3,25})', text, re.I)
+    if m_inv:
+        inv_no = m_inv.group(1).strip()
+
+    # Result
+    result = "CONFORMING TO SPECIFICATIONS"
+    if re.search(r'\bOUT\s*OF\s*SPEC\b|\bNON-CONFORMING\b|\bREJECT\b', text, re.I):
+        result = "OUT OF SPECIFICATION"
+
+    return {
+        "inspection_type": "COA (Certificate of Analysis)",
+        "certificate_number": cert_no,
+        "laboratory_name": lab_name,
+        "product_name": product_name,
+        "batch_lot_number": batch_no,
+        "test_date": test_date,
+        "acid_number": acid,
+        "invoice_number": inv_no,
+        "result": result,
+        "is_conforming": "CONFORMING" in result,
+        "regulatory_authority": "GOEIC / Ministry of Health",
     }
 

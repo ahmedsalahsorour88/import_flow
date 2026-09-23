@@ -7,6 +7,19 @@ import 'package:printing/printing.dart';
 import '../helpers/table_copy_helper.dart';
 import 'file_save_helper.dart';
 
+/// Optional section for additional summary tables in PDF and Excel exports.
+class TableExportSection {
+  final String title;
+  final List<String> headers;
+  final List<List<dynamic>> rows;
+
+  const TableExportSection({
+    required this.title,
+    required this.headers,
+    required this.rows,
+  });
+}
+
 /// Optional context parameters for PDF export header banner and metadata card.
 class TableExportHeaderContext {
   final String? title;
@@ -36,25 +49,57 @@ class TableExportService {
     return cleaned;
   }
 
-  /// Builds a clean CSV string with UTF-8 BOM from headers and rows.
-  static String buildCsvContent(List<String> headers, List<List<dynamic>> rows) {
+  /// Builds a clean CSV string with UTF-8 BOM from headers and rows, plus optional additional sections.
+  static String buildCsvContent(
+    List<String> headers,
+    List<List<dynamic>> rows, {
+    List<TableExportSection>? additionalSections,
+  }) {
     final buffer = StringBuffer();
     buffer.write('\uFEFF'); // UTF-8 BOM for Excel Arabic support
     buffer.writeln(headers.map(_formatCsvCell).join(','));
     for (final row in rows) {
       buffer.writeln(row.map(_formatCsvCell).join(','));
     }
+
+    if (additionalSections != null && additionalSections.isNotEmpty) {
+      for (final section in additionalSections) {
+        buffer.writeln(); // Empty row separator
+        buffer.writeln(_formatCsvCell(section.title));
+        buffer.writeln(section.headers.map(_formatCsvCell).join(','));
+        for (final row in section.rows) {
+          buffer.writeln(row.map(_formatCsvCell).join(','));
+        }
+      }
+    }
+
     return buffer.toString();
   }
 
-  /// Builds a clean TSV string with UTF-8 BOM from headers and rows.
-  static String buildTsvContent(List<String> headers, List<List<dynamic>> rows) {
+  /// Builds a clean TSV string with UTF-8 BOM from headers and rows, plus optional additional sections.
+  static String buildTsvContent(
+    List<String> headers,
+    List<List<dynamic>> rows, {
+    List<TableExportSection>? additionalSections,
+  }) {
     final buffer = StringBuffer();
     buffer.write('\uFEFF'); // UTF-8 BOM
     buffer.writeln(headers.map((h) => TableCopyHelper.cleanCell(h)).join('\t'));
     for (final row in rows) {
       buffer.writeln(row.map((c) => TableCopyHelper.cleanCell(c)).join('\t'));
     }
+
+    if (additionalSections != null && additionalSections.isNotEmpty) {
+      for (final section in additionalSections) {
+        buffer.writeln(); // Empty row separator
+        buffer.writeln(TableCopyHelper.cleanCell(section.title));
+        buffer.writeln(section.headers.map((h) => TableCopyHelper.cleanCell(h)).join('\t'));
+        for (final row in section.rows) {
+          buffer.writeln(row.map((c) => TableCopyHelper.cleanCell(c)).join('\t'));
+        }
+      }
+    }
+
     return buffer.toString();
   }
 
@@ -66,10 +111,13 @@ class TableExportService {
     required List<List<dynamic>> rows,
     required String stageName,
     required String importFileNameOrCode,
+    List<TableExportSection>? additionalSections,
     String? customFileName,
     bool asTsv = false,
   }) async {
-    final content = asTsv ? buildTsvContent(headers, rows) : buildCsvContent(headers, rows);
+    final content = asTsv
+        ? buildTsvContent(headers, rows, additionalSections: additionalSections)
+        : buildCsvContent(headers, rows, additionalSections: additionalSections);
     final bytes = utf8.encode(content);
     final extension = asTsv ? 'tsv' : 'csv';
 
@@ -85,7 +133,7 @@ class TableExportService {
   }
 
   /// Exports any generic tabular data to a formatted, multi-page PDF document
-  /// with Cairo Arabic font, RTL layout, ERP banner, and optional metadata card.
+  /// with Cairo Arabic font, RTL layout, ERP banner, and clean Key-Value Grid metadata card.
   static Future<String?> exportTableToPdf({
     required BuildContext context,
     required List<String> headers,
@@ -93,6 +141,7 @@ class TableExportService {
     required String stageName,
     required String importFileNameOrCode,
     TableExportHeaderContext? headerContext,
+    List<TableExportSection>? additionalSections,
     PdfPageFormat? pageFormat,
   }) async {
     final pdf = pw.Document();
@@ -153,32 +202,90 @@ class TableExportService {
               ),
               if (metadata.isNotEmpty && ctx.pageNumber == 1) ...[
                 pw.SizedBox(height: 8),
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(8),
-                  decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#F8F9FA'),
-                    border: pw.Border.all(color: PdfColors.grey300),
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-                  ),
-                  child: pw.Wrap(
-                    spacing: 16,
-                    runSpacing: 4,
-                    children: metadata.entries.map((entry) {
-                      return pw.Row(
-                        mainAxisSize: pw.MainAxisSize.min,
-                        children: [
-                          pw.Text(
-                            '${entry.key}: ',
-                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColor.fromHex('#2C3E50')),
-                          ),
-                          pw.Text(
-                            entry.value,
-                            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey800),
-                          ),
-                        ],
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+                  columnWidths: {
+                    0: const pw.FlexColumnWidth(1.2),
+                    1: const pw.FlexColumnWidth(2.0),
+                    2: const pw.FlexColumnWidth(1.2),
+                    3: const pw.FlexColumnWidth(2.0),
+                  },
+                  children: () {
+                    final entries = metadata.entries.toList();
+                    final gridRows = <pw.TableRow>[];
+                    for (int i = 0; i < entries.length; i += 2) {
+                      final e1 = entries[i];
+                      final hasSecond = i + 1 < entries.length;
+                      final e2 = hasSecond ? entries[i + 1] : null;
+
+                      gridRows.add(
+                        pw.TableRow(
+                          children: [
+                            pw.Container(
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              color: PdfColor.fromHex('#F1F5F9'),
+                              child: pw.Text(
+                                '${e1.key}:',
+                                style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold,
+                                  fontSize: 8.5,
+                                  color: PdfColor.fromHex('#1E293B'),
+                                ),
+                              ),
+                            ),
+                            pw.Container(
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              color: PdfColors.white,
+                              child: pw.Text(
+                                e1.value,
+                                style: const pw.TextStyle(
+                                  fontSize: 8.5,
+                                  color: PdfColors.grey800,
+                                ),
+                              ),
+                            ),
+                            if (e2 != null) ...[
+                              pw.Container(
+                                padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                color: PdfColor.fromHex('#F1F5F9'),
+                                child: pw.Text(
+                                  '${e2.key}:',
+                                  style: pw.TextStyle(
+                                    fontWeight: pw.FontWeight.bold,
+                                    fontSize: 8.5,
+                                    color: PdfColor.fromHex('#1E293B'),
+                                  ),
+                                ),
+                              ),
+                              pw.Container(
+                                padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                color: PdfColors.white,
+                                child: pw.Text(
+                                  e2.value,
+                                  style: const pw.TextStyle(
+                                    fontSize: 8.5,
+                                    color: PdfColors.grey800,
+                                  ),
+                                ),
+                              ),
+                            ] else ...[
+                              pw.Container(
+                                padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                color: PdfColor.fromHex('#F8FAFC'),
+                                child: pw.Text(''),
+                              ),
+                              pw.Container(
+                                padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                color: PdfColors.white,
+                                child: pw.Text(''),
+                              ),
+                            ],
+                          ],
+                        ),
                       );
-                    }).toList(),
-                  ),
+                    }
+                    return gridRows;
+                  }(),
                 ),
               ],
               pw.SizedBox(height: 10),
@@ -207,7 +314,7 @@ class TableExportService {
           );
         },
         build: (pw.Context ctx) {
-          return [
+          final widgets = <pw.Widget>[
             pw.TableHelper.fromTextArray(
               headers: cleanHeaders,
               data: cleanData,
@@ -233,6 +340,62 @@ class TableExportService {
               ),
             ),
           ];
+
+          if (additionalSections != null && additionalSections.isNotEmpty) {
+            for (final section in additionalSections) {
+              final secHeaders = section.headers.map((h) => TableCopyHelper.cleanCell(h)).toList();
+              final secData = section.rows.map((r) => r.map((c) => TableCopyHelper.cleanCell(c)).toList()).toList();
+
+              widgets.add(pw.SizedBox(height: 14));
+              widgets.add(
+                pw.Container(
+                  width: double.infinity,
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#2C3E50'),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                  ),
+                  child: pw.Text(
+                    section.title,
+                    style: pw.TextStyle(
+                      color: PdfColors.white,
+                      fontSize: 9.5,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+              );
+              widgets.add(pw.SizedBox(height: 4));
+              widgets.add(
+                pw.TableHelper.fromTextArray(
+                  headers: secHeaders,
+                  data: secData,
+                  headerStyle: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 8.5,
+                    color: PdfColors.white,
+                  ),
+                  headerDecoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#475569'),
+                  ),
+                  cellStyle: const pw.TextStyle(fontSize: 8),
+                  cellPadding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  cellAlignment: pw.Alignment.centerRight,
+                  headerAlignment: pw.Alignment.centerRight,
+                  rowDecoration: const pw.BoxDecoration(
+                    border: pw.Border(
+                      bottom: pw.BorderSide(color: PdfColors.grey200, width: 0.5),
+                    ),
+                  ),
+                  oddRowDecoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#F8FAFC'),
+                  ),
+                ),
+              );
+            }
+          }
+
+          return widgets;
         },
       ),
     );
@@ -251,3 +414,4 @@ class TableExportService {
     );
   }
 }
+

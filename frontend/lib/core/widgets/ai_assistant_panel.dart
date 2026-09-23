@@ -66,7 +66,8 @@ class _AiAssistantDockedPanelState extends ConsumerState<AiAssistantDockedPanel>
 /// On desktop (>=1200px), opening the assistant docks it into the main layout Row.
 /// On smaller screens (<1200px), opens as a modal panel with a dimmed backdrop.
 class AiAssistantOverlay extends ConsumerStatefulWidget {
-  const AiAssistantOverlay({super.key});
+  final bool showFloatingLauncher;
+  const AiAssistantOverlay({super.key, this.showFloatingLauncher = false});
 
   @override
   ConsumerState<AiAssistantOverlay> createState() => _AiAssistantOverlayState();
@@ -138,6 +139,11 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
       return const SizedBox.shrink();
     }
 
+    // When floating launcher is disabled and panel is closed, render nothing
+    if (!widget.showFloatingLauncher && !state.isPanelOpen) {
+      return const SizedBox.shrink();
+    }
+
     return Stack(
       alignment: Alignment.bottomRight,
       children: [
@@ -168,7 +174,7 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
           ),
 
         // ── Greeting Bubble (Exact match to user's uploaded image) ───────────
-        if (!state.isPanelOpen && !isGreetingDismissed)
+        if (widget.showFloatingLauncher && !state.isPanelOpen && !isGreetingDismissed)
           Positioned(
             bottom: 80,
             right: 16,
@@ -176,11 +182,12 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
           ),
 
         // ── Floating Button (Orange circular button with chat icon) ──────────
-        Positioned(
-          bottom: 16,
-          right: 16,
-          child: _buildFloatingButton(state),
-        ),
+        if (widget.showFloatingLauncher)
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: _buildFloatingButton(state),
+          ),
       ],
     );
   }

@@ -82,7 +82,7 @@ void main() {
       expect(metrics.cbm, equals(39.994));
       expect(metrics.weightKg, equals(2254.0));
       expect(metrics.invoices.contains('PI-889'), isTrue);
-      expect(metrics.invoices.contains('PO-2026-001'), isTrue);
+      expect(metrics.invoices.contains('PO-2026-001'), isFalse);
     });
 
     test('buildCargoItems should create 3D cargo items for 40 CBM shipments resulting in 40HC container recommendation', () {

@@ -12,10 +12,12 @@ import '../../core/widgets/keyboard_shortcuts_dialog.dart';
 import '../../core/widgets/unsaved_changes_dialog.dart';
 import '../../core/localization/locale_provider.dart';
 import '../../core/providers/navigation_provider.dart';
+import '../../core/providers/focus_mode_provider.dart';
 import '../../core/providers/workspace_tabs_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/density_provider.dart';
 import '../../core/theme/theme_provider.dart';
+import '../../core/widgets/unified_top_bar.dart';
 import 'widgets/multi_tab_workspace_bar.dart';
 import '../audit_logs/screens/audit_logs_screen.dart';
 
@@ -74,7 +76,6 @@ import '../smart_tasks/widgets/smart_email_listener_dialog.dart';
 import '../smart_tasks/widgets/email_settings_dialog.dart';
 import '../../core/widgets/ai_assistant_panel.dart';
 import '../../core/providers/ai_assistant_provider.dart';
-import '../../core/widgets/system_live_clock_widget.dart';
 import '../../core/widgets/system_settings_dialog.dart';
 import '../system_observability/screens/system_observability_screen.dart';
 
@@ -320,6 +321,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SingleActivator(LogicalKeyboardKey.keyW, control: true): _onCloseTab,
             const SingleActivator(LogicalKeyboardKey.keyW, meta: true): _onCloseTab,
 
+            // Focus Mode Toggle (Ctrl + Shift + F)
+            const SingleActivator(LogicalKeyboardKey.keyF, control: true, shift: true): () {
+              ref.read(focusModeProvider.notifier).toggle();
+            },
+            const SingleActivator(LogicalKeyboardKey.escape): () {
+              if (ref.read(focusModeProvider)) {
+                ref.read(focusModeProvider.notifier).disable();
+              }
+            },
+
             // Fullscreen Toggle (F11)
             const SingleActivator(LogicalKeyboardKey.f11): _toggleFullscreen,
 
@@ -358,7 +369,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               children: [
                 Row(
                   children: [
-                    if (!isMobile)
+                    if (!isMobile && !ref.watch(focusModeProvider))
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         curve: Curves.easeInOut,
@@ -371,32 +382,108 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             : _buildFullSidebar(currentRouteIndex, user),
                       ),
 
-                    // Main Content View with Multi-Tab Workspace Bar
+                    // Main Content View with Unified Top Bar & Multi-Tab Workspace Bar
                     Expanded(
-                      child: Column(
+                      child: Stack(
                         children: [
-                          if (isMobile) _buildMobileTopNav(context),
-                          const SystemWorldClocksHeader(),
-                          const SystemUpdateBanner(),
-                          const MultiTabWorkspaceBar(),
-                          Expanded(
-                            child: tabsState.tabs.isEmpty
-                                ? _screens[0]
-                                : IndexedStack(
-                                    index: safeActiveTabIndex < tabsState.tabs.length
-                                        ? safeActiveTabIndex
-                                        : 0,
-                                    children: [
-                                      for (final tab in tabsState.tabs)
-                                        KeyedSubtree(
-                                          key: ValueKey('${tab.id}_${ref.watch(localeProvider).languageCode}'),
-                                          child: _screens[tab.routeIndex < _screens.length
-                                              ? tab.routeIndex
-                                              : 0],
-                                        ),
+                          Column(
+                            children: [
+                              if (isMobile && !ref.watch(focusModeProvider)) _buildMobileTopNav(context),
+                              if (!ref.watch(focusModeProvider)) const UnifiedTopBar(),
+                              if (!ref.watch(focusModeProvider)) const SystemUpdateBanner(),
+                              if (!ref.watch(focusModeProvider) && tabsState.tabs.length > 1)
+                                const MultiTabWorkspaceBar(),
+                              Expanded(
+                                child: tabsState.tabs.isEmpty
+                                    ? _screens[0]
+                                    : IndexedStack(
+                                        index: safeActiveTabIndex < tabsState.tabs.length
+                                            ? safeActiveTabIndex
+                                            : 0,
+                                        children: [
+                                          for (final tab in tabsState.tabs)
+                                            KeyedSubtree(
+                                              key: ValueKey('${tab.id}_${ref.watch(localeProvider).languageCode}'),
+                                              child: _screens[tab.routeIndex < _screens.length
+                                                  ? tab.routeIndex
+                                                  : 0],
+                                            ),
+                                        ],
+                                      ),
+                              ),
+                            ],
+                          ),
+
+                          // Floating Persistent AI Assistant Overlay (Launcher & Bubble, or Modal on <1200px)
+                          if (!ref.watch(focusModeProvider))
+                            const AiAssistantOverlay(),
+
+                          // Floating Focus Mode Action Pill
+                          if (ref.watch(focusModeProvider))
+                            Positioned(
+                              bottom: 24,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.charcoal.withOpacity(0.92),
+                                    borderRadius: BorderRadius.circular(30),
+                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.6), width: 1.0),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.35),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
                                     ],
                                   ),
-                          ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.fit_screen_rounded, size: 16, color: AppTheme.emerald),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        tabsState.activeTab != null
+                                            ? getLocalizedTabTitle(context, tabsState.activeTab!.routeIndex, tabsState.activeTab!.title)
+                                            : (Directionality.of(context) == TextDirection.rtl ? 'وضع التركيز' : 'Focus Mode'),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      InkWell(
+                                        borderRadius: BorderRadius.circular(14),
+                                        onTap: () => ref.read(focusModeProvider.notifier).disable(),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.close_rounded, size: 13, color: Colors.white),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                Directionality.of(context) == TextDirection.rtl
+                                                    ? 'خروج من وضع التركيز (Esc)'
+                                                    : 'Exit Focus (Esc)',
+                                                style: const TextStyle(color: Colors.white, fontSize: 11),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -406,9 +493,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       const AiAssistantDockedPanel(),
                   ],
                 ),
-
-                // Floating Persistent AI Assistant Overlay (Launcher & Bubble, or Modal on <1200px)
-                const AiAssistantOverlay(),
               ],
             ),
           ),

@@ -62,13 +62,15 @@ class ImportFilePoLinker {
     if (file.piNumber != null && file.piNumber!.trim().isNotEmpty) {
       invoices.add(file.piNumber!.trim());
     }
-    if (file.poNumber != null && file.poNumber!.trim().isNotEmpty) {
-      invoices.add(file.poNumber!.trim());
+
+    final poNumbers = <String>{};
+    if (file.poNumber != null && file.poNumber!.trim().toUpperCase().startsWith('PO-')) {
+      poNumbers.add(file.poNumber!.trim());
     }
 
     for (final po in linkedPOs) {
-      if (po.poNumber.trim().isNotEmpty) {
-        invoices.add(po.poNumber.trim());
+      if (po.poNumber.trim().toUpperCase().startsWith('PO-')) {
+        poNumbers.add(po.poNumber.trim());
       }
       if (po.proformaInvoiceNumber != null && po.proformaInvoiceNumber!.trim().isNotEmpty) {
         invoices.add(po.proformaInvoiceNumber!.trim());
@@ -90,22 +92,20 @@ class ImportFilePoLinker {
             )
           : (po.palletCount > 0 && po.totalGrossWeightKg > 0 ? po.totalGrossWeightKg : 0.0);
 
-      final int palletCount = po.palletPlanItems.isNotEmpty
-          ? po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount)
-          : po.palletCount;
+      bool hasPackingData = false;
 
       if (palletCbm > 0) {
         totalCbm += palletCbm;
         totalWeight += palletGross > 0 ? palletGross : (po.totalGrossWeightKg > 0 ? po.totalGrossWeightKg : 0.0);
-        plCount += palletCount > 0 ? palletCount : (po.packingListItems.isNotEmpty ? po.packingListItems.length : 1);
+        hasPackingData = true;
       } else if (po.packingListItems.isNotEmpty) {
-        plCount += po.packingListItems.length;
+        hasPackingData = true;
         for (final pl in po.packingListItems) {
           totalCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
           totalWeight += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg));
         }
       } else if (po.items.isNotEmpty) {
-        plCount += po.items.length;
+        hasPackingData = true;
         double poLineCbm = 0.0;
         double poLineWt = 0.0;
         for (final item in po.items) {
@@ -114,15 +114,19 @@ class ImportFilePoLinker {
         }
         totalCbm += (poLineCbm > 0 ? poLineCbm : po.totalCbm);
         totalWeight += (poLineWt > 0 ? poLineWt : po.totalGrossWeightKg);
-      } else if (po.totalCbm > 0) {
+      } else if (po.totalCbm > 0 || po.totalGrossWeightKg > 0) {
         totalCbm += po.totalCbm;
         totalWeight += po.totalGrossWeightKg;
-        plCount += po.totalPackagesCount > 0 ? po.totalPackagesCount : 1;
-      } else {
-        totalCbm += po.totalCbm;
-        totalWeight += po.totalGrossWeightKg;
+        hasPackingData = true;
+      }
+
+      if (hasPackingData) {
+        plCount += 1;
       }
     }
+
+    // Exclude internal PO numbers from commercial invoices set
+    invoices.removeWhere((inv) => poNumbers.contains(inv) || (inv.toUpperCase().startsWith('PO-') && !inv.toUpperCase().contains('INV') && !inv.toUpperCase().contains('PI')));
 
     if (totalCbm == 0 && file.packingListsData.isNotEmpty) {
       for (final pl in file.packingListsData) {

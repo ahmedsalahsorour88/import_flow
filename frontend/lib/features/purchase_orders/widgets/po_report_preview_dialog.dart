@@ -1,5 +1,6 @@
 import 'package:frontend/core/utils/container_requirement_engine.dart';
 import 'package:frontend/core/widgets/container_load_plan_painter.dart';
+import 'package:frontend/core/services/container_load_plan_export_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
@@ -7,6 +8,7 @@ import 'package:frontend/core/services/display_name_resolver.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/features/customs_tariff/models/customs_tariff_model.dart';
 import 'package:frontend/features/purchase_orders/models/purchase_order_model.dart';
+import '../utils/po_packing_matcher.dart';
 
 class POReportPreviewDialog extends StatefulWidget {
   final String poNumber;
@@ -307,6 +309,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                           totalPalletCbm: totalPalletCbm,
                           totalPalletWeight: totalPalletWeight,
                           recommendedContainer: recommendedContainer,
+                          isArabic: isArabic,
                           isDark: isDark,
                         ),
                         const SizedBox(height: 16),
@@ -322,6 +325,23 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                         const SizedBox(height: 8),
                         _buildPackingListTable(l, isDark),
                         const SizedBox(height: 18),
+
+                        // Section 2.5: Package Type Summary Table
+                        () {
+                          final packageTypeSummaryMap = PoPackingMatcher.buildPackingTypeSummaryMap(widget.packingItems);
+                          if (packageTypeSummaryMap.isNotEmpty) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildSectionTitle(isArabic ? 'ملخص نوع التغليف (Summary By Package Type)' : 'Summary By Package Type', Icons.category_outlined, isDark),
+                                const SizedBox(height: 8),
+                                _buildPackageTypeSummaryTable(packageTypeSummaryMap, isArabic, isDark),
+                                const SizedBox(height: 18),
+                              ],
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        }(),
 
                         // Section 3: Master Pallet Plan Table
                         if (widget.palletItems.isNotEmpty && widget.palletItems.any((p) => p.palletCount > 0)) ...[
@@ -548,6 +568,8 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
     );
   }
 
+  static String _formatWeight(double val) => PoPackingMatcher.formatWeight(val);
+
   Widget _buildMetricsSummaryBar({
     required AppLocalizations l,
     required double totalAmount,
@@ -560,8 +582,15 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
     required double totalPalletCbm,
     required double totalPalletWeight,
     required String recommendedContainer,
+    bool isArabic = false,
     bool isDark = false,
   }) {
+    final packagingSummaryText = PoPackingMatcher.formatPackagingSummary(
+      packingListItems: widget.packingItems,
+      totalPalletCount: totalPallets,
+      isArabic: isArabic,
+    );
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -575,8 +604,8 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
         alignment: WrapAlignment.spaceBetween,
         children: [
           _buildMetricBadge(l.poReportTotalInvoice, '${totalAmount.toStringAsFixed(2)} ${widget.currency}', Icons.monetization_on_outlined, AppTheme.emerald, isDark: isDark),
-          _buildMetricBadge(l.poReportTotalPkgsAndPcs, '${totalPackages.toStringAsFixed(0)} ${l.poReportPackagesCountUnit(totalPackages.toInt())} (${totalPcs.toStringAsFixed(0)} ${l.poReportPiecesCountUnit(totalPcs.toInt())})', Icons.inventory_2_outlined, AppTheme.cobalt, isDark: isDark),
-          _buildMetricBadge(l.poReportGrossWeight, '${totalGrossWeight.toStringAsFixed(1)} kg', Icons.scale_outlined, AppTheme.orange, isDark: isDark),
+          _buildMetricBadge(l.poReportTotalPkgsAndPcs, packagingSummaryText, Icons.inventory_2_outlined, AppTheme.cobalt, isDark: isDark),
+          _buildMetricBadge(l.poReportGrossWeight, '${_formatWeight(totalGrossWeight)} kg', Icons.scale_outlined, AppTheme.orange, isDark: isDark),
           _buildMetricBadge(l.poReportVolumeCbm, '${totalCbm.toStringAsFixed(3)} m³', Icons.view_in_ar_outlined, Colors.purple, isDark: isDark),
           if (totalPallets > 0)
             _buildMetricBadge(l.poReportPalletPlan, '$totalPallets ${l.poReportPalletsCountUnit(totalPallets)} (${totalPalletCbm.toStringAsFixed(3)} m³)', Icons.layers_outlined, Colors.indigo, isDark: isDark),
@@ -778,7 +807,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                       _DataCell(p.packageType),
                       _DataCell('${p.qtyPkg.toStringAsFixed(0)} / ${p.qtyPcs.toStringAsFixed(0)}'),
                       _DataCell(dimStr, color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
-                      _DataCell(grossTot.toStringAsFixed(1)),
+                      _DataCell(_formatWeight(grossTot)),
                       _DataCell(p.calculatedCbm.toStringAsFixed(3)),
                       _DataCell(p.isStackable ? l.poReportStackableYes : l.poReportStackableNo, color: p.isStackable ? (isDark ? Colors.greenAccent : Colors.green.shade800) : Colors.orange.shade800),
                     ],
@@ -798,7 +827,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                     ),
                     const _DataCell(''),
                     _DataCell(
-                      '${totalGrossSum.toStringAsFixed(1)} kg',
+                      '${_formatWeight(totalGrossSum)} kg',
                       isBold: true,
                       color: AppTheme.orange,
                     ),
@@ -810,6 +839,70 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                     const _DataCell(''),
                   ],
                 ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPackageTypeSummaryTable(
+    Map<String, Map<String, dynamic>> packageTypeSummaryMap,
+    bool isArabic,
+    bool isDark,
+  ) {
+    if (packageTypeSummaryMap.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkCardBackground : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 700),
+            child: Table(
+              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+              columnWidths: const {
+                0: FlexColumnWidth(2.2),
+                1: FlexColumnWidth(1.2),
+                2: FlexColumnWidth(1.2),
+                3: FlexColumnWidth(1.2),
+                4: FlexColumnWidth(1.2),
+              },
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
+                  children: [
+                    _HeaderCell(isArabic ? 'نوع التغليف' : 'Package Type'),
+                    _HeaderCell(isArabic ? 'إجمالي الطرود' : 'Total Packages'),
+                    _HeaderCell(isArabic ? 'الصافي (كجم)' : 'Net Wt (kg)'),
+                    _HeaderCell(isArabic ? 'القائم (كجم)' : 'Gross Wt (kg)'),
+                    _HeaderCell(isArabic ? 'الحجم CBM' : 'Volume CBM'),
+                  ],
+                ),
+                ...packageTypeSummaryMap.values.map((pkgSummary) {
+                  final pkgType = '${pkgSummary['package_type']}';
+                  final count = pkgSummary['total_pkg'] as int;
+                  final net = pkgSummary['total_net'] as double;
+                  final gross = pkgSummary['total_gross'] as double;
+                  final cbm = pkgSummary['total_cbm'] as double;
+
+                  return TableRow(
+                    children: [
+                      _DataCell(pkgType, isBold: true, color: AppTheme.cobalt),
+                      _DataCell('$count', isBold: true),
+                      _DataCell('${_formatWeight(net)} kg'),
+                      _DataCell('${_formatWeight(gross)} kg', isBold: true),
+                      _DataCell('${cbm.toStringAsFixed(3)} m³', color: Colors.purple, isBold: true),
+                    ],
+                  );
+                }),
               ],
             ),
           ),
@@ -872,7 +965,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                       _DataCell(p.palletType, isBold: true),
                       _DataCell('${p.palletCount} ${l.poReportPalletsCountUnit(p.palletCount)}', isBold: true, color: AppTheme.cobalt),
                       _DataCell('${p.lengthCm.toStringAsFixed(0)}×${p.widthCm.toStringAsFixed(0)}×${p.heightCm.toStringAsFixed(0)}'),
-                      _DataCell(p.totalWeightKg.toStringAsFixed(1)),
+                      _DataCell(_formatWeight(p.totalWeightKg)),
                       _DataCell(p.calculatedCbm.toStringAsFixed(3)),
                       _DataCell(p.isStackable ? l.poReportStackableYes : l.poReportStackableNo, color: p.isStackable ? (isDark ? Colors.greenAccent : Colors.green.shade800) : Colors.orange.shade800),
                       _DataCell(p.notes != null && p.notes!.isNotEmpty ? p.notes! : '-'),
@@ -886,7 +979,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                     _DataCell(l.poReportTotalPallets, isBold: true, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                     _DataCell('$palletSum ${l.poReportPalletsCountUnit(palletSum)}', isBold: true, color: AppTheme.cobalt),
                     const _DataCell(''),
-                    _DataCell('${weightSum.toStringAsFixed(1)} kg', isBold: true),
+                    _DataCell('${_formatWeight(weightSum)} kg', isBold: true),
                     _DataCell('${cbmSum.toStringAsFixed(3)} m³', isBold: true, color: Colors.purple),
                     const _DataCell(''),
                     const _DataCell(''),
@@ -930,7 +1023,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
     if (widget.importFileCode != null) sb.writeln('${l.poReportImportFile}: ${DisplayNameResolver.resolveShipmentTitleByCode(widget.importFileCode, isArabic: Localizations.localeOf(context).languageCode == "ar")}');
     sb.writeln('----------------------------------------------------------------');
     sb.writeln('${l.poReportTotalInvoice}: ${totalAmount.toStringAsFixed(2)} ${widget.currency} (${(totalAmount * widget.exchangeRate).toStringAsFixed(2)} EGP)');
-    sb.writeln('${l.poReportTotalPkgsAndPcs}: ${totalPackages.toStringAsFixed(0)} | ${l.poReportGrossWeight}: ${effectiveGrossWeight.toStringAsFixed(1)} kg | ${l.poReportNetWeight}: ${totalNetWeight.toStringAsFixed(1)} kg');
+    sb.writeln('${l.poReportTotalPkgsAndPcs}: ${totalPackages.toStringAsFixed(0)} | ${l.poReportGrossWeight}: ${_formatWeight(effectiveGrossWeight)} kg | ${l.poReportNetWeight}: ${_formatWeight(totalNetWeight)} kg');
     sb.writeln('${l.poReportVolumeCbm}: ${effectiveCbm.toStringAsFixed(3)} m³ | ${l.poReportPalletPlan}: ${totalPallets > 0 ? "$totalPallets ${l.poReportPalletsCountUnit(totalPallets)}" : "None"}');
     sb.writeln('================================================================\n');
 
@@ -957,7 +1050,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
           mainDesc = matchedItem.mainDescription!;
         }
       }
-      sb.writeln('${i + 1} | ${p.itemCode} | ${mainDesc.isNotEmpty ? mainDesc : "-"} | ${p.description ?? "-"} | ${p.packageType} | ${p.qtyPkg}/${p.qtyPcs} | $dim | ${grs.toStringAsFixed(1)} kg | ${p.calculatedCbm.toStringAsFixed(3)} m³');
+      sb.writeln('${i + 1} | ${p.itemCode} | ${mainDesc.isNotEmpty ? mainDesc : "-"} | ${p.description ?? "-"} | ${p.packageType} | ${p.qtyPkg}/${p.qtyPcs} | $dim | ${_formatWeight(grs)} kg | ${p.calculatedCbm.toStringAsFixed(3)} m³');
     }
 
     if (widget.palletItems.isNotEmpty) {
@@ -1055,6 +1148,9 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
       return;
     }
 
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final GlobalKey previewPlannerRepaintKey = GlobalKey();
+    final displayName = 'PO ${widget.poNumber}';
     bool isTopView = true;
     bool? activeStackingMode = cargoItems.any((i) => !i.isStackable) ? null : true;
     CargoOrientationPreference activeOrientationMode = CargoOrientationPreference.smartHybrid;
@@ -1120,7 +1216,45 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                             ),
                           ],
                         ),
-                        IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(dialogCtx)),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.image_outlined, color: AppTheme.cobalt),
+                              tooltip: isArabic ? 'تنزيل صور المحاكاة (PNG)' : 'Download Simulation Image (PNG)',
+                              onPressed: () async {
+                                await ContainerLoadPlanExportService.exportSimulationImage(
+                                  context: dialogCtx,
+                                  repaintKey: previewPlannerRepaintKey,
+                                  displayName: '$displayName - 3D Simulation',
+                                  isArabic: isArabic,
+                                );
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.picture_as_pdf_outlined, color: AppTheme.crimson),
+                              tooltip: isArabic ? 'تنزيل مخطط التحميل (PDF)' : 'Download Loading Plan (PDF)',
+                              onPressed: () async {
+                                await ContainerLoadPlanExportService.exportLoadingPlanPdf(
+                                  context: dialogCtx,
+                                  repaintKey: previewPlannerRepaintKey,
+                                  displayName: displayName,
+                                  poNumber: widget.poNumber,
+                                  companyName: widget.companyName,
+                                  supplierName: widget.supplierName,
+                                  plan: plan,
+                                  fleetSummary: fleetSummary,
+                                  totalPlanWeight: totalPlanWeight,
+                                  totalPlanVolume: totalPlanVolume,
+                                  totalPkgs: totalPkgs,
+                                  isArabic: isArabic,
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(dialogCtx)),
+                          ],
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -1212,7 +1346,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                             children: [
                               const Icon(Icons.scale_outlined, color: AppTheme.emerald, size: 18),
                               const SizedBox(width: 6),
-                              Text(l.totalWeightSummary(totalPlanWeight.toStringAsFixed(1)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                              Text(l.totalWeightSummary(_formatWeight(totalPlanWeight)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                             ],
                           ),
                           Row(
@@ -1228,7 +1362,9 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                     const SizedBox(height: 10),
 
                     Expanded(
-                      child: ListView.builder(
+                      child: RepaintBoundary(
+                        key: previewPlannerRepaintKey,
+                        child: ListView.builder(
                         itemCount: plan.length,
                         itemBuilder: (ctx, pIdx) {
                           final res = plan[pIdx];
@@ -1342,7 +1478,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                                                   Padding(padding: const EdgeInsets.all(6), child: Text('$idx', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
                                                   Padding(padding: const EdgeInsets.all(6), child: Text(item.item.description ?? item.item.itemId, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                                                   Padding(padding: const EdgeInsets.all(6), child: Text('${item.length.toStringAsFixed(0)} × ${item.width.toStringAsFixed(0)} × ${item.height.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
-                                                  Padding(padding: const EdgeInsets.all(6), child: Text(item.item.weight.toStringAsFixed(1), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(_formatWeight(item.item.weight), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
                                                   Padding(padding: const EdgeInsets.all(6), child: Text('X: ${item.x.toStringAsFixed(0)} | Y: ${item.y.toStringAsFixed(0)} | Z: ${item.z.toStringAsFixed(0)}', style: const TextStyle(fontSize: 10.5, fontFamily: 'monospace'), textAlign: TextAlign.center)),
                                                   Padding(padding: const EdgeInsets.all(6), child: Text(item.item.isStackable ? context.l10n.stackableOption : context.l10n.nonStackableOption, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: item.item.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
                                                 ],
@@ -1359,6 +1495,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                           );
                         },
                       ),
+                     ),
                     ),
                   ],
                 ),

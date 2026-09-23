@@ -253,7 +253,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
             unit: t['unit']?.toString() ?? 'PCS',
             packagesCount: t['packages_count'] ?? 144,
             packageType: t['package_type']?.toString(),
-            grossWeightKg: t['gross_weight_kg'] ?? 10510.56,
+            grossWeightKg: t['gross_weight_kg'] ?? 10510.0,
             isChina: isChina,
           );
 

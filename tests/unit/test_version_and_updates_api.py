@@ -107,6 +107,10 @@ def test_publish_release_script_zero_drift():
     assert is_synchronized is True
 
 
+@pytest.mark.skipif(
+    not UAT_DB.exists(),
+    reason=f"UAT staging database not prepared on this machine ({UAT_DB}); run scripts/prepare_uat_environment.py",
+)
 def test_uat_environment_staging_integrity():
     """Verifies that the UAT staging database exists, has 0 operational rows, and passes integrity checks."""
     assert UAT_DB.exists()

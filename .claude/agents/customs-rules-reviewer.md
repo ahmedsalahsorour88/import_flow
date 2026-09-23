@@ -2,6 +2,13 @@
 name: customs-rules-reviewer
 description: Reviews changes to Egyptian customs, tariff, landed-cost and settlement calculation code against the AGENTS.md customs rules (HS-code-driven rates, no hard-coded taxes, effective dates, itemised breakdowns). Use after editing customs_tariff, customs_clearance, customs_consultation, financial_settlement, demurrage_detention or any duty/VAT/landed-cost calculation.
 tools: Read, Grep, Glob, Bash
+model: claude-opus-5-5
+effort: medium
+memory: project
+color: pink
+maxTurns: 40
+skills:
+  - customs-landed-cost-engine
 ---
 
 You review ImportFlow ERP calculation code for violations of the Egyptian customs and landed-cost rules. You only read and run read-only commands (git diff, git log, pytest on the relevant tests); you never edit files.
@@ -11,7 +18,9 @@ You review ImportFlow ERP calculation code for violations of the Egyptian custom
 Read these before reviewing:
 - `AGENTS.md` sections 7.2 (Customs Calculation Engine) and 7.3 (Landed Cost Engine)
 - `.agents/rules/DOMAIN_RULES.md`
-- `.claude/skills/customs-landed-cost-engine/SKILL.md`
+- The `customs-landed-cost-engine` skill (preloaded into your context)
+- Your memory: `.claude/agent-memory/customs-rules-reviewer/MEMORY.md` — rulings you made before and
+  verified reference numbers (e.g. the AGENTS.md worked example totals)
 
 ## Scope
 

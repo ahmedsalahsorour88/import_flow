@@ -57,3 +57,6 @@ backups/
 # Claude Code (local-only)
 .claude/worktrees/
 .claude/settings.local.json
+.pytest-report.xml
+.pytest-output.txt
+.claude/.cache/

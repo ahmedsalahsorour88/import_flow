@@ -4,8 +4,9 @@ Pre-release gate for Sorour Logistics / ImportFlow ERP.
 Checks (static + boot) that must pass before cutting a release:
   1. Version is identical in version.json, pubspec.yaml, main.py and the Inno Setup script.
   2. version.json installer_url / installer_filename point at the SAME version.
-  3. version.json carries a sha256 for the installer (the auto-updater has nothing to verify otherwise).
-  4. The backend boots: `import main` against a throwaway database.
+  3. The installer at installer_url is actually published (HTTP HEAD).
+  4. version.json carries a sha256 for the installer (the auto-updater has nothing to verify otherwise).
+  5. The backend boots: `import main` against a throwaway database.
 
 Usage:  python .claude/skills/release-check/check_release.py
 Exit code 0 = all FAIL-level checks passed.
@@ -16,6 +17,8 @@ import re
 import subprocess
 import sys
 import tempfile
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 PROJECT_DIR = Path(__file__).resolve().parents[3]
@@ -63,6 +66,9 @@ def check_installer_metadata(version_info: dict) -> None:
     else:
         record("PASS", "Installer metadata", f"installer_url and installer_filename both point at {tag}")
 
+    if url:
+        check_installer_reachable(url)
+
     if re.fullmatch(r"[0-9a-f]{64}", str(version_info.get("installer_sha256", ""))):
         record("PASS", "Installer checksum", "installer_sha256 present")
     else:
@@ -71,6 +77,24 @@ def check_installer_metadata(version_info: dict) -> None:
             "Installer checksum",
             "version.json has no installer_sha256 - the auto-updater runs the downloaded installer unverified",
         )
+
+
+def check_installer_reachable(url: str) -> None:
+    """Clients download installer_url from main's version.json; a 404 breaks every in-app update."""
+    request = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "importflow-release-check"})
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            record("PASS", "Installer published", f"HTTP {response.status}")
+    except urllib.error.HTTPError as error:
+        level = "WARN" if error.code == 404 else "FAIL"
+        record(
+            level,
+            "Installer published",
+            f"HTTP {error.code} for {url} - expected before CI publishes this version; "
+            "if version.json is already on main, every client's in-app update fails",
+        )
+    except urllib.error.URLError as error:
+        record("WARN", "Installer published", f"could not reach GitHub: {error.reason}")
 
 
 def check_backend_boots() -> None:

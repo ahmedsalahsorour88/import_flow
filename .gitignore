@@ -50,3 +50,7 @@ certs/
 # Backups
 backups/
 !backups/day0_manifest.json
+
+# Claude Code (local-only)
+.claude/worktrees/
+.claude/settings.local.json

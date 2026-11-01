@@ -1,6 +1,6 @@
 import os
 import unittest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
 
 from modules.transport_locations.model import TransportLocation
@@ -11,6 +11,16 @@ MASTER_DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "
 master_engine = create_engine(f"sqlite:///{MASTER_DB_PATH}")
 MasterSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=master_engine)
 
+REQUIRED_MASTER_TABLES = {"transport_locations", "customs_tariffs", "currencies"}
+
+
+def _master_db_is_seeded() -> bool:
+    if not os.path.exists(MASTER_DB_PATH):
+        return False
+    return REQUIRED_MASTER_TABLES.issubset(inspect(master_engine).get_table_names())
+
+
+@unittest.skipUnless(_master_db_is_seeded(), "Seeded master database (sorour_logistics.db) not available")
 class TestMD09PortsTariffExchangeAudit(unittest.TestCase):
     def setUp(self):
         self.db = MasterSessionLocal()

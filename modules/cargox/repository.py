@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import Session
-from .model import CargoXEnvelope, CargoXEnvelopeDocument, CargoXCustomsInvoiceTrack
+from .model import CargoXEnvelope, CargoXEnvelopeDocument, CargoXCustomsInvoiceTrack, CargoXStandardInvoiceReviewSession
 
 
 class CargoXRepository:

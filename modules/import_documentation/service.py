@@ -21,6 +21,7 @@ from modules.import_documentation.model import (
     DraftBLReviewSession,
     CertificateOfOriginReviewSession,
     InspectionCertificateReviewSession,
+    CustomsDeclarationDraft,
 )
 from modules.import_documentation.schemas import *
 

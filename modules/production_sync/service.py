@@ -23,6 +23,7 @@ from modules.production_sync.schemas import (
     BackupsListResponseSchema,
     RestoreBackupResponseSchema,
     RemoteUpdateCheckResponseSchema,
+    InstallerInfoSchema,
     SystemVersionInfoSchema,
     RemoteUpdateCheckSchema,
 )

@@ -3,6 +3,7 @@ Database Repository for Financial & Management Approval (BP-012 & BP-013)
 """
 
 from datetime import datetime, date, timezone
+from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from modules.financial_approval.model import (

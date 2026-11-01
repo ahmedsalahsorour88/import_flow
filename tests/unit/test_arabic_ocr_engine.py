@@ -29,6 +29,7 @@ def test_arabic_ocr_model_files_exist():
 
 def test_arabic_ocr_engine_initialization():
     """Verifies that get_arabic_ocr_engine successfully initializes RapidOCR with the Arabic model."""
+    pytest.importorskip("rapidocr_onnxruntime")
     engine = get_arabic_ocr_engine()
     assert engine is not None
     assert hasattr(engine, "text_recognizer")
